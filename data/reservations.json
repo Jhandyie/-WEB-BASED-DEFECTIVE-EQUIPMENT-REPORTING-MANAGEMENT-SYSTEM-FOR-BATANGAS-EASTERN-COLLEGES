@@ -1,0 +1,12 @@
+[
+    {
+        "reservation_id": "RES-20260115-3AB58C",
+        "equipment_id": "EQ-003",
+        "user_id": "guest_69685b2f10581",
+        "start_date": "2026-01-15T12:13",
+        "end_date": "2026-01-15T23:13",
+        "purpose": "HAHAHHAHAHHA",
+        "status": "pending",
+        "request_date": "2026-01-15 04:13:39"
+    }
+]

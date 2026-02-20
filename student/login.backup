@@ -1,0 +1,2452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+      integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/png" href="../assets/logs.png" />
+    <title>BEC - Student Portal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "DM Sans", sans-serif;
+        }
+
+        body {
+            background: none;
+            z-index: -1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            min-height: 100vh;
+            overflow: hidden;
+            padding: 20px;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('../assets/bec background (2).png') no-repeat center center fixed;
+            background-size: cover;
+            filter: blur(6px) brightness(0.8);
+            z-index: -2;
+        }
+
+        /* Particles */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .particle {
+            position: absolute;
+            width: 5px;
+            height: 5px;
+            background: rgba(255, 215, 0, 0.6);
+            border-radius: 50%;
+            animation: float 15s infinite ease-in-out;
+        }
+
+        @keyframes float {
+            0%, 100% { 
+                transform: translate(0, 0) scale(1);
+                opacity: 0;
+            }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            50% { 
+                transform: translate(100px, -100px) scale(1.5);
+            }
+        }
+
+        .container {
+            background-color: #fff;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+            width: 950px;
+            max-width: 100%;
+            min-height: 600px;
+            z-index: 1;
+        }
+
+        .container p {
+            font-size: 15px;
+            line-height: 22px;
+            letter-spacing: 0.3px;
+            margin: 20px 0;
+        }
+
+        .container span {
+            font-size: 13px;
+            color: #666;
+        }
+
+        .container a {
+            color: #a30000;
+            font-size: 14px;
+            text-decoration: none;
+            margin: 15px 0 10px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .container a:hover {
+            color: #c41e3a;
+            text-decoration: underline;
+        }
+
+        .container button {
+            background: linear-gradient(135deg, #800000, #a30000);
+            color: #fff;
+            padding: 14px 50px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-top: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        .container button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(128, 0, 0, 0.4);
+        }
+
+        .container button.hidden {
+            background-color: transparent;
+            border: 2px solid #fff;
+        }
+
+        .container button.hidden:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .container form {
+            background-color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            padding: 0 50px;
+            height: 100%;
+        }
+
+        /* OTP form must not use the global form styles */
+        .otp-section #otpForm {
+            background: transparent !important;
+            padding: 0 !important;
+            height: auto !important;
+            width: 100%;
+            overflow: visible;
+        }
+
+        .container h1 {
+            font-family: 'Playfair Display', serif;
+            font-weight: 900;
+            color: #a30000;
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+
+        .input-group {
+            width: 100%;
+            position: relative;
+            margin: 10px 0;
+        }
+
+        .input-wrapper {
+            position: relative;
+            width: 100%;
+        }
+
+        .container input {
+            background-color: #f5f5f5;
+            border: 2px solid transparent;
+            padding: 14px 45px 14px 45px;
+            font-size: 14px;
+            border-radius: 10px;
+            width: 100%;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .container input:focus {
+            background-color: #fff;
+            border-color: #a30000;
+            box-shadow: 0 0 0 3px rgba(163, 0, 0, 0.1);
+        }
+
+        /* OTP inputs — neutralise all global .container input overrides */
+        .otp-section input.otp-input {
+            padding: 0 !important;
+            width: 40px !important;
+            background-color: #ffffff !important;
+            border: 2px solid #e8d5d5 !important;
+            font-size: 20px !important;
+            color: #800000 !important;
+            line-height: 50px !important;
+        }
+        .otp-section input.otp-input:focus {
+            background-color: #ffffff !important;
+            border-color: #a30000 !important;
+            box-shadow: 0 10px 22px rgba(163,0,0,0.2) !important;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #999;
+            font-size: 16px;
+            pointer-events: none;
+            transition: all 0.3s;
+        }
+
+        .container input:focus ~ .input-icon {
+            color: #a30000;
+        }
+
+        .checkbox-group {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 15px 0;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            padding: 0;
+            margin: 0;
+            cursor: pointer;
+            accent-color: #a30000;
+        }
+
+        .checkbox-group label {
+            font-size: 14px;
+            color: #666;
+            cursor: pointer;
+        }
+
+        .sign-up,
+        .sign-in {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            transition: all 0.6s ease-in-out;
+        }
+
+        .sign-up {
+            left: 0;
+            width: 50%;
+            z-index: 1;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .sign-in {
+            left: 0;
+            width: 50%;
+            z-index: 2;
+        }
+
+        .container.active .sign-in {
+            transform: translateX(100%);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .container.active .sign-up {
+            transform: translateX(100%);
+            opacity: 1;
+            z-index: 5;
+            visibility: visible;
+            pointer-events: auto;
+            animation: move 0.6s;
+        }
+
+        @keyframes move {
+            0%, 49.99% {
+                opacity: 0;
+                z-index: 1;
+            }
+            50%, 100% {
+                opacity: 1;
+                z-index: 5;
+            }
+        }
+
+        .icons {
+            margin: 25px 0;
+            display: flex;
+            gap: 12px;
+        }
+
+        .icons a {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            width: 45px;
+            height: 45px;
+            text-decoration: none;
+            color: #666;
+            transition: all 0.3s;
+            background: #f9f9f9;
+        }
+
+        .icons a:hover {
+            border-color: #ff0000;
+            color: #a30000;
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(163, 0, 0, 0.2);
+        }
+
+        .toggle-container {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 50%;
+            height: 100%;
+            overflow: hidden;
+            border-radius: 0 20px 20px 0;
+            z-index: 1000;
+            transition: all 0.6s ease-in-out;
+        }
+
+        .container.active .toggle-container {
+            transform: translateX(-100%);
+            border-radius: 20px 0 0 20px;
+        }
+
+        .toggle {
+            background: linear-gradient(135deg, #800000 0%, #a30000 100%);
+            height: 100%;
+            color: #fff;
+            position: relative;
+            left: -100%;
+            width: 200%;
+            transform: translateX(0);
+            transition: all 0.6s ease-in-out;
+            overflow: hidden;
+        }
+
+        .toggle::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 150%;
+            height: 150%;
+            background: 
+                repeating-linear-gradient(45deg,
+                    transparent,
+                    transparent 20px,
+                    rgba(255, 215, 0, 0.05) 20px,
+                    rgba(255, 215, 0, 0.05) 40px
+                );
+            animation: patternSlide 20s linear infinite;
+        }
+
+        @keyframes patternSlide {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(40px, 40px); }
+        }
+
+        .container.active .toggle {
+            transform: translateX(50%);
+        }
+
+        .toggle-panel {
+            position: absolute;
+            width: 50%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            padding: 0 50px;
+            text-align: center;
+            top: 0;
+            transform: translateX(0);
+            transition: all 0.6s ease-in-out;
+            z-index: 2;
+        }
+
+        .logo-box {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, #ffd700, #ffed4e);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(255, 215, 0, 0.3);
+            animation: logoFloat 3s ease-in-out infinite;
+            overflow: hidden;
+        }
+
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .logo-box i {
+            font-size: 60px;
+            color: #800000;
+        }
+
+        .logo-box img {
+            width: 120px;
+            height: 120px;
+            object-fit: contain;
+            border-radius: 50%;
+        }
+
+        .toggle-panel h1 {
+            font-family: 'Playfair Display', serif;
+            color: #ffd700;
+            font-weight: 900;
+            font-size: 40px;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .toggle-panel p {
+            font-size: 16px;
+            line-height: 1.5;
+            margin-bottom: 25px;
+            opacity: 0.95;
+        }
+
+        .toggle-left {
+            transform: translateX(-200%);
+        }
+
+        .container.active .toggle-left {
+            transform: translateX(0);
+        }
+
+        .toggle-right {
+            right: 0;
+            transform: translateX(0);
+        }
+
+        .container.active .toggle-right {
+            transform: translateX(200%);
+        }
+
+        /* ============================================
+           REDESIGNED OTP SECTION - 3D Interactive
+           ============================================ */
+        .otp-section {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(160deg, #fff 0%, #fef9f0 50%, #fff8e8 100%);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            overflow: hidden;
+            box-sizing: border-box;
+            /* Use clip-path for the blob decorations instead of overflow:hidden on inputs */
+        }
+
+        /* Ambient 3D glow blobs */
+        .otp-section::before {
+            content: '';
+            position: absolute;
+            width: 250px;
+            height: 250px;
+            background: radial-gradient(circle, rgba(163,0,0,0.08) 0%, transparent 70%);
+            top: -60px;
+            right: -60px;
+            border-radius: 50%;
+            animation: blobPulse 4s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        .otp-section::after {
+            content: '';
+            position: absolute;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(255,215,0,0.12) 0%, transparent 70%);
+            bottom: -40px;
+            left: -40px;
+            border-radius: 50%;
+            animation: blobPulse 4s ease-in-out infinite 2s;
+            pointer-events: none;
+        }
+
+        @keyframes blobPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+        }
+
+        .otp-section.show {
+            display: flex;
+            animation: otpSlideIn 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        @keyframes otpSlideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-40px) scale(0.97);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+            }
+        }
+
+        .otp-content {
+            width: 100%;
+            padding: 20px 28px;
+            text-align: center;
+            position: relative;
+            z-index: 2;
+            overflow: visible;
+        }
+
+        /* 3D Shield Icon */
+        .otp-shield-wrapper {
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .otp-shield-inner {
+            position: relative;
+            width: 80px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* rings stay clipped to this box */
+            overflow: visible;
+        }
+
+        .otp-shield {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #800000, #a30000);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow:
+                0 6px 20px rgba(163,0,0,0.35),
+                0 2px 6px rgba(163,0,0,0.2),
+                inset 0 1px 0 rgba(255,255,255,0.15);
+            animation: shieldFloat 3s ease-in-out infinite;
+            position: relative;
+            transform-style: preserve-3d;
+        }
+
+        .otp-shield::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 60%);
+        }
+
+        .otp-shield::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 50px;
+            height: 12px;
+            background: radial-gradient(ellipse, rgba(163,0,0,0.3) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+
+        .otp-shield i {
+            font-size: 26px;
+            color: #ffd700;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            position: relative;
+            z-index: 1;
+        }
+
+        @keyframes shieldFloat {
+            0%, 100% { transform: translateY(0) rotateY(0deg); }
+            25% { transform: translateY(-6px) rotateY(8deg); }
+            75% { transform: translateY(-3px) rotateY(-8deg); }
+        }
+
+        /* Ring animation around shield */
+        .otp-shield-ring {
+            position: absolute;
+            width: 74px;
+            height: 74px;
+            border: 2px solid rgba(163,0,0,0.2);
+            border-radius: 50%;
+            animation: ringExpand 2s ease-out infinite;
+        }
+
+        .otp-shield-ring:nth-child(2) {
+            animation-delay: 1s;
+        }
+
+        @keyframes ringExpand {
+            0% { transform: scale(0.8); opacity: 1; }
+            100% { transform: scale(1.6); opacity: 0; }
+        }
+
+        .otp-content h2 {
+            font-family: 'Playfair Display', serif;
+            color: #800000;
+            font-size: 28px;
+            font-weight: 900;
+            margin-bottom: 4px;
+            letter-spacing: -0.5px;
+        }
+
+        .otp-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: linear-gradient(135deg, #800000, #a30000);
+            color: #ffd700;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            padding: 3px 10px;
+            border-radius: 20px;
+            margin-bottom: 16px;
+        }
+
+        .otp-badge i {
+            font-size: 9px;
+        }
+
+        /* Email card */
+        .otp-email-card {
+            background: #fff;
+            border: 2px solid #f0e0e0;
+            border-radius: 12px;
+            padding: 12px 18px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow:
+                0 4px 15px rgba(163,0,0,0.08),
+                0 1px 3px rgba(0,0,0,0.05);
+            transition: all 0.3s;
+        }
+
+        .otp-email-card:hover {
+            border-color: #a30000;
+            box-shadow: 0 6px 20px rgba(163,0,0,0.12);
+        }
+
+        .otp-email-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #ffd700, #ffed4e);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            box-shadow: 0 3px 8px rgba(255,215,0,0.3);
+        }
+
+        .otp-email-icon i {
+            font-size: 15px;
+            color: #800000;
+        }
+
+        .otp-email-info {
+            text-align: left;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .otp-email-label {
+            font-size: 10px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .otp-email-address {
+            font-size: 13px;
+            color: #800000;
+            font-weight: 700;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        /* 3D OTP Inputs */
+        .otp-inputs-wrapper {
+            margin-bottom: 18px;
+            overflow: visible;
+        }
+
+        .otp-inputs-label {
+            font-size: 11px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .otp-inputs {
+            display: flex;
+            gap: 6px;
+            justify-content: center;
+            align-items: center;
+            /* No perspective here — causes overflow clipping issues */
+            overflow: visible;
+            padding: 8px 0 12px; /* room for the lift animation */
+        }
+
+        /* Override the global .container input rule completely for OTP boxes */
+        .otp-input,
+        .otp-section .otp-input,
+        .container .otp-section .otp-input {
+            width: 40px !important;
+            height: 50px !important;
+            padding: 0 !important;           /* kill the 45px side padding */
+            text-align: center !important;
+            font-size: 20px !important;
+            font-weight: 800 !important;
+            border: 2px solid #e8d5d5 !important;
+            border-radius: 12px !important;
+            outline: none !important;
+            background: #ffffff !important;
+            color: #800000 !important;       /* explicit — not inherited */
+            caret-color: #a30000;
+            transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+                        border-color 0.2s ease,
+                        box-shadow 0.2s ease,
+                        background 0.2s ease !important;
+            box-shadow:
+                0 3px 8px rgba(163,0,0,0.08),
+                0 1px 3px rgba(0,0,0,0.06) !important;
+            flex-shrink: 0;
+            display: block;
+            line-height: 50px;
+            /* 3D only on Y axis — no rotateX which causes clipping */
+            transform: translateY(0);
+        }
+
+        .otp-input:focus,
+        .container .otp-section .otp-input:focus {
+            border-color: #a30000 !important;
+            background: #ffffff !important;
+            color: #800000 !important;
+            transform: translateY(-5px) scale(1.07) !important;
+            box-shadow:
+                0 10px 22px rgba(163,0,0,0.2),
+                0 4px 8px rgba(163,0,0,0.1) !important;
+        }
+
+        .otp-input.filled,
+        .container .otp-section .otp-input.filled {
+            border-color: #800000 !important;
+            background: #fff8f8 !important;
+            transform: translateY(-2px) !important;
+            box-shadow:
+                0 5px 14px rgba(163,0,0,0.14),
+                0 2px 5px rgba(163,0,0,0.07) !important;
+        }
+
+        .otp-input.error-shake {
+            animation: inputShake 0.5s ease;
+            border-color: #dc3545 !important;
+            background: #fff5f5 !important;
+        }
+
+        .otp-input.success-pop {
+            animation: inputSuccessPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            border-color: #28a745 !important;
+            background: linear-gradient(135deg, #f0fff4, #fff) !important;
+        }
+
+        @keyframes inputShake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-6px) rotateZ(-2deg); }
+            40% { transform: translateX(6px) rotateZ(2deg); }
+            60% { transform: translateX(-4px) rotateZ(-1deg); }
+            80% { transform: translateX(4px) rotateZ(1deg); }
+        }
+
+        @keyframes inputSuccessPop {
+            0% { transform: scale(1); }
+            40% { transform: scale(1.2) rotateY(10deg); }
+            100% { transform: scale(1); }
+        }
+
+        /* Separator dots */
+        .otp-separator {
+            display: flex;
+            align-items: center;
+            color: #ccc;
+            font-size: 20px;
+            font-weight: 300;
+            align-self: center;
+            line-height: 1;
+        }
+
+        /* Progress bar */
+        .otp-progress-bar {
+            height: 3px;
+            background: #f0e0e0;
+            border-radius: 10px;
+            margin: 14px 0;
+            overflow: hidden;
+        }
+
+        .otp-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #800000, #a30000, #ffd700);
+            background-size: 200% 100%;
+            border-radius: 10px;
+            width: 0%;
+            transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            animation: shimmer 2s linear infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Timer */
+        .otp-timer-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .otp-timer-ring {
+            position: relative;
+            width: 48px;
+            height: 48px;
+            flex-shrink: 0;
+        }
+
+        .otp-timer-ring svg {
+            width: 48px;
+            height: 48px;
+            transform: rotate(-90deg);
+        }
+
+        .otp-timer-ring .ring-bg {
+            fill: none;
+            stroke: #f0e0e0;
+            stroke-width: 4;
+        }
+
+        .otp-timer-ring .ring-progress {
+            fill: none;
+            stroke: #a30000;
+            stroke-width: 4;
+            stroke-linecap: round;
+            stroke-dasharray: 125.6;
+            stroke-dashoffset: 0;
+            transition: stroke-dashoffset 1s linear, stroke 0.5s;
+        }
+
+        .otp-timer-ring .ring-progress.warning {
+            stroke: #ff4444;
+            animation: ringPulse 1s ease infinite;
+        }
+
+        @keyframes ringPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .otp-timer-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(90deg);
+            font-size: 11px;
+            font-weight: 800;
+            color: #800000;
+        }
+
+        .otp-timer-text.warning {
+            color: #ff4444;
+        }
+
+        .otp-timer-info {
+            text-align: left;
+        }
+
+        .otp-timer-label {
+            font-size: 10px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .otp-timer-value {
+            font-size: 18px;
+            font-weight: 800;
+            color: #800000;
+            font-variant-numeric: tabular-nums;
+            transition: color 0.3s;
+        }
+
+        .otp-timer-value.warning {
+            color: #ff4444;
+            animation: timerPulse 1s ease infinite;
+        }
+
+        @keyframes timerPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        /* Verify button */
+        .otp-verify-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #800000, #a30000);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 14px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s;
+            box-shadow: 0 6px 20px rgba(163,0,0,0.3);
+            margin-top: 0;
+        }
+
+        .otp-verify-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+            transition: left 0.5s;
+        }
+
+        .otp-verify-btn:hover::before {
+            left: 100%;
+        }
+
+        .otp-verify-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 28px rgba(163,0,0,0.4);
+        }
+
+        .otp-verify-btn:active {
+            transform: translateY(0);
+        }
+
+        .otp-verify-btn.complete {
+            background: linear-gradient(135deg, #1a7a1a, #28a745);
+            box-shadow: 0 6px 20px rgba(40,167,69,0.3);
+        }
+
+        /* Bottom row */
+        .otp-bottom-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 14px;
+            gap: 10px;
+        }
+
+        .resend-link {
+            display: inline-flex !important;
+            align-items: center;
+            gap: 5px;
+            color: #a30000 !important;
+            font-size: 12px !important;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin: 0 !important;
+            padding: 0 !important;
+            text-decoration: none !important;
+        }
+
+        .resend-link:hover {
+            color: #800000 !important;
+            text-decoration: none !important;
+            transform: translateX(2px);
+        }
+
+        .resend-link.disabled {
+            color: #bbb !important;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .back-link {
+            display: inline-flex !important;
+            align-items: center;
+            gap: 5px;
+            color: #999 !important;
+            font-size: 12px !important;
+            cursor: pointer;
+            text-decoration: none !important;
+            transition: all 0.3s;
+            font-weight: 500;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        .back-link:hover {
+            color: #a30000 !important;
+            text-decoration: none !important;
+            transform: translateX(-2px);
+        }
+
+        /* Messages */
+        .message {
+            padding: 10px 14px;
+            border-radius: 10px;
+            margin-bottom: 14px;
+            font-size: 13px;
+            font-weight: 500;
+            display: none;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .message.show {
+            display: flex;
+            animation: slideDown 0.4s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.success {
+            background: linear-gradient(135deg, #d4edda, #c3e6cb);
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+
+        .message.error {
+            background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+
+        .message.info {
+            background: linear-gradient(135deg, #d1ecf1, #bee5eb);
+            color: #0c5460;
+            border-left: 4px solid #17a2b8;
+        }
+
+        /* Loading */
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(128, 0, 0, 0.95);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .loading-overlay.show {
+            display: flex;
+        }
+
+        .loading-content {
+            text-align: center;
+            color: white;
+        }
+
+        .spinner-container {
+            position: relative;
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 25px;
+        }
+
+        .spinner {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 4px solid transparent;
+            border-top-color: #ffd700;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .spinner:nth-child(2) {
+            border-top-color: rgba(255, 215, 0, 0.4);
+            animation-duration: 1.5s;
+            animation-direction: reverse;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 20px;
+            font-weight: 700;
+            color: #ffd700;
+            margin-bottom: 8px;
+        }
+
+        .loading-subtext {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                min-height: 550px;
+            }
+
+            .sign-up,
+            .sign-in,
+            .otp-section {
+                width: 100%;
+            }
+
+            .container.active .sign-in {
+                transform: translateX(0);
+                display: none;
+            }
+
+            .sign-up {
+                display: none;
+            }
+
+            .container.active .sign-up {
+                display: block;
+                transform: translateX(0);
+            }
+
+            .toggle-container {
+                width: 100%;
+                height: 180px;
+                left: 0;
+                top: auto;
+                bottom: 0;
+                border-radius: 0;
+            }
+
+            .container.active .toggle-container {
+                transform: translateX(0);
+                top: 0;
+                bottom: auto;
+            }
+
+            .toggle {
+                width: 100%;
+                left: 0;
+                height: 200%;
+            }
+
+            .container.active .toggle {
+                transform: translateY(50%);
+            }
+
+            .toggle-panel {
+                width: 100%;
+                height: 50%;
+                padding: 30px;
+            }
+
+            .toggle-panel h1 {
+                font-size: 32px;
+            }
+
+            .logo-box {
+                width: 90px;
+                height: 90px;
+                margin-bottom: 20px;
+            }
+
+            .logo-box i {
+                font-size: 45px;
+            }
+
+            .toggle-left {
+                transform: translateY(-200%);
+            }
+
+            .container.active .toggle-left {
+                transform: translateY(0);
+            }
+
+            .toggle-right {
+                bottom: 0;
+                top: auto;
+            }
+
+            .container.active .toggle-right {
+                transform: translateY(200%);
+            }
+
+            .otp-inputs {
+                gap: 6px;
+            }
+
+            .otp-input {
+                width: 38px;
+                height: 48px;
+                font-size: 18px;
+            }
+
+            .container form {
+                padding: 0 35px;
+            }
+
+            .otp-content {
+                padding: 25px 28px;
+            }
+        }
+
+        /* Password toggle */
+        .password-toggle {
+            position: absolute;
+            left: 45px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #999;
+            cursor: pointer;
+            font-size: 14px;
+            z-index: 10;
+            transition: 0.3s;
+        }
+
+        .password-toggle:hover {
+            color: #a30000;
+        }
+
+        .input-wrapper.has-toggle input {
+            padding-left: 80px;
+        }
+
+        .input-wrapper.has-toggle .input-icon {
+            left: 60px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Particles -->
+    <div class="particles" id="particles"></div>
+
+    <div class="container" id="container">
+        <!-- Sign Up -->
+        <div class="sign-up">
+            <form id="signUpForm">
+                <h1>Create Account</h1>
+                <div id="signUpMessage"></div>
+                <div class="icons">
+                    <a href="#" onclick="socialLogin('Google'); return false;"><i class="fa-brands fa-google"></i></a>
+                    <a href="#" onclick="socialLogin('Facebook'); return false;"><i class="fa-brands fa-facebook-f"></i></a>
+                    <a href="#" onclick="socialLogin('Instagram'); return false;"><i class="fa-brands fa-instagram"></i></a>
+                    <a href="#" onclick="socialLogin('GitHub'); return false;"><i class="fa-brands fa-github"></i></a>
+                </div>
+                <span>or use email for registration</span>
+                
+                <div class="input-group">
+                    <div class="input-wrapper">
+                        <input type="text" placeholder="Full Name" id="signUpName" required />
+                        <i class="fas fa-user input-icon"></i>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <div class="input-wrapper">
+                        <input type="email" placeholder="Email Address" id="signUpEmail" required />
+                        <i class="fas fa-envelope input-icon"></i>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <div class="input-wrapper">
+                        <input type="password" placeholder="Password (min. 6 characters)" id="signUpPassword" required />
+                        <i class="fas fa-lock input-icon"></i>
+                    </div>
+                </div>
+
+                <button type="submit">Sign Up</button>
+            </form>
+        </div>
+
+        <!-- Sign In -->
+        <div class="sign-in">
+            <form id="signInForm">
+                <h1>Sign In</h1>
+                <div id="signInMessage"></div>
+                <div class="icons">
+                    <a href="#" onclick="socialLogin('Google'); return false;"><i class="fa-brands fa-google"></i></a>
+                    <a href="#" onclick="socialLogin('Facebook'); return false;"><i class="fa-brands fa-facebook-f"></i></a>
+                    <a href="#" onclick="socialLogin('Instagram'); return false;"><i class="fa-brands fa-instagram"></i></a>
+                    <a href="#" onclick="socialLogin('GitHub'); return false;"><i class="fa-brands fa-github"></i></a>
+                </div>
+                <span>or use email and password</span>
+                
+                <div class="input-group">
+                    <div class="input-wrapper">
+                        <input type="email" placeholder="Email Address" id="signInEmail" required />
+                        <i class="fas fa-envelope input-icon"></i>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <div class="input-wrapper">
+                        <input type="password" placeholder="Password" id="signInPassword" required />
+                        <i class="fas fa-lock input-icon"></i>
+                    </div>
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" id="rememberMe">
+                    <label for="rememberMe">Remember me</label>
+                </div>
+
+                <a href="#" onclick="forgotPassword(); return false;">Forgot password?</a>
+                <button type="submit">Sign In</button>
+            </form>
+        </div>
+
+        <!-- OTP Section - Redesigned -->
+        <div class="otp-section" id="otpSection">
+            <div class="otp-content">
+
+                <!-- Animated Shield -->
+                <div class="otp-shield-wrapper">
+                    <div class="otp-shield-inner">
+                        <div class="otp-shield-ring"></div>
+                        <div class="otp-shield-ring"></div>
+                        <div class="otp-shield">
+                            <i class="fas fa-shield-halved"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Title -->
+                <h2>Verify Your Email</h2>
+                <div class="otp-badge">
+                    <i class="fas fa-lock"></i>
+                    Two-Factor Authentication
+                </div>
+
+                <!-- Message area -->
+                <div id="otpMessage"></div>
+
+                <!-- Email Card -->
+                <div class="otp-email-card">
+                    <div class="otp-email-icon">
+                        <i class="fas fa-envelope"></i>
+                    </div>
+                    <div class="otp-email-info">
+                        <div class="otp-email-label">Code sent to</div>
+                        <div class="otp-email-address" id="otpEmail">—</div>
+                    </div>
+                    <i class="fas fa-check-circle" style="color:#28a745; font-size:18px;"></i>
+                </div>
+
+                <form id="otpForm">
+                    <!-- OTP Inputs -->
+                    <div class="otp-inputs-wrapper">
+                        <div class="otp-inputs-label">Enter 6-digit code</div>
+                        <div class="otp-inputs">
+                            <input type="tel" class="otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]*" />
+                            <input type="tel" class="otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]*" />
+                            <input type="tel" class="otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]*" />
+                            <span class="otp-separator">·</span>
+                            <input type="tel" class="otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]*" />
+                            <input type="tel" class="otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]*" />
+                            <input type="tel" class="otp-input" maxlength="1" inputmode="numeric" pattern="[0-9]*" />
+                        </div>
+
+                        <!-- Progress bar -->
+                        <div class="otp-progress-bar">
+                            <div class="otp-progress-fill" id="otpProgressFill"></div>
+                        </div>
+                    </div>
+
+                    <!-- Timer -->
+                    <div class="otp-timer-wrapper">
+                        <div class="otp-timer-ring" id="timerRingWrapper">
+                            <svg viewBox="0 0 48 48">
+                                <circle class="ring-bg" cx="24" cy="24" r="20"/>
+                                <circle class="ring-progress" id="timerRingProgress" cx="24" cy="24" r="20"/>
+                            </svg>
+                            <div class="otp-timer-text" id="timerRingText">10:00</div>
+                        </div>
+                        <div class="otp-timer-info">
+                            <div class="otp-timer-label">Code expires in</div>
+                            <div class="otp-timer-value" id="timerDisplay">10:00</div>
+                        </div>
+                    </div>
+
+                    <!-- Verify Button -->
+                    <button type="submit" class="otp-verify-btn" id="otpVerifyBtn">
+                        <i class="fas fa-check-circle" style="margin-right:8px;"></i>
+                        Verify & Continue
+                    </button>
+
+                    <!-- Bottom row -->
+                    <div class="otp-bottom-row">
+                        <a href="#" class="back-link" onclick="cancelOTP(); return false;">
+                            <i class="fas fa-arrow-left"></i> Back to Login
+                        </a>
+                        <a href="#" class="resend-link" id="resendLink" onclick="resendOTP(); return false;">
+                            <i class="fas fa-rotate-right"></i> Resend Code
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Toggle Container -->
+        <div class="toggle-container">
+            <div class="toggle">
+                <div class="toggle-panel toggle-left">
+                    <div class="logo-box">
+                        <img src="../assets/logs.png" alt="BEC Logo" />
+                    </div>
+                    <h1>Welcome Back!</h1>
+                    <p>Enter your credentials to access<br>your student portal</p>
+                    <button class="hidden" id="login">Sign In</button>
+                </div>
+                <div class="toggle-panel toggle-right">
+                    <div class="logo-box">
+                        <img src="../assets/logs.png" alt="BEC Logo" />
+                    </div>
+                    <h1>Hello, Beacons!</h1>
+                    <p>Register with your details to<br>begin your journey with us</p>
+                    <button class="hidden" id="register">Sign Up</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="spinner-container">
+                <div class="spinner"></div>
+                <div class="spinner"></div>
+            </div>
+            <div class="loading-text" id="loadingText">Processing...</div>
+            <div class="loading-subtext">Please wait a moment</div>
+        </div>
+    </div>
+
+    <script>
+        // Create Particles
+        function createParticles() {
+            const container = document.getElementById('particles');
+            for (let i = 0; i < 60; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.top = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 15 + 's';
+                particle.style.animationDuration = (15 + Math.random() * 10) + 's';
+                container.appendChild(particle);
+            }
+        }
+        createParticles();
+
+        // DOM Elements
+        const container = document.getElementById("container");
+        const registerBtn = document.getElementById("register");
+        const loginBtn = document.getElementById("login");
+        let otpTimer = null;
+        let otpExpiryTime = null;
+        let otpTotalDuration = 10 * 60 * 1000;
+        let resendTimer = null;
+        let resendCountdown = 30;
+
+        // Toggle
+        registerBtn.addEventListener("click", () => {
+            container.classList.add("active");
+        });
+
+        loginBtn.addEventListener("click", () => {
+            container.classList.remove("active");
+            cancelOTP();
+        });
+
+        // Sign Up
+        document.getElementById("signUpForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const name = document.getElementById("signUpName").value;
+            const email = document.getElementById("signUpEmail").value;
+            const password = document.getElementById("signUpPassword").value;
+
+            if (name.length < 3) {
+                showMessage('error', 'Name must be at least 3 characters', 'signUpMessage');
+                return;
+            }
+
+            if (password.length < 6) {
+                showMessage('error', 'Password must be at least 6 characters', 'signUpMessage');
+                return;
+            }
+
+            showLoading('Creating your account...');
+            
+            try {
+                const formData = new FormData();
+                formData.append('fullname', name);
+                formData.append('email', email);
+                formData.append('password', password);
+                formData.append('role', 'student');
+
+                const response = await fetch('../register_process.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                hideLoading();
+                
+                if (data.success) {
+                    showMessage('success', 'Account created successfully! Please login with your credentials.', 'signUpMessage');
+                    document.getElementById("signUpForm").reset();
+                    setTimeout(() => {
+                        container.classList.remove("active");
+                    }, 1500);
+                } else {
+                    showMessage('error', data.message || 'Registration failed. Please try again.', 'signUpMessage');
+                }
+            } catch (error) {
+                hideLoading();
+                showMessage('error', 'Registration failed. Please try again.', 'signUpMessage');
+                console.error('Registration error:', error);
+            }
+        });
+
+        // Sign In
+        document.getElementById("signInForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const email = document.getElementById("signInEmail").value.trim();
+            const password = document.getElementById("signInPassword").value;
+
+            if (!email || !password) {
+                showMessage('error', 'Please enter both email and password', 'signInMessage');
+                return;
+            }
+
+            showLoading('Authenticating...');
+            
+            try {
+                const formData = new FormData();
+                formData.append('email', email);
+                formData.append('password', password);
+                formData.append('action', 'verify_login');
+                formData.append('role', 'student');
+                
+                const response = await fetch('student_login_process.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                hideLoading();
+                
+                if (data.success) {
+                    showMessage('success', data.message || 'Login successful!', 'signInMessage');
+                    requestOTP(email);
+                } else {
+                    showMessage('error', data.message || 'Login failed. Please try again.', 'signInMessage');
+                }
+            } catch (error) {
+                hideLoading();
+                showMessage('error', 'Login failed. Please try again.', 'signInMessage');
+                console.error('Login error:', error);
+            }
+        });
+
+        // OTP Form - verify
+        document.getElementById("otpForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const inputs = document.querySelectorAll('.otp-input');
+            const code = Array.from(inputs).map(i => i.value).join('');
+            const email = document.getElementById('otpEmail').textContent;
+
+            if (code.length !== 6) {
+                showMessage('error', 'Please enter the complete 6-digit code', 'otpMessage');
+                triggerShakeAll();
+                return;
+            }
+
+            showLoading('Verifying your code...');
+            
+            try {
+                const formData = new FormData();
+                formData.append('email', email);
+                formData.append('otp_code', code);
+                formData.append('action', 'verify_otp');
+                formData.append('role', 'student');
+
+                const response = await fetch('student_login_process.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                hideLoading();
+                
+                if (data.success) {
+                    triggerSuccessAll();
+                    showMessage('success', 'Email verified successfully!', 'otpMessage');
+                    document.getElementById('otpVerifyBtn').classList.add('complete');
+                    setTimeout(() => {
+                        window.location.href = '../student_dashboard.php';
+                    }, 1500);
+                } else {
+                    showMessage('error', data.message || 'Invalid or expired OTP', 'otpMessage');
+                    triggerShakeAll();
+                    document.querySelectorAll('.otp-input').forEach(i => {
+                        i.value = '';
+                        i.classList.remove('filled');
+                    });
+                    updateProgress();
+                    document.querySelector('.otp-input').focus();
+                }
+            } catch (error) {
+                hideLoading();
+                showMessage('error', 'Verification failed. Please try again.', 'otpMessage');
+                console.error('OTP verification error:', error);
+            }
+        });
+
+        // Request OTP
+        function requestOTP(email) {
+            document.getElementById('otpEmail').textContent = email;
+            document.getElementById('otpSection').classList.add('show');
+            
+            setTimeout(() => {
+                document.querySelector('.otp-input').focus();
+            }, 300);
+            
+            otpExpiryTime = Date.now() + otpTotalDuration;
+            startTimer();
+            startResendCountdown();
+            
+            showMessage('info', 'Verification code sent to your email!', 'otpMessage');
+        }
+
+        // Cancel OTP
+        function cancelOTP() {
+            document.getElementById('otpSection').classList.remove('show');
+            document.querySelectorAll('.otp-input').forEach(i => {
+                i.value = '';
+                i.classList.remove('filled', 'error-shake', 'success-pop');
+            });
+            if (otpTimer) clearInterval(otpTimer);
+            if (resendTimer) clearInterval(resendTimer);
+            document.getElementById('timerDisplay').textContent = '10:00';
+            document.getElementById('timerDisplay').classList.remove('warning');
+            document.getElementById('timerRingText').textContent = '10:00';
+            document.getElementById('timerRingText').classList.remove('warning');
+            document.getElementById('timerRingProgress').classList.remove('warning');
+            document.getElementById('timerRingProgress').style.strokeDashoffset = '0';
+            document.getElementById('otpMessage').innerHTML = '';
+            document.getElementById('otpVerifyBtn').classList.remove('complete');
+            updateProgress();
+        }
+
+        // OTP Timer with ring
+        function startTimer() {
+            updateTimerDisplay();
+            otpTimer = setInterval(updateTimerDisplay, 1000);
+        }
+
+        function updateTimerDisplay() {
+            const remaining = otpExpiryTime - Date.now();
+            const progress = document.getElementById('timerRingProgress');
+            const displayEl = document.getElementById('timerDisplay');
+            const ringText = document.getElementById('timerRingText');
+
+            if (remaining <= 0) {
+                displayEl.textContent = 'Expired';
+                ringText.textContent = '0:00';
+                displayEl.classList.add('warning');
+                ringText.classList.add('warning');
+                progress.classList.add('warning');
+                progress.style.strokeDashoffset = '125.6';
+                clearInterval(otpTimer);
+                showMessage('error', 'Code expired. Please request a new one.', 'otpMessage');
+                return;
+            }
+
+            const mins = Math.floor(remaining / 60000);
+            const secs = Math.floor((remaining % 60000) / 1000);
+            const timeStr = `${mins}:${secs.toString().padStart(2, '0')}`;
+            displayEl.textContent = timeStr;
+            ringText.textContent = timeStr;
+
+            // Ring offset: 125.6 is full circumference (2π×20)
+            const elapsed = otpTotalDuration - remaining;
+            const fraction = elapsed / otpTotalDuration;
+            const dashOffset = fraction * 125.6;
+            progress.style.strokeDashoffset = dashOffset.toFixed(2);
+
+            if (remaining < 60000) {
+                displayEl.classList.add('warning');
+                ringText.classList.add('warning');
+                progress.classList.add('warning');
+            }
+        }
+
+        // Resend Countdown
+        function startResendCountdown() {
+            const resendLink = document.getElementById('resendLink');
+            resendCountdown = 30;
+            resendLink.classList.add('disabled');
+            
+            resendTimer = setInterval(() => {
+                resendCountdown--;
+                resendLink.innerHTML = `<i class="fas fa-clock"></i> Resend in ${resendCountdown}s`;
+                
+                if (resendCountdown <= 0) {
+                    clearInterval(resendTimer);
+                    resendLink.classList.remove('disabled');
+                    resendLink.innerHTML = `<i class="fas fa-rotate-right"></i> Resend Code`;
+                }
+            }, 1000);
+        }
+
+        // Resend OTP
+        async function resendOTP() {
+            const resendLink = document.getElementById('resendLink');
+            if (resendLink.classList.contains('disabled')) return;
+            
+            const email = document.getElementById('otpEmail').textContent;
+            
+            showLoading('Sending new code...');
+            
+            try {
+                const formData = new FormData();
+                formData.append('email', email);
+                formData.append('action', 'resend_otp');
+                formData.append('role', 'student');
+
+                const response = await fetch('student_login_process.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                hideLoading();
+                
+                if (data.success) {
+                    showMessage('success', data.message || 'New verification code sent!', 'otpMessage');
+                    
+                    document.querySelectorAll('.otp-input').forEach(i => {
+                        i.value = '';
+                        i.classList.remove('filled');
+                    });
+                    updateProgress();
+                    document.querySelector('.otp-input').focus();
+                    
+                    otpExpiryTime = Date.now() + otpTotalDuration;
+                    document.getElementById('timerDisplay').classList.remove('warning');
+                    document.getElementById('timerRingText').classList.remove('warning');
+                    document.getElementById('timerRingProgress').classList.remove('warning');
+                    startResendCountdown();
+                } else {
+                    showMessage('error', data.message || 'Failed to send new code. Please try again.', 'otpMessage');
+                }
+            } catch (error) {
+                hideLoading();
+                showMessage('error', 'Failed to send new code. Please try again.', 'otpMessage');
+                console.error('Resend OTP error:', error);
+            }
+        }
+
+        // Progress bar update
+        function updateProgress() {
+            const inputs = document.querySelectorAll('.otp-input');
+            const filled = Array.from(inputs).filter(i => i.value.trim() !== '').length;
+            const pct = (filled / inputs.length) * 100;
+            document.getElementById('otpProgressFill').style.width = pct + '%';
+
+            const btn = document.getElementById('otpVerifyBtn');
+            if (filled === inputs.length) {
+                btn.style.background = 'linear-gradient(135deg, #5a0000, #800000)';
+                btn.innerHTML = '<i class="fas fa-unlock-keyhole" style="margin-right:8px;"></i> Verify & Continue';
+            } else {
+                btn.style.background = '';
+                btn.innerHTML = '<i class="fas fa-check-circle" style="margin-right:8px;"></i> Verify & Continue';
+            }
+        }
+
+        // Shake animation on error
+        function triggerShakeAll() {
+            document.querySelectorAll('.otp-input').forEach(inp => {
+                inp.classList.remove('error-shake');
+                void inp.offsetWidth; // reflow
+                inp.classList.add('error-shake');
+                setTimeout(() => inp.classList.remove('error-shake'), 600);
+            });
+        }
+
+        // Success animation
+        function triggerSuccessAll() {
+            document.querySelectorAll('.otp-input').forEach((inp, i) => {
+                setTimeout(() => {
+                    inp.classList.add('success-pop');
+                }, i * 60);
+            });
+        }
+
+        // OTP Input Handling
+        const otpInputs = document.querySelectorAll('.otp-input');
+        otpInputs.forEach((input, index) => {
+            input.addEventListener('input', (e) => {
+                e.target.value = e.target.value.replace(/[^0-9]/g, '');
+                if (e.target.value) {
+                    e.target.classList.add('filled');
+                    if (index < otpInputs.length - 1) {
+                        otpInputs[index + 1].focus();
+                    }
+                } else {
+                    e.target.classList.remove('filled');
+                }
+                updateProgress();
+            });
+            
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                    otpInputs[index - 1].focus();
+                    otpInputs[index - 1].classList.remove('filled');
+                    updateProgress();
+                }
+            });
+
+            input.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const pastedData = e.clipboardData.getData('text').replace(/[^0-9]/g, '');
+                for (let i = 0; i < Math.min(pastedData.length, otpInputs.length); i++) {
+                    otpInputs[i].value = pastedData[i];
+                    otpInputs[i].classList.add('filled');
+                }
+                updateProgress();
+                // Focus last filled or next empty
+                const nextEmpty = Array.from(otpInputs).find(inp => !inp.value);
+                if (nextEmpty) nextEmpty.focus();
+                else otpInputs[otpInputs.length - 1].focus();
+            });
+        });
+
+        // Messages
+        function showMessage(type, msg, containerId) {
+            const el = document.getElementById(containerId);
+            const icon = type === 'success' ? 'fa-check-circle' : 
+                        type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
+            el.innerHTML = `<div class="message ${type} show"><i class="fas ${icon}"></i> ${msg}</div>`;
+            setTimeout(() => el.innerHTML = '', 5000);
+        }
+
+        // Loading
+        function showLoading(text) {
+            document.getElementById('loadingText').textContent = text;
+            document.getElementById('loadingOverlay').classList.add('show');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.remove('show');
+        }
+
+        // Social Login
+        function socialLogin(provider) {
+            showMessage('info', `${provider} authentication coming soon!`, 
+                container.classList.contains('active') ? 'signUpMessage' : 'signInMessage');
+        }
+
+        // Forgot Password
+        async function forgotPassword() {
+            const email = document.getElementById('signInEmail').value;
+            if (!email) {
+                showMessage('error', 'Please enter your email address first', 'signInMessage');
+                document.getElementById('signInEmail').focus();
+                return;
+            }
+            
+            showLoading('Sending reset link...');
+            
+            try {
+                const formData = new FormData();
+                formData.append('email', email);
+                formData.append('action', 'forgot_password');
+                formData.append('role', 'student');
+
+                const response = await fetch('student_login_process.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                hideLoading();
+                
+                if (data.success) {
+                    showMessage('success', data.message || 'Password reset link sent to your email!', 'signInMessage');
+                } else {
+                    showMessage('error', data.message || 'Failed to send reset link. Please try again.', 'signInMessage');
+                }
+            } catch (error) {
+                hideLoading();
+                showMessage('error', 'Failed to send reset link. Please try again.', 'signInMessage');
+                console.error('Forgot password error:', error);
+            }
+        }
+    </script>
+</body>
+</html>
+
+
+
+
+// student_login_process.pphp//
+
+<?php
+// student/student_login_process.php
+// Main PHP processor for student login, OTP, and authentication
+
+session_start();
+
+header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, X-Requested-With');
+header('Access-Control-Allow-Credentials: true');
+
+// Handle preflight requests
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+// Include required files - only database and OTP helper
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/otp_helper.php';
+
+// Get the action from POST or GET
+$action = $_POST['action'] ?? $_GET['action'] ?? '';
+
+// Route the request
+switch ($action) {
+    case 'verify_login':
+        verifyLogin();
+        break;
+    case 'verify_otp':
+        verifyOTPHandler();
+        break;
+    case 'resend_otp':
+        resendOTP();
+        break;
+    case 'forgot_password':
+        forgotPassword();
+        break;
+    case 'reset_password':
+        resetPassword();
+        break;
+    case 'check_session':
+        checkSession();
+        break;
+    default:
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid action']);
+        exit();
+}
+
+/**
+ * Verify login credentials and send OTP
+ */
+function verifyLogin() {
+    $email = trim($_POST['email'] ?? '');
+    $password = trim($_POST['password'] ?? '');
+    $role = 'student';
+
+    // DEBUG: Log the incoming request
+    error_log("DEBUG: verifyLogin called with email: $email");
+
+    // Validate inputs
+    if (empty($email) || empty($password)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Email and password are required']);
+        exit();
+    }
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid email format']);
+        exit();
+    }
+
+    $conn = getDBConnection();
+
+    if (!$conn) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Database connection failed']);
+        exit();
+    }
+
+    try {
+        // Check if user exists with this email and is a student
+        // Order by id DESC to get the most recently created user first (for duplicate emails)
+        $stmt = $conn->prepare("SELECT id, user_id, email, fullname, password, status FROM users WHERE email = ? AND role = ? ORDER BY id DESC LIMIT 1");
+        $stmt->bind_param("ss", $email, $role);
+        $stmt->execute();
+        $result = $stmt->get_result();
+
+        if ($result->num_rows === 0) {
+            error_log("DEBUG: User not found for email: $email");
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Invalid email or password']);
+            $stmt->close();
+            $conn->close();
+            exit();
+        }
+
+        $user = $result->fetch_assoc();
+        $stmt->close();
+        error_log("DEBUG: User found: " . $user['fullname'] . " status: " . $user['status']);
+
+        // Check if account is active
+        if (isset($user['status']) && $user['status'] !== 'active') {
+            error_log("DEBUG: Account not active for email: $email, status: " . $user['status']);
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => 'Your account is inactive. Please contact support.']);
+            $conn->close();
+            exit();
+        }
+
+        // Verify password
+        $passwordVerifyResult = password_verify($password, $user['password']);
+        error_log("DEBUG: Password verify result: " . ($passwordVerifyResult ? "true" : "false"));
+        
+        if (!$passwordVerifyResult) {
+            error_log("DEBUG: Password incorrect for email: $email");
+            http_response_code(401);
+            echo json_encode(['success' => false, 'message' => 'Invalid email or password']);
+            $conn->close();
+            exit();
+        }
+
+        // Password is correct - now request OTP
+        $_SESSION['temp_user_id'] = $user['user_id'];
+        $_SESSION['temp_user_email'] = $user['email'];
+        $_SESSION['temp_user_name'] = $user['fullname'];
+
+        // Generate and send OTP
+        $otp_result = requestLoginOTP($email, $role);
+        error_log("DEBUG: OTP result: " . json_encode($otp_result));
+
+        if (!$otp_result['success']) {
+            http_response_code(400);
+            echo json_encode([
+                'success' => false, 
+                'message' => $otp_result['message'] ?? 'Failed to send OTP. Please try again.'
+            ]);
+            $conn->close();
+            exit();
+        }
+
+        $conn->close();
+        error_log("DEBUG: Login successful for email: $email, returning success");
+        echo json_encode([
+            'success' => true,
+            'message' => 'OTP sent successfully. Please check your email.',
+            'data' => [
+                'email' => $email,
+                'require_otp' => true
+            ]
+        ]);
+        exit();
+
+    } catch (Exception $e) {
+        error_log("Login verification error: " . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'An error occurred. Please try again.']);
+        exit();
+    }
+}
+
+/**
+ * Verify OTP and create session
+ */
+function verifyOTPHandler() {
+    // Debug: Log what we're receiving
+    error_log("verifyOTPHandler called with: email=" . ($_POST['email'] ?? 'NOT SET') . ", otp_code=" . ($_POST['otp_code'] ?? 'NOT SET'));
+    
+    $email = trim($_POST['email'] ?? '');
+    $otp_code = trim($_POST['otp_code'] ?? '');
+    $role = 'student';
+
+    if (empty($email) || empty($otp_code)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Email and OTP code are required']);
+        exit();
+    }
+
+    if (strlen($otp_code) !== 6 || !is_numeric($otp_code)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid OTP format']);
+        exit();
+    }
+
+    // Debug: Log the email being used for verification
+    error_log("Verifying OTP for email: " . $email . " with code: " . $otp_code);
+    
+    // Verify OTP
+    $result = verifyOTP($email, $otp_code, $role);
+    
+    // Debug: Log the result
+    error_log("verifyOTP result: " . json_encode($result));
+
+    if (!$result['success']) {
+        http_response_code(401);
+        echo json_encode([
+            'success' => false, 
+            'message' => $result['message'] ?? 'Invalid or expired OTP'
+        ]);
+        exit();
+    }
+
+    // OTP verified - create session
+    $user = $result['user'];
+
+    $_SESSION['user_id'] = $user['user_id'];
+    $_SESSION['user_email'] = $user['email'];
+    $_SESSION['fullname'] = $user['fullname'];
+    $_SESSION['role'] = $user['role'];
+    $_SESSION['username'] = $user['username'] ?? '';
+    $_SESSION['logged_in'] = true;
+    $_SESSION['login_time'] = time();
+
+    // Clear temporary session data
+    unset($_SESSION['temp_user_id']);
+    unset($_SESSION['temp_user_email']);
+    unset($_SESSION['temp_user_name']);
+
+    // Update last login
+    $conn = getDBConnection();
+    if ($conn) {
+        $stmt = $conn->prepare("UPDATE users SET last_login = NOW() WHERE user_id = ?");
+        $stmt->bind_param("s", $user['user_id']);
+        $stmt->execute();
+        $stmt->close();
+        $conn->close();
+    }
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'Login successful!',
+        'data' => [
+            'user_id' => $user['user_id'],
+            'fullname' => $user['fullname'],
+            'email' => $user['email'],
+            'redirect' => '../student_dashboard.php'
+        ]
+    ]);
+    exit();
+}
+
+/**
+ * Resend OTP
+ */
+function resendOTP() {
+    $email = trim($_POST['email'] ?? '');
+    $role = 'student';
+
+    if (empty($email)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Email is required']);
+        exit();
+    }
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid email format']);
+        exit();
+    }
+
+    $conn = getDBConnection();
+    if (!$conn) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Database connection failed']);
+        exit();
+    }
+
+    $stmt = $conn->prepare("SELECT user_id, email, fullname FROM users WHERE email = ? AND role = ? LIMIT 1");
+    $stmt->bind_param("ss", $email, $role);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows === 0) {
+        echo json_encode(['success' => true, 'message' => 'If this email is registered, an OTP has been sent.']);
+        $stmt->close();
+        $conn->close();
+        exit();
+    }
+
+    $user = $result->fetch_assoc();
+    $stmt->close();
+    $conn->close();
+
+    // Request new OTP
+    $otp_result = requestLoginOTP($email, $role);
+
+    if (!$otp_result['success']) {
+        http_response_code(400);
+        echo json_encode([
+            'success' => false, 
+            'message' => $otp_result['message'] ?? 'Failed to send OTP. Please try again.'
+        ]);
+        exit();
+    }
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'New OTP sent successfully. Please check your email.'
+    ]);
+    exit();
+}
+
+/**
+ * Handle forgot password
+ */
+function forgotPassword() {
+    $email = trim($_POST['email'] ?? '');
+    $role = 'student';
+
+    if (empty($email)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Email is required']);
+        exit();
+    }
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid email format']);
+        exit();
+    }
+
+    $conn = getDBConnection();
+    if (!$conn) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Database connection failed']);
+        exit();
+    }
+
+    $stmt = $conn->prepare("SELECT user_id, email, fullname FROM users WHERE email = ? AND role = ? LIMIT 1");
+    $stmt->bind_param("ss", $email, $role);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows === 0) {
+        echo json_encode([
+            'success' => true, 
+            'message' => 'If this email is registered, a password reset link has been sent.'
+        ]);
+        $stmt->close();
+        $conn->close();
+        exit();
+    }
+
+    $user = $result->fetch_assoc();
+    $stmt->close();
+
+    // Generate password reset token
+    $token = bin2hex(random_bytes(32));
+    $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
+
+    // Store token in database
+    $stmt = $conn->prepare("INSERT INTO password_resets (email, token, expires_at) VALUES (?, ?, ?)");
+    $stmt->bind_param("sss", $email, $token, $expires);
+    $stmt->execute();
+    $stmt->close();
+
+    // Log the reset link
+    $reset_link = "http://localhost/bec_equipment/student/reset_password.php?token=" . $token;
+    error_log("Password reset link for {$email}: " . $reset_link);
+
+    $conn->close();
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'If this email is registered, a password reset link has been sent.'
+    ]);
+    exit();
+}
+
+/**
+ * Reset password with token
+ */
+function resetPassword() {
+    $token = trim($_POST['token'] ?? '');
+    $new_password = trim($_POST['new_password'] ?? '');
+
+    if (empty($token) || empty($new_password)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Token and new password are required']);
+        exit();
+    }
+
+    if (strlen($new_password) < 6) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Password must be at least 6 characters']);
+        exit();
+    }
+
+    $conn = getDBConnection();
+    if (!$conn) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Database connection failed']);
+        exit();
+    }
+
+    // Find valid token
+    $stmt = $conn->prepare("
+        SELECT pr.user_id, u.email 
+        FROM password_resets pr
+        JOIN users u ON pr.email = u.email
+        WHERE pr.token = ? AND pr.expires_at > NOW()
+        LIMIT 1
+    ");
+    $stmt->bind_param("s", $token);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($result->num_rows === 0) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid or expired reset token']);
+        $stmt->close();
+        $conn->close();
+        exit();
+    }
+
+    $row = $result->fetch_assoc();
+    $user_id = $row['user_id'];
+    $email = $row['email'];
+    $stmt->close();
+
+    // Update password
+    $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
+    $stmt = $conn->prepare("UPDATE users SET password = ? WHERE user_id = ?");
+    $stmt->bind_param("ss", $hashed_password, $user_id);
+    $stmt->execute();
+    $stmt->close();
+
+    // Delete token
+    $stmt = $conn->prepare("DELETE FROM password_resets WHERE token = ?");
+    $stmt->bind_param("s", $token);
+    $stmt->execute();
+    $stmt->close();
+
+    $conn->close();
+
+    echo json_encode([
+        'success' => true,
+        'message' => 'Password reset successful. You can now login with your new password.'
+    ]);
+    exit();
+}
+
+/**
+ * Check if session is valid
+ */
+function checkSession() {
+    if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true && isset($_SESSION['user_id'])) {
+        echo json_encode([
+            'success' => true,
+            'data' => [
+                'user_id' => $_SESSION['user_id'],
+                'fullname' => $_SESSION['fullname'] ?? '',
+                'email' => $_SESSION['user_email'] ?? '',
+                'role' => $_SESSION['role'] ?? ''
+            ]
+        ]);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'No active session']);
+    }
+    exit();
+}
+
+?>
+
+

@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Technician Login - BEC Equipment Management System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../css/global_styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700&display=swap" rel="stylesheet">
+    <style>
+        /* General */
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        /* Background */
+        .background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('../assets/bec background (2).png') no-repeat center center fixed;
+            background-size: cover;
+            filter: blur(6px) brightness(0.8);
+            z-index: -1;
+        }
+
+        /* Form container */
+        .form-container {
+            background: rgba(255,255,255,0.95);
+            max-width: 420px;
+            margin: 60px auto;
+            padding: 30px;
+            border-radius: 14px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+            text-align: center;
+            animation: fadeIn 1.5s ease;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        /* Logo */
+        .school-logo {
+            width: 280px;
+            height: auto;
+            margin: 0 auto 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            animation: fadeBounce 1.5s ease forwards;
+        }
+
+        .school-logo img {
+            width: 100%;
+            height: auto;
+            object-fit: contain;
+        }
+
+        @keyframes fadeBounce {
+            0% { opacity: 0; transform: translateY(-30px); }
+            50% { opacity: 0.6; transform: translateY(10px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        .school-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 30px;
+            font-weight: 700;
+            margin: 10px 0 5px;
+            background: linear-gradient(45deg, #800000, #a30000);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            letter-spacing: 1px;
+        }
+
+        .school-subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 25px;
+        }
+
+        /* Headings */
+        h2 {
+            margin: 10px 0 20px;
+            color: #a30000;
+            font-size: 20px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            transition: 0.3s;
+            box-sizing: border-box;
+        }
+
+        input:focus {
+            border-color: #a30000;
+            box-shadow: 0 0 5px rgba(163,0,0,0.5);
+            outline: none;
+        }
+
+        /* Password container */
+        .password-container {
+            position: relative;
+        }
+
+        .password-container .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 20px;
+            cursor: pointer;
+            font-size: 16px;
+            color: #666;
+        }
+
+        /* Forgot password & links */
+        .forgot-password {
+            display: block;
+            margin: 10px 0;
+            color: #a30000;
+            font-size: 14px;
+            text-decoration: none;
+        }
+
+        .forgot-password:hover {
+            text-decoration: underline;
+        }
+
+        /* Button */
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: #a30000;
+            border: none;
+            color: #fff;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.3s;
+            font-weight: 600;
+        }
+
+        .btn:hover {
+            background: #7a0000;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(163,0,0,0.4);
+        }
+
+        /* Message styling */
+        .message {
+            padding: 12px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        /* Back link */
+        .back-link {
+            display: block;
+            margin-top: 20px;
+            color: #a30000;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Footer */
+        .footer-text {
+            text-align: center;
+            color: white;
+            margin-top: 20px;
+            font-size: 13px;
+        }
+
+        /* Loading Indicator */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            -webkit-backdrop-filter: blur(5px);
+            backdrop-filter: blur(5px);
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-top: 5px solid #a30000;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-text {
+            color: white;
+            font-size: 18px;
+            margin-top: 15px;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Background -->
+    <div class="background"></div>
+
+    <!-- Form Container -->
+    <div class="form-container">
+        <!-- Logo -->
+        <div class="school-logo">
+            <img src="../assets/logo.png" alt="BEC Equipment Management System Logo">
+        </div>
+        <h1 class="school-title">MALIGAYANG ARAW!</h1>
+        <p class="school-subtitle">Batangas Eastern Colleges</p>
+
+        <!-- Message Container -->
+        <div id="messageContainer"></div>
+
+        <!-- Maintenance Technician Login Form -->
+        <form id="technician-form" action="../login_process.php" method="POST">
+            <h2><i class="fas fa-wrench"></i> Maintenance Technician</h2>
+            <input type="hidden" name="role" value="technician">
+
+            <input type="text" name="username" placeholder="Technician ID" required>
+
+            <div class="password-container">
+                <input type="password" name="password" placeholder="Password" id="technician-pass" required>
+                <span class="toggle-password" onclick="togglePassword('technician-pass')">
+                </span>
+            </div>
+
+            <a href="#" class="forgot-password">Forgot Password?</a>
+
+            <button type="submit" class="btn">
+                <i class="fas fa-sign-in-alt"></i> Sign In
+            </button>
+        </form>
+
+    </div>
+
+    <div class="footer-text">
+        <p>&copy; 2026 Batangas Eastern Colleges. All rights reserved.</p>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <div class="loading-text">Verifying Credentials...</div>
+    </div>
+
+    <script src="../js/loading_utils.js"></script>
+
+    <script>
+        function togglePassword(fieldId) {
+            const passwordField = document.getElementById(fieldId);
+            const icon = event.target.closest('.toggle-password').querySelector('i');
+
+            if (passwordField.type === "password") {
+                passwordField.type = "text";
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                passwordField.type = "password";
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+
+        // Check for messages from URL parameters
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const error = urlParams.get('error');
+            const success = urlParams.get('success');
+
+            if (error) {
+                showMessage('error', decodeURIComponent(error));
+            }
+            if (success) {
+                showMessage('success', decodeURIComponent(success));
+            }
+        };
+
+        function showMessage(type, message) {
+            const container = document.getElementById('messageContainer');
+            container.innerHTML = `
+                <div class="message ${type}">
+                    ${message}
+                </div>
+            `;
+
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+
+        // Loading indicator functions
+        function showLoading() {
+            const overlay = document.getElementById('loadingOverlay');
+            overlay.style.display = 'flex';
+
+            // Disable all buttons
+            const buttons = document.querySelectorAll('.btn');
+            buttons.forEach(btn => {
+                btn.disabled = true;
+                btn.style.opacity = '0.6';
+                btn.style.cursor = 'not-allowed';
+            });
+        }
+
+        // Initialize form submit handlers
+        document.addEventListener('DOMContentLoaded', function() {
+            const forms = document.querySelectorAll('form');
+            forms.forEach(form => {
+                form.addEventListener('submit', function() {
+                    showLoading();
+                });
+            });
+        });
+    </script>
+</body>
+</html>

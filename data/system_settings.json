@@ -1,0 +1,19 @@
+{
+    "notifications": {
+        "email_enabled": true,
+        "sms_enabled": false,
+        "inapp_enabled": true,
+        "notify_new_reports": true,
+        "notify_new_reservations": true,
+        "notify_status_changes": true,
+        "admin_email": "thesterads@gmail.com"
+    },
+    "email": {
+        "smtp_host": "smtp.gmail.com",
+        "smtp_port": 587,
+        "smtp_username": "thesterads@gmail.com",
+        "smtp_password": "yckkpjvtiycfnvou",
+        "from_email": "thesterads@gmail.com",
+        "from_name": "BEC Equipment Management System"
+    }
+}

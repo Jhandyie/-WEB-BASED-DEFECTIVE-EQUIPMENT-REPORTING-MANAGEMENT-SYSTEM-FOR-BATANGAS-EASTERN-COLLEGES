@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Faculty Login - BEC Equipment Management System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../css/global_styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@700&display=swap" rel="stylesheet">
+    <style>
+        /* General */
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        /* Background */
+        .background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('../assets/bec background (2).png') no-repeat center center fixed;
+            background-size: cover;
+            filter: blur(6px) brightness(0.8);
+            z-index: -1;
+        }
+
+        /* Form container */
+        .form-container {
+            background: rgba(255,255,255,0.95);
+            max-width: 450px;
+            margin: 60px auto;
+            padding: 30px;
+            border-radius: 14px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+            text-align: center;
+            animation: fadeIn 1.5s ease;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        /* Logo */
+        .school-logo {
+            width: 280px;
+            height: auto;
+            margin: 0 auto 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            animation: fadeBounce 1.5s ease forwards;
+        }
+
+        .school-logo img {
+            width: 100%;
+            height: auto;
+            object-fit: contain;
+        }
+
+        @keyframes fadeBounce {
+            0% { opacity: 0; transform: translateY(-30px); }
+            50% { opacity: 0.6; transform: translateY(10px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        .school-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 30px;
+            font-weight: 700;
+            margin: 10px 0 5px;
+            background: linear-gradient(45deg, #800000, #a30000);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            letter-spacing: 1px;
+        }
+
+        .school-subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 25px;
+        }
+
+        /* Headings */
+        h2 {
+            margin: 10px 0 20px;
+            color: #a30000;
+            font-size: 20px;
+        }
+
+        /* Form fields */
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            transition: 0.3s;
+            box-sizing: border-box;
+            font-size: 15px;
+        }
+
+        input:focus {
+            border-color: #a30000;
+            box-shadow: 0 0 5px rgba(163,0,0,0.5);
+            outline: none;
+        }
+
+        input:disabled {
+            background: #f5f5f5;
+            cursor: not-allowed;
+        }
+
+        /* Button */
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: #a30000;
+            border: none;
+            color: #fff;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.3s;
+            font-weight: 600;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: #7a0000;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(163,0,0,0.4);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            margin-top: 10px;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #5a6268;
+        }
+
+        /* Message styling */
+        .message {
+            padding: 12px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .message.success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .message.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .message.info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        /* OTP Info Box */
+        .otp-info {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 12px;
+            margin-bottom: 20px;
+            text-align: left;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .otp-info strong {
+            display: block;
+            margin-bottom: 5px;
+            color: #856404;
+        }
+
+        /* Timer display */
+        .timer-display {
+            text-align: center;
+            margin: 10px 0;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .timer-display.warning {
+            color: #dc3545;
+            font-weight: bold;
+        }
+
+        /* Back link */
+        .back-link {
+            display: block;
+            margin-top: 20px;
+            color: #a30000;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Footer */
+        .footer-text {
+            text-align: center;
+            color: white;
+            margin-top: 20px;
+            font-size: 13px;
+        }
+
+        /* Loading Indicator */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            -webkit-backdrop-filter: blur(5px);
+            backdrop-filter: blur(5px);
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-top: 5px solid #a30000;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .loading-text {
+            color: white;
+            font-size: 18px;
+            margin-top: 15px;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Hide/Show forms */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Background -->
+    <div class="background"></div>
+
+    <!-- Form Container -->
+    <div class="form-container">
+        <!-- Logo -->
+        <div class="school-logo">
+            <img src="../assets/logo.png" alt="BEC Equipment Management System Logo">
+        </div>
+        <h1 class="school-title">MALIGAYANG ARAW!</h1>
+        <p class="school-subtitle">Batangas Eastern Colleges</p>
+
+        <!-- Message Container -->
+        <div id="messageContainer"></div>
+
+        <!-- Step 1: Request OTP Form -->
+        <form id="requestOtpForm" action="../login_process_otp.php" method="POST">
+            <h2><i class="fas fa-chalkboard-teacher"></i> Faculty Login</h2>
+
+            <input type="hidden" name="role" value="faculty">
+            <input type="hidden" name="action" value="request_otp">
+
+            <div class="form-group">
+                <label for="email">
+                    <i class="fas fa-envelope"></i> Email Address
+                </label>
+                <input type="email"
+                       id="email"
+                       name="email"
+                       placeholder="Enter your registered email"
+                       required
+                       autocomplete="email">
+            </div>
+
+            <button type="submit" class="btn" id="requestOtpBtn">
+                <i class="fas fa-paper-plane"></i> Send OTP to Email
+            </button>
+        </form>
+
+        <!-- Step 2: Verify OTP Form (Hidden initially) -->
+        <form id="verifyOtpForm" class="hidden" action="../login_process_otp.php" method="POST">
+            <h2><i class="fas fa-key"></i> Enter OTP Code</h2>
+
+            <div class="otp-info">
+                <strong><i class="fas fa-info-circle"></i> Check Your Email</strong>
+                A 6-digit OTP code has been sent to your email. Please enter it below to continue.
+            </div>
+
+            <input type="hidden" name="role" value="faculty">
+            <input type="hidden" name="action" value="login">
+            <input type="hidden" id="emailHidden" name="email">
+
+            <div class="form-group">
+                <label for="otp_code">
+                    <i class="fas fa-lock"></i> OTP Code
+                </label>
+                <input type="text"
+                       id="otp_code"
+                       name="otp_code"
+                       placeholder="Enter 6-digit OTP"
+                       maxlength="6"
+                       pattern="[0-9]{6}"
+                       required
+                       autocomplete="one-time-code">
+            </div>
+
+            <div class="timer-display" id="timerDisplay"></div>
+
+            <button type="submit" class="btn" id="verifyOtpBtn">
+                <i class="fas fa-sign-in-alt"></i> Verify & Login
+            </button>
+
+            <button type="button" class="btn btn-secondary" id="backToEmailBtn">
+                <i class="fas fa-arrow-left"></i> Use Different Email
+            </button>
+        </form>
+
+
+    </div>
+
+    <div class="footer-text">
+        <p>&copy; 2026 Batangas Eastern Colleges. All rights reserved.</p>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div style="text-align: center;">
+            <div class="spinner"></div>
+            <div class="loading-text" id="loadingText">Processing...</div>
+        </div>
+    </div>
+
+    <script>
+        let otpExpiryTime = null;
+        let timerInterval = null;
+
+        // Check for messages from URL parameters
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const error = urlParams.get('error');
+            const success = urlParams.get('success');
+            const email = urlParams.get('email');
+
+            if (error) {
+                showMessage('error', decodeURIComponent(error));
+            }
+            if (success) {
+                showMessage('success', decodeURIComponent(success));
+
+                // If OTP was sent successfully, switch to OTP form
+                if (email) {
+                    switchToOtpForm(email);
+                }
+            } else if (email) {
+                // Pre-fill email if provided
+                document.getElementById('email').value = decodeURIComponent(email);
+            }
+
+            // Clean URL
+            if (error || success || email) {
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        };
+
+        function showMessage(type, message) {
+            const container = document.getElementById('messageContainer');
+            container.innerHTML = `
+                <div class="message ${type}">
+                    ${message}
+                </div>
+            `;
+
+            // Auto-hide after 8 seconds
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 8000);
+        }
+
+        function showLoading(text = 'Processing...') {
+            document.getElementById('loadingText').textContent = text;
+            document.getElementById('loadingOverlay').style.display = 'flex';
+
+            // Disable all buttons
+            document.querySelectorAll('.btn').forEach(btn => {
+                btn.disabled = true;
+            });
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').style.display = 'none';
+
+            // Re-enable all buttons
+            document.querySelectorAll('.btn').forEach(btn => {
+                btn.disabled = false;
+            });
+        }
+
+        function switchToOtpForm(email) {
+            document.getElementById('requestOtpForm').classList.add('hidden');
+            document.getElementById('verifyOtpForm').classList.remove('hidden');
+            document.getElementById('emailHidden').value = email;
+
+            // Focus on OTP input
+            setTimeout(() => {
+                document.getElementById('otp_code').focus();
+            }, 100);
+
+            // Start 10-minute countdown timer
+            otpExpiryTime = Date.now() + (10 * 60 * 1000); // 10 minutes from now
+            startTimer();
+        }
+
+        function switchToEmailForm() {
+            document.getElementById('verifyOtpForm').classList.add('hidden');
+            document.getElementById('requestOtpForm').classList.remove('hidden');
+
+            // Clear OTP input
+            document.getElementById('otp_code').value = '';
+
+            // Stop timer
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        function startTimer() {
+            updateTimerDisplay();
+
+            timerInterval = setInterval(() => {
+                updateTimerDisplay();
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            const now = Date.now();
+            const remaining = otpExpiryTime - now;
+
+            if (remaining <= 0) {
+                document.getElementById('timerDisplay').innerHTML =
+                    '<span style="color: #dc3545;">⏰ OTP has expired. Please request a new one.</span>';
+
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                }
+
+                // Disable verify button
+                document.getElementById('verifyOtpBtn').disabled = true;
+                return;
+            }
+
+            const minutes = Math.floor(remaining / 60000);
+            const seconds = Math.floor((remaining % 60000) / 1000);
+
+            const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            const displayClass = remaining < 60000 ? 'timer-display warning' : 'timer-display';
+
+            document.getElementById('timerDisplay').className = displayClass;
+            document.getElementById('timerDisplay').innerHTML =
+                `<i class="fas fa-clock"></i> OTP expires in: <strong>${timeString}</strong>`;
+        }
+
+        // Form submit handlers
+        document.getElementById('requestOtpForm').addEventListener('submit', function(e) {
+            const email = document.getElementById('email').value.trim();
+
+            if (!email || !isValidEmail(email)) {
+                e.preventDefault();
+                showMessage('error', 'Please enter a valid email address.');
+                return;
+            }
+
+            showLoading('Sending OTP to your email...');
+        });
+
+        document.getElementById('verifyOtpForm').addEventListener('submit', function(e) {
+            const otpCode = document.getElementById('otp_code').value.trim();
+
+            if (!otpCode || otpCode.length !== 6 || !/^\d{6}$/.test(otpCode)) {
+                e.preventDefault();
+                showMessage('error', 'Please enter a valid 6-digit OTP code.');
+                return;
+            }
+
+            showLoading('Verifying OTP...');
+        });
+
+        document.getElementById('backToEmailBtn').addEventListener('click', function() {
+            switchToEmailForm();
+        });
+
+        // Helper function to validate email
+        function isValidEmail(email) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        }
+
+        // Auto-format OTP input (only allow numbers)
+        document.getElementById('otp_code').addEventListener('input', function(e) {
+            this.value = this.value.replace(/[^0-9]/g, '');
+        });
+    </script>
+</body>
+</html>

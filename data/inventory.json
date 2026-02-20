@@ -1,0 +1,98 @@
+{
+    "airConditioners": [
+        {
+            "id": 2,
+            "propertyNo": "A-0825-0002",
+            "campus": "Main Campus",
+            "building": "Building 2",
+            "buildingName": "Faculty & Student Center",
+            "room": "Room 2",
+            "article": "Panasonic",
+            "qty": 1,
+            "status": "Active"
+        }
+    ],
+    "televisions": [
+        {
+            "id": 1,
+            "propertyNo": "T-0825-0001",
+            "campus": "Main Campus",
+            "building": "Building 3",
+            "buildingName": "Learning Resource Building",
+            "room": "Room 100",
+            "article": "TCL",
+            "qty": 1,
+            "status": "Active"
+        }
+    ],
+    "fans": [
+        {
+            "id": 1,
+            "propertyNo": "CF-0825-0001",
+            "campus": "Main Campus",
+            "building": "Main Gate",
+            "buildingName": "Main Gate",
+            "room": "Room 1",
+            "type": "Ceiling Fan",
+            "qty": 1,
+            "status": "Active"
+        }
+    ],
+    "whiteboards": [
+        {
+            "id": 1,
+            "propertyNo": "WB-0825-0001",
+            "campus": "Main Campus",
+            "building": "Building 2",
+            "buildingName": "Faculty & Student Center",
+            "room": "Room 1",
+            "size": "Big",
+            "classification": "Whiteboard",
+            "qty": 1,
+            "status": "Active"
+        }
+    ],
+    "lockers": [
+        {
+            "id": 1,
+            "propertyNo": "L-0825-0001",
+            "campus": "Main Campus",
+            "building": "Main Gate",
+            "buildingName": "Main Gate",
+            "room": "Corridor",
+            "slots": "15 (3x5)",
+            "type": "Steel-Grey",
+            "qty": 1,
+            "status": "Active"
+        }
+    ],
+    "officeChairs": [
+        {
+            "id": 1,
+            "propertyNo": "OC-0825-0001",
+            "campus": "Main Campus",
+            "building": "Building 1",
+            "buildingName": "Gymnasium",
+            "room": "Office 1",
+            "type": "Executive",
+            "color": "Black",
+            "qty": 1,
+            "status": "Active"
+        }
+    ],
+    "computers": [
+        {
+            "id": 1,
+            "propertyNo": "PC-0825-0001",
+            "campus": "Annex 1 Campus",
+            "building": "BEC Skills Training Center",
+            "buildingName": "BEC Skills Training Center",
+            "room": "BEC Skills Training Center 102",
+            "article": "HP",
+            "model": "Pavilion",
+            "serialNo": "SN000001",
+            "qty": 1,
+            "status": "Active"
+        }
+    ]
+}

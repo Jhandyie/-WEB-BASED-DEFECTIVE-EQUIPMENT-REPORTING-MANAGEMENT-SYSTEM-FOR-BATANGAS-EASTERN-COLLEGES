@@ -1,0 +1,308 @@
+[
+    {
+        "user_id": null,
+        "message": "New defect report submitted: DR-20260115-4D9DB5",
+        "type": "new_defect_report",
+        "related_id": "DR-20260115-4D9DB5",
+        "notification_id": "NOT-69684da4ddee4",
+        "created_date": "2026-01-15 03:15:00",
+        "is_read": false
+    },
+    {
+        "user_id": null,
+        "message": "New defect report submitted: DR-20260115-65169A",
+        "type": "new_defect_report",
+        "related_id": "DR-20260115-65169A",
+        "notification_id": "NOT-69684f26546e6",
+        "created_date": "2026-01-15 03:21:26",
+        "is_read": false
+    },
+    {
+        "user_id": null,
+        "message": "New defect report submitted: DR-20260115-61143A",
+        "type": "new_defect_report",
+        "related_id": "DR-20260115-61143A",
+        "notification_id": "NOT-69684ff6136b8",
+        "created_date": "2026-01-15 03:24:54",
+        "is_read": false
+    },
+    {
+        "user_id": null,
+        "message": "New defect report submitted: DR-20260115-ED4ACE",
+        "type": "new_defect_report",
+        "related_id": "DR-20260115-ED4ACE",
+        "notification_id": "NOT-6968516ed667b",
+        "created_date": "2026-01-15 03:31:10",
+        "is_read": false
+    },
+    {
+        "user_id": null,
+        "message": "New defect report submitted: DR-20260115-355B4B",
+        "type": "new_defect_report",
+        "related_id": "DR-20260115-355B4B",
+        "notification_id": "NOT-696852b356e26",
+        "created_date": "2026-01-15 03:36:35",
+        "is_read": false
+    },
+    {
+        "user_id": null,
+        "message": "New defect report submitted: DR-20260115-9C3E74",
+        "type": "new_defect_report",
+        "related_id": "DR-20260115-9C3E74",
+        "notification_id": "NOT-696852d9c69a8",
+        "created_date": "2026-01-15 03:37:13",
+        "is_read": false
+    },
+    {
+        "user_id": null,
+        "message": "New equipment reservation request: RES-20260115-3AB58C",
+        "type": "new_reservation",
+        "related_id": "RES-20260115-3AB58C",
+        "notification_id": "NOT-69685b63af3a9",
+        "created_date": "2026-01-15 04:13:39",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-6970419ca6cbc",
+        "user_id": null,
+        "message": "Failed login attempt for technician account: 'nwdjwnd' from IP ::1",
+        "type": "security_alert",
+        "related_id": null,
+        "created_date": "2026-01-21 04:01:48",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-697043baa5ae9",
+        "user_id": null,
+        "message": "Failed login attempt for technician account: 'technician' from IP ::1 (incorrect password)",
+        "type": "security_alert",
+        "related_id": null,
+        "created_date": "2026-01-21 04:10:50",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-697047133fc37",
+        "user_id": null,
+        "message": "Failed login attempt for technician account: 'tecjhewh' from IP ::1",
+        "type": "security_alert",
+        "related_id": null,
+        "created_date": "2026-01-21 04:25:07",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-6970a54ee72af",
+        "user_id": null,
+        "message": "Failed login attempt for technician account: 'technician' from IP ::1 (incorrect password)",
+        "type": "security_alert",
+        "related_id": null,
+        "created_date": "2026-01-21 11:07:10",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-697b78d9198b4",
+        "user_id": null,
+        "message": "Failed OTP login attempt for admin account: 'thesterads@gmail.com' from IP ::1",
+        "type": "security_alert",
+        "related_id": null,
+        "created_date": "2026-01-29 16:12:25",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-697fd8f2946b8",
+        "user_id": null,
+        "message": "Failed OTP login attempt for admin account: 'thesterads@gmail.com' from IP ::1",
+        "type": "security_alert",
+        "related_id": null,
+        "created_date": "2026-02-01 23:51:30",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-697fd9e15b975",
+        "user_id": null,
+        "message": "Failed OTP login attempt for admin account: 'thesterads@gmail.com' from IP ::1",
+        "type": "security_alert",
+        "related_id": null,
+        "created_date": "2026-02-01 23:55:29",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-697fda6958091",
+        "user_id": null,
+        "message": "Failed OTP login attempt for admin account: 'thesterads@gmail.com' from IP ::1",
+        "type": "security_alert",
+        "related_id": null,
+        "created_date": "2026-02-01 23:57:45",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-697fe0d30f6a0",
+        "user_id": "ADM-001",
+        "message": "Successful login via OTP for System Administrator (admin) from IP ::1",
+        "type": "login_success",
+        "related_id": null,
+        "created_date": "2026-02-02 00:25:07",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-697fe22fb5a79",
+        "user_id": "ADM-001",
+        "message": "Successful login via OTP for System Administrator (admin) from IP ::1",
+        "type": "login_success",
+        "related_id": null,
+        "created_date": "2026-02-02 00:30:55",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-697fe251c6c58",
+        "user_id": null,
+        "message": "Failed OTP login attempt for admin account: 'thesterads@gmail.com' from IP ::1",
+        "type": "security_alert",
+        "related_id": null,
+        "created_date": "2026-02-02 00:31:29",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-697fe2749edd7",
+        "user_id": "ADM-001",
+        "message": "Successful login via OTP for System Administrator (admin) from IP ::1",
+        "type": "login_success",
+        "related_id": null,
+        "created_date": "2026-02-02 00:32:04",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-697fe291f1d87",
+        "user_id": "ADM-001",
+        "message": "Successful login via OTP for System Administrator (admin) from IP ::1",
+        "type": "login_success",
+        "related_id": null,
+        "created_date": "2026-02-02 00:32:33",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-697fe35cf0834",
+        "user_id": "ADM-001",
+        "message": "Successful login via OTP for System Administrator (admin) from IP ::1",
+        "type": "login_success",
+        "related_id": null,
+        "created_date": "2026-02-02 00:35:56",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-697fe3f78e841",
+        "user_id": "ADM-001",
+        "message": "Successful login via OTP for System Administrator (admin) from IP ::1",
+        "type": "login_success",
+        "related_id": null,
+        "created_date": "2026-02-02 00:38:31",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-6980233e2e018",
+        "user_id": null,
+        "message": "Failed OTP login attempt for student account: 'thesterads@gmail.com' from IP ::1",
+        "type": "security_alert",
+        "related_id": null,
+        "created_date": "2026-02-02 05:08:30",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-698024983e923",
+        "user_id": null,
+        "message": "Failed OTP login attempt for student account: 'thesterads@gmail.com' from IP ::1",
+        "type": "security_alert",
+        "related_id": null,
+        "created_date": "2026-02-02 05:14:16",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-698024c51784d",
+        "user_id": null,
+        "message": "Failed OTP login attempt for student account: 'thesterads@gmail.com' from IP ::1",
+        "type": "security_alert",
+        "related_id": null,
+        "created_date": "2026-02-02 05:15:01",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-6980261e4acde",
+        "user_id": null,
+        "message": "Failed OTP login attempt for student account: 'thesterads@gmail.com' from IP ::1",
+        "type": "security_alert",
+        "related_id": null,
+        "created_date": "2026-02-02 05:20:46",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-69802a999c1e7",
+        "user_id": null,
+        "message": "Failed OTP login attempt for student account: 'thesterads@gmail.com' from IP ::1",
+        "type": "security_alert",
+        "related_id": null,
+        "created_date": "2026-02-02 05:39:53",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-69802ba3171ab",
+        "user_id": "STU-001",
+        "message": "Successful login via OTP for Student User (student) from IP ::1",
+        "type": "login_success",
+        "related_id": null,
+        "created_date": "2026-02-02 05:44:19",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-69802c233ce0e",
+        "user_id": "STU-001",
+        "message": "Successful login via OTP for Student User (student) from IP ::1",
+        "type": "login_success",
+        "related_id": null,
+        "created_date": "2026-02-02 05:46:27",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-6980c977dcb12",
+        "user_id": "STU-001",
+        "message": "Successful login via OTP for Student User (student) from IP ::1",
+        "type": "login_success",
+        "related_id": null,
+        "created_date": "2026-02-02 16:57:43",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-698b67adeda23",
+        "user_id": 1,
+        "message": "New student account created: Jeff Principe (thesterads@gmail.com)",
+        "type": "registration",
+        "related_id": null,
+        "created_date": "2026-02-10 18:15:25",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-6993be9b52961",
+        "user_id": "STU-002",
+        "message": "New student account created: Test User (testuser@gmail.com)",
+        "type": "registration",
+        "related_id": null,
+        "created_date": "2026-02-17 02:04:27",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-6993fc2bd0d94",
+        "user_id": "STU-006",
+        "message": "New student account created: Shaslie (thesterads@gmail.com)",
+        "type": "registration",
+        "related_id": null,
+        "created_date": "2026-02-17 06:27:07",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-69940ad856ef5",
+        "user_id": "STU-007",
+        "message": "New student account created: Shaslie May (thesterads@gmail.com)",
+        "type": "registration",
+        "related_id": null,
+        "created_date": "2026-02-17 07:29:44",
+        "is_read": false
+    }
+]

@@ -1,0 +1,49 @@
+# XAMPP / Apache / MySQL
+htdocs/xampp/
+htdocs/mysql/
+htdocs/phpmyadmin/
+htdocs/tmp/
+htdocs/config/
+
+# PHP
+*.php~
+*.phar
+*.phpt
+*.phtml
+/vendor/
+composer.phar
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Uploads - Don't upload user files
+/uploads/*
+!/uploads/.gitkeep
+
+# Database
+*.sql.bak
+*.sqlite
+*.db
+
+# Logs
+*.log
+logs/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Temporary files
+temp/
+tmp/
+cache/

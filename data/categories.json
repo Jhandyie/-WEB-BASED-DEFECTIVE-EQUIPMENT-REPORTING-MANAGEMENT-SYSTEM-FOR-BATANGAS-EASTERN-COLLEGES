@@ -1,0 +1,44 @@
+[
+    {
+        "category_id": "PMO-001",
+        "name": "Furniture",
+        "description": "Tables, chairs, storage units",
+        "type": "PMO",
+        "created_at": "2026-01-13 22:38:40"
+    },
+    {
+        "category_id": "PMO-002",
+        "name": "HVAC Systems",
+        "description": "Heating, ventilation, and air conditioning equipment",
+        "type": "PMO",
+        "created_at": "2026-01-13 22:38:40"
+    },
+    {
+        "category_id": "PMO-003",
+        "name": "Building Facilities",
+        "description": "Building maintenance and facility equipment",
+        "type": "PMO",
+        "created_at": "2026-01-13 22:38:40"
+    },
+    {
+        "category_id": "ITSO-001",
+        "name": "Computers",
+        "description": "Desktop computers, laptops, and workstations",
+        "type": "ITSO",
+        "created_at": "2026-01-13 22:38:40"
+    },
+    {
+        "category_id": "ITSO-002",
+        "name": "Audio Visual",
+        "description": "Projectors, screens, speakers, and AV equipment",
+        "type": "ITSO",
+        "created_at": "2026-01-13 22:38:40"
+    },
+    {
+        "category_id": "ITSO-003",
+        "name": "Network Devices",
+        "description": "Routers, switches, network cables, and connectivity equipment",
+        "type": "ITSO",
+        "created_at": "2026-01-13 22:38:40"
+    }
+]
