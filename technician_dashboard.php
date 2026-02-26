@@ -1,16 +1,22 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session_bootstrap.php';
+startRoleSession('technician');
+require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/config/database.php';
 
-// Check if user is logged in
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'technician') {
-    header('Location: technician/login.html');
-    exit;
-}
+requireRole('technician');
 
+$technician_id = $_SESSION['user_id'] ?? '';
 $technician_name = $_SESSION['fullname'] ?? 'Technician';
 $technician_email = $_SESSION['user_email'] ?? '';
 
-// Get initials for avatar
+function esc($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
+function fmtDateShort($dt) {
+    if (empty($dt)) return 'N/A';
+    $ts = strtotime((string)$dt);
+    return $ts ? date('M d, Y', $ts) : 'N/A';
+}
+
 $initials = 'T';
 if (!empty($technician_name)) {
     $name_parts = explode(' ', trim($technician_name));
@@ -20,23 +26,82 @@ if (!empty($technician_name)) {
         $initials = strtoupper(substr($technician_name, 0, 2));
     }
 }
-?>
-<!DOCTYPE html>
+
+$conn = getDBConnection();
+$available_tasks = [];
+$my_tasks = [];
+$c_pending = 0;
+$c_in_progress = 0;
+$c_completed_today = 0;
+$c_total_completed = 0;
+
+$drCols = [];
+$eqCols = [];
+try {
+    $res = $conn->query('SHOW COLUMNS FROM defect_reports');
+    if ($res) while ($row = $res->fetch_assoc()) $drCols[$row['Field']] = true;
+} catch (Exception $e) {}
+try {
+    $res = $conn->query('SHOW COLUMNS FROM equipment');
+    if ($res) while ($row = $res->fetch_assoc()) $eqCols[$row['Field']] = true;
+} catch (Exception $e) {}
+
+$assigneeCol = isset($drCols['assigned_to']) ? 'assigned_to' : (isset($drCols['assigned_technician']) ? 'assigned_technician' : 'assigned_to');
+$issueExpr = isset($drCols['issue_description']) ? 'r.issue_description' : (isset($drCols['defect_description']) ? 'r.defect_description' : "''");
+$priorityExpr = isset($drCols['priority']) ? 'r.priority' : "'medium'";
+$statusExpr = isset($drCols['status']) ? 'r.status' : "'reported'";
+$reportDateExpr = isset($drCols['report_date']) ? 'r.report_date' : 'NOW()';
+$completionDateExpr = isset($drCols['completion_date']) ? 'r.completion_date' : 'NULL';
+$eqIdCol = isset($eqCols['equipment_id']) ? 'equipment_id' : (isset($eqCols['id']) ? 'id' : 'equipment_id');
+$eqNameCol = isset($eqCols['equipment_name']) ? 'equipment_name' : (isset($eqCols['name']) ? 'name' : 'equipment_name');
+$eqLocationCol = isset($eqCols['location']) ? 'location' : (isset($eqCols['room']) ? 'room' : 'location');
+$eqJoin = isset($drCols['equipment_name']) ? '' : "LEFT JOIN equipment e ON e.{$eqIdCol} = r.equipment_id";
+$equipmentExpr = isset($drCols['equipment_name']) ? 'r.equipment_name' : "COALESCE(e.{$eqNameCol}, r.equipment_id)";
+$locationExpr = isset($drCols['location']) ? 'r.location' : "COALESCE(e.{$eqLocationCol}, '')";
+
+try {
+    $sqlAvailable = "SELECT r.report_id, {$equipmentExpr} AS equipment_name, {$issueExpr} AS issue_description, {$priorityExpr} AS priority, {$locationExpr} AS location, {$reportDateExpr} AS report_date FROM defect_reports r {$eqJoin} WHERE r.{$assigneeCol} = ? AND {$statusExpr} IN ('assigned','in_progress') ORDER BY FIELD({$priorityExpr},'critical','high','medium','low'), {$reportDateExpr} DESC LIMIT 4";
+    $stmt = $conn->prepare($sqlAvailable);
+    $stmt->bind_param('s', $technician_id);
+    $stmt->execute();
+    $available_tasks = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+} catch (Exception $e) {}
+
+try {
+    $sqlMine = "SELECT r.report_id, {$equipmentExpr} AS equipment_name, {$issueExpr} AS issue_description, {$priorityExpr} AS priority, {$statusExpr} AS status, {$locationExpr} AS location, {$reportDateExpr} AS report_date, {$completionDateExpr} AS completion_date FROM defect_reports r {$eqJoin} WHERE r.{$assigneeCol} = ? ORDER BY {$reportDateExpr} DESC LIMIT 10";
+    $stmt = $conn->prepare($sqlMine);
+    $stmt->bind_param('s', $technician_id);
+    $stmt->execute();
+    $my_tasks = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+} catch (Exception $e) {}
+foreach ($my_tasks as $task) {
+    $st = strtolower((string)($task['status'] ?? ''));
+    if ($st === 'assigned') $c_pending++;
+    if ($st === 'in_progress') $c_in_progress++;
+    if (in_array($st, ['completed', 'verified', 'closed'], true)) {
+        $c_total_completed++;
+        $d = !empty($task['completion_date']) ? $task['completion_date'] : ($task['report_date'] ?? null);
+        if ($d && date('Y-m-d', strtotime($d)) === date('Y-m-d')) $c_completed_today++;
+    }
+}
+?><!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" type="image/png" href="assets/logs.png">
-<title>BEC Maintenance — Technician Dashboard</title>
+<title>BEC Maintenance � Technician Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
-/* ═══════════════════════════════════════════
-   BEC EQUIPMENT MANAGEMENT — TECHNICIAN PORTAL
-   Batangas Eastern Colleges · Est. 1940
-═══════════════════════════════════════════ */
+/* -------------------------------------------
+   BEC EQUIPMENT MANAGEMENT � TECHNICIAN PORTAL
+   Batangas Eastern Colleges � Est. 1940
+------------------------------------------- */
 :root{
   --maroon:#7B1D1D; --maroon-d:#521010; --maroon-l:#9B2C2C;
   --gold:#D4A017;   --gold-l:#F0C040;   --gold-p:#FEF9E7;
@@ -60,7 +125,7 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
 
 .layout{display:flex;min-height:100vh;}
 
-/* ── SIDEBAR ─────────────────────────────────────── */
+/* -- SIDEBAR --------------------------------------- */
 .sidebar{
   position:fixed;left:0;top:0;width:260px;height:100vh;
   background:linear-gradient(180deg,#3D0A0A 0%,var(--maroon-d) 35%,var(--maroon) 100%);
@@ -156,10 +221,10 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
 .logout-btn i{transition:transform .35s;}
 .logout-btn:hover i{transform:rotate(180deg);}
 
-/* ── MAIN ─────────────────────────────────────── */
+/* -- MAIN --------------------------------------- */
 .main{margin-left:260px;min-height:100vh;display:flex;flex-direction:column;}
 
-/* ── TOPBAR ─────────────────────────────────────── */
+/* -- TOPBAR --------------------------------------- */
 .topbar{background:var(--surf);border-bottom:1px solid var(--bdr);height:62px;padding:0 2rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--s1);}
 .tb-left{display:flex;align-items:center;gap:.75rem;}
 .mob-btn{display:none;background:none;border:none;font-size:1.15rem;cursor:pointer;color:var(--t2);padding:.25rem;}
@@ -177,10 +242,10 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
 .n-pip{position:absolute;top:6px;right:6px;width:8px;height:8px;background:var(--gold);border-radius:50%;border:2px solid var(--surf);animation:pip 2s ease-in-out infinite;}
 @keyframes pip{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(212,160,23,.4);}50%{transform:scale(1.2);box-shadow:0 0 0 5px rgba(212,160,23,0);}}
 
-/* ── CONTENT ─────────────────────────────────────── */
+/* -- CONTENT --------------------------------------- */
 .content{padding:1.875rem 2rem;flex:1;}
 
-/* ── HERO ─────────────────────────────────────── */
+/* -- HERO --------------------------------------- */
 .hero{
   border-radius:var(--r4);margin-bottom:1.75rem;position:relative;overflow:hidden;min-height:188px;
   background:#3D0A0A;
@@ -211,7 +276,7 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
 }
 .hero-seal-txt{font-size:.6rem;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:1.5px;text-align:center;}
 
-/* ── BUTTONS ─────────────────────────────────────── */
+/* -- BUTTONS --------------------------------------- */
 .btn{display:inline-flex;align-items:center;gap:.45rem;padding:.58rem 1.2rem;border-radius:var(--r1);font-family:'Nunito',sans-serif;font-size:.85rem;font-weight:800;cursor:pointer;border:none;transition:all .2s cubic-bezier(.4,0,.2,1);text-decoration:none;position:relative;overflow:hidden;white-space:nowrap;}
 .btn::before{content:'';position:absolute;inset:0;background:linear-gradient(to bottom,rgba(255,255,255,.1),transparent);pointer-events:none;}
 .btn:hover{transform:translateY(-2px);}
@@ -226,7 +291,7 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
 .btn-maroon:hover{box-shadow:0 6px 0 var(--maroon-d);}
 .btn-sm{padding:.38rem .875rem;font-size:.77rem;}
 
-/* ── STATS GRID ─────────────────────────────────────── */
+/* -- STATS GRID --------------------------------------- */
 .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.1rem;margin-bottom:1.75rem;}
 .sc{background:var(--surf);border-radius:var(--r3);padding:1.4rem 1.5rem;border:1px solid var(--bdr);position:relative;overflow:hidden;transition:all .28s cubic-bezier(.4,0,.2,1);box-shadow:var(--s1);cursor:default;}
 .sc::after{content:'';position:absolute;bottom:0;left:0;width:100%;height:3px;background:var(--sk);border-radius:0 0 var(--r3) var(--r3);transform:scaleX(.2);transform-origin:left;transition:transform .35s ease;}
@@ -257,7 +322,7 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
 .sc:nth-child(4){animation:fadeUp .5s .20s ease both;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
 
-/* ── QUICK ACTIONS ─────────────────────────────────────── */
+/* -- QUICK ACTIONS --------------------------------------- */
 .sh{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.1rem;}
 .sh h2{font-family:'Poppins',sans-serif;font-size:.98rem;font-weight:700;color:var(--t1);display:flex;align-items:center;gap:.4rem;}
 .sh h2 i{color:var(--maroon);}
@@ -277,10 +342,10 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
 .qc h4{font-family:'Poppins',sans-serif;font-size:.83rem;font-weight:700;color:var(--t1);margin-bottom:.1rem;}
 .qc p{font-size:.72rem;color:var(--t3);line-height:1.35;}
 
-/* ── TWO-COL ─────────────────────────────────────── */
+/* -- TWO-COL --------------------------------------- */
 .two-col{display:grid;grid-template-columns:1fr 340px;gap:1.25rem;margin-bottom:1.75rem;}
 
-/* ── PANEL ─────────────────────────────────────── */
+/* -- PANEL --------------------------------------- */
 .panel{background:var(--surf);border-radius:var(--r3);border:1px solid var(--bdr);box-shadow:var(--s1);overflow:hidden;transition:box-shadow .25s;}
 .panel:hover{box-shadow:var(--s2);}
 .panel-h{padding:1rem 1.35rem;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;background:linear-gradient(to right,var(--surf2),var(--surf));}
@@ -290,7 +355,7 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
 .panel-h-link{font-size:.75rem;color:var(--maroon);font-weight:700;text-decoration:none;display:flex;align-items:center;gap:.3rem;transition:opacity .2s;white-space:nowrap;}
 .panel-h-link:hover{opacity:.7;}
 
-/* ── TASK CARDS ─────────────────────────────────────── */
+/* -- TASK CARDS --------------------------------------- */
 .tasks-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.875rem;padding:1rem;}
 .task-card{background:var(--surf2);border-radius:var(--r2);border:1px solid var(--bdr);padding:1rem 1.1rem;position:relative;overflow:hidden;transition:all .28s cubic-bezier(.4,0,.2,1);}
 .task-card:nth-child(1){animation:fadeUp .5s .10s ease both;}
@@ -310,9 +375,10 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
 .tc-meta{display:flex;align-items:center;gap:.75rem;margin-bottom:.8rem;font-size:.72rem;color:var(--t3);}
 .tc-meta span{display:flex;align-items:center;gap:.25rem;}
 .tc-meta i{font-size:.65rem;color:var(--maroon);}
-.tc-actions{display:flex;gap:.5rem;}
+.tc-actions{display:flex;gap:.5rem;flex-wrap:wrap;}
+.tc-actions .btn{flex:1;justify-content:center;min-width:120px;}
 
-/* ── BADGES ─────────────────────────────────────── */
+/* -- BADGES --------------------------------------- */
 .badge{display:inline-flex;align-items:center;gap:.28rem;padding:.22rem .65rem;border-radius:20px;font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;transition:transform .2s;}
 .badge:hover{transform:scale(1.06);}
 .badge::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor;animation:dot 2s ease-in-out infinite;}
@@ -325,7 +391,7 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
 .b-progress{background:var(--ib);color:#154360;}
 .b-done    {background:var(--db);color:#145A32;}
 
-/* ── ACTIVITY FEED ─────────────────────────────────────── */
+/* -- ACTIVITY FEED --------------------------------------- */
 .act-list{padding:.75rem 1.1rem;display:flex;flex-direction:column;}
 .act-item{display:flex;align-items:flex-start;gap:.75rem;padding:.7rem 0;border-bottom:1px solid var(--bdr);transition:all .12s;}
 .act-item:last-child{border:none;}
@@ -337,7 +403,7 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
 .act-txt strong{display:block;font-size:.8rem;font-weight:700;color:var(--t1);line-height:1.35;}
 .act-txt span  {font-size:.72rem;color:var(--t3);margin-top:.1rem;display:block;}
 
-/* ── TABLE ─────────────────────────────────────── */
+/* -- TABLE --------------------------------------- */
 .tbl{width:100%;border-collapse:collapse;}
 .tbl thead th{padding:.62rem 1.1rem;font-size:.65rem;text-transform:uppercase;letter-spacing:1px;color:var(--t3);font-weight:800;text-align:left;background:var(--surf2);border-bottom:1.5px solid var(--bdr);white-space:nowrap;}
 .tbl tbody td{padding:.78rem 1.1rem;font-size:.82rem;color:var(--t1);border-bottom:1px solid var(--bdr);vertical-align:middle;}
@@ -348,11 +414,11 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
 .tbl-id{font-family:'Poppins',sans-serif;font-weight:800;color:var(--maroon);font-size:.8rem;}
 .tbl-name{font-weight:700;color:var(--t1);}
 .tbl-sub{font-size:.68rem;color:var(--t3);margin-top:1px;}
-.act-btn{width:30px;height:30px;border-radius:var(--r1);display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;cursor:pointer;border:1px solid var(--bdr);background:var(--surf2);color:var(--t2);transition:all .2s;margin-right:3px;}
+.act-btn{width:34px;height:34px;border-radius:var(--r1);display:inline-flex;align-items:center;justify-content:center;font-size:.8rem;cursor:pointer;border:1px solid var(--bdr);background:var(--surf2);color:var(--t2);transition:all .2s;margin-right:3px;}
 .act-btn:hover{background:var(--maroon);color:#fff;border-color:var(--maroon-d);transform:translateY(-1px);box-shadow:0 3px 0 var(--maroon-d);}
 .act-btn.g:hover{background:#145A32;border-color:#0e3d22;box-shadow:0 3px 0 #0e3d22;}
 
-/* ── MODAL ─────────────────────────────────────── */
+/* -- MODAL --------------------------------------- */
 .mo{position:fixed;inset:0;background:rgba(26,10,10,.62);backdrop-filter:blur(6px);z-index:500;display:none;align-items:center;justify-content:center;padding:1rem;}
 .mo.open{display:flex;animation:moFI .18s ease;}
 @keyframes moFI{from{opacity:0}to{opacity:1}}
@@ -372,7 +438,7 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
 .dk2{width:110px;flex-shrink:0;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--t3);}
 .dv2{font-size:.84rem;color:var(--t1);flex:1;}
 
-/* ── TOAST ─────────────────────────────────────── */
+/* -- TOAST --------------------------------------- */
 .ttray{position:fixed;bottom:1.75rem;right:1.75rem;display:flex;flex-direction:column;gap:.42rem;z-index:9999;}
 .toast{background:var(--surf);border:1px solid var(--bdr);border-radius:var(--r2);padding:.8rem 1rem;display:flex;align-items:flex-start;gap:.6rem;box-shadow:var(--s3);min-width:260px;border-left:4px solid var(--maroon);transform:translateX(80px);opacity:0;transition:all .3s cubic-bezier(.34,1.4,.64,1);}
 .toast.show{transform:translateX(0);opacity:1;}
@@ -382,7 +448,7 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
 .t-txt{font-size:.81rem;font-weight:700;color:var(--t1);}
 .t-sub{font-size:.72rem;color:var(--t2);margin-top:1px;}
 
-/* ── RESPONSIVE ─────────────────────────────────────── */
+/* -- RESPONSIVE --------------------------------------- */
 @media(max-width:1200px){
   .stats-grid{grid-template-columns:repeat(2,1fr);}
   .quick-grid{grid-template-columns:repeat(2,1fr);}
@@ -400,13 +466,16 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
   .stats-grid{grid-template-columns:1fr 1fr;}
   .tasks-grid{grid-template-columns:1fr;}
   .date-pill{display:none;}
+  .hero-acts{display:grid;grid-template-columns:1fr;gap:.6rem;}
+  .hero-acts .btn{width:100%;justify-content:center;}
+  .tc-actions .btn{width:100%;min-width:0;}
 }
 </style>
 </head>
 <body>
 <div class="layout">
 
-  <!-- ════════════ SIDEBAR ════════════ -->
+  <!-- ------------ SIDEBAR ------------ -->
   <aside class="sidebar" id="sidebar">
 
     <!-- Animated Seal -->
@@ -437,16 +506,16 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
     <!-- Nav -->
     <nav class="sb-nav">
       <div class="nav-sep">Main Menu</div>
-      <a class="nav-item active" href="#">
+      <a class="nav-item active" href="technician_dashboard.php">
         <span class="ni"><i class="fas fa-th-large"></i></span>
         Dashboard
       </a>
-      <a class="nav-item" href="#">
+      <a class="nav-item" href="technician_tasks.php">
         <span class="ni"><i class="fas fa-tasks"></i></span>
         My Tasks
-        <span class="n-badge">5</span>
+        <span class="n-badge"><?php echo (int)$c_pending; ?></span>
       </a>
-      <a class="nav-item" href="#">
+      <a class="nav-item" href="technician_history.php">
         <span class="ni"><i class="fas fa-history"></i></span>
         Work History
       </a>
@@ -463,7 +532,7 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
     </div>
   </aside>
 
-  <!-- ════════════ MAIN ════════════ -->
+  <!-- ------------ MAIN ------------ -->
   <div class="main">
 
     <!-- Topbar -->
@@ -487,7 +556,7 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
       <div class="tb-right">
         <div class="date-pill">
           <i class="fas fa-calendar-alt"></i>
-          <span id="currentDate">—</span>
+          <span id="currentDate">�</span>
         </div>
         <div class="tb-btn" onclick="openNotifModal()" title="Notifications">
           <i class="fas fa-bell"></i>
@@ -533,25 +602,25 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
       <div class="stats-grid">
         <div class="sc s-t">
           <div class="sc-icon"><i class="fas fa-clock"></i></div>
-          <div class="sc-num" data-target="5">5</div>
+          <div class="sc-num" data-target="<?php echo (int)$c_pending; ?>"><?php echo (int)$c_pending; ?></div>
           <div class="sc-lbl">Pending Tasks</div>
           <div class="sc-foot warn"><i class="fas fa-exclamation-triangle"></i> Requires attention</div>
         </div>
         <div class="sc s-p">
           <div class="sc-icon"><i class="fas fa-wrench"></i></div>
-          <div class="sc-num" data-target="3">3</div>
+          <div class="sc-num" data-target="<?php echo (int)$c_in_progress; ?>"><?php echo (int)$c_in_progress; ?></div>
           <div class="sc-lbl">In Progress</div>
           <div class="sc-foot"><i class="fas fa-tools"></i> Currently working</div>
         </div>
         <div class="sc s-d">
           <div class="sc-icon"><i class="fas fa-check-circle"></i></div>
-          <div class="sc-num" data-target="2">2</div>
+          <div class="sc-num" data-target="<?php echo (int)$c_completed_today; ?>"><?php echo (int)$c_completed_today; ?></div>
           <div class="sc-lbl">Completed Today</div>
           <div class="sc-foot up"><i class="fas fa-arrow-up"></i> Great work today!</div>
         </div>
         <div class="sc s-i">
           <div class="sc-icon"><i class="fas fa-trophy"></i></div>
-          <div class="sc-num" data-target="48">48</div>
+          <div class="sc-num" data-target="<?php echo (int)$c_total_completed; ?>"><?php echo (int)$c_total_completed; ?></div>
           <div class="sc-lbl">Total Completed</div>
           <div class="sc-foot up"><i class="fas fa-chart-line"></i> Career total</div>
         </div>
@@ -560,15 +629,15 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
       <!-- QUICK ACTIONS -->
       <div class="sh"><h2><i class="fas fa-bolt"></i> Quick Actions</h2></div>
       <div class="quick-grid">
-        <a href="#" class="qc">
+        <a href="technician_tasks.php" class="qc">
           <div class="qc-icon t"><i class="fas fa-tasks"></i></div>
           <div><h4>My Tasks</h4><p>View &amp; manage assigned work orders</p></div>
         </a>
-        <a href="#" class="qc">
+        <a href="technician_tasks.php?action=available" class="qc">
           <div class="qc-icon p"><i class="fas fa-plus-circle"></i></div>
           <div><h4>Claim New Task</h4><p>Take on available defect reports</p></div>
         </a>
-        <a href="#" class="qc">
+        <a href="technician_history.php" class="qc">
           <div class="qc-icon d"><i class="fas fa-history"></i></div>
           <div><h4>Work History</h4><p>Review completed repairs</p></div>
         </a>
@@ -586,81 +655,38 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
           <div class="panel-h">
             <div>
               <h3><i class="fas fa-inbox"></i> Available Tasks</h3>
-              <div class="panel-h-sub">Defect reports awaiting assignment</div>
+              <div class="panel-h-sub">Tasks assigned to you by admin</div>
             </div>
-            <a href="#" class="panel-h-link">View all <i class="fas fa-arrow-right"></i></a>
+            <a href="technician_tasks.php?action=available" class="panel-h-link">View all <i class="fas fa-arrow-right"></i></a>
           </div>
           <div class="tasks-grid">
-
-            <div class="task-card p-critical" id="task-RPT-001">
-              <div class="tc-top">
-                <span class="tc-id">RPT-001</span>
-                <span class="badge b-critical">Critical</span>
-              </div>
-              <div class="tc-title">Air Conditioning Unit</div>
-              <div class="tc-issue">Compressor not cooling, unusual noise from motor unit. Room temperature rising above safe levels.</div>
-              <div class="tc-meta">
-                <span><i class="fas fa-map-marker-alt"></i> Rm 301, Bldg A</span>
-                <span><i class="fas fa-calendar"></i> Feb 17</span>
-              </div>
-              <div class="tc-actions">
-                <button class="btn btn-outline btn-sm" onclick="openTaskModal('RPT-001')"><i class="fas fa-eye"></i> View</button>
-                <button class="btn btn-maroon btn-sm" onclick="claimTask('RPT-001')"><i class="fas fa-hand-paper"></i> Claim</button>
-              </div>
-            </div>
-
-            <div class="task-card p-high" id="task-RPT-002">
-              <div class="tc-top">
-                <span class="tc-id">RPT-002</span>
-                <span class="badge b-high">High</span>
-              </div>
-              <div class="tc-title">Desktop Computer #14</div>
-              <div class="tc-issue">Unit powers on but fails to boot. Possible hard drive failure or OS corruption.</div>
-              <div class="tc-meta">
-                <span><i class="fas fa-map-marker-alt"></i> CL-05, Bldg B</span>
-                <span><i class="fas fa-calendar"></i> Feb 16</span>
-              </div>
-              <div class="tc-actions">
-                <button class="btn btn-outline btn-sm" onclick="openTaskModal('RPT-002')"><i class="fas fa-eye"></i> View</button>
-                <button class="btn btn-maroon btn-sm" onclick="claimTask('RPT-002')"><i class="fas fa-hand-paper"></i> Claim</button>
-              </div>
-            </div>
-
-            <div class="task-card p-medium" id="task-RPT-003">
-              <div class="tc-top">
-                <span class="tc-id">RPT-003</span>
-                <span class="badge b-medium">Medium</span>
-              </div>
-              <div class="tc-title">Ceiling Fan — Room 205</div>
-              <div class="tc-issue">Fan wobbles heavily and makes grinding noise. Possible worn bearing or loose mount.</div>
-              <div class="tc-meta">
-                <span><i class="fas fa-map-marker-alt"></i> Rm 205, Bldg A</span>
-                <span><i class="fas fa-calendar"></i> Feb 15</span>
-              </div>
-              <div class="tc-actions">
-                <button class="btn btn-outline btn-sm" onclick="openTaskModal('RPT-003')"><i class="fas fa-eye"></i> View</button>
-                <button class="btn btn-maroon btn-sm" onclick="claimTask('RPT-003')"><i class="fas fa-hand-paper"></i> Claim</button>
-              </div>
-            </div>
-
-            <div class="task-card p-low" id="task-RPT-004">
-              <div class="tc-top">
-                <span class="tc-id">RPT-004</span>
-                <span class="badge b-low">Low</span>
-              </div>
-              <div class="tc-title">Projector — Lecture Hall</div>
-              <div class="tc-issue">Color distortion on projected image. Colors washed out with pinkish tint. Lamp may need replacement.</div>
-              <div class="tc-meta">
-                <span><i class="fas fa-map-marker-alt"></i> LH-01, Bldg C</span>
-                <span><i class="fas fa-calendar"></i> Feb 14</span>
-              </div>
-              <div class="tc-actions">
-                <button class="btn btn-outline btn-sm" onclick="openTaskModal('RPT-004')"><i class="fas fa-eye"></i> View</button>
-                <button class="btn btn-maroon btn-sm" onclick="claimTask('RPT-004')"><i class="fas fa-hand-paper"></i> Claim</button>
-              </div>
-            </div>
-
-          </div>
+<?php if (empty($available_tasks)): ?>
+  <div class="task-card p-low" style="grid-column:1 / -1;">
+    <div class="tc-title">No assigned tasks</div>
+    <div class="tc-issue">No tasks have been assigned to you yet.</div>
+  </div>
+<?php else: foreach ($available_tasks as $t):
+  $p = strtolower((string)($t['priority'] ?? 'low'));
+  $b = $p === 'critical' ? 'b-critical' : ($p === 'high' ? 'b-high' : ($p === 'medium' ? 'b-medium' : 'b-low'));
+?>
+  <div class="task-card p-<?php echo esc($p); ?>" id="task-<?php echo esc($t['report_id']); ?>">
+    <div class="tc-top">
+      <span class="tc-id"><?php echo esc($t['report_id']); ?></span>
+      <span class="badge <?php echo esc($b); ?>"><?php echo esc(ucfirst($p)); ?></span>
+    </div>
+    <div class="tc-title"><?php echo esc($t['equipment_name'] ?? 'Equipment'); ?></div>
+    <div class="tc-issue"><?php echo esc($t['issue_description'] ?? 'No description.'); ?></div>
+    <div class="tc-meta">
+      <span><i class="fas fa-map-marker-alt"></i> <?php echo esc($t['location'] ?: 'Unspecified'); ?></span>
+      <span><i class="fas fa-calendar"></i> <?php echo esc(fmtDateShort($t['report_date'] ?? null)); ?></span>
+    </div>
+    <div class="tc-actions">
+      <a class="btn btn-outline btn-sm" href="technician_task_details.php?report_id=<?php echo urlencode((string)$t['report_id']); ?>"><i class="fas fa-eye"></i> View</a>
+      <a class="btn btn-maroon btn-sm" href="technician_task_details.php?report_id=<?php echo urlencode((string)$t['report_id']); ?>"><i class="fas fa-hand-paper"></i> Open</a>
+    </div>
+  </div>
+<?php endforeach; endif; ?>
+</div>
         </div>
 
         <!-- Activity Feed -->
@@ -672,12 +698,12 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
             </div>
           </div>
           <div class="act-list">
-            <div class="act-item"><div class="act-dot maroon"></div><div class="act-txt"><strong>New task assigned — RPT-001</strong><span>Air conditioning critical issue · 2 min ago</span></div></div>
-            <div class="act-item"><div class="act-dot green"></div><div class="act-txt"><strong>Task RPT-098 verified ✓</strong><span>Admin approved your completion · 1hr ago</span></div></div>
-            <div class="act-item"><div class="act-dot gold"></div><div class="act-txt"><strong>Deadline approaching — RPT-002</strong><span>SLA expires in 4 hours · 2hrs ago</span></div></div>
-            <div class="act-item"><div class="act-dot green"></div><div class="act-txt"><strong>Task RPT-096 completed</strong><span>You marked it complete · Today, 10:30 AM</span></div></div>
-            <div class="act-item"><div class="act-dot maroon"></div><div class="act-txt"><strong>New task assigned — RPT-003</strong><span>Ceiling fan medium priority · Yesterday</span></div></div>
-            <div class="act-item"><div class="act-dot red"></div><div class="act-txt"><strong>Task RPT-090 rejected</strong><span>Incomplete repair log — please review · Yesterday</span></div></div>
+            <div class="act-item"><div class="act-dot maroon"></div><div class="act-txt"><strong>New task assigned � RPT-001</strong><span>Air conditioning critical issue � 2 min ago</span></div></div>
+            <div class="act-item"><div class="act-dot green"></div><div class="act-txt"><strong>Task RPT-098 verified ?</strong><span>Admin approved your completion � 1hr ago</span></div></div>
+            <div class="act-item"><div class="act-dot gold"></div><div class="act-txt"><strong>Deadline approaching � RPT-002</strong><span>SLA expires in 4 hours � 2hrs ago</span></div></div>
+            <div class="act-item"><div class="act-dot green"></div><div class="act-txt"><strong>Task RPT-096 completed</strong><span>You marked it complete � Today, 10:30 AM</span></div></div>
+            <div class="act-item"><div class="act-dot maroon"></div><div class="act-txt"><strong>New task assigned � RPT-003</strong><span>Ceiling fan medium priority � Yesterday</span></div></div>
+            <div class="act-item"><div class="act-dot red"></div><div class="act-txt"><strong>Task RPT-090 rejected</strong><span>Incomplete repair log � please review � Yesterday</span></div></div>
           </div>
         </div>
 
@@ -690,7 +716,7 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
             <h3><i class="fas fa-clipboard-list"></i> My Recent Tasks</h3>
             <div class="panel-h-sub">Your recently assigned maintenance work orders</div>
           </div>
-          <a href="#" class="panel-h-link">View all tasks <i class="fas fa-arrow-right"></i></a>
+          <a href="technician_tasks.php" class="panel-h-link">View all tasks <i class="fas fa-arrow-right"></i></a>
         </div>
         <div style="overflow-x:auto;">
           <table class="tbl">
@@ -701,42 +727,25 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td><span class="tbl-id">RPT-100</span></td>
-                <td><div class="tbl-name">Network Switch</div><div class="tbl-sub">Server Room, Bldg D</div></td>
-                <td style="font-size:.78rem;color:var(--t2);">Frequent packet loss on port 24...</td>
-                <td><span class="badge b-high">High</span></td>
-                <td><span class="badge b-progress">In Progress</span></td>
-                <td style="font-size:.78rem;color:var(--t3);">Feb 16, 2025</td>
-                <td>
-                  <button class="act-btn" onclick="openTaskModal('RPT-100')" title="View"><i class="fas fa-eye"></i></button>
-                  <button class="act-btn g" onclick="completeTask('RPT-100')" title="Mark Complete"><i class="fas fa-check"></i></button>
-                </td>
-              </tr>
-              <tr>
-                <td><span class="tbl-id">RPT-099</span></td>
-                <td><div class="tbl-name">Printer — Faculty Room</div><div class="tbl-sub">Faculty Rm, Bldg A</div></td>
-                <td style="font-size:.78rem;color:var(--t2);">Paper jam and ink smearing on output...</td>
-                <td><span class="badge b-medium">Medium</span></td>
-                <td><span class="badge b-assigned">Assigned</span></td>
-                <td style="font-size:.78rem;color:var(--t3);">Feb 15, 2025</td>
-                <td>
-                  <button class="act-btn" onclick="openTaskModal('RPT-099')" title="View"><i class="fas fa-eye"></i></button>
-                  <button class="act-btn" onclick="startTask('RPT-099')" title="Start Work"><i class="fas fa-play"></i></button>
-                </td>
-              </tr>
-              <tr>
-                <td><span class="tbl-id">RPT-098</span></td>
-                <td><div class="tbl-name">Electric Fan #7</div><div class="tbl-sub">Rm 112, Bldg B</div></td>
-                <td style="font-size:.78rem;color:var(--t2);">Motor burned out, not spinning at all...</td>
-                <td><span class="badge b-low">Low</span></td>
-                <td><span class="badge b-done">Completed</span></td>
-                <td style="font-size:.78rem;color:var(--t3);">Feb 13, 2025</td>
-                <td>
-                  <button class="act-btn" onclick="openTaskModal('RPT-098')" title="View"><i class="fas fa-eye"></i></button>
-                </td>
-              </tr>
-            </tbody>
+<?php if (empty($my_tasks)): ?>
+<tr><td colspan="7" style="text-align:center;color:var(--t3);font-weight:700;padding:1rem;">No assigned tasks yet.</td></tr>
+<?php else: foreach ($my_tasks as $t):
+  $st = strtolower((string)($t['status'] ?? 'assigned'));
+  $p = strtolower((string)($t['priority'] ?? 'low'));
+  $pb = $p === 'critical' ? 'b-critical' : ($p === 'high' ? 'b-high' : ($p === 'medium' ? 'b-medium' : 'b-low'));
+  $sb = $st === 'in_progress' ? 'b-progress' : (in_array($st, ['completed','verified','closed'], true) ? 'b-done' : 'b-assigned');
+?>
+<tr>
+  <td><span class="tbl-id"><?php echo esc($t['report_id']); ?></span></td>
+  <td><div class="tbl-name"><?php echo esc($t['equipment_name'] ?? 'Equipment'); ?></div><div class="tbl-sub"><?php echo esc($t['location'] ?: 'Unspecified'); ?></div></td>
+  <td style="font-size:.78rem;color:var(--t2);"><?php echo esc(substr((string)($t['issue_description'] ?? 'No description.'), 0, 80)); ?>...</td>
+  <td><span class="badge <?php echo esc($pb); ?>"><?php echo esc(ucfirst($p)); ?></span></td>
+  <td><span class="badge <?php echo esc($sb); ?>"><?php echo esc(ucwords(str_replace('_',' ',$st))); ?></span></td>
+  <td style="font-size:.78rem;color:var(--t3);"><?php echo esc(fmtDateShort($t['report_date'] ?? null)); ?></td>
+  <td><a class="act-btn" href="technician_task_details.php?report_id=<?php echo urlencode((string)$t['report_id']); ?>" title="View"><i class="fas fa-eye"></i></a></td>
+</tr>
+<?php endforeach; endif; ?>
+</tbody>
           </table>
         </div>
       </div>
@@ -746,7 +755,7 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
 </div><!-- /layout -->
 
 
-<!-- ════ TASK MODAL ════ -->
+<!-- ---- TASK MODAL ---- -->
 <div class="mo" id="taskModal">
   <div class="modal">
     <div class="m-head">
@@ -766,7 +775,7 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
   </div>
 </div>
 
-<!-- ════ NOTIF MODAL ════ -->
+<!-- ---- NOTIF MODAL ---- -->
 <div class="mo" id="notifModal">
   <div class="modal">
     <div class="m-head">
@@ -778,10 +787,10 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
     </div>
     <div style="max-height:380px;overflow-y:auto;">
       <div class="act-list" style="padding:1rem 1.4rem;">
-        <div class="act-item"><div class="act-dot maroon"></div><div class="act-txt"><strong>New task assigned — RPT-001 (Critical)</strong><span>Air conditioning unit overheating · 2 min ago</span></div></div>
-        <div class="act-item"><div class="act-dot green"></div><div class="act-txt"><strong>Task RPT-098 verified &amp; approved</strong><span>Admin confirmed your work · 1hr ago</span></div></div>
-        <div class="act-item"><div class="act-dot gold"></div><div class="act-txt"><strong>SLA deadline warning — RPT-002</strong><span>4 hours remaining · 2hrs ago</span></div></div>
-        <div class="act-item"><div class="act-dot red"></div><div class="act-txt"><strong>Task RPT-090 revision needed</strong><span>Admin flagged incomplete repair log · Yesterday</span></div></div>
+        <div class="act-item"><div class="act-dot maroon"></div><div class="act-txt"><strong>New task assigned � RPT-001 (Critical)</strong><span>Air conditioning unit overheating � 2 min ago</span></div></div>
+        <div class="act-item"><div class="act-dot green"></div><div class="act-txt"><strong>Task RPT-098 verified &amp; approved</strong><span>Admin confirmed your work � 1hr ago</span></div></div>
+        <div class="act-item"><div class="act-dot gold"></div><div class="act-txt"><strong>SLA deadline warning � RPT-002</strong><span>4 hours remaining � 2hrs ago</span></div></div>
+        <div class="act-item"><div class="act-dot red"></div><div class="act-txt"><strong>Task RPT-090 revision needed</strong><span>Admin flagged incomplete repair log � Yesterday</span></div></div>
       </div>
     </div>
     <div class="m-foot">
@@ -794,12 +803,12 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
 <div class="ttray" id="ttray"></div>
 
 <script>
-// ── Date ──
+// -- Date --
 const d = new Date();
 document.getElementById('currentDate').textContent =
   d.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
 
-// ── Animated counters ──
+// -- Animated counters --
 document.querySelectorAll('.sc-num[data-target]').forEach(el => {
   const target = parseInt(el.getAttribute('data-target'));
   let current = 0;
@@ -811,14 +820,14 @@ document.querySelectorAll('.sc-num[data-target]').forEach(el => {
   }, 30);
 });
 
-// ── Task data ──
+// -- Task data --
 const taskData = {
   'RPT-001':{ title:'Air Conditioning Unit',      location:'Room 301, Building A',         priority:'Critical', date:'Feb 17, 2025', description:'Compressor not cooling, unusual noise from motor unit. Room temperature rising above safe levels for equipment and occupants.', photos:2 },
   'RPT-002':{ title:'Desktop Computer #14',        location:'Computer Lab 05, Building B',  priority:'High',     date:'Feb 16, 2025', description:'Unit powers on but fails to boot. POST screen shows error code. Possible hard drive failure or OS corruption.', photos:1 },
-  'RPT-003':{ title:'Ceiling Fan — Room 205',      location:'Room 205, Building A',         priority:'Medium',   date:'Feb 15, 2025', description:'Fan wobbles heavily and makes grinding noise when on speed 3. Possible worn bearing or loose mount.', photos:1 },
-  'RPT-004':{ title:'Projector — Lecture Hall',    location:'Lecture Hall 01, Building C',  priority:'Low',      date:'Feb 14, 2025', description:'Color distortion on projected image. Colors appear washed out with pinkish tint. Lamp may need replacement.', photos:0 },
+  'RPT-003':{ title:'Ceiling Fan � Room 205',      location:'Room 205, Building A',         priority:'Medium',   date:'Feb 15, 2025', description:'Fan wobbles heavily and makes grinding noise when on speed 3. Possible worn bearing or loose mount.', photos:1 },
+  'RPT-004':{ title:'Projector � Lecture Hall',    location:'Lecture Hall 01, Building C',  priority:'Low',      date:'Feb 14, 2025', description:'Color distortion on projected image. Colors appear washed out with pinkish tint. Lamp may need replacement.', photos:0 },
   'RPT-100':{ title:'Network Switch',              location:'Server Room, Building D',      priority:'High',     date:'Feb 16, 2025', description:'Frequent packet loss detected on port 24. Network drops affecting multiple computers in the lab.', photos:0 },
-  'RPT-099':{ title:'Printer — Faculty Room',      location:'Faculty Room, Building A',     priority:'Medium',   date:'Feb 15, 2025', description:'Paper jam on tray 2 and ink smearing on printed output. Roller may need cleaning or replacement.', photos:1 },
+  'RPT-099':{ title:'Printer � Faculty Room',      location:'Faculty Room, Building A',     priority:'Medium',   date:'Feb 15, 2025', description:'Paper jam on tray 2 and ink smearing on printed output. Roller may need cleaning or replacement.', photos:1 },
   'RPT-098':{ title:'Electric Fan #7',             location:'Room 112, Building B',         priority:'Low',      date:'Feb 13, 2025', description:'Motor completely burned out. Unit does not spin at all even on max setting. Needs motor replacement.', photos:2 },
 };
 
@@ -830,7 +839,7 @@ function openTaskModal(id){
   const t = taskData[id]; if(!t) return;
   document.getElementById('modalTitle').innerHTML =
     `<span style="color:var(--gold-l);margin-right:.4rem;font-size:.82rem;">${id}</span>${t.title}`;
-  document.getElementById('modalSub').textContent = `${t.priority} Priority · ${t.location}`;
+  document.getElementById('modalSub').textContent = `${t.priority} Priority � ${t.location}`;
   document.getElementById('modalBody').innerHTML = `
     <div class="dr2"><div class="dk2">Equipment</div><div class="dv2">${t.title}</div></div>
     <div class="dr2"><div class="dk2">Location</div><div class="dv2"><i class="fas fa-map-marker-alt" style="color:var(--maroon);margin-right:.3rem;font-size:.78rem;"></i>${t.location}</div></div>
@@ -874,3 +883,9 @@ function showToast(title, sub, type){
 </script>
 </body>
 </html>
+
+
+
+
+
+

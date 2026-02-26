@@ -3,8 +3,8 @@ session_start();
 require_once '../config/database.php';
 require_once '../includes/auth.php';
 
-// Check if user is logged in and has admin role
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
+// Check if user is logged in and has admin access.
+if (!hasRole('admin')) {
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit();
@@ -116,3 +116,4 @@ switch ($action) {
         break;
 }
 ?>
+

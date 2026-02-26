@@ -25,6 +25,10 @@ $hasEqBrand      = isset($eqCols['brand']);
 $hasEqModel      = isset($eqCols['model']);
 $hasEqCondition  = isset($eqCols['condition']);
 $hasEqWarranty   = isset($eqCols['warranty_expiry']);
+$hasEqAcquired   = isset($eqCols['acquired']);
+$hasEqIssued     = isset($eqCols['issued']);
+$hasEqCounted    = isset($eqCols['counted']);
+$hasEqRemarks    = isset($eqCols['remarks']);
 $hasEqUpdatedAt  = isset($eqCols['updated_at']);
 $hasEqAddedBy    = isset($eqCols['added_by']);
 $hasEqCreatedAt  = isset($eqCols['created_at']);
@@ -64,7 +68,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdate   = $_POST['purchase_date']       ?? null;
         $price   = $_POST['purchase_price']      ?? null;
         $warranty= $_POST['warranty_expiry']     ?? null;
+        $acquired= trim($_POST['acquired']       ?? '');
+        $issued  = trim($_POST['issued']         ?? '');
+        $counted = trim($_POST['counted']        ?? '');
+        $remarks = trim($_POST['remarks']        ?? '');
         $notes   = trim($_POST['notes']          ?? '');
+        if (!$hasEqRemarks && $remarks !== '' && $notes === '') { $notes = $remarks; }
 
         $errors = [];
         if (!$name) $errors[] = 'Equipment name is required.';
@@ -94,6 +103,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (isset($eqCols['purchase_date']))   { $insCols[] = 'purchase_date';   $insVals[] = $pdate; }
             if (isset($eqCols['purchase_price']))  { $insCols[] = 'purchase_price';  $insVals[] = $price; }
             if ($hasEqWarranty)   { $insCols[] = 'warranty_expiry'; $insVals[] = $warranty; }
+            if ($hasEqAcquired)   { $insCols[] = 'acquired';        $insVals[] = $acquired; }
+            if ($hasEqIssued)     { $insCols[] = 'issued';          $insVals[] = $issued; }
+            if ($hasEqCounted)    { $insCols[] = 'counted';         $insVals[] = $counted; }
+            if ($hasEqRemarks)    { $insCols[] = 'remarks';         $insVals[] = $remarks; }
             if (isset($eqCols['notes']))           { $insCols[] = 'notes';           $insVals[] = $notes; }
             if ($hasEqAddedBy)    { $insCols[] = 'added_by';        $insVals[] = $admin_id; }
 
@@ -127,7 +140,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdate   = $_POST['purchase_date']   ?? null;
         $price   = $_POST['purchase_price']  ?? null;
         $warranty= $_POST['warranty_expiry'] ?? null;
+        $acquired= trim($_POST['acquired']   ?? '');
+        $issued  = trim($_POST['issued']     ?? '');
+        $counted = trim($_POST['counted']    ?? '');
+        $remarks = trim($_POST['remarks']    ?? '');
         $notes   = trim($_POST['notes']      ?? '');
+        if (!$hasEqRemarks && $remarks !== '' && $notes === '') { $notes = $remarks; }
 
         $errors = [];
         if (!$name) $errors[] = 'Equipment name is required.';
@@ -160,6 +178,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (isset($eqCols['purchase_date']))  { $set[] = 'purchase_date=?';  $vals[] = $pdate; }
             if (isset($eqCols['purchase_price'])) { $set[] = 'purchase_price=?'; $vals[] = $price; }
             if ($hasEqWarranty)   { $set[] = 'warranty_expiry=?'; $vals[] = $warranty; }
+            if ($hasEqAcquired)   { $set[] = 'acquired=?';        $vals[] = $acquired; }
+            if ($hasEqIssued)     { $set[] = 'issued=?';          $vals[] = $issued; }
+            if ($hasEqCounted)    { $set[] = 'counted=?';         $vals[] = $counted; }
+            if ($hasEqRemarks)    { $set[] = 'remarks=?';         $vals[] = $remarks; }
             if (isset($eqCols['notes']))          { $set[] = 'notes=?';          $vals[] = $notes; }
             if ($hasEqUpdatedAt)  { $set[] = 'updated_at=NOW()'; }
 
@@ -238,6 +260,10 @@ $selModel    = $hasEqModel ? 'e.model' : "'' AS model";
 $selStatus   = $hasEqStatus ? 'e.status' : "'operational' AS status";
 $selCond     = $hasEqCondition ? 'e.`condition`' : "'good' AS `condition`";
 $selWarranty = $hasEqWarranty ? 'e.warranty_expiry' : "NULL AS warranty_expiry";
+$selAcquired = $hasEqAcquired ? 'e.acquired' : "NULL AS acquired";
+$selIssued   = $hasEqIssued ? 'e.issued' : "NULL AS issued";
+$selCounted  = $hasEqCounted ? 'e.counted' : "NULL AS counted";
+$selRemarks  = $hasEqRemarks ? 'e.remarks' : (isset($eqCols['notes']) ? 'e.notes AS remarks' : "'' AS remarks");
 
 $q = "SELECT e.*,
         {$selCategory},
@@ -248,6 +274,10 @@ $q = "SELECT e.*,
         {$selStatus},
         {$selCond},
         {$selWarranty},
+        {$selAcquired},
+        {$selIssued},
+        {$selCounted},
+        {$selRemarks},
         {$openDefectsExpr} AS open_defects
       FROM equipment e
       WHERE 1=1";
@@ -453,6 +483,10 @@ if ($jc !== '' && is_array($inv) && isset($inventorySummaryLabels[$jc]) && isset
                 'brand' => (string)($r['article'] ?? ''),
                 'model' => (string)($r['model'] ?? ''),
                 'serial_number' => (string)($r['serialNo'] ?? ''),
+                'acquired' => $r['acquired'] ?? null,
+                'issued' => $r['issued'] ?? null,
+                'counted' => $r['counted'] ?? null,
+                'remarks' => (string)($r['remarks'] ?? ''),
                 'notes' => (string)($r['remarks'] ?? ''),
             ];
             if ($sq !== '') {
@@ -1327,6 +1361,14 @@ textarea.fc{resize:vertical;min-height:72px;}
           <div class="fg"><label class="fl">Warranty Expiry</label>
             <input type="date" name="warranty_expiry" class="fc"></div>
         </div>
+        <div class="sec-title"><i class="fas fa-list-check"></i> Inventory Tracking</div>
+        <div class="fg3">
+          <div class="fg"><label class="fl">Acquired</label><input type="text" name="acquired" class="fc" placeholder="e.g. 120"></div>
+          <div class="fg"><label class="fl">Issued</label><input type="text" name="issued" class="fc" placeholder="e.g. 80"></div>
+          <div class="fg"><label class="fl">Counted</label><input type="text" name="counted" class="fc" placeholder="e.g. 78"></div>
+        </div>
+        <div class="fg"><label class="fl">Remarks</label>
+          <textarea name="remarks" class="fc" placeholder="Inventory remarks"></textarea></div>
         <div class="fg"><label class="fl">Notes</label>
           <textarea name="notes" class="fc" placeholder="Additional notes about this equipment-"></textarea></div>
       </form>
@@ -1413,6 +1455,13 @@ textarea.fc{resize:vertical;min-height:72px;}
           <div class="fg"><label class="fl">Purchase Price (?)</label><input type="number" name="purchase_price" id="eEprice" class="fc" step="0.01" min="0"></div>
           <div class="fg"><label class="fl">Warranty Expiry</label><input type="date" name="warranty_expiry" id="eEwarr" class="fc"></div>
         </div>
+        <div class="sec-title"><i class="fas fa-list-check"></i> Inventory Tracking</div>
+        <div class="fg3">
+          <div class="fg"><label class="fl">Acquired</label><input type="text" name="acquired" id="eEacquired" class="fc"></div>
+          <div class="fg"><label class="fl">Issued</label><input type="text" name="issued" id="eEissued" class="fc"></div>
+          <div class="fg"><label class="fl">Counted</label><input type="text" name="counted" id="eEcounted" class="fc"></div>
+        </div>
+        <div class="fg"><label class="fl">Remarks</label><textarea name="remarks" id="eEremarks" class="fc"></textarea></div>
         <div class="fg"><label class="fl">Notes</label><textarea name="notes" id="eEnotes" class="fc"></textarea></div>
       </form>
     </div>
@@ -1511,6 +1560,10 @@ textarea.fc{resize:vertical;min-height:72px;}
           <div class="dr"><div class="dk">Purchase Price</div><div class="dv" id="detLivePrice">-</div></div>
           <div class="dr"><div class="dk">Warranty Exp.</div><div class="dv" id="detLiveWarr">-</div></div>
           <div class="dr"><div class="dk">Total Defects</div><div class="dv" id="detLiveDefects">0</div></div>
+          <div class="dr"><div class="dk">Acquired</div><div class="dv" id="detLiveAcquired">-</div></div>
+          <div class="dr"><div class="dk">Issued</div><div class="dv" id="detLiveIssued">-</div></div>
+          <div class="dr"><div class="dk">Counted</div><div class="dv" id="detLiveCounted">-</div></div>
+          <div class="dr"><div class="dk">Remarks</div><div class="dv" id="detLiveRemarks">-</div></div>
         </div>
       </div>
       <div style="margin-top:1rem;" id="detLiveNotesWrap" hidden>
@@ -1631,9 +1684,13 @@ function openDetailModal(e){
   document.getElementById('detLivePrice').textContent = (e.purchase_price!==undefined && e.purchase_price!==null && e.purchase_price!=='') ? ('?'+fmtMoney(e.purchase_price)) : '-';
   document.getElementById('detLiveWarr').textContent = fmtDate(e.warranty_expiry);
   document.getElementById('detLiveDefects').textContent = String(parseInt(e.open_defects || 0, 10));
+  document.getElementById('detLiveAcquired').textContent = (e.acquired!==undefined && e.acquired!==null && String(e.acquired).trim()!=='') ? String(e.acquired) : '-';
+  document.getElementById('detLiveIssued').textContent = (e.issued!==undefined && e.issued!==null && String(e.issued).trim()!=='') ? String(e.issued) : '-';
+  document.getElementById('detLiveCounted').textContent = (e.counted!==undefined && e.counted!==null && String(e.counted).trim()!=='') ? String(e.counted) : '-';
+  document.getElementById('detLiveRemarks').textContent = (e.remarks!==undefined && e.remarks!==null && String(e.remarks).trim()!=='') ? String(e.remarks) : ((e.notes!==undefined && e.notes!==null && String(e.notes).trim()!=='') ? String(e.notes) : '-');
   const nw=document.getElementById('detLiveNotesWrap');
   const nv=document.getElementById('detLiveNotes');
-  const n=(e.notes||'').trim();
+  const n=((e.notes||e.remarks)||'').trim();
   if(n){ nw.hidden=false; nv.innerHTML=escapeHtml(n).replace(/\n/g,'<br>'); }
   else { nw.hidden=true; nv.textContent=''; }
   document.getElementById('detLiveEditBtn').onclick=function(){ closeDetLive(); openEdit(e); };
@@ -1659,6 +1716,10 @@ function openEdit(e){
   document.getElementById('eEpdate').value=e.purchase_date||'';
   document.getElementById('eEprice').value=e.purchase_price||'';
   document.getElementById('eEwarr').value=e.warranty_expiry||'';
+  document.getElementById('eEacquired').value=e.acquired||'';
+  document.getElementById('eEissued').value=e.issued||'';
+  document.getElementById('eEcounted').value=e.counted||'';
+  document.getElementById('eEremarks').value=e.remarks||e.notes||'';
   document.getElementById('eEnotes').value=e.notes||'';
   document.getElementById('editSub').textContent=(e.equipment_id||'')+' - '+(e.equipment_name||'');
   document.getElementById('editMo').classList.add('open');

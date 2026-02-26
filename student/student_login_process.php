@@ -2,7 +2,8 @@
 // student/student_login_process.php
 // Main PHP processor for student login, OTP, and authentication
 
-session_start();
+require_once __DIR__ . '/../includes/session_bootstrap.php';
+startRoleSession('student');
 
 // Keep API responses as valid JSON even when warnings occur.
 ini_set('display_errors', '0');
@@ -468,6 +469,8 @@ function checkSession() {
 }
 
 ?>
+
+
 
 
 

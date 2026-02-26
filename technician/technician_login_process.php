@@ -2,7 +2,8 @@
 // technician/technician_login_process.php
 // Main PHP processor for technician login, OTP, and authentication
 
-session_start();
+require_once __DIR__ . '/../includes/session_bootstrap.php';
+startRoleSession('technician');
 
 // Keep API responses as valid JSON even when warnings occur.
 ini_set('display_errors', '0');
@@ -468,5 +469,7 @@ function checkSession() {
 }
 
 ?>
+
+
 
 

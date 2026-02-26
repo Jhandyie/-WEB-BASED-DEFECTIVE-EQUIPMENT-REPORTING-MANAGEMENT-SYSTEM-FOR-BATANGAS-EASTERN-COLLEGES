@@ -1,12 +1,10 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session_bootstrap.php';
+startRoleSession('technician');
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
 
-if (!isLoggedIn() || $_SESSION['role'] !== 'technician') {
-    header('Location: login.html');
-    exit();
-}
+requireRole('technician');
 
 $technician_id = $_SESSION['user_id'];
 $technician_name = $_SESSION['fullname'];
@@ -180,3 +178,6 @@ $is_unassigned = (empty($task['assigned_to']) && $task['status'] === 'reported')
     <script src="js/technician_dashboard.js"></script>
 </body>
 </html>
+
+
+

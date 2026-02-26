@@ -273,7 +273,7 @@ function verifyOTP($email, $otp_code, $role = 'admin') {
     $stmt->bind_param("i", $otp_record['otp_id']);
     $stmt->execute();
     $stmt->close();
-    $allowed_roles = ['admin', 'student', 'faculty', 'guest'];
+    $allowed_roles = ['admin', 'student', 'faculty', 'technician', 'handler', 'guest'];
     if (!in_array($role, $allowed_roles)) return ['success' => false, 'message' => 'Invalid role.', 'user' => null];
     $stmt = $conn->prepare("SELECT * FROM `users` WHERE email = ? AND role = ? LIMIT 1");
     $stmt->bind_param("ss", $email, $role);
@@ -288,7 +288,7 @@ function verifyOTP($email, $otp_code, $role = 'admin') {
 function requestLoginOTP($email, $role = 'admin') {
     $conn = getDBConnection();
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) return ['success' => false, 'message' => 'Invalid email address format.'];
-    $allowed_roles = ['admin', 'student', 'faculty', 'guest'];
+    $allowed_roles = ['admin', 'student', 'faculty', 'technician', 'handler', 'guest'];
     if (!in_array($role, $allowed_roles)) return ['success' => false, 'message' => 'Invalid role.'];
     $stmt = $conn->prepare("SELECT email, fullname FROM `users` WHERE email = ? AND role = ? LIMIT 1");
     $stmt->bind_param("ss", $email, $role);
@@ -338,3 +338,4 @@ function cleanupExpiredOTPs() {
     if ($result) { $deleted = $conn->affected_rows; error_log("Cleaned up {$deleted} expired OTP records"); return $deleted; }
     return 0;
 }
+

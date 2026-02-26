@@ -1,12 +1,10 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session_bootstrap.php';
+startRoleSession('technician');
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
 
-if (!isLoggedIn() || $_SESSION['role'] !== 'technician') {
-    header('Location: login.html');
-    exit();
-}
+requireRole('technician');
 
 $technician_id = $_SESSION['user_id'];
 $technician_name = $_SESSION['fullname'] ?? '';
@@ -30,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             throw new Exception('Unable to update status. Task not found or not assigned to you.');
         }
 
-use only 1        // Update report status (only existing columns)
+        // Update report status (only existing columns)
         $updateData = [
             'status' => $new_status
         ];
@@ -263,3 +261,5 @@ if (!empty($quick_status) && in_array($quick_status, ['in_progress', 'completed'
 </body>
 </html>
 ?>
+
+

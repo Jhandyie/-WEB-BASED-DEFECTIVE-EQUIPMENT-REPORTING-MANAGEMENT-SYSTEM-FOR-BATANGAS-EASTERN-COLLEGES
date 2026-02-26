@@ -1,0 +1,200 @@
+1      Aircon           A-0825-0001                                            Aug 2025
+2      Aircon           A-0825-0002                                            Aug 2025
+3      Aircon           A-0825-0003                                            Aug 2025
+4      Aircon           A-0825-0004                                            Aug 2025
+5      Aircon           A-0825-0005                                            Aug 2025
+6      Aircon           A-0825-0006                                            Aug 2025
+7      Aircon           A-0825-0007                                            Aug 2025
+8      Aircon           A-0825-0008                           Aug 2022         Aug 2025
+9      Aircon           A-0825-0009                           Apr 2025         Aug 2025
+10     Aircon           A-0825-0010                           Apr 2025         Aug 2025
+11     Aircon           A-0825-0011                                            Aug 2025
+12     Aircon           A-0825-0012                                            Aug 2025
+13     Aircon           A-0825-0013                                            Aug 2025
+14     Aircon           A-0825-0014                                            Aug 2025
+15     Aircon           A-0825-0015                                            Aug 2025
+16     Aircon           A-0825-0016                                            Aug 2025
+17     Aircon           A-0825-0017                                            Aug 2025
+18     Aircon           A-0825-0018                                            Aug 2025
+19     Aircon           A-0825-0019                                            Aug 2025
+20     Aircon           A-0825-0020                                            Aug 2025
+21     Aircon           A-0825-0021                           Apr 2025         Aug 2025
+22     Aircon           A-0825-0022                           Apr 2025         Aug 2025
+23     Aircon           A-0825-0023                           Apr 2025         Aug 2025
+24     Aircon           A-0825-0024                           Apr 2025         Aug 2025
+25     Aircon           A-0825-0025                                            Aug 2025
+26     Aircon           A-0825-0026                                            Aug 2025
+27     Aircon           A-0825-0027                                            Aug 2025
+28     Aircon           A-0825-0028                                            Aug 2025
+29     Aircon           A-0825-0029                                            Aug 2025
+30     Aircon           A-0825-0030                                            Aug 2025
+31     Aircon           A-0825-0031                                            Aug 2025
+32     Aircon           A-0825-0032                           Apr 2025         Aug 2025
+33     Aircon           A-0825-0033                                            Aug 2025
+34     Aircon           A-0825-0034                                            Aug 2025
+35     Aircon           A-0825-0035                                            Aug 2025
+36     Aircon           A-0825-0036                                            Aug 2025
+37     Aircon           A-0825-0037                                            Aug 2025
+38     Aircon           A-0825-0038                                            Aug 2025
+39     Aircon           A-0825-0039                                            Aug 2025
+40     Aircon           A-0825-0040                                            Aug 2025
+41     Aircon           A-0825-0041                                            Aug 2025
+42     Aircon           A-0825-0042                                            Aug 2025
+43     Aircon           A-0825-0043                                            Aug 2025         Old - Split type
+44     Aircon           A-0825-0044                                            Aug 2025         Split type
+45     Aircon           A-0825-0045                                            Aug 2025
+46     Aircon           A-0825-0046                                            Aug 2025
+47     Aircon           A-0825-0047                                            Aug 2025
+48     Aircon           A-0825-0048                                            Aug 2025         Old
+49     Aircon           A-0825-0049                                            Aug 2025
+50     Aircon           A-0825-0050                                            Aug 2025
+51     Aircon           A-0825-0051                                            Aug 2025
+52     Aircon           A-0825-0052                                            Aug 2025         No cover
+53     Aircon           A-0825-0053                                            Aug 2025         No cover
+54     Aircon           A-0825-0054                                            Aug 2025         No cover
+55     Aircon           A-0825-0055                                            Aug 2025         No cover
+56     Aircon           A-0825-0056                                            Aug 2025
+57     Aircon           A-0825-0057                           Aug 2025         Aug 2025         New
+58     Aircon           A-0825-0058                                            Aug 2025
+59     Aircon           A-0825-0059                                            Aug 2025
+60     Aircon           A-0825-0060                                            Aug 2025
+61     Aircon           A-0825-0061                                            Aug 2025
+62     Aircon           A-0825-0062                                            Aug 2025
+63     Aircon           A-0825-0063                                            Aug 2025
+64     Aircon           A-0825-0064                                            Aug 2025
+65     Aircon           A-0825-0065                                            Aug 2025
+66     Aircon           A-0825-0066                                            Aug 2025
+67     Aircon           A-0825-0067                                            Aug 2025         No Cover
+68     Aircon           A-0825-0068                                            Aug 2025         No Cover
+69     Aircon           A-0825-0069                                            Aug 2025         No Cover
+70     Aircon           A-0825-0070                                            Aug 2025         No Cover
+71     Aircon           A-0825-0071                                            Aug 2025         No Cover
+72     Aircon           A-0825-0072                                            Aug 2025         No Cover
+73     Aircon           A-0825-0073                                            Aug 2025
+74     Aircon           A-0825-0074                                            Aug 2025         Old
+75     Aircon           A-0825-0075                                            Aug 2025
+76     Aircon           A-0825-0076                                            Aug 2025
+77     Aircon           A-0825-0077                                            Aug 2025         No Cover
+78     Aircon           A-0825-0078                                            Aug 2025         No Cover
+79     Aircon           A-0825-0079                                            Aug 2025         No Cover
+80     Aircon           A-0825-0080                                            Aug 2025         No Cover
+81     Aircon           A-0825-0081                                            Aug 2025         No Cover
+82     Aircon           A-0825-0082                                            Aug 2025         No Cover
+83     Aircon           A-0825-0083                                            Aug 2025         No Cover
+84     Aircon           A-0825-0084                                            Aug 2025         No Cover
+85     Aircon           A-0825-0085                                            Aug 2025         No Cover
+86     Aircon           A-0825-0086                                            Aug 2025         No Cover
+87     Aircon           A-0825-0087                                            Aug 2025
+88     Aircon           A-0825-0088                                            Aug 2025
+89     Aircon           A-0825-0089                                            Aug 2025         No Cover
+90     Aircon           A-0825-0090                                            Aug 2025         No Cover
+91     Aircon           A-0825-0091                                            Aug 2025         NEW
+92     Aircon           A-0825-0092                                            Aug 2025         Old - No Cover
+93     Aircon           A-0825-0093                                            Aug 2025         Old - No Cover
+94     Aircon           A-0825-0094                                            Aug 2025
+95     Aircon           A-0825-0095                                            Aug 2025
+96     Aircon           A-0825-0096                                            Aug 2025
+97     Aircon           A-0825-0097                                            Aug 2025
+98     Aircon           A-0825-0098                                            Aug 2025         not installed & status ?
+99     Aircon           A-0825-0099                                            Aug 2025
+100    Aircon           A-0825-0100                                            Aug 2025
+101    Aircon           A-0825-0101                                            Aug 2025         NEW
+102    Aircon           A-0825-0102                                            Aug 2025         NEW
+103    Aircon           A-0825-0103                                            Aug 2025         NEW
+104    Aircon           A-0825-0104                                            Aug 2025
+105    Aircon           A-0825-0105                                            Aug 2025
+106    Aircon           A-0825-0106                                            Aug 2025
+107    Aircon           A-0825-0107          2025-05-30 00:0  2025-06-03 00:0  Aug 2025         NEW
+108    Aircon           A-0825-0108          2025-05-30 00:0  2025-06-03 00:0  Aug 2025         NEW
+109    Aircon           A-0825-0109          2025-05-30 00:0  2025-06-03 00:0  Aug 2025         NEW
+110    Aircon           A-0825-0110          2025-05-30 00:0  2025-06-03 00:0  Aug 2025         NEW
+111    Aircon           A-0825-0111                                            Aug 2025
+112    Aircon           A-0825-0112                                            Aug 2025         2013 - For Replacement
+113    Aircon           A-0825-0113                                            Aug 2025
+114    Aircon           A-0825-0114                                            Aug 2025
+115    Aircon           A-0825-0115                                            Aug 2025
+116    Aircon           A-0825-0116          2025-05-30 00:0  2025-06-03 00:0  Aug 2025         NEW
+117    Aircon           A-0825-0117          2025-05-30 00:0  2025-06-03 00:0  Aug 2025         NEW
+118    Aircon           A-0825-0118          2025-05-30 00:0  2025-06-03 00:0  Aug 2025         NEW
+119    Aircon           A-0825-0119          2025-05-30 00:0  2025-06-03 00:0  Aug 2025         NEW
+120    Aircon           A-0825-0120          2025-05-30 00:0  2025-06-03 00:0  Aug 2025         NEW
+121    Aircon           A-0825-0121          2025-05-30 00:0  2025-06-03 00:0  Aug 2025         NEW
+122    Aircon           A-0825-0122                                            Aug 2025         NEW
+123    Aircon           A-0825-0123                                            Aug 2025
+124    Aircon           A-0825-0124                                            Aug 2025
+125    Aircon           A-0825-0125                                            Aug 2025
+126    Aircon           A-0825-0126                                            Aug 2025
+127    Aircon           A-0825-0127                                            Aug 2025         Old -No Cover
+128    Aircon           A-0825-0128                                            Aug 2025
+129    Aircon           A-0825-0129                                            Aug 2025         Old -No Cover
+130    Aircon           A-0825-0130                                            Aug 2025         Old -No Cover
+131    Aircon           A-0825-0131                                            Aug 2025         Old -No Cover
+132    Aircon           A-0825-0132                                            Aug 2025         Old -No Cover
+133    Aircon           A-0825-0133                                            Aug 2025
+134    Aircon           A-0825-0134                                            Aug 2025
+135    Aircon           A-0825-0135                                            Aug 2025
+136    Aircon           A-0825-0136                                            Aug 2025
+137    Aircon           A-0825-0137                                            Aug 2025
+138    Aircon           A-0825-0138                                            Aug 2025
+139    Aircon           A-0825-0139                                            Aug 2025         New
+140    Aircon           A-0825-0140                                            Aug 2025         Old
+141    Aircon           A-0825-0141                                            Aug 2025         Old
+142    Aircon           A-0825-0142                                            Aug 2025         Old
+143    Aircon           A-0825-0143                                            Aug 2025         Old
+144    Aircon           A-0825-0144                                            Aug 2025         Old
+145    Aircon           A-0825-0145                                            Aug 2025         New
+146    Aircon           A-0825-0146                                            Aug 2025
+147    Aircon           A-0825-0147                                            Aug 2025
+148    Aircon           A-0825-0148                                            Aug 2025
+149    Aircon           A-0825-0149                                            Aug 2025
+150    Aircon           A-0825-0150                                            Aug 2025         New
+151    Aircon           A-0825-0151                                            Aug 2025         Old
+152    Aircon           A-0825-0152                                            Aug 2025         Old
+153    Aircon           A-0825-0153                                            Aug 2025         Old
+154    Aircon           A-0825-0154                                            Aug 2025         Old
+155    Aircon           A-0825-0155                                            Aug 2025         Old
+156    Aircon           A-0825-0156                                            Aug 2025         Old
+157    Aircon           A-0825-0157                                            Aug 2025         Old
+158    Aircon           A-0825-0158                                            Aug 2025
+159    Aircon           A-0825-0159                                            Aug 2025         Old
+160    Aircon           A-0825-0160                                            Aug 2025         Old
+161    Aircon           A-0825-0161                                            Aug 2025         Old -No Cover
+162    Aircon           A-0825-0162                                            Aug 2025         Old -No Cover
+163    Aircon           A-0825-0163                                            Aug 2025         Old -No Cover
+164    Aircon           A-0825-0164                                            Aug 2025         Old -No Cover
+165    Aircon           A-0825-0165                                            Aug 2025         Old -No Cover
+166    Aircon           A-0825-0166                                            Aug 2025         Old -No Cover
+167    Aircon           A-0825-0167                                            2025-03-19 00:0  Old -No Cover
+168    Aircon           A-0825-0168                                            2025-03-19 00:0  Old -No Cover
+169    Aircon           A-0825-0169                                            2025-03-19 00:0  Old -No Cover
+170    Aircon           A-0825-0170                                            2025-03-19 00:0  Old -No Cover
+171    Aircon           A-0825-0171                                            2025-03-19 00:0  Old -No Cover
+172    Aircon           A-0825-0172                                            2025-03-19 00:0  Old -No Cover
+173    Aircon           Approved by:                                           Received by:
+174    Aircon           Edison Dumo                                            _______________
+175    Aircon           School Administrator                                   Accounting Depa
+176    TV               T-0825-0001                           May 2012         Aug 2025         NEW
+177    TV               T-0825-0002          Jul 2024         Apr 2025         Aug 2025
+178    TV               T-0825-0003                                            Aug 2025
+179    TV               T-0825-0004                                            Aug 2025
+180    TV               T-0825-0005                                            Aug 2025
+181    TV               T-0825-0006                                            Aug 2025
+182    TV               T-0825-0007                                            Aug 2025
+183    TV               T-0825-0008                                            Aug 2025
+184    TV               T-0825-0009                                            Aug 2025
+185    TV               T-0825-0010                                            Aug 2025
+186    TV               T-0825-0011                                            Aug 2025
+187    TV               T-0825-0012                                            Aug 2025
+188    TV               T-0825-0013                                            Aug 2025
+189    TV               T-0825-0014                                            Aug 2025
+190    TV               T-0825-0015          Sep 2025         Sep 2025         Aug 2025         Replacement - New
+191    TV               T-0825-0016                                            Aug 2025
+192    TV               T-0825-0017                                            Aug 2025
+193    TV               T-0825-0018                                            Aug 2025         New
+194    TV               T-0825-0019                                            Aug 2025         Old
+195    TV               T-0825-0020                                            Aug 2025
+196    TV               T-0825-0021                                            Aug 2025         Old
+197    TV               T-0825-0022                                            Aug 2025         Old
+198    TV               T-0825-0023                                            Aug 2025         Old
+199    TV               T-0825-0024                                            Aug 2025         Old
+200    TV               T-0825-0025                                            Aug 2025         Old

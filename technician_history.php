@@ -1,12 +1,10 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session_bootstrap.php';
+startRoleSession('technician');
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
 
-if (!isLoggedIn() || $_SESSION['role'] !== 'technician') {
-    header('Location: login.html');
-    exit();
-}
+requireRole('technician');
 
 $technician_id = $_SESSION['user_id'];
 $technician_name = $_SESSION['fullname'];
@@ -193,3 +191,6 @@ $this_week = count(array_filter($work_history, function($task) {
     </script>
 </body>
 </html>
+
+
+

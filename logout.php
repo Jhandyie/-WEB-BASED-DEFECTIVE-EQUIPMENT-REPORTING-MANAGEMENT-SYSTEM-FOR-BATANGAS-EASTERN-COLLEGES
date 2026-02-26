@@ -1,13 +1,25 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session_bootstrap.php';
 
-// Get the user's role before destroying the session
-$role = $_SESSION['role'] ?? 'student';
+$role = 'student';
 
-session_unset();
-session_destroy();
+// Try to infer role from existing role-scoped sessions.
+foreach (['admin', 'technician', 'student', 'main'] as $ctx) {
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        session_write_close();
+    }
+    startRoleSession($ctx);
+    if (!empty($_SESSION['role'])) {
+        $role = $_SESSION['role'];
+    }
+    $_SESSION = [];
+    session_unset();
+    session_destroy();
 
-// Redirect based on role
+    $name = session_name();
+    setcookie($name, '', time() - 3600, '/');
+}
+
 switch ($role) {
     case 'admin':
         header('Location: admin/login.html?success=' . urlencode('Logged out successfully'));
@@ -19,7 +31,6 @@ switch ($role) {
         header('Location: technician/login.html?success=' . urlencode('Logged out successfully'));
         break;
     default:
-        // Student or unknown role
         header('Location: student/login.html?success=' . urlencode('Logged out successfully'));
         break;
 }

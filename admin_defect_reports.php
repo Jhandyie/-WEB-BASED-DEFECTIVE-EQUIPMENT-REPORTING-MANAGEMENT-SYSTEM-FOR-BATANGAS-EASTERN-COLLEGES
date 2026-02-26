@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session_bootstrap.php';
+startRoleSession('admin');
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/file_storage_helpers.php';
@@ -14,11 +15,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $act = $_POST['action'] ?? '';
 
     if ($act === 'approve') {
+        $dept = trim((string)($_POST['department_assigned'] ?? ''));
+        if (!in_array($dept, ['ITSO','PMO'], true)) {
+            $src = getDefectReportById($_POST['report_id']);
+            $dept = classifyDepartmentByEquipment(
+                $src['equipment_id'] ?? null,
+                $src['equipment_name'] ?? '',
+                $src['category_name'] ?? '',
+                $src['location'] ?? '',
+                $src['issue_description'] ?? ''
+            );
+        }
+
         updateDefectReport($_POST['report_id'], [
             'admin_approval_status' => 'approved',
             'status'                => 'assigned',
-            'department_assigned'   => $_POST['department_assigned'],
-            'priority_level'        => $_POST['priority_level'],
+            'department_assigned'   => $dept,
+            'priority'              => $_POST['priority_level'] ?? ($_POST['priority'] ?? 'medium'),
             'admin_notes'           => $_POST['admin_notes'] ?? '',
             'categorized_by'        => $admin_id,
             'categorized_date'      => date('Y-m-d H:i:s'),
@@ -46,10 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['flash'] = ['ok', 'Report returned to In Progress.'];
     }
     elseif ($act === 'delete') {
-        updateDefectReport($_POST['report_id'], [
-            'status'     => 'deleted',
-            'deleted_at' => date('Y-m-d H:i:s'),
-        ]);
+        deleteDefectReport($_POST['report_id']);
         $_SESSION['flash'] = ['ok', 'Report deleted.'];
     }
 
@@ -66,14 +76,20 @@ $sq = $_GET['search']   ?? '';
 $vw = $_GET['view']     ?? 'table'; // 'table' | 'kanban'
 
 $all_raw  = getDefectReportsWithFilters('all','all','');
-$all_raw  = array_values(array_filter($all_raw, fn($r) => ($r['status'] ?? '') !== 'deleted'));
+$all_raw  = array_values(array_filter($all_raw, fn($r) => !in_array(($r['status'] ?? ''), ['deleted',''], true)));
 
 $reports  = getDefectReportsWithFilters($sf, $pf, $sq);
-$reports  = array_values(array_filter($reports, fn($r) => ($r['status'] ?? '') !== 'deleted'));
+$reports  = array_values(array_filter($reports, fn($r) => !in_array(($r['status'] ?? ''), ['deleted',''], true)));
 if ($df !== 'all') {
     $reports = array_values(array_filter($reports,
         fn($r) => ($r['department_assigned'] ?? '') === $df));
 }
+foreach ($reports as &$r0) {
+    $pl = photoListFromRow($r0);
+    $r0['photo_urls'] = $pl;
+    $r0['photo_url']  = $pl[0] ?? '';
+}
+unset($r0);
 
 /* ─── VIEW SINGLE ──────────────────────────────────────── */
 $vr = null;
@@ -120,7 +136,30 @@ function stCls($s){return['reported'=>'pend','assigned'=>'prog','in_progress'=>'
 function stLbl($s){return['reported'=>'Pending','assigned'=>'Approved','in_progress'=>'In Progress','completed'=>'Completed','verified'=>'Verified','closed'=>'Closed','rejected'=>'Rejected'][$s]??ucfirst(str_replace('_',' ',$s));}
 function prCls($p){return['critical'=>'crit','high'=>'hi','medium'=>'med','low'=>'lo'][$p]??'lo';}
 function prLbl($p){return ucfirst($p??'—');}
-function esc($s){return htmlspecialchars((string)($s??'—'),ENT_QUOTES,'UTF-8');}
+function esc($s){return htmlspecialchars((string)($s??'�'),ENT_QUOTES,'UTF-8');}
+function photoListFromRow($row){
+  $photos = [];
+  if (!empty($row['photo_url'])) $photos[] = (string)$row['photo_url'];
+  if (!empty($row['photo_path'])) $photos[] = (string)$row['photo_path'];
+  if (!empty($row['defect_photos'])) {
+    $raw = $row['defect_photos'];
+    if (is_string($raw)) {
+      $dec = json_decode($raw, true);
+      if (json_last_error() === JSON_ERROR_NONE && is_array($dec)) {
+        foreach ($dec as $p) $photos[] = (string)$p;
+      } else {
+        $photos[] = $raw;
+      }
+    }
+  }
+  $out = [];
+  foreach ($photos as $p) {
+    $p = str_replace('\\', '/', trim((string)$p));
+    if ($p === '') continue;
+    if (!in_array($p, $out, true)) $out[] = $p;
+  }
+  return $out;
+}
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -386,6 +425,7 @@ body{
   border-bottom:1px solid var(--bdr);vertical-align:middle;}
 .tbl tbody tr:last-child td{border-bottom:none;}
 .tbl tbody tr{transition:background .1s,transform .1s;}
+.tbl tbody tr.rep-row{cursor:pointer;}
 .tbl tbody tr:hover td{background:var(--s2);}
 .tbl tbody tr:hover{transform:translateX(2px);}
 .rid{font-family:'Outfit',sans-serif;font-weight:800;color:var(--m3);font-size:.76rem;}
@@ -518,13 +558,16 @@ body{
 .photo-wrap{border-radius:var(--r2);overflow:hidden;border:2px solid var(--bdr);
   cursor:zoom-in;position:relative;transition:all .22s;}
 .photo-wrap:hover{border-color:var(--m3);box-shadow:0 0 0 3px rgba(123,29,29,.1);}
-.photo-wrap img{width:100%;max-height:200px;object-fit:cover;display:block;transition:transform .3s;}
+.photo-wrap img{width:100%;max-height:340px;object-fit:contain;display:block;transition:transform .3s;background:#fff;}
 .photo-wrap:hover img{transform:scale(1.03);}
 .photo-hint{position:absolute;inset:0;background:rgba(45,5,5,.45);
   display:flex;align-items:center;justify-content:center;
   opacity:0;transition:opacity .2s;}
 .photo-wrap:hover .photo-hint{opacity:1;}
 .photo-hint i{font-size:1.6rem;color:#fff;}
+.photo-thumbs{display:flex;gap:.45rem;flex-wrap:wrap;margin-top:.55rem;}
+.photo-thumbs img{width:68px;height:56px;object-fit:cover;border-radius:8px;border:2px solid transparent;cursor:pointer;background:#fff;}
+.photo-thumbs img:hover,.photo-thumbs img.act{border-color:var(--m3);}
 
 /* Timeline */
 .tl{padding:.2rem 0;}
@@ -836,7 +879,7 @@ textarea.fc{resize:vertical;min-height:70px;}
               <i class="fas fa-folder-open"></i>No reports match your current filters.
             </div></td></tr>
             <?php else: foreach($reports as $r): ?>
-            <tr>
+            <tr class="rep-row" tabindex="0" role="button" aria-label="Open report details" data-view-url="?view_id=<?php echo $r['report_id']; ?>&status=<?php echo $sf; ?>&priority=<?php echo $pf; ?>&dept=<?php echo $df; ?>&search=<?php echo urlencode($sq); ?>&view=<?php echo $vw; ?>">
               <td><span class="rid"><?php echo esc($r['report_id']); ?></span></td>
               <td>
                 <div class="en"><?php echo esc($r['equipment_name']??'N/A'); ?></div>
@@ -971,18 +1014,23 @@ textarea.fc{resize:vertical;min-height:70px;}
           <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:.4rem;">Admin Notes</div>
           <div class="notes-box"><?php echo nl2br(esc($vr['admin_notes'])); ?></div>
         </div>
-        <?php endif; ?>
-
-        <!-- Photo -->
-        <?php if(!empty($vr['photo_url'])): ?>
+        <?php endif; ?>        <!-- Photo -->
+        <?php $vrPhotoList = !empty($vr['photo_urls']) ? $vr['photo_urls'] : (!empty($vr['photo_url']) ? [$vr['photo_url']] : []); if(!empty($vrPhotoList)): ?>
         <div style="margin-top:.875rem;">
           <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:.4rem;">
             <i class="fas fa-camera" style="color:var(--m3);"></i> Photo Evidence
           </div>
-          <div class="photo-wrap" onclick="openLb('<?php echo esc($vr['photo_url']); ?>')">
-            <img src="<?php echo esc($vr['photo_url']); ?>" alt="Defect photo">
+          <div class="photo-wrap" onclick="openLb('<?php echo esc($vrPhotoList[0]); ?>')">
+            <img id="mainRptPhoto" src="<?php echo esc($vrPhotoList[0]); ?>" alt="Defect photo">
             <div class="photo-hint"><i class="fas fa-expand-alt"></i></div>
           </div>
+          <?php if(count($vrPhotoList)>1): ?>
+          <div class="photo-thumbs">
+            <?php foreach($vrPhotoList as $i=>$pp): ?>
+            <img src="<?php echo esc($pp); ?>" class="<?php echo $i===0?'act':''; ?>" alt="Photo <?php echo $i+1; ?>" onclick="event.stopPropagation();setMainPhoto('<?php echo esc($pp); ?>',this)">
+            <?php endforeach; ?>
+          </div>
+          <?php endif; ?>
         </div>
         <?php endif; ?>
       </div>
@@ -1188,6 +1236,30 @@ function openLb(src) {
 function closeLb() { document.getElementById('lb').classList.remove('open'); }
 document.addEventListener('keydown', e => { if(e.key==='Escape') { closeLb(); } });
 
+function setMainPhoto(src, el) {
+  const m = document.getElementById('mainRptPhoto');
+  if (!m) return;
+  m.src = src;
+  const wrap = m.closest('.photo-wrap');
+  if (wrap) wrap.setAttribute('onclick', "openLb('" + src.replace(/'/g, "\\'") + "')");
+  document.querySelectorAll('.photo-thumbs img').forEach(i => i.classList.remove('act'));
+  if (el) el.classList.add('act');
+}
+
+document.querySelectorAll('#mainTbl tbody tr.rep-row').forEach(tr => {
+  tr.addEventListener('click', (e) => {
+    if (e.target.closest('a,button,input,select,textarea,label')) return;
+    const u = tr.getAttribute('data-view-url');
+    if (u) location.href = u;
+  });
+  tr.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      const u = tr.getAttribute('data-view-url');
+      if (u) location.href = u;
+    }
+  });
+});
 /* ── DELETE ───────────────────────────────────────── */
 function delRep(rid) {
   if (!confirm('Delete report ' + rid + '?\nThis cannot be undone.')) return;
@@ -1320,3 +1392,7 @@ function toast(type, msg, title) {
 </script>
 </body>
 </html>
+
+
+
+

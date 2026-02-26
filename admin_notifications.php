@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session_bootstrap.php';
+startRoleSession('admin');
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
 
@@ -1059,6 +1060,7 @@ function toast(type,msg,title){
 </script>
 </body>
 </html>
+
 
 
 

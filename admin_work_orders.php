@@ -1,7 +1,8 @@
 
 <?php
 if (session_status() === PHP_SESSION_NONE) {
-    session_start();
+    require_once __DIR__ . '/includes/session_bootstrap.php';
+startRoleSession('admin');
 }
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
@@ -10,6 +11,30 @@ require_once __DIR__ . '/file_storage_helpers.php';
 requireRole('admin');
 $conn = getDBConnection();
 $has_work_orders = (bool)$conn->query("SHOW TABLES LIKE 'work_orders'")->num_rows;
+
+$drCols = [];
+try {
+    $drColsRes = $conn->query("SHOW COLUMNS FROM defect_reports");
+    if ($drColsRes) {
+        while ($col = $drColsRes->fetch_assoc()) {
+            $drCols[$col['Field']] = true;
+        }
+    }
+} catch (Exception $e) {
+    $drCols = [];
+}
+
+$woEqExpr    = isset($drCols['equipment_name']) ? 'd.equipment_name' : "COALESCE(e.equipment_name, d.equipment_id)";
+$woIssueExpr = isset($drCols['issue_description']) ? 'd.issue_description' : (isset($drCols['defect_description']) ? 'd.defect_description' : "''");
+$woPrioExpr  = isset($drCols['priority']) ? 'd.priority' : "'medium'";
+$woDeptExpr  = isset($drCols['department_assigned']) ? 'd.department_assigned' : "''";
+$woEqJoin    = isset($drCols['equipment_name']) ? '' : 'LEFT JOIN equipment e ON e.equipment_id = d.equipment_id';
+
+$eligEqExpr    = isset($drCols['equipment_name']) ? 'r.equipment_name' : "COALESCE(er.equipment_name, r.equipment_id)";
+$eligIssueExpr = isset($drCols['issue_description']) ? 'r.issue_description' : (isset($drCols['defect_description']) ? 'r.defect_description' : "''");
+$eligPrioExpr  = isset($drCols['priority']) ? 'r.priority' : "'medium'";
+$eligDeptExpr  = isset($drCols['department_assigned']) ? 'r.department_assigned' : "''";
+$eligEqJoin    = isset($drCols['equipment_name']) ? '' : 'LEFT JOIN equipment er ON er.equipment_id = r.equipment_id';
 
 $admin_id   = $_SESSION['user_id'];
 $admin_name = $_SESSION['fullname'] ?? 'Administrator';
@@ -21,12 +46,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($act === 'create') {
         $rid     = $_POST['report_id']   ?? '';
         $title   = $_POST['title']       ?? '';
-        $dept    = $_POST['department']  ?? '';
+        $dept    = trim((string)($_POST['department']  ?? ''));
         $prio    = $_POST['priority']    ?? 'medium';
         $due     = $_POST['due_date']    ?? null;
         $tech    = $_POST['technician_id'] ?? null;
         $notes   = $_POST['notes']       ?? '';
         $wo_id   = 'WO-' . strtoupper(substr(md5(uniqid()), 0, 6));
+
+        if (!in_array($dept, ['ITSO','PMO'], true) && $rid !== '') {
+            $src = getDefectReportById($rid);
+            $dept = classifyDepartmentByEquipment(
+                $src['equipment_id'] ?? null,
+                $src['equipment_name'] ?? '',
+                $src['category_name'] ?? '',
+                $src['location'] ?? '',
+                $src['issue_description'] ?? ''
+            );
+        }
         try {
             $conn->begin_transaction();
             $stmt = $conn->prepare("
@@ -78,22 +114,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 /* ─── DATA ──────────────────────────────────────────── */
-function fetchWOs($conn) {
-    $res = $conn->query("
-        SELECT w.*, d.equipment_name, d.issue_description, d.priority as rep_priority,
-               d.department_assigned, u.fullname as tech_name
+function fetchWOs($conn, $woEqExpr, $woIssueExpr, $woPrioExpr, $woDeptExpr, $woEqJoin) {
+    $sql = "
+        SELECT w.*, {$woEqExpr} AS equipment_name, {$woIssueExpr} AS issue_description, {$woPrioExpr} as rep_priority,
+               {$woDeptExpr} AS department_assigned, u.fullname as tech_name
         FROM work_orders w
-        LEFT JOIN defect_reports d  ON w.report_id       = d.report_id
-        LEFT JOIN users          u  ON w.assigned_technician = u.user_id
+        LEFT JOIN defect_reports d ON w.report_id = d.report_id
+        {$woEqJoin}
+        LEFT JOIN users u ON w.assigned_technician = u.user_id
         WHERE w.status != 'deleted'
         ORDER BY
           FIELD(w.priority,'critical','high','medium','low'),
           w.created_at DESC
-    ");
+    ";
+    $res = $conn->query($sql);
     return $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
 }
 
-$all_wos   = $has_work_orders ? fetchWOs($conn) : [];
+$all_wos   = $has_work_orders ? fetchWOs($conn, $woEqExpr, $woIssueExpr, $woPrioExpr, $woDeptExpr, $woEqJoin) : [];
 $sf        = $_GET['status']   ?? 'all';
 $pf        = $_GET['priority'] ?? 'all';
 $sq        = $_GET['search']   ?? '';
@@ -136,11 +174,16 @@ $c_crit     = cntW($all_wos, fn($w)=>$w['priority']==='critical'&&!in_array($w['
 $eligible_reports = [];
 try {
     $res2 = $conn->query("
-        SELECT r.report_id, r.equipment_name, r.issue_description, r.priority, r.department_assigned
+        SELECT r.report_id,
+               {$eligEqExpr} AS equipment_name,
+               {$eligIssueExpr} AS issue_description,
+               {$eligPrioExpr} AS priority,
+               {$eligDeptExpr} AS department_assigned
         FROM defect_reports r
+        {$eligEqJoin}
         LEFT JOIN work_orders w ON r.report_id = w.report_id AND w.status != 'deleted'
         WHERE r.status = 'assigned' AND w.work_order_id IS NULL
-        ORDER BY FIELD(r.priority,'critical','high','medium','low'), r.report_date DESC
+        ORDER BY FIELD({$eligPrioExpr},'critical','high','medium','low'), r.report_date DESC
     ");
     $eligible_reports = $res2 ? $res2->fetch_all(MYSQLI_ASSOC) : [];
 } catch (Exception $e) { $eligible_reports = []; }
@@ -1199,4 +1242,6 @@ function toast(type,msg,title){
 </script>
 </body>
 </html>
+
+
 

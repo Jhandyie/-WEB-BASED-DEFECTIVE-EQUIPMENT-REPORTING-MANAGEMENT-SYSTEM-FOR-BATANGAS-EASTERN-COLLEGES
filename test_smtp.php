@@ -15,3 +15,4 @@ $result = sendEmail(
 
 echo "\nEmail result: " . ($result ? "SUCCESS" : "FAILED");
 ?>
+22

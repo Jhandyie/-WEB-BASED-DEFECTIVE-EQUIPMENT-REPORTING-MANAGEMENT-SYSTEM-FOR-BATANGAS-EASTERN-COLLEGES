@@ -1,7 +1,9 @@
 <?php
-session_start();
+require_once __DIR__ . '/includes/session_bootstrap.php';
+startRoleSession('student');
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
+$conn = getDBConnection();
 
 requireRole('student'); // also accepts 'faculty','staff'
 
@@ -10,6 +12,22 @@ $uname     = $_SESSION['fullname'] ?? 'User';
 $urole     = $_SESSION['role']     ?? 'student';
 $udept     = $_SESSION['department'] ?? '';
 $uemail    = $_SESSION['email']    ?? '';
+
+$drCols = [];
+try {
+    $drColsRes = $conn->query("SHOW COLUMNS FROM defect_reports");
+    if ($drColsRes) {
+        while ($col = $drColsRes->fetch_assoc()) {
+            $drCols[$col['Field']] = true;
+        }
+    }
+} catch (Exception $e) {
+    $drCols = [];
+}
+$drReporterCol = isset($drCols['reporter_id']) ? 'reporter_id' : (isset($drCols['reported_by']) ? 'reported_by' : 'reporter_id');
+$drHasModernFields = isset($drCols['reporter_id']) && isset($drCols['equipment_name']) && isset($drCols['defect_description']);
+$drHasApprovedBy = isset($drCols['approved_by']);
+$drHasAdminApproval = isset($drCols['admin_approval_status']);
 
 /* ─── ACCOUNT STATUS CHECK ─────────────────────────── */
 $acc_res = $conn->prepare("SELECT status, role FROM users WHERE user_id=?");
@@ -65,24 +83,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['flash'] = ['err', implode(' ', $errors)];
         } else {
             $rid = 'RPT-'.strtoupper(substr(md5(uniqid()),0,7));
-            $stmt = $conn->prepare("
-                INSERT INTO defect_reports
-                  (report_id, reporter_id, equipment_name, equipment_category,
-                   location, defect_description, photo_path,
-                   admin_approval_status, status, report_date)
-                VALUES (?,?,?,?,?,?,?,'pending','reported',NOW())
-            ");
-            $stmt->bind_param('sssssss',
-                $rid,$uid,$equip_name,$equip_cat,$full_loc,$defect_desc,$photo_path);
-            $stmt->execute();
+            if ($drHasModernFields) {
+                $stmt = $conn->prepare("
+                    INSERT INTO defect_reports
+                      (report_id, reporter_id, equipment_name, equipment_category,
+                       location, defect_description, photo_path,
+                       admin_approval_status, status, report_date)
+                    VALUES (?,?,?,?,?,?,?,'pending','reported',NOW())
+                ");
+                $stmt->bind_param('sssssss',
+                    $rid,$uid,$equip_name,$equip_cat,$full_loc,$defect_desc,$photo_path);
+                $stmt->execute();
+            } else {
+                $equip_id = '';
+                $eqStmt = $conn->prepare("SELECT equipment_id FROM equipment WHERE equipment_name = ? LIMIT 1");
+                $eqStmt->bind_param('s', $equip_name);
+                $eqStmt->execute();
+                $eqRow = $eqStmt->get_result()->fetch_assoc();
+                if (!$eqRow) {
+                    $like = '%' . $equip_name . '%';
+                    $eqStmt2 = $conn->prepare("SELECT equipment_id FROM equipment WHERE equipment_name LIKE ? LIMIT 1");
+                    $eqStmt2->bind_param('s', $like);
+                    $eqStmt2->execute();
+                    $eqRow = $eqStmt2->get_result()->fetch_assoc();
+                }
+                $equip_id = $eqRow['equipment_id'] ?? 'UNKNOWN';
+
+                $stmt = $conn->prepare("
+                    INSERT INTO defect_reports
+                      (report_id, equipment_id, reported_by, issue_description, status, report_date)
+                    VALUES (?,?,?,?, 'reported', NOW())
+                ");
+                $stmt->bind_param('ssss', $rid, $equip_id, $uid, $defect_desc);
+                $stmt->execute();
+            }
 
             // Notify all admins
             $admins = $conn->query("SELECT user_id FROM users WHERE role='admin' AND status='active'");
             while ($adm = $admins->fetch_assoc()) {
                 $aid = $adm['user_id'];
                 $msg = "New defect report $rid submitted by ".addslashes($uname).".";
-                $lnk = "admin_defect_reports.php?view_id=$rid";
-                $conn->query("INSERT INTO notifications (user_id,message,type,link,created_date) VALUES ('$aid','$msg','defect_report','$lnk',NOW())");
+                $nid = 'NOT-' . uniqid();
+                $stmtN = $conn->prepare("INSERT INTO notifications (notification_id,user_id,message,type,related_id,created_date,is_read) VALUES (?,?,?,?,?,NOW(),0)");
+                $type = 'defect_report';
+                $stmtN->bind_param('sssss', $nid, $aid, $msg, $type, $rid);
+                $stmtN->execute();
             }
             $_SESSION['flash']     = ['ok', "Report $rid submitted! We will notify you once reviewed."];
             $_SESSION['new_rpt_id']= $rid;
@@ -135,42 +180,94 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 /* ─── DATA ─────────────────────────────────────────── */
 // My reports (with details)
-$all_reports_res = $conn->prepare("
-    SELECT r.*,
-           w.work_order_id, w.status AS wo_status, w.repair_notes,
-           u.fullname AS tech_name,
-           u2.fullname AS approver_name
-    FROM defect_reports r
-    LEFT JOIN work_orders w ON w.report_id = r.report_id AND w.status != 'deleted'
-    LEFT JOIN users u ON u.user_id = w.assigned_technician
-    LEFT JOIN users u2 ON u2.user_id = r.approved_by
-    WHERE r.reporter_id = ? AND r.status != 'deleted'
-    ORDER BY r.report_date DESC
-");
+$has_work_orders = false;
+try {
+    $has_work_orders = (bool)$conn->query("SHOW TABLES LIKE 'work_orders'")->num_rows;
+} catch (Exception $e) {
+    $has_work_orders = false;
+}
+
+$eqJoin = isset($drCols['equipment_name']) ? '' : "LEFT JOIN equipment e ON e.equipment_id = r.equipment_id";
+$eqNameExpr = isset($drCols['equipment_name']) ? 'r.equipment_name' : "COALESCE(e.equipment_name, r.equipment_id)";
+$eqCatExpr = isset($drCols['equipment_category']) ? 'r.equipment_category' : "COALESCE(e.category, '')";
+$locExpr = isset($drCols['location']) ? 'r.location' : "COALESCE(e.location, '')";
+$descExpr = isset($drCols['defect_description']) ? 'r.defect_description' : 'r.issue_description';
+$photoExpr = isset($drCols['photo_path']) ? 'r.photo_path' : 'NULL';
+$approvalExpr = $drHasAdminApproval
+    ? 'r.admin_approval_status'
+    : "CASE WHEN r.status='reported' THEN 'pending' WHEN r.status='rejected' THEN 'rejected' ELSE 'approved' END";
+$approverJoin = $drHasApprovedBy ? 'LEFT JOIN users u2 ON u2.user_id = r.approved_by' : 'LEFT JOIN users u2 ON 1=0';
+
+if ($has_work_orders) {
+    $sqlReports = "
+        SELECT r.*,
+               $eqNameExpr AS equipment_name,
+               $eqCatExpr AS equipment_category,
+               $locExpr AS location,
+               $descExpr AS defect_description,
+               $photoExpr AS photo_path,
+               $approvalExpr AS admin_approval_status,
+               w.work_order_id,
+               w.status AS wo_status,
+               COALESCE(w.completion_note, w.notes) AS repair_notes,
+               u.fullname AS tech_name,
+               u2.fullname AS approver_name
+        FROM defect_reports r
+        $eqJoin
+        LEFT JOIN work_orders w ON w.report_id = r.report_id AND w.status != 'deleted'
+        LEFT JOIN users u ON u.user_id = w.assigned_technician
+        $approverJoin
+        WHERE r.$drReporterCol = ?
+        ORDER BY r.report_date DESC
+    ";
+} else {
+    $sqlReports = "
+        SELECT r.*,
+               $eqNameExpr AS equipment_name,
+               $eqCatExpr AS equipment_category,
+               $locExpr AS location,
+               $descExpr AS defect_description,
+               $photoExpr AS photo_path,
+               $approvalExpr AS admin_approval_status,
+               NULL AS work_order_id,
+               NULL AS wo_status,
+               NULL AS repair_notes,
+               NULL AS tech_name,
+               u2.fullname AS approver_name
+        FROM defect_reports r
+        $eqJoin
+        $approverJoin
+        WHERE r.$drReporterCol = ?
+        ORDER BY r.report_date DESC
+    ";
+}
+
+$all_reports_res = $conn->prepare($sqlReports);
 $all_reports_res->bind_param('s',$uid);
 $all_reports_res->execute();
 $all_reports = $all_reports_res->get_result()->fetch_all(MYSQLI_ASSOC);
 
 // Stats
 $c_total    = count($all_reports);
-$c_pending  = count(array_filter($all_reports,fn($r)=>$r['admin_approval_status']==='pending'));
-$c_approved = count(array_filter($all_reports,fn($r)=>$r['admin_approval_status']==='approved'&&$r['status']==='assigned'));
-$c_progress = count(array_filter($all_reports,fn($r)=>$r['status']==='in_progress'));
-$c_completed= count(array_filter($all_reports,fn($r)=>in_array($r['status'],['completed','verified','closed'])));
-$c_rejected = count(array_filter($all_reports,fn($r)=>$r['status']==='rejected'||$r['admin_approval_status']==='rejected'));
+$c_pending  = count(array_filter($all_reports,fn($r)=>($r['admin_approval_status']??'pending')==='pending'));
+$c_approved = count(array_filter($all_reports,fn($r)=>($r['admin_approval_status']??'pending')==='approved'&&($r['status']??'')==='assigned'));
+$c_progress = count(array_filter($all_reports,fn($r)=>($r['status']??'')==='in_progress'));
+$c_completed= count(array_filter($all_reports,fn($r)=>in_array(($r['status']??''),['completed','verified','closed'])));
+$c_rejected = count(array_filter($all_reports,fn($r)=>($r['status']??'')==='rejected'||($r['admin_approval_status']??'')==='rejected'));
 
 // Chart data - status distribution
 $chart_labels = ['Pending','Approved','In Progress','Completed','Rejected'];
 $chart_vals   = [$c_pending,$c_approved,$c_progress,$c_completed,$c_rejected];
 
 // Monthly trend (last 6 months)
-$trend_res = $conn->prepare("
+$trend_sql = "
     SELECT DATE_FORMAT(report_date,'%b %Y') AS lbl, DATE_FORMAT(report_date,'%Y-%m') AS mkey,
            COUNT(*) AS n
     FROM defect_reports
-    WHERE reporter_id=? AND report_date>=DATE_SUB(CURDATE(),INTERVAL 6 MONTH) AND status!='deleted'
+    WHERE $drReporterCol=? AND report_date>=DATE_SUB(CURDATE(),INTERVAL 6 MONTH)
     GROUP BY mkey ORDER BY mkey ASC
-");
+";
+$trend_res = $conn->prepare($trend_sql);
 $trend_res->bind_param('s',$uid); $trend_res->execute();
 $trend_data = $trend_res->get_result()->fetch_all(MYSQLI_ASSOC);
 
@@ -1030,7 +1127,7 @@ textarea.fc{resize:vertical;min-height:96px;line-height:1.6;}
       <?php if(empty($all_notifs)):?>
       <div class="empty"><i class="fas fa-bell-slash"></i><div class="empty-t">No notifications yet</div><div class="empty-s">Notifications will appear here when your reports are updated.</div></div>
       <?php else: foreach($all_notifs as $n):
-        $unr=!$n['is_read']; $ncol=nTypeColor($n['type']??''); $nico=nTypeIcon($n['type']??'');
+        $unr=!$n['is_read']; $ncol=nTypeColor($n['type']??''); $nico=nTypeIco($n['type']??'');
       ?>
       <div class="ni-item <?php echo $unr?'unread':'';?>" style="padding:.75rem 1.25rem;">
         <div style="width:34px;height:34px;border-radius:50%;background:<?php echo $unr?'linear-gradient(135deg,'.strtolower(str_replace('#','',substr($ncol,0,7))).','.strtolower(str_replace('#','',substr($ncol,0,7))).')':'var(--s2)';?>;background:<?php echo $unr?$ncol.'22':'var(--s2)';?>;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:<?php echo $ncol;?>;font-size:.78rem;">
@@ -1398,3 +1495,6 @@ function toast(type,msg,title){const el=document.createElement('div');el.classNa
 </script>
 </body>
 </html>
+
+
+

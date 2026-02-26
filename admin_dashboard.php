@@ -1,6 +1,9 @@
 
 <?php
-session_start();
+require_once __DIR__ . '/includes/session_bootstrap.php';
+startRoleSession('admin');
+require_once 'includes/auth.php';
+requireRole('admin');
 require_once 'config/database.php';
 require_once 'file_storage_helpers.php';
 require_once 'includes/notification_helper.php';
@@ -34,6 +37,29 @@ $priorityAlerts = array_filter($allReports, fn($r) =>
 $recentReports = array_slice(array_filter($allReports, fn($r) =>
     !in_array($r['status'], ['completed','verified','closed'])
 ), 0, 6);
+
+$recentReportDetails = [];
+foreach ($recentReports as $row) {
+    $photos = [];
+    if (!empty($row['defect_photos'])) {
+        $decoded = json_decode((string)$row['defect_photos'], true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            $photos = $decoded;
+        } elseif (is_string($row['defect_photos'])) {
+            $photos = [$row['defect_photos']];
+        }
+    }
+    if (!empty($row['photo_path'])) {
+        $photos[] = $row['photo_path'];
+    }
+    $photos = array_values(array_unique(array_filter(array_map(function ($p) {
+        return str_replace('\\', '/', (string)$p);
+    }, $photos))));
+
+    $detailed = $row;
+    $detailed['photos'] = $photos;
+    $recentReportDetails[(string)$row['report_id']] = $detailed;
+}
 
 // ── CHART DATA ────────────────────────────────
 $defectTrends      = getDefectsOverTime(7);
@@ -664,7 +690,7 @@ body{
         <div class="ai"><i class="fas fa-<?php echo $a['priority']==='critical'?'radiation':'exclamation-triangle';?>"></i></div>
         <div class="ac">
           <strong><?php echo htmlspecialchars($a['equipment_name']??'Equipment'); ?> — <?php echo prLbl($a['priority']);?> Priority</strong>
-          <p><?php echo htmlspecialchars(substr($a['issue_description'],0,70));?>…</p>
+          <p><?php echo htmlspecialchars(substr($a['issue_description'],0,70));?>a��</p>
           <time><?php echo date('M j, Y g:i A',strtotime($a['report_date']));?></time>
         </div>
       </div>
@@ -796,7 +822,7 @@ body{
               All clear — no active defect reports.
             </td></tr>
             <?php else: foreach($recentReports as $r): ?>
-            <tr>
+            <tr class="report-row" data-report-id="<?php echo htmlspecialchars((string)$r['report_id']); ?>" tabindex="0" role="button" aria-label="View full report details">
               <td><span class="rid"><?php echo htmlspecialchars($r['report_id']); ?></span></td>
               <td>
                 <div class="en"><?php echo htmlspecialchars($r['equipment_name']??'N/A'); ?></div>
@@ -804,7 +830,7 @@ body{
                 <div class="es"><?php echo htmlspecialchars($r['asset_tag']); ?></div>
                 <?php endif; ?>
               </td>
-              <td style="max-width:180px;"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.78rem;"><?php echo htmlspecialchars(substr($r['issue_description'],0,55)).'…'; ?></div></td>
+              <td style="max-width:180px;"><div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.78rem;"><?php echo htmlspecialchars(substr($r['issue_description'],0,55)).'a��'; ?></div></td>
               <td><span class="badge b-<?php echo prCls($r['priority']); ?>"><?php echo prLbl($r['priority']); ?></span></td>
               <td><span class="badge b-<?php echo stCls($r['status']); ?>"><?php echo stLbl($r['status']); ?></span></td>
               <td style="font-size:.75rem;color:var(--t3);"><?php echo date('M j, Y',strtotime($r['report_date'])); ?></td>
@@ -824,6 +850,48 @@ body{
   </div><!-- /content -->
 </div><!-- /main -->
 
+<style>
+.report-row{cursor:pointer;}
+.report-row:focus{outline:2px solid #D4A017;outline-offset:-2px;}
+.report-detail-modal{position:fixed;inset:0;background:rgba(45,5,5,.62);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:650;padding:1rem;}
+.report-detail-modal.active{display:flex;}
+.report-detail-card{width:min(1020px,96vw);max-height:92vh;overflow:auto;background:#fff;border-radius:18px;border:1px solid var(--bdr);box-shadow:var(--sh3);padding:1rem 1.1rem 1.15rem;}
+.report-detail-head{display:flex;align-items:center;justify-content:space-between;gap:.75rem;border-bottom:1px solid var(--bdr);padding:.2rem 0 .85rem;margin-bottom:.9rem;}
+.report-detail-title{font-family:'Outfit',sans-serif;font-size:1rem;font-weight:800;color:var(--m2);}
+.report-detail-close{border:1px solid var(--bdr2);background:var(--s2);width:34px;height:34px;border-radius:10px;cursor:pointer;color:var(--m2);font-size:1rem;}
+.report-detail-grid{display:grid;grid-template-columns:1.05fr 1fr;gap:1rem;}
+.report-photo-panel{background:var(--s2);border:1px solid var(--bdr);border-radius:12px;padding:.7rem;}
+.report-photo-main{width:100%;height:min(62vh,460px);object-fit:contain;background:#fff;border:1px solid var(--bdr);border-radius:10px;display:block;}
+.report-photo-empty{width:100%;height:min(62vh,460px);display:flex;align-items:center;justify-content:center;color:var(--t3);font-size:.85rem;background:#fff;border:1px dashed var(--bdr2);border-radius:10px;}
+.report-photo-thumbs{margin-top:.6rem;display:flex;flex-wrap:wrap;gap:.4rem;}
+.report-photo-thumbs img{width:72px;height:56px;object-fit:cover;border-radius:8px;border:2px solid transparent;cursor:pointer;background:#fff;}
+.report-photo-thumbs img.active{border-color:var(--m3);}
+.report-photo-link{display:inline-block;margin-top:.55rem;font-size:.78rem;color:var(--m3);text-decoration:none;font-weight:700;}
+.report-detail-list{background:var(--s1);border:1px solid var(--bdr);border-radius:12px;padding:.65rem;display:grid;grid-template-columns:1fr;gap:.48rem;}
+.report-detail-item{display:grid;grid-template-columns:140px 1fr;gap:.45rem;align-items:start;border-bottom:1px dashed var(--bdr);padding:.35rem 0;}
+.report-detail-item:last-child{border-bottom:none;}
+.report-detail-key{font-size:.73rem;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.4px;}
+.report-detail-val{font-size:.8rem;color:var(--t1);line-height:1.45;word-break:break-word;}
+@media (max-width: 900px){.report-detail-grid{grid-template-columns:1fr;}.report-detail-item{grid-template-columns:1fr;}}
+</style>
+
+<div class="report-detail-modal" id="reportDetailModal" aria-hidden="true">
+  <div class="report-detail-card" role="dialog" aria-modal="true" aria-labelledby="reportDetailTitle">
+    <div class="report-detail-head">
+      <div class="report-detail-title" id="reportDetailTitle">Defect Report Details</div>
+      <button class="report-detail-close" id="reportDetailClose" type="button" aria-label="Close"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="report-detail-grid">
+      <div class="report-photo-panel">
+        <img id="reportDetailMainPhoto" class="report-photo-main" alt="Uploaded report photo" style="display:none;">
+        <div id="reportDetailNoPhoto" class="report-photo-empty">No uploaded photo available</div>
+        <div id="reportDetailThumbs" class="report-photo-thumbs"></div>
+        <a id="reportDetailPhotoLink" class="report-photo-link" target="_blank" rel="noopener" style="display:none;">Open full image</a>
+      </div>
+      <div class="report-detail-list" id="reportDetailList"></div>
+    </div>
+  </div>
+</div>
 <!-- Logout Modal -->
 <div style="position:fixed;inset:0;background:rgba(45,5,5,.55);backdrop-filter:blur(6px);z-index:600;display:none;align-items:center;justify-content:center;" id="lgMo" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--s1);border-radius:var(--r4);padding:2rem;max-width:360px;width:90%;text-align:center;box-shadow:var(--sh3);animation:mUp .25s ease;">
@@ -942,6 +1010,38 @@ function toast(type,msg,title){
   setTimeout(()=>el.remove(),4000);
 }
 
+const recentReportDetails = <?php echo json_encode($recentReportDetails, JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_AMP|JSON_HEX_QUOT); ?>;
+const reportModal = document.getElementById('reportDetailModal');
+const reportModalClose = document.getElementById('reportDetailClose');
+const reportDetailList = document.getElementById('reportDetailList');
+const reportMainPhoto = document.getElementById('reportDetailMainPhoto');
+const reportNoPhoto = document.getElementById('reportDetailNoPhoto');
+const reportThumbs = document.getElementById('reportDetailThumbs');
+const reportPhotoLink = document.getElementById('reportDetailPhotoLink');
+
+function formatDetailKey(key){return key.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());}
+function normalizePhotoPath(path){const clean=String(path||'').trim().replace(/\\/g,'/');if(!clean)return '';return /^https?:\/\//i.test(clean)?clean:encodeURI(clean);}
+function setMainPhoto(src){if(!src){reportMainPhoto.style.display='none';reportNoPhoto.style.display='flex';reportPhotoLink.style.display='none';reportPhotoLink.removeAttribute('href');return;}reportMainPhoto.src=src;reportMainPhoto.style.display='block';reportNoPhoto.style.display='none';reportPhotoLink.href=src;reportPhotoLink.style.display='inline-block';}
+function openReportModal(reportId){
+  const report=recentReportDetails[String(reportId)];
+  if(!report||!reportModal||!reportDetailList)return;
+  const ordered=['report_id','equipment_name','asset_tag','category_name','issue_description','location','priority','status','technician_name','assigned_to','reported_by','report_date','updated_at'];
+  const skip=new Set(['defect_photos','photo_path','photos']);
+  reportDetailList.innerHTML='';
+  const rendered=new Set();
+  const addItem=(k,v)=>{if(v===null||v===undefined||String(v).trim()==='')return;const row=document.createElement('div');row.className='report-detail-item';const kk=document.createElement('div');kk.className='report-detail-key';kk.textContent=formatDetailKey(k);const vv=document.createElement('div');vv.className='report-detail-val';vv.textContent=String(v);row.appendChild(kk);row.appendChild(vv);reportDetailList.appendChild(row);};
+  ordered.forEach(k=>{if(Object.prototype.hasOwnProperty.call(report,k)&&!skip.has(k)){addItem(k,report[k]);rendered.add(k);}});
+  Object.keys(report).forEach(k=>{if(rendered.has(k)||skip.has(k))return;addItem(k,report[k]);});
+  const photos=Array.isArray(report.photos)?report.photos.map(normalizePhotoPath).filter(Boolean):[];
+  reportThumbs.innerHTML='';setMainPhoto(photos[0]||'');
+  photos.forEach((src,idx)=>{const thumb=document.createElement('img');thumb.src=src;thumb.alt='Report photo '+(idx+1);if(idx===0)thumb.classList.add('active');thumb.addEventListener('click',()=>{setMainPhoto(src);reportThumbs.querySelectorAll('img').forEach(i=>i.classList.remove('active'));thumb.classList.add('active');});reportThumbs.appendChild(thumb);});
+  reportModal.classList.add('active');reportModal.setAttribute('aria-hidden','false');
+}
+function closeReportModal(){if(!reportModal)return;reportModal.classList.remove('active');reportModal.setAttribute('aria-hidden','true');}
+
+document.querySelectorAll('.report-row').forEach(row=>{row.addEventListener('click',(e)=>{if(e.target.closest('a,button'))return;openReportModal(row.dataset.reportId);});row.addEventListener('keydown',(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openReportModal(row.dataset.reportId);}});});
+if(reportModalClose){reportModalClose.addEventListener('click',closeReportModal);}if(reportModal){reportModal.addEventListener('click',(e)=>{if(e.target===reportModal)closeReportModal();});}
+document.addEventListener('keydown',(e)=>{if(e.key==='Escape'&&reportModal&&reportModal.classList.contains('active'))closeReportModal();});
 document.getElementById('lgMo').style.cssText='position:fixed;inset:0;background:rgba(45,5,5,.55);backdrop-filter:blur(6px);z-index:600;display:none;align-items:center;justify-content:center;';
 document.getElementById('lgMo').style.display='none';
 document.querySelectorAll('[onclick*="lgMo"]').forEach(el=>{
@@ -950,6 +1050,7 @@ document.querySelectorAll('[onclick*="lgMo"]').forEach(el=>{
 </script>
 </body>
 </html>
+
 
 
 
