@@ -13,11 +13,11 @@ if (!isset($_GET['report_id'])) {
 }
 
 try {
-    $conn = getDBConnection();
+$conn = getDBConnection();
     $stmt = $conn->prepare("
-        SELECT dr.*, e.equipment_name, e.asset_tag
+        SELECT dr.*, e.equipment_name, e.id as asset_tag
         FROM defect_reports dr
-        JOIN equipment e ON dr.equipment_id = e.equipment_id
+        JOIN equipment e ON dr.equipment_id = e.id
         WHERE dr.report_id = ? AND dr.status = 'completed'
     ");
     $stmt->bind_param("s", $_GET['report_id']);

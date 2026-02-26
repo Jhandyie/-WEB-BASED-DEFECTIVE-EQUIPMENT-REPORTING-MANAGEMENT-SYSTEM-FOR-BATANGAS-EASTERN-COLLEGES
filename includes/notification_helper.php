@@ -4,6 +4,9 @@
 
 require_once __DIR__ . '/../FileStorage.php';
 
+// Initialize the FileStorage instance
+$fileStorage = new FileStorage();
+
 /**
  * Get unread notification count for a user
  */

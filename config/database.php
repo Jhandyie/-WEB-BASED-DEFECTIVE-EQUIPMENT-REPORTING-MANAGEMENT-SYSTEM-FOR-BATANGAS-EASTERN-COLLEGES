@@ -7,7 +7,7 @@ class Database {
     private $connection;
     private $is_connected = false;
 
-    private $host = "localhost";
+    private $host = "127.0.0.1";
     private $username = "root";
     private $password = "";
     private $database = "bec_equipment_db";
@@ -63,9 +63,8 @@ function getDBConnection() {
 
 function getAllEquipment() {
     $conn = getDBConnection();
-    $sql = "SELECT e.*, c.category_name
+    $sql = "SELECT e.*, e.equipment_category as category_name
             FROM equipment e
-            LEFT JOIN categories c ON e.category_id = c.category_id
             WHERE e.status != 'deleted'
             ORDER BY e.equipment_name ASC";
     $result = $conn->query($sql);
@@ -81,10 +80,9 @@ function getAllCategories() {
 
 function getEquipmentById($equipment_id) {
     $conn = getDBConnection();
-    $stmt = $conn->prepare("SELECT e.*, c.category_name
+    $stmt = $conn->prepare("SELECT e.*, e.equipment_category as category_name
                             FROM equipment e
-                            LEFT JOIN categories c ON e.category_id = c.category_id
-                            WHERE e.equipment_id = ?");
+                            WHERE e.id = ?");
     $stmt->bind_param("s", $equipment_id);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -443,9 +441,9 @@ function getAvailableEquipment() {
     $conn = getDBConnection();
 
     // Query equipment from database that are available or active
-    $sql = "SELECT e.equipment_id, e.equipment_name, e.asset_tag, e.location,
+    $sql = "SELECT e.id as equipment_id, e.equipment_name, e.id as asset_tag, e.location,
                    e.status, e.quantity, e.description,
-                   c.category_name,
+                   e.equipment_category as category_name,
                    CASE
                        WHEN e.location LIKE '%Main%' THEN 'Main Campus'
                        WHEN e.location LIKE '%Annex 1%' THEN 'Annex 1 Campus'
@@ -455,10 +453,9 @@ function getAvailableEquipment() {
                    SUBSTRING_INDEX(SUBSTRING_INDEX(e.location, ' - ', 1), ' ', -1) as building,
                    SUBSTRING_INDEX(e.location, ' - ', -1) as room
             FROM equipment e
-            LEFT JOIN categories c ON e.category_id = c.category_id
             WHERE e.status IN ('available', 'active')
             AND e.quantity > 0
-            ORDER BY c.category_name ASC, e.equipment_name ASC";
+            ORDER BY e.equipment_category ASC, e.equipment_name ASC";
 
     $result = $conn->query($sql);
     $availableEquipment = [];
@@ -544,7 +541,7 @@ function addDefectReport($data) {
 
 function getDefectReportById($report_id) {
     $conn = getDBConnection();
-    $stmt = $conn->prepare("SELECT dr.*, e.equipment_name, e.asset_tag 
+    $stmt = $conn->prepare("SELECT dr.*, e.equipment_name, e.asset_tag as asset_tag 
                             FROM defect_reports dr 
                             JOIN equipment e ON dr.equipment_id = e.equipment_id 
                             WHERE dr.report_id = ?");
@@ -563,7 +560,7 @@ function getReportByIdPublic($report_id) {
 function getUserDefectReports($user_id) {
     $conn = getDBConnection();
 
-    $stmt = $conn->prepare("SELECT dr.*, e.equipment_name, e.asset_tag
+    $stmt = $conn->prepare("SELECT dr.*, e.equipment_name, e.asset_tag as asset_tag
                             FROM defect_reports dr
                             JOIN equipment e ON dr.equipment_id = e.equipment_id
                             WHERE dr.reported_by = ?
@@ -604,7 +601,8 @@ function updateDefectReport($report_id, $data) {
 function getDefectReportsWithFilters($status = 'all', $priority = 'all', $search = '') {
     $conn = getDBConnection();
 
-    $sql = "SELECT dr.*, e.equipment_name, e.asset_tag, c.category_name,
+    $sql = "SELECT dr.*, e.equipment_name, e.asset_tag as asset_tag,
+            COALESCE(c.category_name, CAST(e.category_id AS CHAR)) as category_name,
             mt.fullname as technician_name
             FROM defect_reports dr
             JOIN equipment e ON dr.equipment_id = e.equipment_id
@@ -658,27 +656,220 @@ function getDefectReportsWithFilters($status = 'all', $priority = 'all', $search
 /**
  * Get defect reports grouped by category
  */
+
+function getAllDefectReports() {
+    return getDefectReportsWithFilters('all', 'all', '');
+}
+
+/**
+ * Dashboard helpers
+ * These wrappers provide 7/30-day chart/stat blocks used by admin_dashboard.php.
+ */
+function getDefectsOverTime($days = 7) {
+    $days = max(1, (int)$days);
+    $all = getAllDefectReports();
+    $buckets = [];
+
+    for ($i = $days - 1; $i >= 0; $i--) {
+        $d = date('Y-m-d', strtotime("-{$i} day"));
+        $buckets[$d] = 0;
+    }
+
+    foreach ($all as $row) {
+        $raw = $row['report_date'] ?? null;
+        if (!$raw) continue;
+        $d = date('Y-m-d', strtotime($raw));
+        if (isset($buckets[$d])) {
+            $buckets[$d]++;
+        }
+    }
+
+    $out = [];
+    foreach ($buckets as $date => $count) {
+        $out[] = ['date' => $date, 'count' => $count];
+    }
+    return $out;
+}
+
+function getReservationsOverTime($days = 7) {
+    $conn = getDBConnection();
+    $days = max(1, (int)$days);
+    $buckets = [];
+
+    for ($i = $days - 1; $i >= 0; $i--) {
+        $d = date('Y-m-d', strtotime("-{$i} day"));
+        $buckets[$d] = 0;
+    }
+
+    $hasReservations = false;
+    if ($res = $conn->query("SHOW TABLES LIKE 'reservations'")) {
+        $hasReservations = $res->num_rows > 0;
+    }
+    if (!$hasReservations) {
+        $out = [];
+        foreach ($buckets as $date => $count) $out[] = ['date' => $date, 'count' => $count];
+        return $out;
+    }
+
+    $cols = [];
+    if ($cr = $conn->query("SHOW COLUMNS FROM reservations")) {
+        while ($cr && ($r = $cr->fetch_assoc())) {
+            $cols[$r['Field']] = true;
+        }
+    }
+
+    $dateCol = isset($cols['request_date']) ? 'request_date'
+        : (isset($cols['created_at']) ? 'created_at' : null);
+
+    if (!$dateCol) {
+        $out = [];
+        foreach ($buckets as $date => $count) $out[] = ['date' => $date, 'count' => $count];
+        return $out;
+    }
+
+    $sql = "SELECT DATE($dateCol) AS d, COUNT(*) AS c
+            FROM reservations
+            WHERE $dateCol >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+            GROUP BY DATE($dateCol)";
+    $stmt = $conn->prepare($sql);
+    if ($stmt) {
+        $stmt->bind_param('i', $days);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) {
+            $d = $row['d'];
+            if (isset($buckets[$d])) {
+                $buckets[$d] = (int)$row['c'];
+            }
+        }
+        $stmt->close();
+    }
+
+    $out = [];
+    foreach ($buckets as $date => $count) {
+        $out[] = ['date' => $date, 'count' => $count];
+    }
+    return $out;
+}
+
+function getEquipmentUsageOverTime($days = 7) {
+    $conn = getDBConnection();
+    $days = max(1, (int)$days);
+    $buckets = [];
+
+    for ($i = $days - 1; $i >= 0; $i--) {
+        $d = date('Y-m-d', strtotime("-{$i} day"));
+        $buckets[$d] = 0;
+    }
+
+    $hasReservations = false;
+    if ($res = $conn->query("SHOW TABLES LIKE 'reservations'")) {
+        $hasReservations = $res->num_rows > 0;
+    }
+    if (!$hasReservations) {
+        $out = [];
+        foreach ($buckets as $date => $count) $out[] = ['date' => $date, 'count' => $count];
+        return $out;
+    }
+
+    $cols = [];
+    if ($cr = $conn->query("SHOW COLUMNS FROM reservations")) {
+        while ($cr && ($r = $cr->fetch_assoc())) {
+            $cols[$r['Field']] = true;
+        }
+    }
+
+    $statusCol = isset($cols['status']) ? 'status' : null;
+    $startCol = isset($cols['start_date']) ? 'start_date' : (isset($cols['request_date']) ? 'request_date' : null);
+    if (!$startCol) {
+        $out = [];
+        foreach ($buckets as $date => $count) $out[] = ['date' => $date, 'count' => $count];
+        return $out;
+    }
+
+    $sql = "SELECT DATE($startCol) AS d, COUNT(*) AS c
+            FROM reservations
+            WHERE $startCol >= DATE_SUB(CURDATE(), INTERVAL ? DAY)";
+    if ($statusCol) {
+        $sql .= " AND $statusCol IN ('approved','active','completed')";
+    }
+    $sql .= " GROUP BY DATE($startCol)";
+
+    $stmt = $conn->prepare($sql);
+    if ($stmt) {
+        $stmt->bind_param('i', $days);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) {
+            $d = $row['d'];
+            if (isset($buckets[$d])) {
+                $buckets[$d] = (int)$row['c'];
+            }
+        }
+        $stmt->close();
+    }
+
+    $out = [];
+    foreach ($buckets as $date => $count) {
+        $out[] = ['date' => $date, 'count' => $count];
+    }
+    return $out;
+}
+
+function getSystemStatistics() {
+    $conn = getDBConnection();
+    $stats = [
+        'available_equipment' => 0,
+        'in_use_equipment' => 0,
+        'maintenance_equipment' => 0,
+        'defective_equipment' => 0,
+    ];
+
+    $hasEquipment = false;
+    if ($res = $conn->query("SHOW TABLES LIKE 'equipment'")) {
+        $hasEquipment = $res->num_rows > 0;
+    }
+    if (!$hasEquipment) return $stats;
+
+    $statusExpr = "LOWER(COALESCE(status,''))";
+    $sql = "SELECT
+                SUM(CASE WHEN $statusExpr IN ('operational','available') THEN 1 ELSE 0 END) AS available_equipment,
+                SUM(CASE WHEN $statusExpr IN ('in_use','in use','borrowed') THEN 1 ELSE 0 END) AS in_use_equipment,
+                SUM(CASE WHEN $statusExpr IN ('under_maintenance','maintenance') THEN 1 ELSE 0 END) AS maintenance_equipment,
+                SUM(CASE WHEN $statusExpr IN ('defective','faulty') THEN 1 ELSE 0 END) AS defective_equipment
+            FROM equipment
+            WHERE $statusExpr <> 'deleted'";
+
+    $res = $conn->query($sql);
+    if ($res && ($row = $res->fetch_assoc())) {
+        $stats['available_equipment'] = (int)($row['available_equipment'] ?? 0);
+        $stats['in_use_equipment'] = (int)($row['in_use_equipment'] ?? 0);
+        $stats['maintenance_equipment'] = (int)($row['maintenance_equipment'] ?? 0);
+        $stats['defective_equipment'] = (int)($row['defective_equipment'] ?? 0);
+    }
+
+    return $stats;
+}
 function getDefectReportsByCategory($category_id = null, $status_filter = 'all') {
     $conn = getDBConnection();
 
-    $sql = "SELECT c.category_name,
+    $sql = "SELECT e.equipment_category as category_name,
             COUNT(dr.report_id) as total_defects,
             COUNT(CASE WHEN dr.status IN ('reported', 'assigned', 'in_progress') THEN 1 END) as pending_defects,
             COUNT(CASE WHEN dr.status = 'completed' THEN 1 END) as resolved_defects,
             COUNT(CASE WHEN dr.priority = 'critical' THEN 1 END) as critical_defects,
             COUNT(CASE WHEN dr.priority = 'high' THEN 1 END) as high_defects,
             MAX(dr.report_date) as last_defect_date
-            FROM categories c
-            LEFT JOIN equipment e ON c.category_id = e.category_id
-            LEFT JOIN defect_reports dr ON e.equipment_id = dr.equipment_id";
+            FROM equipment e
+            LEFT JOIN defect_reports dr ON e.id = dr.equipment_id";
 
     $params = [];
     $types = "";
 
     if ($category_id) {
-        $sql .= " WHERE c.category_id = ?";
+        $sql .= " WHERE e.equipment_category = ?";
         $params[] = $category_id;
-        $types .= "i";
+        $types .= "s";
     }
 
     if ($status_filter !== 'all') {
@@ -694,7 +885,7 @@ function getDefectReportsByCategory($category_id = null, $status_filter = 'all')
         }
     }
 
-    $sql .= " GROUP BY c.category_id, c.category_name ORDER BY c.category_name ASC";
+    $sql .= " GROUP BY e.equipment_category ORDER BY e.equipment_category ASC";
 
     $stmt = $conn->prepare($sql);
     if (!empty($params)) {
@@ -714,16 +905,15 @@ function getDefectReportsByCategory($category_id = null, $status_filter = 'all')
 function getEquipmentDefectStats() {
     $conn = getDBConnection();
 
-    $sql = "SELECT c.category_name,
-            COUNT(DISTINCT e.equipment_id) as total_equipment,
-            COUNT(DISTINCT CASE WHEN e.status = 'defective' THEN e.equipment_id END) as defective_equipment,
+    $sql = "SELECT e.equipment_category as category_name,
+            COUNT(DISTINCT e.id) as total_equipment,
+            COUNT(DISTINCT CASE WHEN e.status = 'defective' THEN e.id END) as defective_equipment,
             COUNT(dr.report_id) as total_defects,
             ROUND(AVG(CASE WHEN dr.status = 'completed'
                           THEN DATEDIFF(dr.completion_date, dr.report_date) END), 1) as avg_resolution_days
-            FROM categories c
-            LEFT JOIN equipment e ON c.category_id = e.category_id
-            LEFT JOIN defect_reports dr ON e.equipment_id = dr.equipment_id
-            GROUP BY c.category_id, c.category_name
+            FROM equipment e
+            LEFT JOIN defect_reports dr ON e.id = dr.equipment_id
+            GROUP BY e.equipment_category
             ORDER BY total_defects DESC, category_name ASC";
 
     $result = $conn->query($sql);
@@ -736,15 +926,14 @@ function getEquipmentDefectStats() {
 function getDefectTrendsByCategory($days = 30) {
     $conn = getDBConnection();
 
-    $sql = "SELECT c.category_name,
+    $sql = "SELECT e.equipment_category as category_name,
             DATE(dr.report_date) as report_date,
             COUNT(dr.report_id) as defect_count
-            FROM categories c
-            LEFT JOIN equipment e ON c.category_id = e.category_id
-            LEFT JOIN defect_reports dr ON e.equipment_id = dr.equipment_id
+            FROM equipment e
+            LEFT JOIN defect_reports dr ON e.id = dr.equipment_id
             WHERE dr.report_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
-            GROUP BY c.category_id, c.category_name, DATE(dr.report_date)
-            ORDER BY c.category_name ASC, report_date ASC";
+            GROUP BY e.equipment_category, DATE(dr.report_date)
+            ORDER BY e.equipment_category ASC, report_date ASC";
 
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("i", $days);
@@ -803,9 +992,9 @@ function checkReservationConflict($equipment_id, $start_date, $end_date) {
 
 function getUserReservations($user_id) {
     $conn = getDBConnection();
-    $stmt = $conn->prepare("SELECT r.*, e.equipment_name, e.asset_tag 
+    $stmt = $conn->prepare("SELECT r.*, e.equipment_name, e.id as asset_tag 
                             FROM reservations r 
-                            JOIN equipment e ON r.equipment_id = e.equipment_id 
+                            JOIN equipment e ON r.equipment_id = e.id 
                             WHERE r.user_id = ? 
                             ORDER BY r.request_date DESC");
     $stmt->bind_param("s", $user_id);
@@ -876,10 +1065,10 @@ function getTechnicianStatistics($technician_id) {
 
 function getAssignedTasks($technician_id) {
     $conn = getDBConnection();
-    $stmt = $conn->prepare("SELECT dr.*, e.equipment_name, e.asset_tag, e.location,
+    $stmt = $conn->prepare("SELECT dr.*, e.equipment_name, e.id as asset_tag, e.location,
                             CASE WHEN dr.assigned_to IS NULL THEN 'unassigned' ELSE 'assigned' END as task_type
                             FROM defect_reports dr
-                            JOIN equipment e ON dr.equipment_id = e.equipment_id
+                            JOIN equipment e ON dr.equipment_id = e.id
                             WHERE (dr.assigned_to = ? AND dr.status IN ('assigned', 'in_progress'))
                             OR (dr.assigned_to IS NULL AND dr.status = 'reported')
                             ORDER BY dr.priority DESC, dr.assigned_date ASC, dr.report_date ASC");
@@ -893,9 +1082,9 @@ function getAssignedTasks($technician_id) {
 
 function getTechnicianWorkHistory($technician_id) {
     $conn = getDBConnection();
-    $stmt = $conn->prepare("SELECT dr.*, e.equipment_name, e.asset_tag, e.location
+    $stmt = $conn->prepare("SELECT dr.*, e.equipment_name, e.id as asset_tag, e.location
                             FROM defect_reports dr
-                            JOIN equipment e ON dr.equipment_id = e.equipment_id
+                            JOIN equipment e ON dr.equipment_id = e.id
                             WHERE dr.assigned_to = ?
                             AND dr.status = 'completed'
                             ORDER BY dr.completion_date DESC");
@@ -909,10 +1098,10 @@ function getTechnicianWorkHistory($technician_id) {
 
 function getCompletedWorkForVerification() {
     $conn = getDBConnection();
-    $sql = "SELECT dr.*, e.equipment_name, e.asset_tag,
+    $sql = "SELECT dr.*, e.equipment_name, e.id as asset_tag,
             mt.fullname as technician_name
             FROM defect_reports dr
-            JOIN equipment e ON dr.equipment_id = e.equipment_id
+            JOIN equipment e ON dr.equipment_id = e.id
             JOIN maintenance_technicians mt ON dr.assigned_to = mt.technician_id
             WHERE dr.status = 'completed'
             ORDER BY dr.completion_date DESC";
@@ -922,9 +1111,9 @@ function getCompletedWorkForVerification() {
 
 function getUnassignedReports() {
     $conn = getDBConnection();
-    $stmt = $conn->prepare("SELECT dr.*, e.equipment_name, e.asset_tag, e.location
+    $stmt = $conn->prepare("SELECT dr.*, e.equipment_name, e.id as asset_tag, e.location
                             FROM defect_reports dr
-                            JOIN equipment e ON dr.equipment_id = e.equipment_id
+                            JOIN equipment e ON dr.equipment_id = e.id
                             WHERE dr.status = 'reported' AND dr.assigned_to IS NULL
                             ORDER BY dr.priority DESC, dr.report_date ASC");
     $stmt->execute();
@@ -950,9 +1139,9 @@ function getAvailableTasks() {
 
 function getRecentAssignedTasks($technician_id, $limit = 5) {
     $conn = getDBConnection();
-    $sql = "SELECT dr.*, e.equipment_name, e.asset_tag, e.location
+    $sql = "SELECT dr.*, e.equipment_name, e.id as asset_tag, e.location
             FROM defect_reports dr
-            JOIN equipment e ON dr.equipment_id = e.equipment_id
+            JOIN equipment e ON dr.equipment_id = e.id
             WHERE dr.assigned_to = ? AND dr.status IN ('assigned', 'in_progress', 'completed')
             ORDER BY dr.assigned_date DESC, dr.report_date DESC
             LIMIT ?";
@@ -1438,3 +1627,5 @@ function initializeSystem() {
 
 // Auto-initialize on first run
 // initializeSystem();
+
+

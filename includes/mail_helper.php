@@ -4,9 +4,12 @@
  * Uses direct SMTP connection with TLS authentication
  */
 
-function sendEmail($to, $subject, $message, $settings = null) {
+function sendEmail($to, $subject, $message, $settings = null, $role = 'admin') {
+    // Get role-based email settings
+    $email_settings = $settings ?: getEmailSettingsByRole($role);
+
     // Try SMTP first, fall back to PHP mail() if it fails
-    $smtp_result = sendEmailSMTP($to, $subject, $message, $settings);
+    $smtp_result = sendEmailSMTP($to, $subject, $message, $email_settings);
 
     if ($smtp_result) {
         return true;
@@ -14,7 +17,28 @@ function sendEmail($to, $subject, $message, $settings = null) {
 
     // Fallback to PHP mail() function
     error_log("SMTP failed, falling back to PHP mail() function");
-    return sendEmailPHP($to, $subject, $message, $settings);
+    return sendEmailPHP($to, $subject, $message, $email_settings);
+}
+
+function getEmailSettingsByRole($role = 'admin') {
+    $settings_file = __DIR__ . '/../data/system_settings.json';
+    if (!file_exists($settings_file)) {
+        error_log("Settings file not found: $settings_file");
+        return null;
+    }
+
+    $settings = json_decode(file_get_contents($settings_file), true);
+    $email_config = $settings['email'] ?? [];
+
+    $base_settings = [
+        'smtp_host' => $email_config['smtp_host'] ?? 'smtp.gmail.com',
+        'smtp_port' => $email_config['smtp_port'] ?? 587,
+    ];
+
+    $role_key = strtolower((string)$role);
+    $role_settings = $email_config[$role_key] ?? [];
+
+    return array_merge($base_settings, $role_settings);
 }
 
 function sendEmailSMTP($to, $subject, $message, $settings = null) {
@@ -243,7 +267,7 @@ function sendPasswordResetEmail($email, $reset_link) {
                     0 0 60px rgba(128,0,0,0.08);
             }
 
-            /* ── HEADER ── */
+            /* -- HEADER -- */
             .header {
                 background: linear-gradient(145deg, #6b0000 0%, #8b0000 40%, #a30000 70%, #6b0000 100%);
                 padding: 48px 40px 40px;
@@ -314,7 +338,7 @@ function sendPasswordResetEmail($email, $reset_link) {
                 z-index: 2;
             }
 
-            /* ── CONTENT ── */
+            /* -- CONTENT -- */
             .content {
                 padding: 44px 40px;
                 background: #fafafa;
@@ -431,7 +455,7 @@ function sendPasswordResetEmail($email, $reset_link) {
                 color: #8b0000;
             }
 
-            /* ── FOOTER ── */
+            /* -- FOOTER -- */
             .footer {
                 background: #1a1a2e;
                 color: rgba(255,255,255,0.6);
@@ -518,12 +542,12 @@ function sendPasswordResetEmail($email, $reset_link) {
                     <div class="cta-wrapper">
                         <a href="{$reset_link}" class="reset-btn">Reset My Password</a>
                         <br>
-                        <span class="expiry-badge">⏱ Expires in 1 hour</span>
+                        <span class="expiry-badge">? Expires in 1 hour</span>
                     </div>
 
                     <!-- Security notice -->
                     <div class="notice-strip">
-                        <span class="notice-icon">⚠️</span>
+                        <span class="notice-icon">??</span>
                         <div class="notice-text">
                             If you did not request a password reset, please ignore this email. Your password will remain unchanged. Contact IT support if you suspect unauthorized activity.
                         </div>
@@ -544,11 +568,11 @@ function sendPasswordResetEmail($email, $reset_link) {
 
                 <!-- Footer -->
                 <div class="footer">
-                    <div class="footer-brand">🏫 BATANGAS EASTERN COLLEGES</div>
+                    <div class="footer-brand">?? BATANGAS EASTERN COLLEGES</div>
                     <div class="footer-divider"></div>
                     <p class="footer-text">
-                        © {$year} Batangas Eastern Colleges. All rights reserved.<br>
-                        This is an automated message — please do not reply to this email.
+                        � {$year} Batangas Eastern Colleges. All rights reserved.<br>
+                        This is an automated message � please do not reply to this email.
                     </p>
                 </div>
 

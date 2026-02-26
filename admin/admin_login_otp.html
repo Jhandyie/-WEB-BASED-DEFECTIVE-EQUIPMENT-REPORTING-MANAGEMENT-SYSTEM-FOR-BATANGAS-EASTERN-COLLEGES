@@ -96,7 +96,7 @@
 
         .container span {
             font-size: 13px;
-            color: #666;
+            color: #b7b7b7;
         }
 
         .container a {
@@ -131,6 +131,15 @@
         .container button:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 20px rgba(128, 0, 0, 0.4);
+        }
+
+        .container button.hidden {
+            background-color: transparent;
+            border: 2px solid #fff;
+        }
+
+        .container button.hidden:hover {
+            background: rgba(255, 255, 255, 0.1);
         }
 
         .container form {
@@ -173,7 +182,7 @@
             text-transform: uppercase;
             padding: 4px 14px;
             border-radius: 20px;
-            margin-bottom: 18px;
+            margin-bottom: 16px;
         }
         .admin-badge i { font-size: 9px; }
 
@@ -233,7 +242,35 @@
         }
         .container input:focus ~ .input-icon { color: #a30000; }
 
-        /* Password show/hide toggle */
+        /* Social icons - same as student portal */
+        .icons {
+            margin: 25px 0;
+            display: flex;
+            gap: 12px;
+        }
+
+        .icons a {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            width: 45px;
+            height: 45px;
+            text-decoration: none;
+            color: #666;
+            transition: all 0.3s;
+            background: #f9f9f9;
+        }
+
+        .icons a:hover {
+            border-color: #ff0000;
+            color: #a30000;
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(163, 0, 0, 0.2);
+        }
+
+        /* Password show/hide */
         .toggle-password {
             position: absolute;
             right: 14px;
@@ -260,13 +297,49 @@
         }
         .checkbox-group label { font-size: 14px; color: #666; cursor: pointer; }
 
-        /* ===== LEFT: Sign In ===== */
+        /* ===== SIGN UP / SIGN IN PANELS (same as student) ===== */
+        .sign-up,
         .sign-in {
             position: absolute;
-            top: 0; left: 0;
-            width: 50%;
+            top: 0;
             height: 100%;
+            transition: all 0.6s ease-in-out;
+        }
+
+        .sign-up {
+            left: 0;
+            width: 50%;
+            z-index: 1;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .sign-in {
+            left: 0;
+            width: 50%;
             z-index: 2;
+        }
+
+        .container.active .sign-in {
+            transform: translateX(100%);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .container.active .sign-up {
+            transform: translateX(100%);
+            opacity: 1;
+            z-index: 5;
+            visibility: visible;
+            pointer-events: auto;
+            animation: move 0.6s;
+        }
+
+        @keyframes move {
+            0%, 49.99% { opacity: 0; z-index: 1; }
+            50%, 100% { opacity: 1; z-index: 5; }
         }
 
         /* ===== OTP SECTION ===== */
@@ -332,6 +405,7 @@
 
         .otp-shield-wrapper { margin-bottom: 8px; display: flex; justify-content: center; }
         .otp-shield-inner { position: relative; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; overflow: visible; }
+
         .otp-shield {
             width: 60px; height: 60px;
             background: linear-gradient(135deg, #800000, #a30000);
@@ -340,6 +414,7 @@
             box-shadow: 0 6px 20px rgba(163,0,0,0.35), 0 2px 6px rgba(163,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.15);
             animation: shieldFloat 3s ease-in-out infinite;
             position: relative;
+            transform-style: preserve-3d;
         }
         .otp-shield::before { content: ''; position: absolute; inset: 0; border-radius: 50%; background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 60%); }
         .otp-shield::after { content: ''; position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); width: 50px; height: 12px; background: radial-gradient(ellipse, rgba(163,0,0,0.3) 0%, transparent 70%); border-radius: 50%; }
@@ -437,7 +512,7 @@
         .back-link { display: inline-flex !important; align-items: center; gap: 5px; color: #999 !important; font-size: 12px !important; cursor: pointer; text-decoration: none !important; transition: all 0.3s; font-weight: 500; margin: 0 !important; }
         .back-link:hover { color: #a30000 !important; transform: translateX(-2px); }
 
-        /* ===== RIGHT PANEL ===== */
+        /* ===== TOGGLE PANEL (same animation as student) ===== */
         .toggle-container {
             position: absolute;
             top: 0; left: 50%;
@@ -445,6 +520,12 @@
             overflow: hidden;
             border-radius: 0 20px 20px 0;
             z-index: 1000;
+            transition: all 0.6s ease-in-out;
+        }
+
+        .container.active .toggle-container {
+            transform: translateX(-100%);
+            border-radius: 20px 0 0 20px;
         }
 
         .toggle {
@@ -452,7 +533,10 @@
             height: 100%;
             color: #fff;
             position: relative;
-            width: 100%;
+            left: -100%;
+            width: 200%;
+            transform: translateX(0);
+            transition: all 0.6s ease-in-out;
             overflow: hidden;
         }
 
@@ -463,16 +547,21 @@
             width: 150%; height: 150%;
             background: repeating-linear-gradient(45deg, transparent, transparent 20px, rgba(255, 215, 0, 0.05) 20px, rgba(255, 215, 0, 0.05) 40px);
             animation: patternSlide 20s linear infinite;
-            pointer-events: none;
         }
 
         @keyframes patternSlide { 0% { transform: translate(0, 0); } 100% { transform: translate(40px, 40px); } }
 
+        .container.active .toggle { transform: translateX(50%); }
+
         .toggle-panel {
-            position: absolute; width: 100%; height: 100%;
+            position: absolute;
+            width: 50%; height: 100%;
             display: flex; justify-content: center; align-items: center;
-            flex-direction: column; padding: 0 45px; text-align: center;
-            top: 0; z-index: 2;
+            flex-direction: column; padding: 0 50px;
+            text-align: center; top: 0;
+            transform: translateX(0);
+            transition: all 0.6s ease-in-out;
+            z-index: 2;
         }
 
         .logo-box {
@@ -480,7 +569,7 @@
             background: linear-gradient(135deg, #ffd700, #ffed4e);
             border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            margin-bottom: 25px;
+            margin-bottom: 30px;
             box-shadow: 0 10px 30px rgba(255, 215, 0, 0.3);
             animation: logoFloat 3s ease-in-out infinite;
             overflow: hidden;
@@ -493,53 +582,20 @@
         .toggle-panel h1 {
             font-family: 'Playfair Display', serif;
             color: #ffd700; font-weight: 900; font-size: 40px;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
             text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
         }
 
-        .toggle-panel > p {
-            font-size: 15px; line-height: 1.6;
-            margin-bottom: 28px; opacity: 0.95;
+        .toggle-panel p {
+            font-size: 16px; line-height: 1.5;
+            margin-bottom: 25px; opacity: 0.95;
         }
 
-        /* Security feature list */
-        .security-list {
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
+        .toggle-left { transform: translateX(-200%); }
+        .container.active .toggle-left { transform: translateX(0); }
 
-        .security-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            background: rgba(0, 0, 0, 0.2);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 10px;
-            padding: 10px 14px;
-            text-align: left;
-            transition: all 0.3s;
-        }
-
-        .security-item:hover {
-            background: rgba(0, 0, 0, 0.3);
-            border-color: rgba(255, 215, 0, 0.2);
-            transform: translateX(4px);
-        }
-
-        .security-item-icon {
-            width: 32px; height: 32px;
-            background: rgba(255,215,0,0.15);
-            border-radius: 8px;
-            display: flex; align-items: center; justify-content: center;
-            flex-shrink: 0;
-        }
-        .security-item-icon i { font-size: 14px; color: #ffd700; }
-
-        .security-item-info { display: flex; flex-direction: column; gap: 1px; }
-        .security-item-title { font-size: 12px; font-weight: 700; color: #fff; }
-        .security-item-desc { font-size: 10px; color: rgba(255,255,255,0.5); }
+        .toggle-right { right: 0; transform: translateX(0); }
+        .container.active .toggle-right { transform: translateX(200%); }
 
         /* Messages */
         .message { padding: 10px 14px; border-radius: 10px; margin-bottom: 14px; font-size: 13px; font-weight: 500; display: none; align-items: center; gap: 8px; }
@@ -550,7 +606,7 @@
         .message.info { background: linear-gradient(135deg, #d1ecf1, #bee5eb); color: #0c5460; border-left: 4px solid #17a2b8; }
 
         /* Loading */
-        .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(128, 0, 0, 0.95); backdrop-filter: blur(10px); z-index: 9999; align-items: center; justify-content: center; }
+        .loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(128, 0, 0, 0.95); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); z-index: 9999; align-items: center; justify-content: center; }
         .loading-overlay.show { display: flex; }
         .loading-content { text-align: center; color: white; }
         .spinner-container { position: relative; width: 80px; height: 80px; margin: 0 auto 25px; }
@@ -560,19 +616,515 @@
         .loading-text { font-size: 20px; font-weight: 700; color: #ffd700; margin-bottom: 8px; }
         .loading-subtext { font-size: 14px; opacity: 0.8; }
 
+        /* =============================================
+           3D SIGN IN PANEL STYLES — OVERFLOW FIXED
+           ============================================= */
+
+        .signin-3d-form {
+            perspective: 1000px;
+            background: #fff;
+            padding: 18px 40px 14px !important;
+            justify-content: flex-start !important;
+            overflow-y: auto;
+            overflow-x: hidden;
+            height: 100%;
+            scrollbar-width: none;
+        }
+        .signin-3d-form::-webkit-scrollbar { display: none; }
+
+        /* — 3D rotating cube icon — */
+        .signin-icon-wrap {
+            position: relative;
+            width: 70px;
+            height: 70px;
+            margin: 0 auto 8px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .signin-icon-scene {
+            width: 44px;
+            height: 44px;
+            perspective: 260px;
+            position: relative;
+            z-index: 3;
+        }
+
+        .signin-icon-cube {
+            width: 44px;
+            height: 44px;
+            position: relative;
+            transform-style: preserve-3d;
+            animation: cubeRotate 8s infinite linear;
+        }
+
+        @keyframes cubeRotate {
+            0%   { transform: rotateX(0deg) rotateY(0deg); }
+            25%  { transform: rotateX(10deg) rotateY(90deg); }
+            50%  { transform: rotateX(0deg) rotateY(180deg); }
+            75%  { transform: rotateX(-10deg) rotateY(270deg); }
+            100% { transform: rotateX(0deg) rotateY(360deg); }
+        }
+
+        .cube-face {
+            position: absolute;
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, #800000, #a30000);
+            border: 1px solid rgba(255,215,0,0.25);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 17px;
+            color: #ffd700;
+            text-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            backface-visibility: visible;
+        }
+
+        .cube-front  { transform: translateZ(22px); }
+        .cube-back   { transform: rotateY(180deg) translateZ(22px); }
+        .cube-left   { transform: rotateY(-90deg) translateZ(22px); }
+        .cube-right  { transform: rotateY(90deg) translateZ(22px); }
+        .cube-top    { transform: rotateX(90deg) translateZ(22px); background: linear-gradient(135deg, #600000, #800000); }
+        .cube-bottom { transform: rotateX(-90deg) translateZ(22px); background: linear-gradient(135deg, #600000, #800000); }
+
+        /* Glowing shadow below cube */
+        .signin-icon-glow {
+            position: absolute;
+            bottom: -4px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 46px;
+            height: 10px;
+            background: radial-gradient(ellipse, rgba(163,0,0,0.45) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: glowPulse 3s ease-in-out infinite;
+            z-index: 1;
+        }
+
+        @keyframes glowPulse {
+            0%, 100% { opacity: 0.5; transform: translateX(-50%) scaleX(1); }
+            50% { opacity: 1; transform: translateX(-50%) scaleX(1.2); }
+        }
+
+        /* Orbit rings */
+        .signin-icon-ring {
+            position: absolute;
+            border-radius: 50%;
+            border: 1.5px solid transparent;
+            animation: orbitSpin 4s linear infinite;
+            top: 50%; left: 50%;
+        }
+
+        .signin-ring-1 {
+            width: 58px; height: 58px;
+            border-color: rgba(163,0,0,0.25);
+            margin-top: -29px; margin-left: -29px;
+            animation-duration: 3s;
+        }
+
+        .signin-ring-2 {
+            width: 68px; height: 68px;
+            border-color: rgba(255,215,0,0.15);
+            border-style: dashed;
+            margin-top: -34px; margin-left: -34px;
+            animation-duration: 5s;
+            animation-direction: reverse;
+        }
+
+        .signin-ring-3 {
+            width: 78px; height: 78px;
+            border-color: rgba(163,0,0,0.08);
+            margin-top: -39px; margin-left: -39px;
+            animation-duration: 8s;
+        }
+
+        @keyframes orbitSpin {
+            from { transform: rotate(0deg); }
+            to   { transform: rotate(360deg); }
+        }
+
+        /* Title */
+        .signin-title {
+            font-family: 'Playfair Display', serif !important;
+            font-weight: 900 !important;
+            color: #a30000 !important;
+            font-size: 26px !important;
+            margin-bottom: 6px !important;
+            text-align: center;
+            line-height: 1.2 !important;
+            animation: titleReveal 0.7s cubic-bezier(0.22,1,0.36,1) both;
+        }
+
+        @keyframes titleReveal {
+            from { opacity: 0; transform: translateY(-16px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Badge pulse */
+        .signin-badge-anim {
+            animation: badgePop 0.6s cubic-bezier(0.34,1.56,0.64,1) 0.2s both;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+            font-size: 9px !important;
+            letter-spacing: 1px;
+            padding: 3px 10px;
+        }
+
+        @keyframes badgePop {
+            from { opacity: 0; transform: scale(0.7); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+
+        .signin-sub {
+            font-size: 11px !important;
+            color: #999 !important;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600 !important;
+            margin: 4px 0 2px !important;
+            text-align: center;
+        }
+
+        /* Field staggered reveal */
+        .signin-field-anim {
+            animation: fieldSlideUp 0.6s cubic-bezier(0.22,1,0.36,1) var(--delay, 0s) both;
+        }
+
+        @keyframes fieldSlideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Compact input groups inside 3D form */
+        .signin-3d-form .input-group {
+            margin: 6px 0 !important;
+        }
+
+        /* Animated underline bar on focus */
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-focus-bar {
+            position: absolute;
+            bottom: 2px;
+            left: 12px;
+            right: 12px;
+            height: 2px;
+            background: linear-gradient(90deg, #800000, #ffd700, #a30000);
+            background-size: 200% 100%;
+            border-radius: 2px;
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.4s cubic-bezier(0.22,1,0.36,1);
+            animation: barShimmer 2s linear infinite;
+        }
+
+        @keyframes barShimmer {
+            0%   { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .signin-input:focus ~ .input-focus-bar {
+            transform: scaleX(1);
+        }
+
+        /* 3D tilt on input focus */
+        .signin-input {
+            transition: all 0.3s, transform 0.3s cubic-bezier(0.34,1.56,0.64,1) !important;
+        }
+
+        .signin-input:focus {
+            transform: translateY(-2px) !important;
+        }
+
+        /* ── Remember me row ── */
+        .si-remember-row {
+            width: 100%;
+            margin: 6px 0 4px;
+        }
+
+        .si-remember-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            -webkit-user-select: none;
+            user-select: none;
+            width: fit-content;
+        }
+
+        .si-checkbox {
+            display: none;
+        }
+
+        .si-checkbox-custom {
+            width: 16px;
+            height: 16px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
+            background: #f9f9f9;
+        }
+
+        .si-checkbox:checked + .si-checkbox-custom {
+            background: linear-gradient(135deg, #800000, #a30000);
+            border-color: #a30000;
+            transform: scale(1.15);
+            box-shadow: 0 0 0 3px rgba(163,0,0,0.12);
+        }
+
+        .si-checkbox:checked + .si-checkbox-custom::after {
+            content: '✓';
+            font-size: 10px;
+            color: #ffd700;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        .si-remember-text {
+            font-size: 13px;
+            color: #666;
+            transition: color 0.2s;
+        }
+
+        .si-remember-label:hover .si-remember-text {
+            color: #a30000;
+        }
+
+        /* ── Forgot password — interactive full-width row ── */
+        .si-forgot {
+            display: flex !important;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            padding: 9px 14px;
+            margin: 4px 0 !important;
+            background: linear-gradient(135deg, #fff8f8, #fff0f0);
+            border: 1.5px solid #f0d0d0;
+            border-radius: 10px;
+            text-decoration: none !important;
+            color: #a30000 !important;
+            font-size: 13px !important;
+            font-weight: 600;
+            transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(163,0,0,0.06);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .si-forgot::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, #800000, #a30000);
+            opacity: 0;
+            transition: opacity 0.3s;
+            border-radius: 8px;
+        }
+
+        .si-forgot:hover {
+            border-color: #a30000;
+            transform: translateY(-2px) scale(1.01) !important;
+            box-shadow: 0 6px 16px rgba(163,0,0,0.18) !important;
+            color: #fff !important;
+        }
+
+        .si-forgot:hover::before {
+            opacity: 1;
+        }
+
+        .si-forgot:hover .si-forgot-icon,
+        .si-forgot:hover span,
+        .si-forgot:hover .si-forgot-arrow {
+            color: #fff;
+        }
+
+        .si-forgot:active {
+            transform: translateY(0) scale(0.99) !important;
+        }
+
+        .si-forgot-icon {
+            font-size: 13px;
+            color: #a30000;
+            position: relative;
+            z-index: 1;
+            transition: color 0.3s, transform 0.4s;
+        }
+
+        .si-forgot:hover .si-forgot-icon {
+            transform: rotate(180deg);
+        }
+
+        .si-forgot span {
+            flex: 1;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+            transition: color 0.3s;
+        }
+
+        .si-forgot-arrow {
+            font-size: 11px;
+            color: #ccc;
+            position: relative;
+            z-index: 1;
+            transition: color 0.3s, transform 0.3s;
+        }
+
+        .si-forgot:hover .si-forgot-arrow {
+            transform: translateX(3px);
+        }
+
+        /* Login button — 3D press + shimmer */
+        .signin-btn {
+            width: 100%;
+            padding: 13px !important;
+            margin-top: 10px !important;
+            border-radius: 12px !important;
+            font-size: 14px !important;
+            letter-spacing: 1.5px !important;
+            position: relative;
+            overflow: hidden;
+            transform-style: preserve-3d;
+            flex-shrink: 0;
+            transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1),
+                        box-shadow 0.2s ease !important;
+            box-shadow:
+                0 6px 0 #5a0000,
+                0 8px 20px rgba(128,0,0,0.35) !important;
+        }
+
+        .signin-btn:hover {
+            transform: translateY(-4px) !important;
+            box-shadow:
+                0 10px 0 #5a0000,
+                0 14px 30px rgba(128,0,0,0.45) !important;
+        }
+
+        .signin-btn:active {
+            transform: translateY(3px) !important;
+            box-shadow:
+                0 2px 0 #5a0000,
+                0 4px 12px rgba(128,0,0,0.3) !important;
+        }
+
+        /* Shimmer sweep */
+        .signin-btn::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -120%;
+            width: 80%; height: 100%;
+            background: linear-gradient(120deg,
+                transparent,
+                rgba(255,255,255,0.18),
+                transparent);
+            transform: skewX(-20deg);
+            animation: btnShimmer 3s ease-in-out infinite;
+        }
+
+        @keyframes btnShimmer {
+            0%   { left: -120%; }
+            50%  { left: 140%; }
+            100% { left: 140%; }
+        }
+
+        /* Ripple */
+        .signin-btn-ripple {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            width: 0; height: 0;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            transition: none;
+        }
+
+        .signin-btn.ripple-active .signin-btn-ripple {
+            animation: rippleExpand 0.6s ease-out forwards;
+        }
+
+        @keyframes rippleExpand {
+            to {
+                width: 400px;
+                height: 400px;
+                opacity: 0;
+            }
+        }
+
+        .signin-btn-text, .signin-btn-loader {
+            position: relative; z-index: 1;
+            display: flex; align-items: center;
+            justify-content: center; gap: 8px;
+        }
+
+        /* Sign Up cube spins the opposite direction for visual variety */
+        .signup-cube {
+            animation: cubeRotateReverse 8s infinite linear !important;
+        }
+
+        @keyframes cubeRotateReverse {
+            0%   { transform: rotateX(0deg) rotateY(0deg); }
+            25%  { transform: rotateX(-10deg) rotateY(-90deg); }
+            50%  { transform: rotateX(0deg) rotateY(-180deg); }
+            75%  { transform: rotateX(10deg) rotateY(-270deg); }
+            100% { transform: rotateX(0deg) rotateY(-360deg); }
+        }
+
+        /* Compact social icons inside 3D signup form */
+        .signin-3d-form .icons {
+            margin: 8px 0 !important;
+        }
+
+        /* Social icons stagger-in animation */
+        .signup-icons-anim {
+            animation: fieldSlideUp 0.6s cubic-bezier(0.22,1,0.36,1) 0.05s both;
+        }
+
+        .signup-icons-anim a {
+            animation: iconPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+        }
+        .signup-icons-anim a:nth-child(1) { animation-delay: 0.08s; }
+        .signup-icons-anim a:nth-child(2) { animation-delay: 0.16s; }
+        .signup-icons-anim a:nth-child(3) { animation-delay: 0.24s; }
+        .signup-icons-anim a:nth-child(4) { animation-delay: 0.32s; }
+
+        @keyframes iconPop {
+            from { opacity: 0; transform: scale(0.5) translateY(10px); }
+            to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .container { min-height: 550px; }
-            .sign-in, .otp-section { width: 100%; }
-            .toggle-container { width: 100%; height: 200px; left: 0; top: auto; bottom: 0; border-radius: 0; position: relative; }
-            .toggle-panel { flex-direction: row; gap: 20px; padding: 20px 25px; justify-content: flex-start; text-align: left; }
-            .toggle-panel h1 { font-size: 28px; margin-bottom: 6px; }
-            .toggle-panel > p { font-size: 12px; margin-bottom: 0; }
-            .logo-box { width: 70px; height: 70px; flex-shrink: 0; margin-bottom: 0; }
-            .logo-box img { width: 70px; height: 70px; }
-            .security-list { display: none; }
-            .container form { padding: 0 30px; }
-            .otp-content { padding: 20px; }
+            .sign-up, .sign-in, .otp-section { width: 100%; }
+            .container.active .sign-in { transform: translateX(0); display: none; }
+            .sign-up { display: none; }
+            .container.active .sign-up { display: block; transform: translateX(0); }
+            .toggle-container { width: 100%; height: 180px; left: 0; top: auto; bottom: 0; border-radius: 0; }
+            .container.active .toggle-container { transform: translateX(0); top: 0; bottom: auto; }
+            .toggle { width: 100%; left: 0; height: 200%; }
+            .container.active .toggle { transform: translateY(50%); }
+            .toggle-panel { width: 100%; height: 50%; padding: 30px; }
+            .toggle-panel h1 { font-size: 32px; }
+            .logo-box { width: 90px; height: 90px; margin-bottom: 20px; }
+            .toggle-left { transform: translateY(-200%); }
+            .container.active .toggle-left { transform: translateY(0); }
+            .toggle-right { bottom: 0; top: auto; }
+            .container.active .toggle-right { transform: translateY(200%); }
+            .container form { padding: 0 35px; }
+            .otp-content { padding: 25px 28px; }
         }
     </style>
 </head>
@@ -581,51 +1133,169 @@
 
     <div class="container" id="container">
 
+        <!-- ===== SIGN UP ===== -->
+        <div class="sign-up">
+            <form id="signUpForm" class="signin-3d-form">
+
+                <!-- Floating 3D cube — signup themed icons -->
+                <div class="signin-icon-wrap">
+                    <div class="signin-icon-scene">
+                        <div class="signin-icon-cube signup-cube">
+                            <div class="cube-face cube-front"><i class="fas fa-user-plus"></i></div>
+                            <div class="cube-face cube-back"><i class="fas fa-id-badge"></i></div>
+                            <div class="cube-face cube-left"><i class="fas fa-envelope"></i></div>
+                            <div class="cube-face cube-right"><i class="fas fa-lock"></i></div>
+                            <div class="cube-face cube-top"></div>
+                            <div class="cube-face cube-bottom"></div>
+                        </div>
+                    </div>
+                    <div class="signin-icon-glow"></div>
+                    <div class="signin-icon-ring signin-ring-1"></div>
+                    <div class="signin-icon-ring signin-ring-2"></div>
+                    <div class="signin-icon-ring signin-ring-3"></div>
+                </div>
+
+                <h1 class="signin-title">Create Account</h1>
+
+                <div class="admin-badge signin-badge-anim">
+                    <i class="fas fa-user-shield"></i>
+                    Admin Registration
+                </div>
+
+                <div id="signUpMessage"></div>
+
+                <!-- Social icons -->
+                <div class="icons signup-icons-anim">
+                    <a href="#" onclick="socialLogin('Google'); return false;" title="Google"><i class="fa-brands fa-google"></i></a>
+                    <a href="#" onclick="socialLogin('Facebook'); return false;" title="Facebook"><i class="fa-brands fa-facebook-f"></i></a>
+                    <a href="#" onclick="socialLogin('Instagram'); return false;" title="Instagram"><i class="fa-brands fa-instagram"></i></a>
+                    <a href="#" onclick="socialLogin('GitHub'); return false;" title="GitHub"><i class="fa-brands fa-github"></i></a>
+                </div>
+
+                <p class="signin-sub">or use email for registration</p>
+
+                <div class="input-group signin-field-anim" style="--delay:0.1s">
+                    <div class="input-wrapper">
+                        <input type="text" placeholder="Full Name" id="signUpName" required class="signin-input" />
+                        <i class="fas fa-user input-icon"></i>
+                        <span class="input-focus-bar"></span>
+                    </div>
+                </div>
+
+                <div class="input-group signin-field-anim" style="--delay:0.2s">
+                    <div class="input-wrapper">
+                        <input type="email" placeholder="Email Address" id="signUpEmail" required class="signin-input" />
+                        <i class="fas fa-envelope input-icon"></i>
+                        <span class="input-focus-bar"></span>
+                    </div>
+                </div>
+
+                <div class="input-group signin-field-anim" style="--delay:0.3s">
+                    <div class="input-wrapper">
+                        <input type="password" placeholder="Password (min. 6 characters)" id="signUpPassword" required class="signin-input" />
+                        <i class="fas fa-lock input-icon"></i>
+                        <i class="fas fa-eye-slash toggle-password" id="toggleSignUpPwd" onclick="toggleSignUpPassword()"></i>
+                        <span class="input-focus-bar"></span>
+                    </div>
+                </div>
+
+                <button type="submit" class="signin-btn signin-field-anim" style="--delay:0.4s" id="signUpBtn">
+                    <span class="signin-btn-text">
+                        <i class="fas fa-user-plus"></i> Sign Up
+                    </span>
+                    <span class="signin-btn-loader" style="display:none;">
+                        <i class="fas fa-circle-notch fa-spin"></i>
+                    </span>
+                    <div class="signin-btn-ripple"></div>
+                </button>
+
+            </form>
+        </div>
+
         <!-- ===== SIGN IN ===== -->
         <div class="sign-in">
-            <form id="signInForm">
-                <h1>Admin Sign In</h1>
-                <div class="admin-badge">
+            <form id="signInForm" class="signin-3d-form">
+
+                <!-- Floating 3D shield icon -->
+                <div class="signin-icon-wrap">
+                    <div class="signin-icon-scene">
+                        <div class="signin-icon-cube">
+                            <div class="cube-face cube-front"><i class="fas fa-shield-halved"></i></div>
+                            <div class="cube-face cube-back"><i class="fas fa-lock"></i></div>
+                            <div class="cube-face cube-left"><i class="fas fa-user-shield"></i></div>
+                            <div class="cube-face cube-right"><i class="fas fa-key"></i></div>
+                            <div class="cube-face cube-top"></div>
+                            <div class="cube-face cube-bottom"></div>
+                        </div>
+                    </div>
+                    <div class="signin-icon-glow"></div>
+                    <div class="signin-icon-ring signin-ring-1"></div>
+                    <div class="signin-icon-ring signin-ring-2"></div>
+                    <div class="signin-icon-ring signin-ring-3"></div>
+                </div>
+
+                <h1 class="signin-title">Admin Sign In</h1>
+
+                <div class="admin-badge signin-badge-anim">
                     <i class="fas fa-shield-halved"></i>
                     Restricted — Authorized Personnel Only
                 </div>
 
                 <div id="signInMessage"></div>
 
-                <span>enter your administrator credentials</span>
+                <p class="signin-sub">Enter your administrator credentials</p>
 
-                <div class="input-group" style="margin-top: 18px;">
+                <!-- Animated input fields -->
+                <div class="input-group signin-field-anim" style="--delay:0.1s">
                     <div class="input-wrapper">
-                        <input type="email" placeholder="Admin Email Address" id="signInEmail" required autocomplete="username" />
+                        <input type="email" placeholder="Admin Email Address" id="signInEmail" required autocomplete="username" class="signin-input" />
                         <i class="fas fa-envelope input-icon"></i>
+                        <span class="input-focus-bar"></span>
                     </div>
                 </div>
 
-                <div class="input-group">
+                <div class="input-group signin-field-anim" style="--delay:0.2s">
                     <div class="input-wrapper">
-                        <input type="password" placeholder="Password" id="signInPassword" required autocomplete="current-password" />
+                        <input type="password" placeholder="Password" id="signInPassword" required autocomplete="current-password" class="signin-input" />
                         <i class="fas fa-lock input-icon"></i>
-                        <i class="fas fa-eye-slash toggle-password" id="togglePwd" onclick="togglePassword()"></i>
+                        <i class="fas fa-eye-slash toggle-password" id="toggleSignInPwd" onclick="toggleSignInPassword()"></i>
+                        <span class="input-focus-bar"></span>
                     </div>
                 </div>
 
-                <div class="checkbox-group">
-                    <input type="checkbox" id="rememberMe">
-                    <label for="rememberMe">Keep me signed in</label>
+                <!-- Remember me row -->
+                <div class="si-remember-row signin-field-anim" style="--delay:0.25s">
+                    <label class="si-remember-label">
+                        <input type="checkbox" id="rememberMe" class="si-checkbox" />
+                        <span class="si-checkbox-custom"></span>
+                        <span class="si-remember-text">Keep me signed in</span>
+                    </label>
                 </div>
 
-                <a href="#" onclick="forgotPassword(); return false;">Forgot password?</a>
+                <!-- Forgot password — full width, interactive -->
+                <a href="#" onclick="forgotPassword(); return false;" class="si-forgot signin-field-anim" style="--delay:0.3s">
+                    <i class="fas fa-rotate-right si-forgot-icon"></i>
+                    <span>Forgot password?</span>
+                    <i class="fas fa-chevron-right si-forgot-arrow"></i>
+                </a>
 
-                <button type="submit" style="width:100%; padding:14px;">
-                    <i class="fas fa-right-to-bracket" style="margin-right:8px;"></i>Access Dashboard
+                <!-- Login button -->
+                <button type="submit" class="signin-btn signin-field-anim" style="--delay:0.4s" id="loginBtn">
+                    <span class="signin-btn-text">
+                        <i class="fas fa-right-to-bracket"></i> Login
+                    </span>
+                    <span class="signin-btn-loader" style="display:none;">
+                        <i class="fas fa-circle-notch fa-spin"></i>
+                    </span>
+                    <div class="signin-btn-ripple"></div>
                 </button>
+
             </form>
         </div>
 
         <!-- ===== OTP SECTION ===== -->
         <div class="otp-section" id="otpSection">
             <div class="otp-content">
-
                 <div class="otp-shield-wrapper">
                     <div class="otp-shield-inner">
                         <div class="otp-shield-ring"></div>
@@ -700,40 +1370,28 @@
             </div>
         </div>
 
-        <!-- ===== RIGHT PANEL ===== -->
+        <!-- ===== TOGGLE CONTAINER ===== -->
         <div class="toggle-container">
             <div class="toggle">
-                <div class="toggle-panel">
+                <!-- Left panel (shown when Sign Up is active) -->
+                <div class="toggle-panel toggle-left">
+                    <div class="logo-box">
+                        <img src="../assets/logs.png" alt="BEC Logo"
+                            onerror="this.style.display='none'; this.parentElement.innerHTML='<i class=\'fas fa-graduation-cap\' style=\'font-size:55px; color:#800000;\'></i>'" />
+                    </div>
+                    <h1>Welcome Back!</h1>
+                    <p>Already have an admin account?<br>Sign in to access your dashboard</p>
+                    <button class="hidden" id="login">Sign In</button>
+                </div>
+                <!-- Right panel (shown when Sign In is active) -->
+                <div class="toggle-panel toggle-right">
                     <div class="logo-box">
                         <img src="../assets/logs.png" alt="BEC Logo"
                             onerror="this.style.display='none'; this.parentElement.innerHTML='<i class=\'fas fa-graduation-cap\' style=\'font-size:55px; color:#800000;\'></i>'" />
                     </div>
                     <h1>BEC Admin</h1>
-                    <p>Secure administration portal for<br>authorized personnel only.</p>
-
-                    <div class="security-list">
-                        <div class="security-item">
-                            <div class="security-item-icon"><i class="fas fa-shield-halved"></i></div>
-                            <div class="security-item-info">
-                                <span class="security-item-title">Two-Factor Auth</span>
-                                <span class="security-item-desc">OTP verification on every login</span>
-                            </div>
-                        </div>
-                        <div class="security-item">
-                            <div class="security-item-icon"><i class="fas fa-eye"></i></div>
-                            <div class="security-item-info">
-                                <span class="security-item-title">Session Monitoring</span>
-                                <span class="security-item-desc">All activity is logged & tracked</span>
-                            </div>
-                        </div>
-                        <div class="security-item">
-                            <div class="security-item-icon"><i class="fas fa-user-lock"></i></div>
-                            <div class="security-item-info">
-                                <span class="security-item-title">Role-Based Access</span>
-                                <span class="security-item-desc">Permissions enforced per admin role</span>
-                            </div>
-                        </div>
-                    </div>
+                    <p>Register a new admin account<br>to manage the portal</p>
+                    <button class="hidden" id="register">Sign Up</button>
                 </div>
             </div>
         </div>
@@ -747,7 +1405,7 @@
                 <div class="spinner"></div>
                 <div class="spinner"></div>
             </div>
-            <div class="loading-text" id="loadingText">Authenticating...</div>
+            <div class="loading-text" id="loadingText">Processing...</div>
             <div class="loading-subtext">Please wait a moment</div>
         </div>
     </div>
@@ -768,24 +1426,110 @@
         }
         createParticles();
 
+        // DOM
+        const container = document.getElementById("container");
+        const registerBtn = document.getElementById("register");
+        const loginBtn = document.getElementById("login");
         let otpTimer = null;
         let otpExpiryTime = null;
         const otpTotalDuration = 10 * 60 * 1000;
         let resendTimer = null;
         let resendCountdown = 30;
 
-        // Password toggle
-        function togglePassword() {
-            const input = document.getElementById('signInPassword');
-            const icon = document.getElementById('togglePwd');
-            if (input.type === 'password') {
-                input.type = 'text';
-                icon.className = 'fas fa-eye toggle-password';
-            } else {
-                input.type = 'password';
-                icon.className = 'fas fa-eye-slash toggle-password';
-            }
+        // Toggle Sign Up / Sign In
+        registerBtn.addEventListener("click", () => container.classList.add("active"));
+        loginBtn.addEventListener("click", () => {
+            container.classList.remove("active");
+            cancelOTP();
+        });
+
+        // Password toggles
+        function toggleSignUpPassword() {
+            const input = document.getElementById('signUpPassword');
+            const icon = document.getElementById('toggleSignUpPwd');
+            input.type = input.type === 'password' ? 'text' : 'password';
+            icon.className = input.type === 'password' ? 'fas fa-eye-slash toggle-password' : 'fas fa-eye toggle-password';
         }
+
+        // Password toggles
+        function toggleSignUpPassword() {
+            const input = document.getElementById('signUpPassword');
+            const icon = document.getElementById('toggleSignUpPwd');
+            input.type = input.type === 'password' ? 'text' : 'password';
+            icon.className = input.type === 'password' ? 'fas fa-eye-slash toggle-password' : 'fas fa-eye toggle-password';
+        }
+
+        function toggleSignInPassword() {
+            const input = document.getElementById('signInPassword');
+            const icon = document.getElementById('toggleSignInPwd');
+            input.type = input.type === 'password' ? 'text' : 'password';
+            icon.className = input.type === 'password' ? 'fas fa-eye-slash toggle-password' : 'fas fa-eye toggle-password';
+        }
+
+        // Sign Up
+        document.getElementById("signUpForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const name = document.getElementById("signUpName").value.trim();
+            const email = document.getElementById("signUpEmail").value.trim();
+            const password = document.getElementById("signUpPassword").value;
+
+            if (name.length < 3) {
+                showMessage('error', 'Name must be at least 3 characters', 'signUpMessage');
+                return;
+            }
+            if (password.length < 6) {
+                showMessage('error', 'Password must be at least 6 characters', 'signUpMessage');
+                return;
+            }
+
+            showLoading('Creating admin account...');
+
+            try {
+                const formData = new FormData();
+                formData.append('fullname', name);
+                formData.append('email', email);
+                formData.append('password', password);
+                formData.append('role', 'admin');
+
+                const response = await fetch('../register_process.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                hideLoading();
+
+                if (data.success) {
+                    showMessage('success', 'Admin account created! Please sign in.', 'signUpMessage');
+                    document.getElementById("signUpForm").reset();
+                    setTimeout(() => container.classList.remove("active"), 1500);
+                } else {
+                    showMessage('error', data.message || 'Registration failed. Please try again.', 'signUpMessage');
+                }
+            } catch (error) {
+                hideLoading();
+                showMessage('error', 'Registration failed. Please try again.', 'signUpMessage');
+                console.error('Registration error:', error);
+            }
+        });
+
+        // Ripple effect on sign up button
+        document.getElementById('signUpBtn').addEventListener('click', function() {
+            const btn = this;
+            btn.classList.remove('ripple-active');
+            void btn.offsetWidth;
+            btn.classList.add('ripple-active');
+            setTimeout(() => btn.classList.remove('ripple-active'), 700);
+        });
+
+        // Ripple effect on login button
+        document.getElementById('loginBtn').addEventListener('click', function(e) {
+            const btn = this;
+            btn.classList.remove('ripple-active');
+            void btn.offsetWidth;
+            btn.classList.add('ripple-active');
+            setTimeout(() => btn.classList.remove('ripple-active'), 700);
+        });
 
         // Sign In
         document.getElementById("signInForm").addEventListener("submit", async (e) => {
@@ -932,8 +1676,7 @@
             ringText.textContent = timeStr;
 
             const elapsed = otpTotalDuration - remaining;
-            const fraction = elapsed / otpTotalDuration;
-            progress.style.strokeDashoffset = (fraction * 125.6).toFixed(2);
+            progress.style.strokeDashoffset = ((elapsed / otpTotalDuration) * 125.6).toFixed(2);
 
             if (remaining < 60000) {
                 displayEl.classList.add('warning');
@@ -981,11 +1724,11 @@
                     document.getElementById('timerRingProgress').classList.remove('warning');
                     startResendCountdown();
                 } else {
-                    showMessage('error', data.message || 'Failed to send new code.', 'otpMessage');
+                    showMessage('error', data.message || 'Failed to send code.', 'otpMessage');
                 }
             } catch {
                 hideLoading();
-                showMessage('error', 'Failed to send new code. Please try again.', 'otpMessage');
+                showMessage('error', 'Failed to send code. Please try again.', 'otpMessage');
             }
         }
 
@@ -1064,6 +1807,12 @@
             document.getElementById('loadingOverlay').classList.remove('show');
         }
 
+        // Social Login
+        function socialLogin(provider) {
+            showMessage('info', `${provider} authentication coming soon!`,
+                container.classList.contains('active') ? 'signUpMessage' : 'signInMessage');
+        }
+
         async function forgotPassword() {
             const email = document.getElementById('signInEmail').value;
             if (!email) {
@@ -1080,11 +1829,7 @@
                 const response = await fetch('admin_login_process.php', { method: 'POST', body: formData });
                 const data = await response.json();
                 hideLoading();
-                if (data.success) {
-                    showMessage('success', data.message || 'Password reset link sent!', 'signInMessage');
-                } else {
-                    showMessage('error', data.message || 'Failed to send reset link.', 'signInMessage');
-                }
+                showMessage(data.success ? 'success' : 'error', data.message || (data.success ? 'Reset link sent!' : 'Failed to send reset link.'), 'signInMessage');
             } catch {
                 hideLoading();
                 showMessage('error', 'Failed to send reset link. Please try again.', 'signInMessage');

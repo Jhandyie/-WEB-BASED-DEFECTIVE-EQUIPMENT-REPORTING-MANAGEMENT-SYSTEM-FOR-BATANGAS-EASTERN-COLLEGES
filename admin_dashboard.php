@@ -1,9 +1,9 @@
+
 <?php
 session_start();
 require_once 'config/database.php';
 require_once 'file_storage_helpers.php';
 require_once 'includes/notification_helper.php';
-require_once 'inventory_functions.php';
 
 $admin_name  = $_SESSION['fullname'] ?? 'Administrator';
 $admin_first = explode(' ', $admin_name)[0];
@@ -49,10 +49,31 @@ $equipDist = [
 ];
 
 // ── HELPER FUNCTIONS ──────────────────────────
-function stCls($s){return['reported'=>'pend','assigned'=>'prog','in_progress'=>'prog','completed'=>'done','verified'=>'done','closed'=>'done','rejected'=>'rej'][$s]??'pend';}
-function prCls($p){return['critical'=>'crit','high'=>'high','medium'=>'med','low'=>'low'][$p]??'low';}
+function stCls($s){
+    return [
+        'reported'    => 'pend',
+        'assigned'    => 'prog',
+        'in_progress' => 'prog',
+        'completed'   => 'done',
+        'verified'    => 'done',
+        'closed'      => 'done',
+        'rejected'    => 'rej',
+    ][$s] ?? 'pend';
+}
+
+function stLbl($s){
+    return [
+        'reported'    => 'Reported',
+        'assigned'    => 'Assigned',
+        'in_progress' => 'In Progress',
+        'completed'   => 'Completed',
+        'verified'    => 'Verified',
+        'closed'      => 'Closed',
+        'rejected'    => 'Rejected',
+    ][$s] ?? ucfirst(str_replace('_', ' ', (string)$s));
+}
+function prCls($p){return['critical'=>'crit','high'=>'hi','medium'=>'med','low'=>'lo'][$p]??'lo';}
 function prLbl($p){return ucfirst($p??'—');}
-function stLbl($s){return ucfirst(str_replace('_',' ',$s??'—'));}
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -448,8 +469,10 @@ body{
 .b-done{background:var(--done-bg);color:var(--done-c);}
 .b-rej {background:var(--rej-bg); color:var(--rej-c);}
 .b-crit{background:var(--crit-bg);color:var(--crit-c);}
+.b-hi{background:var(--high-bg);color:var(--high-c);}
 .b-high{background:var(--high-bg);color:var(--high-c);}
 .b-med {background:var(--med-bg); color:var(--med-c);}
+.b-lo{background:var(--low-bg);color:var(--low-c);}
 .b-low {background:var(--low-bg); color:var(--low-c);}
 
 /* ── ACTION BUTTONS ───────────────────────────── */
@@ -506,6 +529,7 @@ body{
 .sc:nth-child(5){animation-delay:.25s;} .sc:nth-child(6){animation-delay:.3s;}
 .sc:nth-child(7){animation-delay:.35s;}
 @keyframes scIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+@keyframes mUp{from{transform:translateY(16px);opacity:0}to{opacity:1;transform:translateY(0)}}
 </style>
 </head>
 <body>
@@ -568,6 +592,11 @@ body{
       <?php if($unread>0): ?>
       <span class="nav-badge"><?php echo $unread;?></span>
       <?php endif; ?>
+    </a>
+
+    <div class="nav-lbl" style="margin-top:.3rem;">System</div>
+    <a href="admin_settings.php" class="nav-item">
+      <span class="nav-ic"><i class="fas fa-cog"></i></span> Settings
     </a>
   </nav>
 
@@ -807,7 +836,6 @@ body{
     </div>
   </div>
 </div>
-@keyframes mUp{from{transform:translateY(16px);opacity:0}to{opacity:1;transform:translateY(0)}}
 
 <div class="ttray" id="ttray"></div>
 
@@ -914,8 +942,6 @@ function toast(type,msg,title){
   setTimeout(()=>el.remove(),4000);
 }
 
-// Logout modal style injection
-document.head.insertAdjacentHTML('beforeend','<style>@keyframes mUp{from{transform:translateY(16px);opacity:0}to{opacity:1;transform:translateY(0)}}</style>');
 document.getElementById('lgMo').style.cssText='position:fixed;inset:0;background:rgba(45,5,5,.55);backdrop-filter:blur(6px);z-index:600;display:none;align-items:center;justify-content:center;';
 document.getElementById('lgMo').style.display='none';
 document.querySelectorAll('[onclick*="lgMo"]').forEach(el=>{
@@ -924,3 +950,6 @@ document.querySelectorAll('[onclick*="lgMo"]').forEach(el=>{
 </script>
 </body>
 </html>
+
+
+

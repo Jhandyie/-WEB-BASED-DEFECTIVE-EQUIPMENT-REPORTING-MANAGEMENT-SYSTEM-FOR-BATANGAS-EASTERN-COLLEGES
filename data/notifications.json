@@ -304,5 +304,68 @@
         "related_id": null,
         "created_date": "2026-02-17 07:29:44",
         "is_read": false
+    },
+    {
+        "notification_id": "NOT-6997d0f95d3af",
+        "user_id": "STU-008",
+        "message": "New student account created: Admin (thesterads@gmail.com)",
+        "type": "registration",
+        "related_id": null,
+        "created_date": "2026-02-20 04:11:53",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-6997d3c472569",
+        "user_id": "STU-009",
+        "message": "New student account created: Admin (thesterads@gmail.com)",
+        "type": "registration",
+        "related_id": null,
+        "created_date": "2026-02-20 04:23:48",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-6997d772c0fcb",
+        "user_id": "STU-007",
+        "message": "New student account created: Admin (thesterads@gmail.com)",
+        "type": "registration",
+        "related_id": null,
+        "created_date": "2026-02-20 04:39:30",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-6997da03a8477",
+        "user_id": "STU-008",
+        "message": "New student account created: Admin (thesterads@gmail.com)",
+        "type": "registration",
+        "related_id": null,
+        "created_date": "2026-02-20 04:50:27",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-6997fa2be5f08",
+        "user_id": "STU-009",
+        "message": "New student account created: DavidTech (thesterads@gmail.com)",
+        "type": "registration",
+        "related_id": null,
+        "created_date": "2026-02-20 07:07:39",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-6998027192eea",
+        "user_id": "STU-010",
+        "message": "New student account created: DavidTech (thesterads@gmail.com)",
+        "type": "registration",
+        "related_id": null,
+        "created_date": "2026-02-20 07:42:57",
+        "is_read": false
+    },
+    {
+        "notification_id": "NOT-6998056f4101f",
+        "user_id": "TECH-002",
+        "message": "New technician account created: DavidTech (thesterads@gmail.com)",
+        "type": "registration",
+        "related_id": null,
+        "created_date": "2026-02-20 07:55:43",
+        "is_read": false
     }
 ]

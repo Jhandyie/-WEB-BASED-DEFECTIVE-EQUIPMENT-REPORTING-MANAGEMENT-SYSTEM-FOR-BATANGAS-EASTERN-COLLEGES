@@ -26,8 +26,12 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     exit();
 }
 
-// Get inputs safely
-$role = 'student'; // Only students can register through this form
+// Get inputs safely - allow role from POST (admin, technician or student)
+$role = trim($_POST['role'] ?? 'student');
+// Validate role - allow admin, student or technician
+if (!in_array($role, ['admin', 'student', 'technician'])) {
+    $role = 'student';
+}
 $fullname = trim($_POST['fullname'] ?? '');
 $email = trim($_POST['email'] ?? '');
 $password = trim($_POST['password'] ?? '');
@@ -56,7 +60,7 @@ if (!empty($errors)) {
     exit();
 }
 
-// Email duplicate check removed - now allowing duplicate emails
+// Email duplicate check removed - allowing duplicate emails for all roles
 
 try {
     // Generate username from email (before @ symbol)
@@ -80,42 +84,62 @@ try {
     }
     $username_check_stmt->close();
 
-    // Generate user_id (STU-001, STU-002, etc.)
-    // Only look for existing STU- prefixed user_ids to avoid issues with other ID formats like USR-1
-    $user_id_stmt = $conn->prepare("SELECT user_id FROM users WHERE role = 'student' AND user_id LIKE 'STU-%' ORDER BY CAST(SUBSTRING(user_id, 5) AS UNSIGNED) DESC LIMIT 1");
+    // Generate user_id based on role (STU-001 for student, TECH-001 for technician, ADMIN-001 for admin)
+    if ($role === 'admin') {
+        $user_id_stmt = $conn->prepare("SELECT user_id FROM users WHERE role = 'admin' AND user_id LIKE 'ADMIN-%' ORDER BY CAST(SUBSTRING(user_id, 7) AS UNSIGNED) DESC LIMIT 1");
+    } elseif ($role === 'technician') {
+        $user_id_stmt = $conn->prepare("SELECT user_id FROM users WHERE role = 'technician' AND user_id LIKE 'TECH-%' ORDER BY CAST(SUBSTRING(user_id, 6) AS UNSIGNED) DESC LIMIT 1");
+    } else {
+        $user_id_stmt = $conn->prepare("SELECT user_id FROM users WHERE role = 'student' AND user_id LIKE 'STU-%' ORDER BY CAST(SUBSTRING(user_id, 5) AS UNSIGNED) DESC LIMIT 1");
+    }
     $user_id_stmt->execute();
     $user_id_result = $user_id_stmt->get_result();
     
     if ($user_id_result->num_rows > 0) {
         $last_user = $user_id_result->fetch_assoc();
-        $last_id_num = intval(substr($last_user['user_id'], 4)); // Extract number from "STU-XXX"
-        $new_id_num = $last_id_num + 1;
-        $new_user_id = 'STU-' . str_pad($new_id_num, 3, '0', STR_PAD_LEFT);
+        if ($role === 'admin') {
+            $last_id_num = intval(substr($last_user['user_id'], 6)); // Extract number from "ADMIN-XXX"
+            $new_id_num = $last_id_num + 1;
+            $new_user_id = 'ADMIN-' . str_pad($new_id_num, 3, '0', STR_PAD_LEFT);
+        } elseif ($role === 'technician') {
+            $last_id_num = intval(substr($last_user['user_id'], 5)); // Extract number from "TECH-XXX"
+            $new_id_num = $last_id_num + 1;
+            $new_user_id = 'TECH-' . str_pad($new_id_num, 3, '0', STR_PAD_LEFT);
+        } else {
+            $last_id_num = intval(substr($last_user['user_id'], 4)); // Extract number from "STU-XXX"
+            $new_id_num = $last_id_num + 1;
+            $new_user_id = 'STU-' . str_pad($new_id_num, 3, '0', STR_PAD_LEFT);
+        }
     } else {
-        $new_user_id = 'STU-001';
+        if ($role === 'admin') {
+            $new_user_id = 'ADMIN-001';
+        } elseif ($role === 'technician') {
+            $new_user_id = 'TECH-001';
+        } else {
+            $new_user_id = 'STU-001';
+        }
     }
     $user_id_stmt->close();
 
     // Hash the password
     $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
-    // Insert into users table
-    $sql = "INSERT INTO users (user_id, username, password, fullname, email, role, status) VALUES (?, ?, ?, ?, ?, 'student', 'active')";
+    // Insert into users table with the appropriate role
+    $sql = "INSERT INTO users (user_id, username, password, fullname, email, role, status) VALUES (?, ?, ?, ?, ?, ?, 'active')";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("sssss", $new_user_id, $username, $hashed_password, $fullname, $email);
+    $stmt->bind_param("ssssss", $new_user_id, $username, $hashed_password, $fullname, $email, $role);
 
     if ($stmt->execute()) {
         $user_id = $new_user_id;
 
         // Log the registration
-        error_log("New student registered: {$email} (username: {$username}, user_id: {$user_id})");
+        error_log("New {$role} registered: {$email} (username: {$username}, user_id: {$user_id})");
 
         // Create notification
-        $notification_message = "New student account created: {$fullname} ({$email})";
+        $notification_message = "New {$role} account created: {$fullname} ({$email})";
         createNotification($user_id, $notification_message, 'registration');
 
         $stmt->close();
-        $conn->close();
 
         echo json_encode([
             'success' => true,
@@ -127,11 +151,21 @@ try {
     }
     
 } catch (Exception $e) {
-    error_log("Registration error: " . $e->getMessage());
-    echo json_encode([
-        'success' => false,
-        'message' => 'Registration failed. Please try again.'
-    ]);
+    $errorMsg = $e->getMessage();
+    error_log("Registration error: " . $errorMsg);
+    
+    // Check for duplicate email error
+    if (strpos($errorMsg, 'Duplicate entry') !== false || strpos($errorMsg, 'email') !== false) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'This email is already registered. Please use a different email or try logging in.'
+        ]);
+    } else {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Registration failed. Please try again. Error: ' . $errorMsg
+        ]);
+    }
     exit();
 }
 ?>

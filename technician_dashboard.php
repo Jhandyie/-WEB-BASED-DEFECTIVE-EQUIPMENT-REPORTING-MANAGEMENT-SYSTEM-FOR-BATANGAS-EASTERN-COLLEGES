@@ -1,3 +1,26 @@
+<?php
+session_start();
+
+// Check if user is logged in
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'technician') {
+    header('Location: technician/login.html');
+    exit;
+}
+
+$technician_name = $_SESSION['fullname'] ?? 'Technician';
+$technician_email = $_SESSION['user_email'] ?? '';
+
+// Get initials for avatar
+$initials = 'T';
+if (!empty($technician_name)) {
+    $name_parts = explode(' ', trim($technician_name));
+    if (count($name_parts) >= 2) {
+        $initials = strtoupper(substr($name_parts[0], 0, 1) . substr($name_parts[count($name_parts)-1], 0, 1));
+    } else {
+        $initials = strtoupper(substr($technician_name, 0, 2));
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -401,9 +424,9 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
 
     <!-- User Card -->
     <div class="sb-user">
-      <div class="u-av">JD</div>
+      <div class="u-av"><?php echo htmlspecialchars($initials); ?></div>
       <div>
-        <span class="u-name">Juan Dela Cruz</span>
+        <span class="u-name"><?php echo htmlspecialchars($technician_name); ?></span>
         <div class="u-meta">
           <span class="u-dot"></span>
           <span class="u-role">Technician</span>
@@ -490,7 +513,7 @@ body{font-family:'Nunito',sans-serif;background:var(--cream);color:var(--t1);min
         <div class="hero-content">
           <div>
             <div class="hero-eyebrow"><i class="fas fa-wrench"></i> Maintenance Technician Portal</div>
-            <h1 class="hero-title">Welcome back, <span class="hl">Juan!</span></h1>
+            <h1 class="hero-title">Welcome back, <span class="hl"><?php echo htmlspecialchars($technician_name); ?>!</span></h1>
             <p class="hero-sub">Here's your maintenance overview for today. Stay on top of your tasks.</p>
             <div class="hero-acts">
               <button class="btn btn-gold"><i class="fas fa-plus-circle"></i> Claim New Task</button>

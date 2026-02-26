@@ -16,18 +16,17 @@ $conn = getDBConnection();
 // Export Equipment Usage Report
 if ($type === 'equipment') {
     // Get comprehensive equipment data with usage statistics
-    $sql = "SELECT e.*, c.category_name,
-            (SELECT COUNT(*) FROM defect_reports dr WHERE dr.equipment_id = e.equipment_id) as total_defects,
-            (SELECT COUNT(*) FROM defect_reports dr WHERE dr.equipment_id = e.equipment_id AND dr.status = 'completed') as resolved_defects,
-            (SELECT COUNT(*) FROM defect_reports dr WHERE dr.equipment_id = e.equipment_id AND dr.status IN ('reported', 'assigned', 'in_progress')) as pending_defects,
-            (SELECT COUNT(*) FROM reservations r WHERE r.equipment_id = e.equipment_id) as total_reservations,
-            (SELECT COUNT(*) FROM reservations r WHERE r.equipment_id = e.equipment_id AND r.status = 'approved') as approved_reservations,
-            (SELECT COUNT(*) FROM reservations r WHERE r.equipment_id = e.equipment_id AND r.status = 'active') as active_reservations,
-            (SELECT AVG(DATEDIFF(r.end_date, r.start_date)) FROM reservations r WHERE r.equipment_id = e.equipment_id AND r.status = 'completed') as avg_reservation_duration,
-            (SELECT MAX(r.request_date) FROM reservations r WHERE r.equipment_id = e.equipment_id) as last_reservation_date,
-            (SELECT MAX(dr.report_date) FROM defect_reports dr WHERE dr.equipment_id = e.equipment_id) as last_defect_date
+    $sql = "SELECT e.*, e.equipment_category as category_name,
+            (SELECT COUNT(*) FROM defect_reports dr WHERE dr.equipment_id = e.id) as total_defects,
+            (SELECT COUNT(*) FROM defect_reports dr WHERE dr.equipment_id = e.id AND dr.status = 'completed') as resolved_defects,
+            (SELECT COUNT(*) FROM defect_reports dr WHERE dr.equipment_id = e.id AND dr.status IN ('reported', 'assigned', 'in_progress')) as pending_defects,
+            (SELECT COUNT(*) FROM reservations r WHERE r.equipment_id = e.id) as total_reservations,
+            (SELECT COUNT(*) FROM reservations r WHERE r.equipment_id = e.id AND r.status = 'approved') as approved_reservations,
+            (SELECT COUNT(*) FROM reservations r WHERE r.equipment_id = e.id AND r.status = 'active') as active_reservations,
+            (SELECT AVG(DATEDIFF(r.end_date, r.start_date)) FROM reservations r WHERE r.equipment_id = e.id AND r.status = 'completed') as avg_reservation_duration,
+            (SELECT MAX(r.request_date) FROM reservations r WHERE r.equipment_id = e.id) as last_reservation_date,
+            (SELECT MAX(dr.report_date) FROM defect_reports dr WHERE dr.equipment_id = e.id) as last_defect_date
             FROM equipment e
-            LEFT JOIN categories c ON e.category_id = c.category_id
             WHERE e.status != 'deleted'";
 
     if ($date_from) {
@@ -121,13 +120,13 @@ if ($type === 'equipment') {
         // CSV data with enhanced fields
         foreach ($data as $item) {
             fputcsv($output, [
-                $item['equipment_id'],
+                $item['id'],
                 $item['equipment_name'],
-                $item['asset_tag'],
+                $item['id'],
                 $item['category_name'] ?: 'Uncategorized',
                 $item['location'] ?: 'Not specified',
                 ucfirst($item['status']),
-                ucfirst($item['condition_status']),
+                ucfirst($item['status']),
                 $item['total_defects'],
                 $item['resolved_defects'],
                 $item['pending_defects'],
@@ -249,14 +248,14 @@ if ($type === 'equipment') {
                     <tr>
                         <td>
                             <strong><?php echo htmlspecialchars($item['equipment_name']); ?></strong><br>
-                            <small>ID: <?php echo $item['equipment_id']; ?><br>
-                            Tag: <?php echo htmlspecialchars($item['asset_tag']); ?><br>
+                            <small>ID: <?php echo $item['id']; ?><br>
+                            Tag: <?php echo $item['id']; ?><br>
                             Category: <?php echo htmlspecialchars($item['category_name'] ?: 'Uncategorized'); ?><br>
                             Location: <?php echo htmlspecialchars($item['location'] ?: 'Not specified'); ?></small>
                         </td>
                         <td>
                             Status: <strong><?php echo ucfirst($item['status']); ?></strong><br>
-                            Condition: <strong><?php echo ucfirst($item['condition_status']); ?></strong>
+                            Condition: <strong><?php echo ucfirst($item['status']); ?></strong>
                         </td>
                         <td>
                             Total: <strong><?php echo $item['total_defects']; ?></strong><br>
@@ -298,16 +297,15 @@ if ($type === 'equipment') {
 // Export Defect Reports
 elseif ($type === 'defects') {
     // Get comprehensive defect report data with additional metrics
-    $sql = "SELECT dr.*, e.equipment_name, e.asset_tag, e.location, c.category_name,
+    $sql = "SELECT dr.*, e.equipment_name, e.id as asset_tag, e.location, e.equipment_category as category_name,
             u.fullname as reporter_name, u.role as reporter_role,
             mt.fullname as technician_name, mt.specialization,
             CASE WHEN dr.assigned_to IS NOT NULL THEN DATEDIFF(dr.assigned_date, dr.report_date) ELSE NULL END as assignment_delay_days,
             CASE WHEN dr.status = 'completed' THEN DATEDIFF(dr.completion_date, dr.assigned_date) ELSE NULL END as resolution_time_days,
             CASE WHEN dr.status = 'completed' THEN DATEDIFF(dr.completion_date, dr.report_date) ELSE NULL END as total_resolution_days
             FROM defect_reports dr
-            JOIN equipment e ON dr.equipment_id = e.equipment_id
-            LEFT JOIN categories c ON e.category_id = c.category_id
-            LEFT JOIN users u ON dr.reported_by = u.user_id
+            JOIN equipment e ON dr.equipment_id = e.id
+            LEFT JOIN users u ON dr.reported_by = u.id
             LEFT JOIN maintenance_technicians mt ON dr.assigned_to = mt.technician_id
             WHERE dr.status != 'deleted'";
 
@@ -331,8 +329,10 @@ elseif ($type === 'defects') {
     $completed_count = 0;
 
     foreach ($data as $report) {
-        $status_counts[$report['status']]++;
-        $priority_counts[$report['priority']]++;
+        $status = $report['status'] ?? 'reported';
+        $priority = $report['priority'] ?? 'medium';
+        if (isset($status_counts[$status])) $status_counts[$status]++;
+        if (isset($priority_counts[$priority])) $priority_counts[$priority]++;
         if ($report['status'] === 'completed' && $report['total_resolution_days']) {
             $avg_resolution_time += $report['total_resolution_days'];
             $completed_count++;
@@ -437,20 +437,20 @@ elseif ($type === 'defects') {
                 $report['category_name'] ?: 'Uncategorized',
                 $report['location'] ?: 'Not specified',
                 $report['issue_description'],
-                ucfirst($report['priority']),
-                ucfirst($report['status']),
-                $report['reporter_name'] ?: 'Guest User',
-                $report['reporter_role'] ?: 'Guest',
-                $report['technician_name'] ?: 'Unassigned',
-                $report['specialization'] ?: 'N/A',
+                ucfirst($report['priority'] ?? 'medium'),
+                ucfirst($report['status'] ?? 'reported'),
+                $report['reporter_name'] ?? 'Unknown',
+                $report['reporter_role'] ?? 'Unknown',
+                $report['technician_name'] ?? 'Unassigned',
+                $report['specialization'] ?? 'N/A',
                 $report['report_date'],
-                $report['assigned_date'] ?: 'Not assigned',
-                $report['assignment_delay_days'] ?: 'N/A',
-                $report['completion_date'] ?: 'Not completed',
-                $report['resolution_time_days'] ?: 'N/A',
-                $report['total_resolution_days'] ?: 'N/A',
-                $report['work_details'] ?: 'No details provided',
-                $report['completion_notes'] ?: 'No notes'
+                $report['assigned_date'] ?? 'Not assigned',
+                $report['assignment_delay_days'] ?? 'N/A',
+                $report['completion_date'] ?? 'Not completed',
+                $report['resolution_time_days'] ?? 'N/A',
+                $report['total_resolution_days'] ?? 'N/A',
+                $report['work_details'] ?? 'No details provided',
+                $report['completion_notes'] ?? 'No notes'
             ]);
         }
 
@@ -466,12 +466,12 @@ elseif ($type === 'defects') {
 
 // Export Reservations
 elseif ($type === 'reservations') {
-    $sql = "SELECT r.reservation_id, e.equipment_name, e.asset_tag,
+    $sql = "SELECT r.reservation_id, e.equipment_name, e.id as asset_tag,
             u.fullname as requester, r.purpose, r.start_date, r.end_date,
             r.status, r.request_date
             FROM reservations r
-            JOIN equipment e ON r.equipment_id = e.equipment_id
-            LEFT JOIN users u ON r.user_id = u.user_id
+            JOIN equipment e ON r.equipment_id = e.id
+            LEFT JOIN users u ON r.user_id = u.id
             WHERE 1=1";
     
     if ($date_from) {

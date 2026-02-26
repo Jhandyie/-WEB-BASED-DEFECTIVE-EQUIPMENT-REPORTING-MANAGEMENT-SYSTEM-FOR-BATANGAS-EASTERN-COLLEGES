@@ -1,6 +1,6 @@
 <?php
-// student/student_login_process.php
-// Main PHP processor for student login, OTP, and authentication
+// technician/technician_login_process.php
+// Main PHP processor for technician login, OTP, and authentication
 
 session_start();
 
@@ -59,10 +59,10 @@ switch ($action) {
 function verifyLogin() {
     $email = trim($_POST['email'] ?? '');
     $password = trim($_POST['password'] ?? '');
-    $role = 'student';
+    $role = 'technician';
 
     // DEBUG: Log the incoming request
-    error_log("DEBUG: verifyLogin called with email: $email");
+    error_log("DEBUG: technician verifyLogin called with email: $email");
 
     // Validate inputs
     if (empty($email) || empty($password)) {
@@ -86,7 +86,7 @@ function verifyLogin() {
     }
 
     try {
-        // Check if user exists with this email and is a student
+        // Check if user exists with this email and is a technician
         // Order by id DESC to get the most recently created user first (for duplicate emails)
         $stmt = $conn->prepare("SELECT user_id, email, fullname, password, status FROM users WHERE email = ? AND role = ? ORDER BY created_at DESC LIMIT 1");
         $stmt->bind_param("ss", $email, $role);
@@ -94,7 +94,7 @@ function verifyLogin() {
         $result = $stmt->get_result();
 
         if ($result->num_rows === 0) {
-            error_log("DEBUG: User not found for email: $email");
+            error_log("DEBUG: Technician not found for email: $email");
             http_response_code(401);
             echo json_encode(['success' => false, 'message' => 'Invalid email or password']);
             $stmt->close();
@@ -104,7 +104,7 @@ function verifyLogin() {
 
         $user = $result->fetch_assoc();
         $stmt->close();
-        error_log("DEBUG: User found: " . $user['fullname'] . " status: " . $user['status']);
+        error_log("DEBUG: Technician found: " . $user['fullname'] . " status: " . $user['status']);
 
         // Check if account is active
         if (isset($user['status']) && $user['status'] !== 'active') {
@@ -175,7 +175,7 @@ function verifyOTPHandler() {
     
     $email = trim($_POST['email'] ?? '');
     $otp_code = trim($_POST['otp_code'] ?? '');
-    $role = 'student';
+    $role = 'technician';
 
     if (empty($email) || empty($otp_code)) {
         http_response_code(400);
@@ -240,7 +240,7 @@ function verifyOTPHandler() {
             'user_id' => $user['user_id'],
             'fullname' => $user['fullname'],
             'email' => $user['email'],
-            'redirect' => '../student_dashboard.php'
+            'redirect' => '../technician_dashboard.php'
         ]
     ]);
     exit();
@@ -251,7 +251,7 @@ function verifyOTPHandler() {
  */
 function resendOTP() {
     $email = trim($_POST['email'] ?? '');
-    $role = 'student';
+    $role = 'technician';
 
     if (empty($email)) {
         http_response_code(400);
@@ -312,7 +312,7 @@ function resendOTP() {
  */
 function forgotPassword() {
     $email = trim($_POST['email'] ?? '');
-    $role = 'student';
+    $role = 'technician';
 
     if (empty($email)) {
         http_response_code(400);
@@ -362,7 +362,7 @@ function forgotPassword() {
     $stmt->close();
 
     // Log the reset link
-    $reset_link = "http://localhost/bec_equipment/student/reset_password.php?token=" . $token;
+    $reset_link = "http://localhost/bec_equipment/technician/reset_password.php?token=" . $token;
     error_log("Password reset link for {$email}: " . $reset_link);
 
     $conn->close();
@@ -468,7 +468,5 @@ function checkSession() {
 }
 
 ?>
-
-
 
 

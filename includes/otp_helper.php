@@ -36,14 +36,14 @@ function sendOTPEmail($email, $otp, $role = 'admin') {
       . '</head>'
       . '<body style="margin:0;padding:0;background-color:#0f0a1e;font-family:Georgia,serif;">'
 
-      // ── OUTER WRAPPER
+      // -- OUTER WRAPPER
       . '<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0f0a1e;">'
       . '<tr><td align="center" valign="top" style="padding:36px 16px 52px;">'
 
-      // ── CARD
+      // -- CARD
       . '<table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;border-radius:24px;overflow:hidden;box-shadow:0 32px 80px rgba(0,0,0,0.6);">'
 
-      // ══ HERO BANNER — CSS-only, email-safe, no SVG/images ══
+      // -- HERO BANNER � CSS-only, email-safe, no SVG/images --
       . '<tr><td style="padding:0;background:#1a0808;">'
           // Top accent bar
           . '<table width="100%" cellpadding="0" cellspacing="0" border="0">'          . '<tr>'          . '<td style="width:15%;height:5px;background:#0d0404;font-size:0;">&nbsp;</td>'          . '<td style="width:70%;height:5px;background:#c9a227;font-size:0;">&nbsp;</td>'          . '<td style="width:15%;height:5px;background:#0d0404;font-size:0;">&nbsp;</td>'          . '</tr></table>'
@@ -82,7 +82,7 @@ function sendOTPEmail($email, $otp, $role = 'admin') {
           // Bottom accent bar
           . '<table width="100%" cellpadding="0" cellspacing="0" border="0">'          . '<tr>'          . '<td style="width:15%;height:3px;background:#0d0404;font-size:0;">&nbsp;</td>'          . '<td style="width:70%;height:3px;background:rgba(201,162,39,0.5);font-size:0;">&nbsp;</td>'          . '<td style="width:15%;height:3px;background:#0d0404;font-size:0;">&nbsp;</td>'          . '</tr></table>'
       . '</td></tr>'
-      // ── MAROON HEADER
+      // -- MAROON HEADER
       . '<tr><td style="background:#7b0000;padding:0;">'
 
           // Gold bar
@@ -110,7 +110,7 @@ function sendOTPEmail($email, $otp, $role = 'admin') {
           . '</td></tr></table>'
       . '</td></tr>'
 
-      // ── CONTENT
+      // -- CONTENT
       . '<tr><td style="background-color:#f9f9f9;padding:44px 40px 40px;">'
 
           . '<p style="margin:0 0 14px;font-family:Arial,Helvetica,sans-serif;font-size:20px;font-weight:700;color:#1a1a1a;">Hello, ' . htmlspecialchars($roleName) . '!</p>'
@@ -120,7 +120,7 @@ function sendOTPEmail($email, $otp, $role = 'admin') {
           . 'Use the one-time verification code below to complete your secure login. '
           . 'This code is personal &mdash; do not share it with anyone.</p>'
 
-          // ── OTP BOX
+          // -- OTP BOX
           . '<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#fff5f5;border:1px solid #f0d0d0;border-radius:16px;margin-bottom:24px;overflow:hidden;">'
           . '<tr><td style="height:3px;background:#8b0000;font-size:0;">&nbsp;</td></tr>'
           . '<tr><td align="center" style="padding:28px 20px 24px;">'
@@ -149,7 +149,7 @@ function sendOTPEmail($email, $otp, $role = 'admin') {
               . '<p style="margin:18px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#888888;font-weight:500;">&#9203;&nbsp; Valid for <strong style="color:#8b0000;">10 minutes</strong> only</p>'
           . '</td></tr></table>'
 
-          // ── SECURITY NOTICE
+          // -- SECURITY NOTICE
           . '<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#fffcf0;border:1px solid #ffe0a0;border-radius:14px;margin-bottom:20px;overflow:hidden;">'
           . '<tr>'
           . '<td width="4" style="width:4px;background-color:#c9a227;font-size:0;">&nbsp;</td>'
@@ -184,7 +184,7 @@ function sendOTPEmail($email, $otp, $role = 'admin') {
               . '</table>'
           . '</td></tr></table>'
 
-          // ── HELP ROW
+          // -- HELP ROW
           . '<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f3f3f8;border-radius:12px;margin-bottom:32px;">'
           . '<tr>'
           . '<td width="62" valign="middle" style="padding:16px 0 16px 16px;">'
@@ -196,7 +196,7 @@ function sendOTPEmail($email, $otp, $role = 'admin') {
           . '<p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#555555;line-height:1.5;">Contact the <strong style="color:#1a1a1a;">IT Department</strong> for immediate assistance.</p></td>'
           . '</tr></table>'
 
-          // ── SIGNATURE
+          // -- SIGNATURE
           . '<table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid #e8e8e8;">'
           . '<tr><td align="center" style="padding-top:24px;">'
           . '<p style="margin:0 0 5px;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#bbbbbb;">Sent by</p>'
@@ -205,13 +205,13 @@ function sendOTPEmail($email, $otp, $role = 'admin') {
 
       . '</td></tr>'
 
-      // ── FOOTER
+      // -- FOOTER
       . '<tr><td style="background-color:#1a1a2e;padding:24px 40px 28px;">'
           . '<table width="100%" cellpadding="0" cellspacing="0" border="0">'
           . '<tr><td align="center" style="padding-bottom:10px;">'
           . '<table cellpadding="0" cellspacing="0" border="0"><tr>'
 
-          // Mini BEC badge — CSS circle, no SVG
+          // Mini BEC badge � CSS circle, no SVG
           . '<td style="padding-right:10px;vertical-align:middle;">'          . '<table cellpadding="0" cellspacing="0" border="0"><tr>'          . '<td align="center" width="28" height="28" '          . 'style="width:28px;height:28px;border-radius:50%;background:#7b0000;'          . 'border:1px solid rgba(201,162,39,0.6);font-family:Georgia,serif;font-size:7px;'          . 'font-weight:900;color:#c9a227;text-align:center;vertical-align:middle;line-height:28px;">'          . 'BEC'          . '</td></tr></table>'          . '</td>'          . '<td style="vertical-align:middle;">'
           . '<p style="margin:0;font-family:Georgia,serif;font-size:13px;font-weight:700;color:rgba(255,255,255,0.85);">Batangas Eastern Colleges</p>'
           . '</td></tr></table></td></tr>'
@@ -309,9 +309,27 @@ function requestLoginOTP($email, $role = 'admin') {
     if (!storeOTP($email, $otp, $role)) return ['success' => false, 'message' => 'Failed to generate OTP. Please try again.'];
     if (!sendOTPEmail($email, $otp, $role)) {
         error_log("WARNING: OTP email failed for {$email}");
-        return ['success' => true, 'message' => 'Login verified. Please enter the OTP code sent to your email.'];
+
+        $host = strtolower((string)($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? ''));
+        $isLocal = ($host === 'localhost' || str_starts_with($host, '127.0.0.1') || PHP_SAPI === 'cli');
+
+        if ($isLocal) {
+            return [
+                'success' => true,
+                'message' => 'Email delivery failed on local setup. Use this OTP: ' . $otp,
+                'otp' => $otp,
+                'email_sent' => false,
+            ];
+        }
+
+        return ['success' => false, 'message' => 'Unable to send OTP email right now. Please try again later.'];
     }
-    return ['success' => true, 'message' => 'OTP has been sent to your email. Please check your inbox and spam folder.'];
+
+    return [
+        'success' => true,
+        'message' => 'OTP has been sent to your email. Please check your inbox and spam folder.',
+        'email_sent' => true,
+    ];
 }
 
 function cleanupExpiredOTPs() {

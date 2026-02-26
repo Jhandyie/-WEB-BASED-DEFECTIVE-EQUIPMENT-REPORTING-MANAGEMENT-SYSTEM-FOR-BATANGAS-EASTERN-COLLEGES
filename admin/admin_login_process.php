@@ -1,6 +1,6 @@
 <?php
-// student/student_login_process.php
-// Main PHP processor for student login, OTP, and authentication
+// admin/admin_login_process.php
+// Main PHP processor for admin login, OTP, and authentication
 
 session_start();
 
@@ -59,10 +59,10 @@ switch ($action) {
 function verifyLogin() {
     $email = trim($_POST['email'] ?? '');
     $password = trim($_POST['password'] ?? '');
-    $role = 'student';
+    $role = 'admin';
 
     // DEBUG: Log the incoming request
-    error_log("DEBUG: verifyLogin called with email: $email");
+    error_log("DEBUG: Admin verifyLogin called with email: $email");
 
     // Validate inputs
     if (empty($email) || empty($password)) {
@@ -86,15 +86,15 @@ function verifyLogin() {
     }
 
     try {
-        // Check if user exists with this email and is a student
-        // Order by id DESC to get the most recently created user first (for duplicate emails)
+        // Check if user exists with this email and is an admin
+        // Order by created_at DESC to get the most recently created user first (for duplicate emails)
         $stmt = $conn->prepare("SELECT user_id, email, fullname, password, status FROM users WHERE email = ? AND role = ? ORDER BY created_at DESC LIMIT 1");
         $stmt->bind_param("ss", $email, $role);
         $stmt->execute();
         $result = $stmt->get_result();
 
         if ($result->num_rows === 0) {
-            error_log("DEBUG: User not found for email: $email");
+            error_log("DEBUG: Admin user not found for email: $email");
             http_response_code(401);
             echo json_encode(['success' => false, 'message' => 'Invalid email or password']);
             $stmt->close();
@@ -104,11 +104,11 @@ function verifyLogin() {
 
         $user = $result->fetch_assoc();
         $stmt->close();
-        error_log("DEBUG: User found: " . $user['fullname'] . " status: " . $user['status']);
+        error_log("DEBUG: Admin user found: " . $user['fullname'] . " status: " . $user['status']);
 
         // Check if account is active
         if (isset($user['status']) && $user['status'] !== 'active') {
-            error_log("DEBUG: Account not active for email: $email, status: " . $user['status']);
+            error_log("DEBUG: Admin account not active for email: $email, status: " . $user['status']);
             http_response_code(403);
             echo json_encode(['success' => false, 'message' => 'Your account is inactive. Please contact support.']);
             $conn->close();
@@ -120,7 +120,7 @@ function verifyLogin() {
         error_log("DEBUG: Password verify result: " . ($passwordVerifyResult ? "true" : "false"));
         
         if (!$passwordVerifyResult) {
-            error_log("DEBUG: Password incorrect for email: $email");
+            error_log("DEBUG: Password incorrect for admin email: $email");
             http_response_code(401);
             echo json_encode(['success' => false, 'message' => 'Invalid email or password']);
             $conn->close();
@@ -147,7 +147,7 @@ function verifyLogin() {
         }
 
         $conn->close();
-        error_log("DEBUG: Login successful for email: $email, returning success");
+        error_log("DEBUG: Admin login successful for email: $email, returning success");
         echo json_encode([
             'success' => true,
             'message' => 'OTP sent successfully. Please check your email.',
@@ -159,7 +159,7 @@ function verifyLogin() {
         exit();
 
     } catch (Exception $e) {
-        error_log("Login verification error: " . $e->getMessage());
+        error_log("Admin login verification error: " . $e->getMessage());
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'An error occurred. Please try again.']);
         exit();
@@ -175,7 +175,7 @@ function verifyOTPHandler() {
     
     $email = trim($_POST['email'] ?? '');
     $otp_code = trim($_POST['otp_code'] ?? '');
-    $role = 'student';
+    $role = 'admin';
 
     if (empty($email) || empty($otp_code)) {
         http_response_code(400);
@@ -190,7 +190,7 @@ function verifyOTPHandler() {
     }
 
     // Debug: Log the email being used for verification
-    error_log("Verifying OTP for email: " . $email . " with code: " . $otp_code);
+    error_log("Verifying OTP for admin email: " . $email . " with code: " . $otp_code);
     
     // Verify OTP
     $result = verifyOTP($email, $otp_code, $role);
@@ -240,7 +240,7 @@ function verifyOTPHandler() {
             'user_id' => $user['user_id'],
             'fullname' => $user['fullname'],
             'email' => $user['email'],
-            'redirect' => '../student_dashboard.php'
+            'redirect' => '../admin_dashboard.php'
         ]
     ]);
     exit();
@@ -251,7 +251,7 @@ function verifyOTPHandler() {
  */
 function resendOTP() {
     $email = trim($_POST['email'] ?? '');
-    $role = 'student';
+    $role = 'admin';
 
     if (empty($email)) {
         http_response_code(400);
@@ -312,7 +312,7 @@ function resendOTP() {
  */
 function forgotPassword() {
     $email = trim($_POST['email'] ?? '');
-    $role = 'student';
+    $role = 'admin';
 
     if (empty($email)) {
         http_response_code(400);
@@ -362,8 +362,8 @@ function forgotPassword() {
     $stmt->close();
 
     // Log the reset link
-    $reset_link = "http://localhost/bec_equipment/student/reset_password.php?token=" . $token;
-    error_log("Password reset link for {$email}: " . $reset_link);
+    $reset_link = "http://localhost/bec_equipment/admin/reset_password.php?token=" . $token;
+    error_log("Admin password reset link for {$email}: " . $reset_link);
 
     $conn->close();
 
@@ -468,7 +468,4 @@ function checkSession() {
 }
 
 ?>
-
-
-
 
