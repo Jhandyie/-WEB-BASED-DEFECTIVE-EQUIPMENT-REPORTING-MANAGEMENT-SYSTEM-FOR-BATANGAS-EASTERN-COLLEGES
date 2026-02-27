@@ -592,27 +592,27 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .sb-brand em{font-size:.57rem;font-style:normal;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:1.8px;}
 .sb-user{margin:.45rem 1rem .2rem;padding:.65rem .875rem;
   background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.07);border-radius:var(--r2);
-  display:flex;align-items:center;gap:.6rem;position:relative;z-index:1;transition:background .18s;}
+  display:flex;align-items:center;gap:.65rem;position:relative;z-index:1;transition:background .18s;}
 .sb-user:hover{background:rgba(255,255,255,.09);}
 .uav{width:32px;height:32px;flex-shrink:0;border-radius:50%;
   background:linear-gradient(135deg,var(--g2),#B45309);
   display:flex;align-items:center;justify-content:center;
   font-family:'Outfit',sans-serif;font-weight:900;font-size:.77rem;color:#fff;
   box-shadow:0 3px 0 rgba(0,0,0,.28);transition:transform .22s;}
-.sb-user:hover .uav{transform:scale(1.1) rotate(-6deg);}
+.sb-user:hover .uav{transform:scale(1.08) rotate(-6deg);}
 .uname{font-size:.8rem;color:#fff;font-weight:600;display:block;}
 .urole{font-size:.58rem;color:rgba(255,255,255,.32);text-transform:uppercase;letter-spacing:1px;}
-.sb-nav{flex:1;overflow-y:auto;padding:.2rem 0;position:relative;z-index:1;}
-.sb-nav::-webkit-scrollbar{width:2px;}
-.sb-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.07);border-radius:2px;}
-.nav-sec{font-size:.54rem;text-transform:uppercase;letter-spacing:2.4px;color:rgba(255,255,255,.17);padding:.45rem 1.2rem .15rem;font-weight:700;}
-.ni{display:flex;align-items:center;gap:.6rem;padding:.52rem 1.2rem;color:rgba(255,255,255,.4);
+.sb-nav{flex:1;padding:.25rem 0;overflow-y:auto;position:relative;z-index:1;}
+.sb-nav::-webkit-scrollbar{width:3px;}
+.sb-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px;}
+.nav-sec{font-size:.54rem;text-transform:uppercase;letter-spacing:2.5px;color:rgba(255,255,255,.18);padding:.5rem 1.25rem .2rem;font-weight:700;}
+.ni{display:flex;align-items:center;gap:.65rem;padding:.56rem 1.25rem;color:rgba(255,255,255,.42);
   background:none;border:none;width:100%;text-align:left;font-family:'DM Sans',sans-serif;
-  font-size:.82rem;font-weight:500;cursor:pointer;transition:all .15s;text-decoration:none;position:relative;}
-.ni-ic{width:28px;height:28px;border-radius:var(--r1);display:flex;align-items:center;justify-content:center;
-  font-size:.76rem;background:rgba(255,255,255,.05);flex-shrink:0;transition:all .2s;}
-.ni:hover{color:rgba(255,255,255,.8);}
-.ni:hover .ni-ic{background:rgba(255,255,255,.1);transform:scale(1.1);}
+  font-size:.82rem;font-weight:500;cursor:pointer;transition:all .16s;text-decoration:none;position:relative;}
+.ni-ic{width:30px;height:30px;border-radius:var(--r1);display:flex;align-items:center;justify-content:center;
+  font-size:.78rem;background:rgba(255,255,255,.05);flex-shrink:0;transition:all .22s;}
+.ni:hover{color:rgba(255,255,255,.82);}
+.ni:hover .ni-ic{background:rgba(255,255,255,.1);transform:scale(1.08);}
 .ni.on{color:#fff;font-weight:600;}
 .ni.on .ni-ic{background:linear-gradient(135deg,var(--g2),var(--g3));color:var(--m1);
   box-shadow:0 3px 0 rgba(0,0,0,.18),0 4px 12px rgba(212,160,23,.25);}
@@ -622,8 +622,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
   padding:2px 6px;border-radius:20px;animation:nbp 2.2s ease-in-out infinite;}
 @keyframes nbp{0%,100%{transform:scale(1);}50%{transform:scale(1.12);}}
 .sb-foot{padding:.55rem 1rem .95rem;border-top:1px solid rgba(255,255,255,.06);z-index:1;}
-.lout{width:100%;display:flex;align-items:center;gap:.6rem;padding:.52rem .78rem;
-  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);color:rgba(255,255,255,.4);
+.lout{width:100%;display:flex;align-items:center;gap:.65rem;padding:.52rem .78rem;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);color:rgba(255,255,255,.42);
   border-radius:var(--r1);cursor:pointer;font-size:.8rem;font-family:'DM Sans',sans-serif;font-weight:500;transition:all .18s;}
 .lout:hover{background:rgba(220,38,38,.14);color:#fca5a5;border-color:rgba(220,38,38,.22);}
 .lout i{transition:transform .3s;}.lout:hover i{transform:rotate(180deg);}
@@ -650,7 +650,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .pg{padding:1.5rem 1.75rem;flex:1;}
 
 /* -- FLASH ------------------------------------------ */
-.flash{display:flex;align-items:center;gap:.6rem;padding:.7rem 1.1rem;border-radius:var(--r2);
+.flash{display:flex;align-items:center;gap:.65rem;padding:.7rem 1.1rem;border-radius:var(--r2);
   margin-bottom:1.125rem;font-size:.81rem;font-weight:600;animation:fIn .25s ease;border-left:3px solid;}
 @keyframes fIn{from{opacity:0;transform:translateY(-5px);}to{opacity:1;transform:translateY(0);}}
 .flash.ok{background:#F0FDF4;color:#15803D;border-color:#22C55E;}
@@ -932,11 +932,11 @@ textarea.fc{resize:vertical;min-height:72px;}
     <div class="nav-sec">Overview</div>
     <a href="admin_dashboard.php" class="ni"><span class="ni-ic"><i class="fas fa-th-large"></i></span>Dashboard</a>
     <a href="admin_analytics.php" class="ni"><span class="ni-ic"><i class="fas fa-chart-bar"></i></span>Analytics</a>
-    <div class="nav-sec">Reports</div>
+    <div class="nav-sec" style="margin-top:.3rem;">Reports</div>
     <a href="admin_defect_reports.php" class="ni"><span class="ni-ic"><i class="fas fa-exclamation-triangle"></i></span>Defect Reports</a>
     <a href="admin_work_orders.php" class="ni"><span class="ni-ic"><i class="fas fa-clipboard-check"></i></span>Work Orders</a>
     <a href="admin_assign_technicians.php" class="ni"><span class="ni-ic"><i class="fas fa-user-cog"></i></span>Assign Technicians</a>
-    <div class="nav-sec">Management</div>
+    <div class="nav-sec" style="margin-top:.3rem;">Management</div>
     <a href="admin_inventory.php" class="ni on"><span class="ni-ic"><i class="fas fa-boxes"></i></span>Inventory
       <?php if($c_warn>0):?><span class="nbadge"><?php echo $c_warn;?></span><?php endif;?>
     </a>
@@ -1038,26 +1038,26 @@ textarea.fc{resize:vertical;min-height:72px;}
         <h3><i class="fas fa-database"></i> JSON Inventory Totals</h3>
         <span style="font-size:.72rem;color:var(--t3);">Source: api/data/inventory.json</span>
       </div>
-      <div style="padding:.9rem 1rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.6rem;">
+      <div style="padding:.9rem 1rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.65rem;">
         <?php foreach($inventorySummary as $key=>$val):
           $qf = $inventoryQuickFilterMap[$key] ?? ['search'=>($inventorySummaryLabels[$key] ?? $key),'dept'=>'all'];
           $isActive = ($jc === $key) && (($qf['dept'] ?? 'all') === 'all' ? $df === 'all' : strtoupper((string)$df) === strtoupper((string)$qf['dept']));
         ?>
         <button type="button" onclick='applyJsonQuickFilter(<?php echo json_encode($key); ?>, <?php echo json_encode($qf['dept']); ?>)'
-          style="background:<?php echo $isActive ? '#EFF6FF' : 'var(--s2)';?>;border:1px solid <?php echo $isActive ? '#BFDBFE' : 'var(--bdr)';?>;border-radius:10px;padding:.55rem .7rem;display:flex;justify-content:space-between;align-items:center;cursor:pointer;text-align:left;transition:all .15s;">
+          style="background:<?php echo $isActive ? '#EFF6FF' : 'var(--s2)';?>;border:1px solid <?php echo $isActive ? '#BFDBFE' : 'var(--bdr)';?>;border-radius:10px;padding:.55rem .7rem;display:flex;justify-content:space-between;align-items:center;cursor:pointer;text-align:left;transition:all .16s;">
           <span style="font-size:.74rem;color:<?php echo $isActive ? '#1E3A8A' : 'var(--t2)';?>;font-weight:<?php echo $isActive ? '700' : '600';?>;"><?php echo esc($inventorySummaryLabels[$key] ?? $key); ?></span>
           <strong style="font-family:'Outfit',sans-serif;font-size:.95rem;color:<?php echo $isActive ? '#1D4ED8' : 'var(--m3)';?>;"><?php echo (int)$val; ?></strong>
         </button>
         <?php endforeach; ?>
         <?php $itsoActive = ($jc === 'computers' && strtoupper((string)$df) === 'ITSO'); ?>
         <button type="button" onclick='applyJsonQuickFilter("computers","ITSO")'
-          style="background:<?php echo $itsoActive ? '#EFF6FF' : 'var(--s2)';?>;border:1px solid <?php echo $itsoActive ? '#BFDBFE' : 'var(--bdr)';?>;border-radius:10px;padding:.55rem .7rem;display:flex;justify-content:space-between;align-items:center;cursor:pointer;text-align:left;transition:all .15s;">
+          style="background:<?php echo $itsoActive ? '#EFF6FF' : 'var(--s2)';?>;border:1px solid <?php echo $itsoActive ? '#BFDBFE' : 'var(--bdr)';?>;border-radius:10px;padding:.55rem .7rem;display:flex;justify-content:space-between;align-items:center;cursor:pointer;text-align:left;transition:all .16s;">
           <span style="font-size:.74rem;color:<?php echo $itsoActive ? '#1E3A8A' : 'var(--t2)';?>;font-weight:<?php echo $itsoActive ? '700' : '600';?>;">Computers (ITSO)</span>
           <strong style="font-family:'Outfit',sans-serif;font-size:.95rem;color:<?php echo $itsoActive ? '#1D4ED8' : 'var(--m3)';?>;"><?php echo (int)$computerByDept['ITSO']; ?></strong>
         </button>
         <?php $pmoActive = ($jc === 'computers' && strtoupper((string)$df) === 'PMO'); ?>
         <button type="button" onclick='applyJsonQuickFilter("computers","PMO")'
-          style="background:<?php echo $pmoActive ? '#FFF7ED' : 'var(--s2)';?>;border:1px solid <?php echo $pmoActive ? '#FED7AA' : 'var(--bdr)';?>;border-radius:10px;padding:.55rem .7rem;display:flex;justify-content:space-between;align-items:center;cursor:pointer;text-align:left;transition:all .15s;">
+          style="background:<?php echo $pmoActive ? '#FFF7ED' : 'var(--s2)';?>;border:1px solid <?php echo $pmoActive ? '#FED7AA' : 'var(--bdr)';?>;border-radius:10px;padding:.55rem .7rem;display:flex;justify-content:space-between;align-items:center;cursor:pointer;text-align:left;transition:all .16s;">
           <span style="font-size:.74rem;color:<?php echo $pmoActive ? '#9A3412' : 'var(--t2)';?>;font-weight:<?php echo $pmoActive ? '700' : '600';?>;">Computers (PMO)</span>
           <strong style="font-family:'Outfit',sans-serif;font-size:.95rem;color:<?php echo $pmoActive ? '#C2410C' : 'var(--m3)';?>;"><?php echo (int)$computerByDept['PMO']; ?></strong>
         </button>
@@ -1486,7 +1486,7 @@ textarea.fc{resize:vertical;min-height:72px;}
       <p style="font-size:.83rem;color:var(--t2);margin-bottom:1rem;line-height:1.6;">
         You are about to act on: <strong id="rName" style="color:var(--t1);">-</strong>
       </p>
-      <div style="display:flex;flex-direction:column;gap:.6rem;">
+      <div style="display:flex;flex-direction:column;gap:.65rem;">
         <div style="background:#FFFBEB;border:1.5px solid #FDE68A;border-radius:var(--r2);padding:.875rem 1rem;display:flex;gap:.75rem;align-items:flex-start;">
           <i class="fas fa-archive" style="color:#D97706;font-size:1.1rem;flex-shrink:0;margin-top:.1rem;"></i>
           <div>
@@ -1817,4 +1817,5 @@ function toast(type,msg,title){
 </script>
 </body>
 </html>
+
 

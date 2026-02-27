@@ -158,7 +158,7 @@ body{
 .sb{
   position:fixed;left:0;top:0;
   width:var(--sidebar);height:100vh;
-  background:linear-gradient(170deg,var(--m1) 0%,var(--m2) 50%,#3D0A0A 100%);
+  background:linear-gradient(168deg,#1E0202 0%,#350808 38%,#4A0E0E 68%,#3A0808 100%);
   display:flex;flex-direction:column;
   z-index:400;
   box-shadow:4px 0 24px rgba(45,5,5,.4);
@@ -179,7 +179,7 @@ body{
 }
 .seal-wrap{
   position:relative;flex-shrink:0;
-  width:48px;height:48px;
+  width:46px;height:46px;
 }
 .seal-glow{
   position:absolute;inset:-3px;border-radius:50%;
@@ -197,9 +197,9 @@ body{
 .seal-inner img{width:100%;height:100%;border-radius:50%;object-fit:cover;}
 .sb-brand strong{
   display:block;font-family:'Outfit',sans-serif;
-  font-size:.82rem;font-weight:800;color:#fff;line-height:1.2;
+  font-size:.8rem;font-weight:800;color:#fff;line-height:1.25;
 }
-.sb-brand span{font-size:.58rem;color:rgba(255,255,255,.35);text-transform:uppercase;letter-spacing:2px;}
+.sb-brand span{font-size:.57rem;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:1.8px;}
 
 /* USER CARD */
 .sb-user{
@@ -228,7 +228,7 @@ body{
 .sb-nav{flex:1;padding:.25rem 0;overflow-y:auto;position:relative;z-index:1;}
 .sb-nav::-webkit-scrollbar{width:3px;}
 .sb-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px;}
-.nav-lbl{font-size:.56rem;text-transform:uppercase;letter-spacing:2.5px;color:rgba(255,255,255,.18);padding:.5rem 1.25rem .2rem;font-weight:700;}
+.nav-lbl{font-size:.54rem;text-transform:uppercase;letter-spacing:2.5px;color:rgba(255,255,255,.18);padding:.5rem 1.25rem .2rem;font-weight:700;}
 
 .nav-item{
   display:flex;align-items:center;gap:.65rem;
@@ -236,7 +236,7 @@ body{
   color:rgba(255,255,255,.42);
   background:none;border:none;width:100%;
   text-align:left;font-family:'DM Sans',sans-serif;
-  font-size:.83rem;font-weight:500;cursor:pointer;
+  font-size:.82rem;font-weight:500;cursor:pointer;
   transition:all .16s;position:relative;
   text-decoration:none;
 }
@@ -618,11 +618,6 @@ body{
       <?php if($unread>0): ?>
       <span class="nav-badge"><?php echo $unread;?></span>
       <?php endif; ?>
-    </a>
-
-    <div class="nav-lbl" style="margin-top:.3rem;">System</div>
-    <a href="admin_settings.php" class="nav-item">
-      <span class="nav-ic"><i class="fas fa-cog"></i></span> Settings
     </a>
   </nav>
 
@@ -1050,6 +1045,13 @@ document.querySelectorAll('[onclick*="lgMo"]').forEach(el=>{
 </script>
 </body>
 </html>
+
+
+
+
+
+
+
 
 
 

@@ -27,19 +27,61 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $conn->begin_transaction();
 
-            // Update defect report
-            $stmt = $conn->prepare("
-                UPDATE defect_reports
-                SET assigned_to         = ?,
-                    status              = 'assigned',
-                    priority            = ?,
-                    handler_instructions= ?,
-                    department_assigned = ?,
-                    assigned_date       = NOW(),
-                    assigned_by         = ?
-                WHERE report_id = ?
-            ");
-            $stmt->bind_param('ssssss', $tid, $prio, $instr, $dept, $admin_id, $rid);
+            // Update defect report (compatible with both old and new schemas)
+            $availableCols = [];
+            $colRes = $conn->query("SHOW COLUMNS FROM defect_reports");
+            if ($colRes) {
+                while ($col = $colRes->fetch_assoc()) {
+                    $availableCols[$col['Field']] = true;
+                }
+            }
+
+            $sets = [];
+            $types = '';
+            $params = [];
+
+            if (isset($availableCols['assigned_to'])) {
+                $sets[] = 'assigned_to = ?';
+                $types .= 's';
+                $params[] = $tid;
+            }
+            if (isset($availableCols['status'])) {
+                $sets[] = "status = 'assigned'";
+            }
+            if (isset($availableCols['priority'])) {
+                $sets[] = 'priority = ?';
+                $types .= 's';
+                $params[] = $prio;
+            }
+            if (isset($availableCols['handler_instructions'])) {
+                $sets[] = 'handler_instructions = ?';
+                $types .= 's';
+                $params[] = $instr;
+            }
+            if (isset($availableCols['department_assigned'])) {
+                $sets[] = 'department_assigned = ?';
+                $types .= 's';
+                $params[] = $dept;
+            }
+            if (isset($availableCols['assigned_date'])) {
+                $sets[] = 'assigned_date = NOW()';
+            }
+            if (isset($availableCols['assigned_by'])) {
+                $sets[] = 'assigned_by = ?';
+                $types .= 's';
+                $params[] = $admin_id;
+            }
+
+            if (empty($sets)) {
+                throw new Exception('No compatible assignment columns found in defect_reports.');
+            }
+
+            $sql = "UPDATE defect_reports SET " . implode(",\n                    ", $sets) . "\n                WHERE report_id = ?";
+            $types .= 's';
+            $params[] = $rid;
+
+            $stmt = $conn->prepare($sql);
+            $stmt->bind_param($types, ...$params);
             $stmt->execute();
 
             // Notification for technician
@@ -189,7 +231,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   text-transform:uppercase;letter-spacing:1.8px;}
 .sb-user{margin:.45rem 1rem .2rem;padding:.65rem .875rem;
   background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.07);
-  border-radius:var(--r2);display:flex;align-items:center;gap:.6rem;
+  border-radius:var(--r2);display:flex;align-items:center;gap:.65rem;
   position:relative;z-index:1;cursor:default;transition:background .18s;}
 .sb-user:hover{background:rgba(255,255,255,.09);}
 .uav{width:32px;height:32px;flex-shrink:0;border-radius:50%;
@@ -200,20 +242,20 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .sb-user:hover .uav{transform:scale(1.1) rotate(-6deg);}
 .uname{font-size:.8rem;color:#fff;font-weight:600;display:block;}
 .urole{font-size:.58rem;color:rgba(255,255,255,.32);text-transform:uppercase;letter-spacing:1px;}
-.sb-nav{flex:1;overflow-y:auto;padding:.2rem 0;position:relative;z-index:1;}
-.sb-nav::-webkit-scrollbar{width:2px;}
-.sb-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.07);border-radius:2px;}
-.nav-sec{font-size:.54rem;text-transform:uppercase;letter-spacing:2.4px;
-  color:rgba(255,255,255,.17);padding:.45rem 1.2rem .15rem;font-weight:700;}
-.ni{display:flex;align-items:center;gap:.6rem;padding:.52rem 1.2rem;
-  color:rgba(255,255,255,.4);background:none;border:none;width:100%;
+.sb-nav{flex:1;padding:.25rem 0;overflow-y:auto;position:relative;z-index:1;}
+.sb-nav::-webkit-scrollbar{width:3px;}
+.sb-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px;}
+.nav-sec{font-size:.54rem;text-transform:uppercase;letter-spacing:2.5px;
+  color:rgba(255,255,255,.17);padding:.5rem 1.25rem .2rem;font-weight:700;}
+.ni{display:flex;align-items:center;gap:.65rem;padding:.56rem 1.25rem;
+  color:rgba(255,255,255,.42);background:none;border:none;width:100%;
   text-align:left;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:500;
-  cursor:pointer;transition:all .15s;text-decoration:none;position:relative;}
-.ni-ic{width:28px;height:28px;border-radius:var(--r1);
+  cursor:pointer;transition:all .16s;text-decoration:none;position:relative;}
+.ni-ic{width:30px;height:30px;border-radius:var(--r1);
   display:flex;align-items:center;justify-content:center;
-  font-size:.76rem;background:rgba(255,255,255,.05);flex-shrink:0;transition:all .2s;}
-.ni:hover{color:rgba(255,255,255,.8);}
-.ni:hover .ni-ic{background:rgba(255,255,255,.1);transform:scale(1.1);}
+  font-size:.78rem;background:rgba(255,255,255,.05);flex-shrink:0;transition:all .22s;}
+.ni:hover{color:rgba(255,255,255,.82);}
+.ni:hover .ni-ic{background:rgba(255,255,255,.1);transform:scale(1.08);}
 .ni.on{color:#fff;font-weight:600;}
 .ni.on .ni-ic{background:linear-gradient(135deg,var(--g2),var(--g3));
   color:var(--m1);box-shadow:0 3px 0 rgba(0,0,0,.18),0 4px 12px rgba(212,160,23,.25);}
@@ -224,9 +266,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   animation:nbp 2.2s ease-in-out infinite;}
 @keyframes nbp{0%,100%{transform:scale(1);}50%{transform:scale(1.12);}}
 .sb-foot{padding:.55rem 1rem .95rem;border-top:1px solid rgba(255,255,255,.06);z-index:1;}
-.lout{width:100%;display:flex;align-items:center;gap:.6rem;padding:.52rem .78rem;
+.lout{width:100%;display:flex;align-items:center;gap:.65rem;padding:.52rem .78rem;
   background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);
-  color:rgba(255,255,255,.4);border-radius:var(--r1);cursor:pointer;
+  color:rgba(255,255,255,.42);border-radius:var(--r1);cursor:pointer;
   font-size:.8rem;font-family:'DM Sans',sans-serif;font-weight:500;transition:all .18s;}
 .lout:hover{background:rgba(220,38,38,.14);color:#fca5a5;border-color:rgba(220,38,38,.22);}
 .lout i{transition:transform .3s;}.lout:hover i{transform:rotate(180deg);}
@@ -256,7 +298,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .pg{padding:1.5rem 1.75rem;flex:1;}
 
 /* ── FLASH ───────────────────────────────────────── */
-.flash{display:flex;align-items:center;gap:.6rem;padding:.7rem 1.1rem;
+.flash{display:flex;align-items:center;gap:.65rem;padding:.7rem 1.1rem;
   border-radius:var(--r2);margin-bottom:1.125rem;font-size:.81rem;font-weight:600;
   animation:fIn .25s ease;border-left:3px solid;}
 @keyframes fIn{from{opacity:0;transform:translateY(-5px);}to{opacity:1;transform:translateY(0);}}
@@ -359,7 +401,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .tbl tbody tr{transition:background .1s,transform .1s;}
 .tbl tbody tr:hover td{background:var(--s2);}
 .tbl tbody tr:hover{transform:translateX(2px);}
-.rid{font-family:'Outfit',sans-serif;font-weight:800;color:var(--m3);font-size:.76rem;}
+.rid{font-family:'Outfit',sans-serif;font-weight:800;color:var(--m3);font-size:.78rem;}
 .en{font-weight:700;}.esl{font-size:.64rem;color:var(--t3);}
 
 /* ── BADGES ──────────────────────────────────────── */
@@ -383,7 +425,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   padding:.875rem 1rem;cursor:pointer;transition:all .22s cubic-bezier(.4,0,.2,1);
   position:relative;overflow:hidden;}
 .tcard::before{content:'';position:absolute;left:0;top:0;bottom:0;
-  width:3px;background:var(--bdr);border-radius:3px 0 0 3px;transition:all .2s;}
+  width:3px;background:var(--bdr);border-radius:3px 0 0 3px;transition:all .22s;}
 .tcard:hover{transform:translateY(-3px) translateX(3px);box-shadow:var(--sh2);border-color:var(--m3);}
 .tcard:hover::before{background:var(--m3);}
 .tcard.selected{border-color:var(--m3);background:linear-gradient(135deg,#FFF5F5,#FFF8F0);
@@ -462,7 +504,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   width:20px;height:20px;background:none;border:none;
   color:var(--t3);cursor:pointer;font-size:.72rem;
   display:flex;align-items:center;justify-content:center;
-  border-radius:50%;transition:all .15s;}
+  border-radius:50%;transition:all .16s;}
 .rep-clear:hover{background:var(--s3);color:var(--t1);}
 .rep-placeholder{color:var(--t4);font-size:.8rem;display:flex;
   align-items:center;gap:.5rem;justify-content:center;padding:.5rem 0;}
@@ -496,7 +538,7 @@ textarea.fc{resize:vertical;min-height:80px;}
 
 /* ── ACTIVE ASSIGNMENTS TABLE ────────────────────── */
 .act-row{display:flex;align-items:center;gap:.5rem;padding:.6rem .875rem;
-  border-bottom:1px solid var(--bdr);transition:all .15s;}
+  border-bottom:1px solid var(--bdr);transition:all .16s;}
 .act-row:last-child{border:none;}
 .act-row:hover{background:var(--s2);}
 .act-tname{font-size:.8rem;font-weight:700;flex:1;}
@@ -602,7 +644,7 @@ textarea.fc{resize:vertical;min-height:80px;}
     <div class="nav-sec">Overview</div>
     <a href="admin_dashboard.php" class="ni"><span class="ni-ic"><i class="fas fa-th-large"></i></span>Dashboard</a>
     <a href="admin_analytics.php" class="ni"><span class="ni-ic"><i class="fas fa-chart-bar"></i></span>Analytics</a>
-    <div class="nav-sec">Reports</div>
+    <div class="nav-sec" style="margin-top:.3rem;">Reports</div>
     <a href="admin_defect_reports.php" class="ni">
       <span class="ni-ic"><i class="fas fa-exclamation-triangle"></i></span>Defect Reports
     </a>
@@ -611,9 +653,9 @@ textarea.fc{resize:vertical;min-height:80px;}
       <span class="ni-ic"><i class="fas fa-user-cog"></i></span>Assign Technicians
       <?php if($totalUnassigned>0):?><span class="nbadge"><?php echo $totalUnassigned;?></span><?php endif;?>
     </a>
-    <div class="nav-sec">Management</div>
+    <div class="nav-sec" style="margin-top:.3rem;">Management</div>
     <a href="admin_inventory.php" class="ni"><span class="ni-ic"><i class="fas fa-boxes"></i></span>Inventory</a>
-    <a href="admin_users.php" class="ni"><span class="ni-ic"><i class="fas fa-users"></i></span>Users</a>
+    <a href="admin_users.php" class="ni"><span class="ni-ic"><i class="fas fa-users"></i></span>User Management</a>
     <a href="admin_notifications.php" class="ni"><span class="ni-ic"><i class="fas fa-bell"></i></span>Notifications</a>
   </nav>
   <div class="sb-foot">
@@ -1212,4 +1254,7 @@ function toast(type, msg, title) {
 
 </body>
 </html>
+
+
+
 

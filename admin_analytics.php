@@ -253,14 +253,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .sb-user:hover .uav{transform:scale(1.1) rotate(-6deg);}
 .uname{font-size:.8rem;color:#fff;font-weight:600;display:block;}
 .urole{font-size:.58rem;color:rgba(255,255,255,.32);text-transform:uppercase;letter-spacing:1px;}
-.sb-nav{flex:1;overflow-y:auto;padding:.2rem 0;position:relative;z-index:1;}
-.sb-nav::-webkit-scrollbar{width:2px;}
-.sb-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.07);border-radius:2px;}
-.nav-sec{font-size:.54rem;text-transform:uppercase;letter-spacing:2.4px;color:rgba(255,255,255,.17);padding:.45rem 1.2rem .15rem;font-weight:700;}
-.ni{display:flex;align-items:center;gap:.6rem;padding:.52rem 1.2rem;color:rgba(255,255,255,.4);background:none;border:none;width:100%;text-align:left;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:500;cursor:pointer;transition:all .15s;text-decoration:none;position:relative;}
-.ni-ic{width:28px;height:28px;border-radius:var(--r1);display:flex;align-items:center;justify-content:center;font-size:.76rem;background:rgba(255,255,255,.05);flex-shrink:0;transition:all .2s;}
-.ni:hover{color:rgba(255,255,255,.8);}
-.ni:hover .ni-ic{background:rgba(255,255,255,.1);transform:scale(1.1);}
+.sb-nav{flex:1;padding:.25rem 0;overflow-y:auto;position:relative;z-index:1;}
+.sb-nav::-webkit-scrollbar{width:3px;}
+.sb-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px;}
+.nav-sec{font-size:.54rem;text-transform:uppercase;letter-spacing:2.5px;color:rgba(255,255,255,.18);padding:.5rem 1.25rem .2rem;font-weight:700;}
+.ni{display:flex;align-items:center;gap:.65rem;padding:.56rem 1.25rem;color:rgba(255,255,255,.42);background:none;border:none;width:100%;text-align:left;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:500;cursor:pointer;transition:all .16s;text-decoration:none;position:relative;}
+.ni-ic{width:30px;height:30px;border-radius:var(--r1);display:flex;align-items:center;justify-content:center;font-size:.78rem;background:rgba(255,255,255,.05);flex-shrink:0;transition:all .22s;}
+.ni:hover{color:rgba(255,255,255,.82);}
+.ni:hover .ni-ic{background:rgba(255,255,255,.1);transform:scale(1.08);}
 .ni.on{color:#fff;font-weight:600;}
 .ni.on .ni-ic{background:linear-gradient(135deg,var(--g2),var(--g3));color:var(--m1);box-shadow:0 3px 0 rgba(0,0,0,.18),0 4px 12px rgba(212,160,23,.25);}
 .ni.on::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(to bottom,var(--g2),var(--g3));border-radius:0 3px 3px 0;}
@@ -445,11 +445,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
     <div class="nav-sec">Overview</div>
     <a href="admin_dashboard.php" class="ni"><span class="ni-ic"><i class="fas fa-th-large"></i></span>Dashboard</a>
     <a href="admin_analytics.php" class="ni on"><span class="ni-ic"><i class="fas fa-chart-bar"></i></span>Analytics</a>
-    <div class="nav-sec">Reports</div>
+    <div class="nav-sec" style="margin-top:.3rem;">Reports</div>
     <a href="admin_defect_reports.php" class="ni"><span class="ni-ic"><i class="fas fa-exclamation-triangle"></i></span>Defect Reports</a>
     <a href="admin_work_orders.php" class="ni"><span class="ni-ic"><i class="fas fa-clipboard-check"></i></span>Work Orders</a>
     <a href="admin_assign_technicians.php" class="ni"><span class="ni-ic"><i class="fas fa-user-cog"></i></span>Assign Technicians</a>
-    <div class="nav-sec">Management</div>
+    <div class="nav-sec" style="margin-top:.3rem;">Management</div>
     <a href="admin_inventory.php" class="ni"><span class="ni-ic"><i class="fas fa-boxes"></i></span>Inventory</a>
     <a href="admin_users.php" class="ni"><span class="ni-ic"><i class="fas fa-users"></i></span>User Management</a>
     <a href="admin_notifications.php" class="ni"><span class="ni-ic"><i class="fas fa-bell"></i></span>Notifications</a>
@@ -1080,6 +1080,7 @@ function toast(type, msg, title) {
 </script>
 </body>
 </html>
+
 
 
 
