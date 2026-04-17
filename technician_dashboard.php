@@ -40,6 +40,16 @@ function stone(string $s): string {
         'closed' => 'done',
     ][strtolower(trim($s))] ?? 'pend';
 }
+function sicon(string $s): string {
+    return [
+        'assigned' => 'fa-clipboard-list',
+        'in_progress' => 'fa-screwdriver-wrench',
+        'for_replacement' => 'fa-rotate',
+        'completed' => 'fa-user-check',
+        'verified' => 'fa-badge-check',
+        'closed' => 'fa-circle-check',
+    ][strtolower(trim($s))] ?? 'fa-circle';
+}
 function ptone(string $p): string {
     return [
         'critical' => 'crit',
@@ -47,6 +57,14 @@ function ptone(string $p): string {
         'medium' => 'med',
         'low' => 'low',
     ][strtolower(trim($p))] ?? 'med';
+}
+function picon(string $p): string {
+    return [
+        'critical' => 'fa-triangle-exclamation',
+        'high' => 'fa-arrow-up',
+        'medium' => 'fa-equals',
+        'low' => 'fa-arrow-down',
+    ][strtolower(trim($p))] ?? 'fa-equals';
 }
 function taskPhotos(array $row): array {
     $out = [];
@@ -244,7 +262,7 @@ $selectedPriority = ucfirst((string)($selected['priority'] ?? 'medium'));
 <link rel="icon" type="image/png" href="assets/logs.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Outfit:wght@600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
 :root {
@@ -281,6 +299,7 @@ body {
   margin: 0;
   min-height: 100vh;
   font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
   color: var(--text);
   background:
     radial-gradient(circle at top right, rgba(200, 155, 45, 0.18), transparent 22rem),
@@ -302,19 +321,41 @@ button, input, textarea { font: inherit; }
   top: 0;
   align-self: start;
   min-height: 100vh;
-  padding: 24px 18px;
-  background:
-    linear-gradient(180deg, rgba(81, 16, 16, 0.96), rgba(58, 10, 10, 0.98)),
-    linear-gradient(135deg, rgba(200, 155, 45, 0.12), transparent);
+  padding: 22px 16px;
+  background: linear-gradient(168deg, #1e0202 0%, #350808 38%, #4a0e0e 68%, #3a0808 100%);
   color: #fff8ee;
   border-right: 1px solid rgba(255, 232, 205, 0.12);
+  box-shadow: 4px 0 24px rgba(45, 5, 5, 0.4);
+  overflow: hidden;
+}
+
+.sidebar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 100% 50% at 50% 0%, rgba(212, 160, 23, 0.1), transparent);
+  pointer-events: none;
+}
+
+.sidebar::after {
+  content: '';
+  position: absolute;
+  bottom: -60px;
+  left: -40px;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: rgba(212, 160, 23, 0.04);
+  pointer-events: none;
 }
 
 .side-inner {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
-  min-height: calc(100vh - 48px);
-  gap: 22px;
+  min-height: calc(100vh - 44px);
+  gap: 18px;
 }
 
 .side-brand,
@@ -331,30 +372,37 @@ button, input, textarea { font: inherit; }
 .side-brand,
 .profile {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   align-items: center;
-  padding: 16px;
-  border-radius: 22px;
-  background: rgba(255, 250, 244, 0.08);
-  backdrop-filter: blur(10px);
+  padding: 14px 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(8px);
+}
+
+.side-brand {
+  gap: 10px;
 }
 
 .side-logo {
-  width: 56px;
-  height: 56px;
-  border-radius: 18px;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(145deg, #fffaf1, #f2dfb0);
-  box-shadow: inset 0 0 0 2px rgba(123, 29, 29, 0.08);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid rgba(123, 29, 29, 0.14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 3px rgba(123, 29, 29, 0.15);
   overflow: hidden;
   flex-shrink: 0;
 }
 
 .side-logo img {
-  width: 38px;
-  height: 38px;
-  object-fit: contain;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .side-brand small,
@@ -372,62 +420,82 @@ button, input, textarea { font: inherit; }
 
 .sidebar small {
   display: block;
-  color: rgba(255, 239, 213, 0.72);
-  font-size: 0.78rem;
-  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.57rem;
+  letter-spacing: 1.8px;
   text-transform: uppercase;
 }
 
 .side-brand strong,
-.profile strong,
-.section-title,
-.modal-title,
-.item-title,
-.card.stat strong {
+.profile strong {
   font-family: 'Outfit', sans-serif;
-  letter-spacing: -0.02em;
+  letter-spacing: 0;
 }
 
 .side-brand strong {
   display: block;
-  margin-top: 4px;
-  font-size: 1.15rem;
+  margin-top: 1px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #fff;
+}
+
+.side-brand .brand-copy {
+  min-width: 0;
 }
 
 .profile {
   align-items: center;
+  transition: background 0.18s ease;
+}
+
+.profile:hover {
+  background: rgba(255, 255, 255, 0.09);
 }
 
 .avatar {
-  width: 56px;
-  height: 56px;
-  border-radius: 18px;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
   display: grid;
   place-items: center;
   font-family: 'Outfit', sans-serif;
-  font-size: 1rem;
+  font-size: 0.8rem;
   font-weight: 800;
   color: #fff;
-  background: linear-gradient(135deg, var(--gold), #e0b84d 45%, #8c6110);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
+  background: linear-gradient(135deg, #d4a017, #9b2c2c);
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.18);
 }
 
 .profile strong {
   display: block;
-  font-size: 1rem;
-  color: #fff9ef;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #fff;
 }
 
 .profile span {
   display: block;
-  margin-top: 3px;
-  font-size: 0.9rem;
-  color: rgba(255, 242, 220, 0.76);
+  margin-top: 2px;
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.35);
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .side-nav {
   display: grid;
-  gap: 10px;
+  gap: 6px;
+}
+
+.side-nav-label {
+  padding: 0.5rem 1rem 0.2rem;
+  font-size: 0.54rem;
+  text-transform: uppercase;
+  letter-spacing: 2.5px;
+  color: rgba(255, 255, 255, 0.18);
+  font-weight: 700;
 }
 
 .side-link,
@@ -435,34 +503,97 @@ button, input, textarea { font: inherit; }
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px;
-  border-radius: 18px;
-  background: rgba(255, 250, 244, 0.04);
-  color: rgba(255, 243, 227, 0.82);
-  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  padding: 0.75rem 1rem;
+  border-radius: 14px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.82rem;
+  font-weight: 500;
+  transition: color 0.18s ease, transform 0.18s ease;
+  position: relative;
 }
 
 .side-link i,
 .logout i {
-  width: 18px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   text-align: center;
+  font-size: 0.78rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  transition: background 0.18s ease, transform 0.18s ease, color 0.18s ease;
+}
+
+.side-link .side-count {
+  margin-left: auto;
+  min-width: 24px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  text-align: center;
+  font-size: 0.58rem;
+  font-weight: 900;
+  color: #2d0505;
+  background: #d4a017;
 }
 
 .side-link:hover,
 .logout:hover,
 .side-link.active {
-  transform: translateX(4px);
-  background: linear-gradient(135deg, rgba(255, 248, 236, 0.14), rgba(200, 155, 45, 0.16));
-  color: #ffffff;
-  border-color: rgba(240, 202, 117, 0.4);
+  transform: none;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.side-link:hover i,
+.logout:hover i {
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(1.08);
 }
 
 .side-link.active {
-  box-shadow: inset 3px 0 0 var(--gold);
+  color: #fff;
+  font-weight: 600;
+}
+
+.side-link.active i {
+  background: linear-gradient(135deg, #d4a017, #f0c040);
+  color: #2d0505;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.2);
+}
+
+.side-link.active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(to bottom, #d4a017, #f0c040);
+  border-radius: 0 3px 3px 0;
 }
 
 .side-footer {
   margin-top: auto;
+}
+
+.logout {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 0.81rem;
+}
+
+.logout:hover {
+  color: #fca5a5;
+  background: rgba(220, 38, 38, 0.15);
+  border-color: rgba(220, 38, 38, 0.25);
+}
+
+.logout:hover i {
+  background: rgba(255, 255, 255, 0.08);
+  transform: rotate(180deg);
 }
 
 .main {
@@ -517,20 +648,22 @@ button, input, textarea { font: inherit; }
   background: var(--surface-alt);
   color: var(--maroon);
   font-weight: 700;
+  font-size: 0.68rem;
   letter-spacing: 0.02em;
 }
 
 .card.stat strong {
   display: block;
   margin-top: 16px;
-  font-size: clamp(2rem, 3vw, 2.5rem);
+  font-family: 'Fraunces', serif;
+  font-size: clamp(1.55rem, 2.2vw, 1.95rem);
   color: var(--maroon-dark);
 }
 
 .card.stat span {
   display: block;
   margin-top: 8px;
-  font-size: 0.94rem;
+  font-size: 0.82rem;
   line-height: 1.55;
   color: var(--muted);
 }
@@ -565,6 +698,7 @@ button, input, textarea { font: inherit; }
   border: 1px solid var(--line);
   color: var(--muted);
   background: var(--bg-soft);
+  font-size: 0.84rem;
 }
 
 .tab:hover,
@@ -591,6 +725,7 @@ button, input, textarea { font: inherit; }
   border: 1px solid var(--line);
   background: #fffdfa;
   color: var(--text);
+  font-size: 0.86rem;
   outline: none;
 }
 
@@ -609,6 +744,7 @@ button, input, textarea { font: inherit; }
   border: 1px solid var(--line);
   background: #fff8ef;
   color: var(--maroon);
+  font-size: 0.82rem;
 }
 
 .search button {
@@ -664,14 +800,14 @@ button, input, textarea { font: inherit; }
 .detail-hero small {
   display: block;
   margin-bottom: 4px;
-  font-size: 0.78rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
 .section-title {
   margin: 0;
-  font-size: clamp(1.35rem, 2vw, 1.7rem);
+  font-size: clamp(0.98rem, 1.5vw, 1.1rem);
   color: var(--maroon-dark);
 }
 
@@ -685,12 +821,12 @@ button, input, textarea { font: inherit; }
 
 .list-head strong {
   display: block;
-  font-size: 1rem;
+  font-size: 0.9rem;
   color: var(--text);
 }
 
 .subtle {
-  font-size: 0.92rem;
+  font-size: 0.8rem;
   line-height: 1.5;
 }
 
@@ -710,9 +846,35 @@ button, input, textarea { font: inherit; }
 
 .item {
   height: 100%;
-  padding: 18px;
-  border-radius: 24px;
+  padding: 15px;
+  border-radius: 20px;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.item-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.report-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fff7ea;
+  border: 1px solid var(--line);
+  color: var(--maroon);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.quick-note {
+  font-size: 0.68rem;
+  color: var(--muted);
 }
 
 .item:hover,
@@ -744,31 +906,34 @@ button, input, textarea { font: inherit; }
 
 .item-title {
   margin: 0;
-  font-size: 1.18rem;
+  font-size: 0.92rem;
   color: var(--maroon-dark);
 }
 
 .item-issue,
 .copy,
 .timeline-copy {
-  font-size: 0.96rem;
+  font-size: 0.84rem;
   line-height: 1.65;
 }
 
 .item-issue {
-  margin: 14px 0 16px;
+  margin: 10px 0 12px;
+  font-size: 0.76rem;
+  line-height: 1.55;
   color: var(--text);
 }
 
 .item-meta {
   flex-wrap: wrap;
+  gap: 8px;
 }
 
 .meta-card {
   flex: 1 1 150px;
   min-width: 0;
-  padding: 12px 14px;
-  border-radius: 16px;
+  padding: 10px 12px;
+  border-radius: 14px;
   border: 1px solid var(--line);
   background: var(--surface-alt);
 }
@@ -776,7 +941,8 @@ button, input, textarea { font: inherit; }
 .meta-card strong,
 .grid strong {
   display: block;
-  margin-top: 6px;
+  margin-top: 4px;
+  font-size: 0.8rem;
   color: var(--text);
 }
 
@@ -784,9 +950,10 @@ button, input, textarea { font: inherit; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 12px;
+  gap: 7px;
+  padding: 7px 10px;
   border-radius: 999px;
-  font-size: 0.8rem;
+  font-size: 0.66rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   border: 1px solid transparent;
@@ -840,6 +1007,33 @@ button, input, textarea { font: inherit; }
   text-align: center;
 }
 
+.empty strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.92rem;
+  color: var(--maroon-dark);
+}
+
+.empty-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.empty-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff7ea;
+  color: var(--maroon);
+  font-weight: 700;
+}
+
 .empty i {
   display: block;
   margin-bottom: 12px;
@@ -884,12 +1078,18 @@ body.modal-open {
   align-items: flex-start;
   gap: 18px;
   margin-bottom: 18px;
+  position: sticky;
+  top: -22px;
+  z-index: 3;
+  padding: 0 0 12px;
+  background: linear-gradient(180deg, rgba(255, 253, 250, 0.98), rgba(248, 239, 230, 0.96));
+  backdrop-filter: blur(8px);
 }
 
 .modal-head small {
   display: block;
   margin-bottom: 4px;
-  font-size: 0.78rem;
+  font-size: 0.68rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);
@@ -897,7 +1097,7 @@ body.modal-open {
 
 .modal-title {
   margin: 0;
-  font-size: clamp(1.6rem, 3vw, 2rem);
+  font-size: clamp(1.2rem, 2vw, 1.45rem);
   color: var(--maroon-dark);
 }
 
@@ -989,6 +1189,7 @@ body.modal-open {
 .form label {
   display: block;
   margin-bottom: 8px;
+  font-size: 0.82rem;
   font-weight: 700;
   color: var(--maroon-dark);
 }
@@ -1019,6 +1220,7 @@ body.modal-open {
   padding: 12px 18px;
   cursor: pointer;
   color: #fff;
+  font-size: 0.82rem;
 }
 
 .actions .b1,
@@ -1048,12 +1250,47 @@ body.modal-open {
   .sidebar {
     position: relative;
     min-height: auto;
+    padding: 14px;
     border-right: 0;
     border-bottom: 1px solid rgba(255, 232, 205, 0.12);
+    border-radius: 0 0 24px 24px;
   }
 
   .side-inner {
     min-height: auto;
+    gap: 12px;
+  }
+
+  .side-brand,
+  .profile {
+    border-radius: 16px;
+    padding: 12px;
+  }
+
+  .side-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .side-nav-label {
+    grid-column: 1 / -1;
+    padding: 0 .2rem;
+  }
+
+  .side-link {
+    min-width: 0;
+    padding: 0.78rem 0.85rem;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  .side-link.active {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .logout {
+    justify-content: center;
   }
 
   .wrap {
@@ -1065,13 +1302,94 @@ body.modal-open {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .toolbar {
+    padding: 14px;
+  }
+
+  .tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+  }
+
+  .tab {
+    justify-content: center;
+    min-width: 0;
+  }
+
   .search {
+    grid-column: 1 / -1;
     margin-left: 0;
     justify-content: stretch;
+    padding: 10px;
+    border-radius: 18px;
+    background: var(--surface-alt);
+    border: 1px solid var(--line);
   }
 
   .search input {
     width: 100%;
+  }
+
+  .list-shell {
+    padding: 16px;
+  }
+
+  .list-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .modal {
+    padding: 14px;
+  }
+
+  .modal-dialog {
+    width: min(100%, 900px);
+    max-height: calc(100vh - 28px);
+    padding: 18px;
+    border-radius: 24px;
+  }
+
+  .photos img {
+    width: calc(50% - 5px);
+  }
+}
+
+@media (max-width: 820px) {
+  .wrap {
+    width: min(100% - 22px, 1380px);
+    padding-top: 14px;
+  }
+
+  .stat-grid {
+    gap: 12px;
+  }
+
+  .card.stat {
+    min-height: 124px;
+    padding: 16px;
+  }
+
+  .panel-head {
+    align-items: flex-start;
+  }
+
+  .ghost-btn {
+    align-self: flex-start;
+  }
+
+  .list-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .item {
+    padding: 14px;
+  }
+
+  .item-meta {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
@@ -1088,12 +1406,13 @@ body.modal-open {
   }
 
   .sidebar {
-    padding: 16px 14px;
+    padding: 12px;
+    border-radius: 0 0 18px 18px;
   }
 
   .wrap {
     width: 100%;
-    padding: 0 0 24px;
+    padding: 10px 10px 24px;
   }
 
   .stat-grid,
@@ -1101,18 +1420,66 @@ body.modal-open {
     grid-template-columns: 1fr;
   }
 
+  .side-brand,
+  .profile {
+    padding: 10px 12px;
+  }
+
+  .side-logo {
+    width: 34px;
+    height: 34px;
+  }
+
+  .avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+  }
+
+  .side-nav {
+    grid-template-columns: 1fr;
+  }
+
+  .side-link,
+  .logout {
+    padding: 0.78rem 0.9rem;
+    font-size: 0.78rem;
+  }
+
+  .side-link i,
+  .logout i {
+    width: 30px;
+    height: 30px;
+  }
+
+  .card.stat {
+    min-height: 112px;
+    padding: 14px;
+  }
+
   .toolbar,
   .list-shell {
-    padding: 16px;
+    padding: 14px;
+  }
+
+  .tabs {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .tab {
+    justify-content: flex-start;
+    padding: 11px 14px;
   }
 
   .modal {
-    padding: 0;
+    padding: 10px;
   }
 
   .modal-dialog {
-    max-height: 100vh;
-    padding: 16px;
+    max-height: calc(100vh - 20px);
+    padding: 14px;
+    border-radius: 22px;
   }
 
   .modal-top,
@@ -1127,9 +1494,103 @@ body.modal-open {
     flex-wrap: wrap;
   }
 
+  .item-topline {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .item-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .grid > div {
+    flex-basis: 100%;
+  }
+
+  .photos {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .photos img {
+    width: 100%;
+  }
+
   .search {
     flex-direction: column;
     align-items: stretch;
+    padding: 8px;
+  }
+
+  .actions button,
+  .empty-action {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 430px) {
+  body {
+    font-size: 14px;
+  }
+
+  .wrap {
+    padding: 8px 8px 18px;
+  }
+
+  .side-brand strong,
+  .profile strong {
+    font-size: 0.76rem;
+  }
+
+  .sidebar small,
+  .profile span,
+  .side-nav-label {
+    letter-spacing: 1.2px;
+  }
+
+  .card.stat strong {
+    font-size: clamp(1.32rem, 7vw, 1.65rem);
+  }
+
+  .card.stat span,
+  .subtle,
+  .item-issue,
+  .copy,
+  .timeline-copy {
+    font-size: 0.74rem;
+  }
+
+  .item-title,
+  .modal-title {
+    font-size: 0.92rem;
+  }
+
+  .badge,
+  .report-chip,
+  .search button,
+  .search a,
+  .ghost-btn,
+  .actions button {
+    font-size: 0.64rem;
+  }
+
+  .modal-close {
+    width: 40px;
+    height: 40px;
+    border-radius: 14px;
+  }
+}
+
+@media (min-width: 900px) and (max-width: 1280px) and (max-height: 900px) {
+  .stat-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .list-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 </style>
@@ -1140,7 +1601,7 @@ body.modal-open {
     <div class="side-inner">
       <div class="side-brand">
         <div class="side-logo"><img src="assets/logs.png" alt="BEC logo"></div>
-        <div>
+        <div class="brand-copy">
           <small>BEC Equipment</small>
           <strong>Technician Console</strong>
         </div>
@@ -1155,8 +1616,9 @@ body.modal-open {
       </div>
 
       <nav class="side-nav">
-        <a class="side-link <?php echo $tab === 'my_tasks' ? 'active' : ''; ?>" href="?tab=my_tasks<?php echo $search !== '' ? '&search=' . urlencode($search) : ''; ?>"><i class="fas fa-list-check"></i> My Tasks</a>
-        <a class="side-link <?php echo $tab === 'history' ? 'active' : ''; ?>" href="?tab=history<?php echo $search !== '' ? '&search=' . urlencode($search) : ''; ?>"><i class="fas fa-clock-rotate-left"></i> Work History</a>
+        <div class="side-nav-label">Workspace</div>
+        <a class="side-link <?php echo $tab === 'my_tasks' ? 'active' : ''; ?>" href="?tab=my_tasks<?php echo $search !== '' ? '&search=' . urlencode($search) : ''; ?>"><i class="fas fa-list-check"></i> My Tasks <span class="side-count"><?php echo $taskCount; ?></span></a>
+        <a class="side-link <?php echo $tab === 'history' ? 'active' : ''; ?>" href="?tab=history<?php echo $search !== '' ? '&search=' . urlencode($search) : ''; ?>"><i class="fas fa-clock-rotate-left"></i> Work History <span class="side-count"><?php echo $cHist; ?></span></a>
       </nav>
       <div class="side-footer">
         <a class="logout" href="technician/logout.php"><i class="fas fa-right-from-bracket"></i> Log Out</a>
@@ -1209,25 +1671,37 @@ body.modal-open {
         </div>
       </div>
       <?php if (!$source): ?>
-      <div class="empty"><i class="fas fa-clipboard-check"></i>No records match the current view.</div>
+      <div class="empty">
+        <i class="fas fa-clipboard-check"></i>
+        <strong>No records match the current view.</strong>
+        <div><?php echo $search !== '' ? 'Try clearing the current search or switch to another queue.' : 'There are no technician records in this section right now.'; ?></div>
+        <div class="empty-actions">
+          <?php if ($search !== ''): ?><a class="empty-action" href="?tab=<?php echo e($tab); ?>"><i class="fas fa-xmark"></i> Clear Search</a><?php endif; ?>
+          <a class="empty-action" href="?tab=my_tasks"><i class="fas fa-list-check"></i> Go to My Tasks</a>
+        </div>
+      </div>
       <?php else: ?>
       <div class="list-grid">
       <?php foreach ($source as $row): ?>
       <button class="item-trigger" type="button" data-modal-target="modal-<?php echo e((string)$row['report_id']); ?>">
         <div class="item">
+          <div class="item-topline">
+            <div class="report-chip"><i class="fas fa-hashtag"></i> Report <?php echo e((string)$row['report_id']); ?></div>
+            <div class="quick-note"><?php echo $tab === 'history' ? 'Resolved case record' : 'Tap to review and update'; ?></div>
+          </div>
           <div class="row">
             <div>
               <h3 class="item-title"><?php echo e((string)($row['equipment_name'] ?? 'Equipment')); ?></h3>
-              <div class="subtle" style="margin-top:6px">Report #<?php echo e((string)$row['report_id']); ?></div>
+              <div class="subtle" style="margin-top:6px"><?php echo e((string)($row['location'] ?? 'Unspecified')); ?></div>
             </div>
             <div class="badges">
-              <span class="badge <?php echo e(stone((string)($row['status'] ?? 'assigned'))); ?>"><?php echo e(slabel((string)($row['status'] ?? 'assigned'))); ?></span>
-              <span class="badge <?php echo e(ptone((string)($row['priority'] ?? 'medium'))); ?>"><?php echo e(ucfirst((string)($row['priority'] ?? 'medium'))); ?></span>
+              <span class="badge <?php echo e(stone((string)($row['status'] ?? 'assigned'))); ?>"><i class="fas <?php echo e(sicon((string)($row['status'] ?? 'assigned'))); ?>"></i><?php echo e(slabel((string)($row['status'] ?? 'assigned'))); ?></span>
+              <span class="badge <?php echo e(ptone((string)($row['priority'] ?? 'medium'))); ?>"><i class="fas <?php echo e(picon((string)($row['priority'] ?? 'medium'))); ?>"></i><?php echo e(ucfirst((string)($row['priority'] ?? 'medium'))); ?></span>
             </div>
           </div>
           <div class="item-issue"><?php echo e((string)($row['issue_description'] ?? 'No issue description recorded.')); ?></div>
           <div class="item-meta">
-            <div class="meta-card"><small>Location</small><strong><?php echo e((string)($row['location'] ?? 'Unspecified')); ?></strong></div>
+            <div class="meta-card"><small>Status Focus</small><strong><?php echo e(slabel((string)($row['status'] ?? 'assigned'))); ?></strong></div>
             <div class="meta-card"><small><?php echo $tab === 'history' ? 'Completed' : 'Reported'; ?></small><strong><?php echo e(fdate((string)($tab === 'history' ? ($row['completion_date'] ?? $row['report_date'] ?? '') : ($row['report_date'] ?? '')))); ?></strong></div>
           </div>
         </div>
@@ -1256,8 +1730,8 @@ body.modal-open {
         <div class="modal-card detail-hero">
           <div class="row">
             <div class="badges">
-              <span class="badge <?php echo e(stone($modalStatus)); ?>"><?php echo e(slabel($modalStatus)); ?></span>
-              <span class="badge <?php echo e(ptone((string)($row['priority'] ?? 'medium'))); ?>"><?php echo e(ucfirst((string)($row['priority'] ?? 'medium'))); ?></span>
+              <span class="badge <?php echo e(stone($modalStatus)); ?>"><i class="fas <?php echo e(sicon($modalStatus)); ?>"></i><?php echo e(slabel($modalStatus)); ?></span>
+              <span class="badge <?php echo e(ptone((string)($row['priority'] ?? 'medium'))); ?>"><i class="fas <?php echo e(picon((string)($row['priority'] ?? 'medium'))); ?>"></i><?php echo e(ucfirst((string)($row['priority'] ?? 'medium'))); ?></span>
             </div>
           </div>
           <div class="grid" style="margin-top:10px">

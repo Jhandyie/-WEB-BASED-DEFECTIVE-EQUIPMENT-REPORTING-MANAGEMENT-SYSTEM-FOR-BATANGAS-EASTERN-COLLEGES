@@ -25,6 +25,9 @@
             padding: 20px;
             position: relative;
             overflow: hidden;
+            background:
+                radial-gradient(circle at top right, rgba(255, 215, 0, 0.15), transparent 28rem),
+                linear-gradient(180deg, #2f0808, #170505);
         }
 
         /* Background */
@@ -48,6 +51,8 @@
             overflow: hidden;
             box-shadow: 0 32px 80px rgba(0, 0, 0, 0.55);
             animation: fadeUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
         }
 
         @keyframes fadeUp {
@@ -147,6 +152,28 @@
             margin: 0;
         }
 
+        .status-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 24px;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 215, 0, 0.14);
+            color: rgba(255, 248, 236, 0.82);
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-pill i { color: #ffd700; }
+
         .accent-line {
             width: 36px;
             height: 2px;
@@ -190,6 +217,22 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
+            position: relative;
+        }
+
+        .panel-right::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(circle at top right, rgba(128, 0, 0, 0.05), transparent 18rem),
+                linear-gradient(180deg, rgba(255, 248, 240, 0.62), rgba(255, 255, 255, 0));
+            pointer-events: none;
+        }
+
+        .panel-right > * {
+            position: relative;
+            z-index: 1;
         }
 
         .form-head {
@@ -209,6 +252,34 @@
             font-size: 13px;
             line-height: 1.5;
             margin: 0;
+        }
+
+        .quick-trust {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 22px;
+        }
+
+        .trust-card {
+            padding: 12px 13px;
+            border-radius: 12px;
+            background: linear-gradient(180deg, #fffaf5, #fff);
+            border: 1px solid #f1e5db;
+        }
+
+        .trust-card strong {
+            display: block;
+            color: #5a0000;
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+
+        .trust-card span {
+            display: block;
+            color: #9a8b84;
+            font-size: 12px;
+            line-height: 1.5;
         }
 
         /* Message banner */
@@ -358,7 +429,7 @@
         .btn-login {
             width: 100%;
             padding: 14px;
-            background: #800000;
+            background: linear-gradient(135deg, #800000, #a31616 70%, #d4a017);
             color: #fff;
             border: none;
             border-radius: 10px;
@@ -375,9 +446,9 @@
         }
 
         .btn-login:hover:not(:disabled) {
-            background: #5a0000;
             transform: translateY(-1px);
             box-shadow: 0 8px 22px rgba(128, 0, 0, 0.28);
+            filter: brightness(0.98);
         }
 
         .btn-login:active:not(:disabled) {
@@ -427,6 +498,7 @@
             .panel-left .info-list { display: none; }
             .panel-right { padding: 36px 30px; }
             .accent-line { margin: 16px 0; }
+            .quick-trust { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -452,6 +524,11 @@
                 <div class="accent-line"></div>
 
                 <p>Secure gateway for authorized technicians and maintenance personnel.</p>
+
+                <div class="status-pills">
+                    <div class="status-pill"><i class="fas fa-bolt"></i> Faster field updates</div>
+                    <div class="status-pill"><i class="fas fa-shield-halved"></i> Admin-managed access</div>
+                </div>
             </div>
 
             <div class="info-list">
@@ -476,6 +553,17 @@
             <div class="form-head">
                 <h2>Sign in to your account</h2>
                 <p>Enter the credentials provided by your administrator</p>
+            </div>
+
+            <div class="quick-trust">
+                <div class="trust-card">
+                    <strong>Technician-ready</strong>
+                    <span>Built for quick access to assigned repairs and status updates.</span>
+                </div>
+                <div class="trust-card">
+                    <strong>Secure access</strong>
+                    <span>Only approved technician accounts can enter this portal.</span>
+                </div>
             </div>
 
             <div id="loginMessage"></div>
