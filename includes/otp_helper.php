@@ -15,6 +15,9 @@ function sendOTPEmail($email, $otp, $role = 'admin') {
     $roleNames = [
         'admin'      => 'Administrator',
         'handler'    => 'Equipment Handler',
+        'pmo'        => 'PMO Officer',
+        'dean'       => 'Dean',
+        'finance'    => 'Finance Officer',
         'technician' => 'Maintenance Technician',
         'student'    => 'Student',
         'faculty'    => 'Faculty Member',
@@ -43,7 +46,7 @@ function sendOTPEmail($email, $otp, $role = 'admin') {
       // -- CARD
       . '<table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;border-radius:24px;overflow:hidden;box-shadow:0 32px 80px rgba(0,0,0,0.6);">'
 
-      // -- HERO BANNER — CSS-only, email-safe, no SVG/images --
+      // -- HERO BANNER â€” CSS-only, email-safe, no SVG/images --
       . '<tr><td style="padding:0;background:#1a0808;">'
           // Top accent bar
           . '<table width="100%" cellpadding="0" cellspacing="0" border="0">'          . '<tr>'          . '<td style="width:15%;height:5px;background:#0d0404;font-size:0;">&nbsp;</td>'          . '<td style="width:70%;height:5px;background:#c9a227;font-size:0;">&nbsp;</td>'          . '<td style="width:15%;height:5px;background:#0d0404;font-size:0;">&nbsp;</td>'          . '</tr></table>'
@@ -211,7 +214,7 @@ function sendOTPEmail($email, $otp, $role = 'admin') {
           . '<tr><td align="center" style="padding-bottom:10px;">'
           . '<table cellpadding="0" cellspacing="0" border="0"><tr>'
 
-          // Mini BEC badge — CSS circle, no SVG
+          // Mini BEC badge â€” CSS circle, no SVG
           . '<td style="padding-right:10px;vertical-align:middle;">'          . '<table cellpadding="0" cellspacing="0" border="0"><tr>'          . '<td align="center" width="28" height="28" '          . 'style="width:28px;height:28px;border-radius:50%;background:#7b0000;'          . 'border:1px solid rgba(201,162,39,0.6);font-family:Georgia,serif;font-size:7px;'          . 'font-weight:900;color:#c9a227;text-align:center;vertical-align:middle;line-height:28px;">'          . 'BEC'          . '</td></tr></table>'          . '</td>'          . '<td style="vertical-align:middle;">'
           . '<p style="margin:0;font-family:Georgia,serif;font-size:13px;font-weight:700;color:rgba(255,255,255,0.85);">Batangas Eastern Colleges</p>'
           . '</td></tr></table></td></tr>'
@@ -231,7 +234,7 @@ function sendOTPEmail($email, $otp, $role = 'admin') {
       . '</table>' // close card
       . '</td></tr></table>' // close wrapper
       . '</body></html>';
-    $result = sendEmail($email, $subject, $message);
+    $result = sendEmail($email, $subject, $message, null, $role);
     error_log("OTP Email sent to {$email}: " . ($result ? 'SUCCESS' : 'FAILED'));
     return $result;
 }
@@ -273,7 +276,7 @@ function verifyOTP($email, $otp_code, $role = 'admin') {
     $stmt->bind_param("i", $otp_record['otp_id']);
     $stmt->execute();
     $stmt->close();
-    $allowed_roles = ['admin', 'student', 'faculty', 'technician', 'handler', 'guest'];
+    $allowed_roles = ['admin', 'pmo', 'dean', 'finance', 'student', 'faculty', 'technician', 'handler', 'guest'];
     if (!in_array($role, $allowed_roles)) return ['success' => false, 'message' => 'Invalid role.', 'user' => null];
     $stmt = $conn->prepare("SELECT * FROM `users` WHERE email = ? AND role = ? LIMIT 1");
     $stmt->bind_param("ss", $email, $role);
@@ -288,7 +291,7 @@ function verifyOTP($email, $otp_code, $role = 'admin') {
 function requestLoginOTP($email, $role = 'admin') {
     $conn = getDBConnection();
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) return ['success' => false, 'message' => 'Invalid email address format.'];
-    $allowed_roles = ['admin', 'student', 'faculty', 'technician', 'handler', 'guest'];
+    $allowed_roles = ['admin', 'pmo', 'dean', 'finance', 'student', 'faculty', 'technician', 'handler', 'guest'];
     if (!in_array($role, $allowed_roles)) return ['success' => false, 'message' => 'Invalid role.'];
     $stmt = $conn->prepare("SELECT email, fullname FROM `users` WHERE email = ? AND role = ? LIMIT 1");
     $stmt->bind_param("ss", $email, $role);
@@ -338,4 +341,5 @@ function cleanupExpiredOTPs() {
     if ($result) { $deleted = $conn->affected_rows; error_log("Cleaned up {$deleted} expired OTP records"); return $deleted; }
     return 0;
 }
+
 

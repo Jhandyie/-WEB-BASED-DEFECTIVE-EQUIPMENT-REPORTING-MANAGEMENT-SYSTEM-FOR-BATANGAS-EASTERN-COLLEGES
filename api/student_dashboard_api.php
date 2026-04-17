@@ -1,89 +1,111 @@
 <?php
 session_start();
-require_once __DIR__ . '/config/database.php';
-require_once __DIR__ . '/includes/auth.php';
-require_once __DIR__ . '/controllers/StudentDashboardController.php';
-require_once __DIR__ . '/inventory_functions.php';
-require_once __DIR__ . '/file_storage_helpers.php';
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../controllers/StudentDashboardController.php';
+require_once __DIR__ . '/../inventory_functions.php';
+require_once __DIR__ . '/../file_storage_helpers.php';
 
 // Check if this is an API request
-if (isset($_GET['action'])) {
-    // Set content type to JSON
+$requestAction = (string)($_POST['action'] ?? $_GET['action'] ?? '');
+if ($requestAction !== '') {
     header('Content-Type: application/json');
-    
-    // Check if user is logged in for API requests
+
     if (!isset($_SESSION['user_id'])) {
         echo json_encode(['success' => false, 'message' => 'Unauthorized']);
         exit;
     }
-    
+
     $controller = new StudentDashboardController();
-    $user_id = $_SESSION['user_id'];
-    
-    $action = $_GET['action'];
-    
+    $user_id = (string)$_SESSION['user_id'];
+
     try {
-        switch ($action) {
+        switch ($requestAction) {
             case 'get_stats':
                 $result = $controller->getDashboardStats($user_id);
                 echo json_encode($result);
                 break;
-                
+
             case 'get_reports':
                 $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : null;
                 $result = $controller->getMyReports($user_id, $limit);
                 echo json_encode($result);
                 break;
-                
+
             case 'get_recent_reports':
                 $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 5;
                 $result = $controller->getRecentReports($limit);
                 echo json_encode($result);
                 break;
-                
+
             case 'get_reservations':
                 $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : null;
                 $result = $controller->getMyReservations($user_id, $limit);
                 echo json_encode($result);
                 break;
-                
+
             case 'get_notifications':
                 $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
                 $unread_only = isset($_GET['unread_only']) && $_GET['unread_only'] === 'true';
                 $result = $controller->getNotifications($user_id, $limit, $unread_only);
                 echo json_encode($result);
                 break;
-                
+
             case 'mark_notification_read':
-                $notification_id = isset($_GET['notification_id']) ? (int)$_GET['notification_id'] : null;
-                if ($notification_id) {
+                $notification_id = trim((string)($_POST['notification_id'] ?? $_GET['notification_id'] ?? ''));
+                if ($notification_id !== '') {
                     $result = $controller->markNotificationRead($notification_id, $user_id);
                     echo json_encode($result);
                 } else {
                     echo json_encode(['success' => false, 'message' => 'Notification ID required']);
                 }
                 break;
-                
+
             case 'mark_all_notifications_read':
+            case 'mark_all_read':
                 $result = $controller->markAllNotificationsRead($user_id);
                 echo json_encode($result);
                 break;
-                
+
             case 'get_available_equipment':
                 $result = $controller->getAvailableEquipment();
                 echo json_encode($result);
                 break;
-                
+
             case 'get_report_details':
-                $report_id = isset($_GET['report_id']) ? (int)$_GET['report_id'] : null;
-                if ($report_id) {
+                $report_id = trim((string)($_GET['report_id'] ?? $_POST['report_id'] ?? ''));
+                if ($report_id !== '') {
                     $result = $controller->getReportDetails($report_id);
                     echo json_encode($result);
                 } else {
                     echo json_encode(['success' => false, 'message' => 'Report ID required']);
                 }
                 break;
-                
+
+            case 'submit_report':
+                echo json_encode($controller->submitReport($user_id, $_POST, $_FILES));
+                break;
+
+            case 'create_reservation':
+                echo json_encode($controller->createReservation($user_id, $_POST));
+                break;
+
+            case 'update_profile':
+                echo json_encode($controller->updateProfile(
+                    $user_id,
+                    (string)($_POST['name'] ?? ''),
+                    (string)($_POST['email'] ?? '')
+                ));
+                break;
+
+            case 'change_password':
+                echo json_encode($controller->changePassword(
+                    $user_id,
+                    (string)($_POST['current_password'] ?? ''),
+                    (string)($_POST['new_password'] ?? '')
+                ));
+                break;
+
             default:
                 echo json_encode(['success' => false, 'message' => 'Unknown action']);
         }
@@ -1266,6 +1288,7 @@ textarea.f-ctrl{resize:vertical;min-height:90px;}
 
 <script>
 // ── CONSTANTS ──────────────────────────────────────────────────────
+const API_ENDPOINT = 'student_dashboard_api.php';
 const PAGE_TITLES = {dashboard:'Dashboard',history:'Report History',notifications:'Notifications',profile:'My Profile'};
 let allReports = [];
 
@@ -1320,19 +1343,19 @@ document.addEventListener('click', e => {
 
 // ── API: STATS ─────────────────────────────────────────────────────
 function loadStats() {
-  fetch('api/student_dashboard_api.php?action=get_stats')
+  fetch(`${API_ENDPOINT}?action=get_stats`)
     .then(r=>r.json()).then(d=>{
       if (!d.success || !d.data) return;
-      const s = d.data;
-      animN('st-t', s.total_reports||0);
-      animN('st-p', s.pending_reports||0);
-      animN('st-i', s.in_progress_reports||0);
-      animN('st-d', s.completed_reports||0);
-      const u = s.unread_notifications||0;
+      const reports = d.data.reports || {};
+      const u = d.data.notifications || 0;
+      animN('st-t', reports.total_reports||0);
+      animN('st-p', reports.pending_reports||0);
+      animN('st-i', reports.in_progress_reports||0);
+      animN('st-d', reports.completed_reports||0);
       document.getElementById('navBadge').textContent = u;
       document.getElementById('navBadge').style.display = u>0?'inline-flex':'none';
       document.getElementById('topPip').style.display = u>0?'block':'none';
-      document.getElementById('pR').textContent = s.total_reports||0;
+      document.getElementById('pR').textContent = reports.total_reports||0;
     }).catch(()=>{});
 }
 
@@ -1340,7 +1363,7 @@ function loadStats() {
 function loadRecent() {
   const ic = document.getElementById('rIcon');
   if (ic) ic.className = 'fas fa-spinner fa-spin';
-  fetch('api/student_dashboard_api.php?action=get_reports&limit=5')
+  fetch(`${API_ENDPOINT}?action=get_reports&limit=5`)
     .then(r=>r.json()).then(d=>{
       if (ic) ic.className = 'fas fa-sync-alt';
       const tb = document.getElementById('recentBody');
@@ -1357,7 +1380,7 @@ function loadRecent() {
 
 // ── API: HISTORY ───────────────────────────────────────────────────
 function loadHist() {
-  fetch('api/student_dashboard_api.php?action=get_reports&limit=200')
+  fetch(`${API_ENDPOINT}?action=get_reports&limit=200`)
     .then(r=>r.json()).then(d=>{
       allReports = (d.success && d.data) ? d.data : [];
       renderHist(allReports);
@@ -1396,7 +1419,7 @@ function renderHist(data) {
 
 // ── API: NOTIFICATIONS ─────────────────────────────────────────────
 function loadNotifs() {
-  fetch('api/student_dashboard_api.php?action=get_notifications&limit=30')
+  fetch(`${API_ENDPOINT}?action=get_notifications&limit=30`)
     .then(r=>r.json()).then(d=>{
       const el = document.getElementById('notifList');
       if (d.success && d.data && d.data.length>0) {
@@ -1417,13 +1440,13 @@ function loadNotifs() {
       document.getElementById('notifList').innerHTML='<div class="notif-empty"><i class="fas fa-exclamation-circle"></i><p>Could not load notifications.</p></div>';
     });
 }
-function nIcon(t){return {defect_report:'exclamation-triangle',system:'info-circle',completed:'check-circle',rejected:'times-circle'}[t]||'bell';}
+function nIcon(t){return {defect_report:'exclamation-triangle',new_defect_report:'exclamation-triangle',new_reservation:'calendar-check',system:'info-circle',completed:'check-circle',task_completed:'check-circle',rejected:'times-circle',support_response:'reply'}[t]||'bell';}
 function readN(id){
-  fetch('api/student_dashboard_api.php',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`action=mark_notification_read&notification_id=${id}`})
+  fetch(API_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`action=mark_notification_read&notification_id=${id}`})
     .then(()=>{loadNotifs();loadStats();});
 }
 function markAllRead(){
-  fetch('api/student_dashboard_api.php',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'action=mark_all_read'})
+  fetch(API_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'action=mark_all_read'})
     .then(()=>{loadNotifs();loadStats();toast('ok','All notifications marked as read.','Notifications');});
 }
 
@@ -1463,7 +1486,7 @@ function doSubmit(){
   const ph=document.getElementById('fPhoto').files[0];
   if(ph)fd2.append('photo',ph);
 
-  fetch('api/student_dashboard_api.php',{method:'POST',body:fd2})
+  fetch(API_ENDPOINT,{method:'POST',body:fd2})
     .then(r=>r.json()).then(d=>{
       closeCo();closeReportModal();
       if(d.success){
@@ -1486,13 +1509,19 @@ function openDetail(r){
   document.getElementById('detailSub').textContent=`Report ID: ${id}`;
 
   // Build timeline
+  const raw = String(r.raw_status || r.status || '').toLowerCase();
   const steps=[
     {label:'Report Submitted',sub:'Your report has been received.',done:true},
-    {label:'Admin Review',sub:'Waiting for administrator approval.',done:['in_progress','completed','rejected'].includes(r.status)},
-    {label:'In Progress',sub:'Assigned to maintenance team.',done:['completed'].includes(r.status),active:r.status==='in_progress'},
-    {label:'Completed',sub:r.remarks||'Repair completed successfully.',done:r.status==='completed'},
+    {label:'PMO Review',sub:'Property and Maintenance Office is checking the report details.',done:['dean_review','finance_review','on_hold_budget','ready_for_assignment','assigned','in_progress','for_replacement','completed','verified','closed'].includes(raw),active:raw==='pmo_review'},
+    {label:'Dean Approval',sub:'Waiting for school approval.',done:['finance_review','on_hold_budget','ready_for_assignment','assigned','in_progress','for_replacement','completed','verified','closed'].includes(raw),active:raw==='dean_review'},
+    {label:'Finance Review',sub:'Budget availability is being checked.',done:['on_hold_budget','ready_for_assignment','assigned','in_progress','for_replacement','completed','verified','closed'].includes(raw),active:raw==='finance_review'},
+    {label:'Technician Action',sub:'Queued for assignment and repair.',done:['in_progress','for_replacement','completed','verified','closed'].includes(raw),active:['ready_for_assignment','assigned'].includes(raw)},
+    {label:'Repair / Assessment',sub:r.remarks||'Technician repair or inspection is ongoing.',done:['for_replacement','completed','verified','closed'].includes(raw),active:raw==='in_progress'},
+    {label:'PMO Verification',sub:'Awaiting final PMO verification.',done:['verified','closed'].includes(raw),active:raw==='completed'},
   ];
-  if(r.status==='rejected')steps[1]={label:'Rejected',sub:r.remarks||'Report was rejected.',done:true};
+  if(raw==='on_hold_budget')steps.splice(4,0,{label:'On Hold for Budget',sub:r.remarks||'The request is on hold until funds become available.',done:false,active:true});
+  if(raw==='for_replacement')steps.splice(6,0,{label:'For Replacement',sub:r.remarks||'The equipment was assessed as beyond repair.',done:true,active:true});
+  if(raw==='rejected')steps.splice(1,steps.length-1,{label:'Rejected',sub:r.remarks||'Report was rejected during review.',done:true,active:true});
 
   const tl=steps.map((s,i)=>`
     <div class="tl-step">
@@ -1525,7 +1554,7 @@ function openDetail(r){
 function saveProfile(){
   const n=document.getElementById('eName').value.trim(),e=document.getElementById('eEmail').value.trim();
   if(!n||!e){toast('err','Name and email are required.','Validation');return;}
-  fetch('api/student_dashboard_api.php',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`action=update_profile&name=${encodeURIComponent(n)}&email=${encodeURIComponent(e)}`})
+  fetch(API_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`action=update_profile&name=${encodeURIComponent(n)}&email=${encodeURIComponent(e)}`})
     .then(r=>r.json()).then(d=>{
       if(d.success){
         document.getElementById('profName').textContent=n;document.getElementById('profEmail').textContent=e;
@@ -1540,7 +1569,7 @@ function changePass(){
   if(!c||!n||!cf){toast('err','All password fields are required.','Validation');return;}
   if(n.length<8){toast('err','Password must be at least 8 characters.','Validation');return;}
   if(n!==cf){toast('err','New passwords do not match.','Validation');return;}
-  fetch('api/student_dashboard_api.php',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`action=change_password&current_password=${encodeURIComponent(c)}&new_password=${encodeURIComponent(n)}`})
+  fetch(API_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`action=change_password&current_password=${encodeURIComponent(c)}&new_password=${encodeURIComponent(n)}`})
     .then(r=>r.json()).then(d=>{
       if(d.success){['pwC','pwN','pwCf'].forEach(id=>document.getElementById(id).value='');toast('ok','Password updated.','Security');}
       else toast('err',d.message||'Failed.','Error');
@@ -1563,7 +1592,17 @@ function rRow(r,cols){
   </tr>`;
 }
 function emptyR(c,msg){return `<tr><td colspan="${c}" style="text-align:center;padding:2rem;color:var(--txt3);">${msg}</td></tr>`;}
-function bdg(s){const m={pending:['b-pend','Pending'],in_progress:['b-prog','In Progress'],completed:['b-done','Completed'],rejected:['b-rej','Rejected']};const[cl,lb]=m[s]||['b-pend',s];return `<span class="badge ${cl}">${lb}</span>`;}
+function bdg(s){
+  const key=String(s||'pending').toLowerCase();
+  const m={
+    pending:['b-pend','Pending'],
+    in_progress:['b-prog','In Progress'],
+    completed:['b-done','Completed'],
+    rejected:['b-rej','Rejected']
+  };
+  const [cl,lb]=m[key]||['b-pend',key.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())];
+  return `<span class="badge ${cl}">${lb}</span>`;
+}
 function esc(s){if(s==null)return '—';const d=document.createElement('div');d.textContent=String(s);return d.innerHTML;}
 function fd(d){if(!d)return'—';return new Date(d).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
 function relT(d){if(!d)return'—';const m=Math.floor((Date.now()-new Date(d))/60000);if(m<1)return'Just now';if(m<60)return m+'m ago';const h=Math.floor(m/60);if(h<24)return h+'h ago';const dy=Math.floor(h/24);return dy<7?dy+'d ago':fd(d);}

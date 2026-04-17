@@ -25,6 +25,7 @@ composer.phar
 .env
 .env.local
 .env.*.local
+config/chat_secrets.php
 
 # Uploads - Don't upload user files
 /uploads/*

@@ -1,11 +1,10 @@
 <?php
 // technician/technician_login_process.php
-// Main PHP processor for technician login, OTP, and authentication
+// Handles technician authentication — admin-issued accounts only, no OTP.
 
 require_once __DIR__ . '/../includes/session_bootstrap.php';
 startRoleSession('technician');
 
-// Keep API responses as valid JSON even when warnings occur.
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 
@@ -15,29 +14,18 @@ header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, X-Requested-With');
 header('Access-Control-Allow-Credentials: true');
 
-// Handle preflight requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit();
 }
 
-// Include required files - only database and OTP helper
 require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../includes/otp_helper.php';
 
-// Get the action from POST or GET
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 
-// Route the request
 switch ($action) {
     case 'verify_login':
         verifyLogin();
-        break;
-    case 'verify_otp':
-        verifyOTPHandler();
-        break;
-    case 'resend_otp':
-        resendOTP();
         break;
     case 'forgot_password':
         forgotPassword();
@@ -55,49 +43,50 @@ switch ($action) {
 }
 
 /**
- * Verify login credentials and send OTP
+ * Verify credentials and create session directly (no OTP).
  */
 function verifyLogin() {
-    $email = trim($_POST['email'] ?? '');
+    $email    = trim($_POST['email']    ?? '');
     $password = trim($_POST['password'] ?? '');
-    $role = 'technician';
+    $role     = 'technician';
 
-    // DEBUG: Log the incoming request
-    error_log("DEBUG: technician verifyLogin called with email: $email");
+    error_log("technician verifyLogin: $email");
 
-    // Validate inputs
     if (empty($email) || empty($password)) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Email and password are required']);
+        echo json_encode(['success' => false, 'message' => 'Email and password are required.']);
         exit();
     }
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Invalid email format']);
+        echo json_encode(['success' => false, 'message' => 'Invalid email format.']);
         exit();
     }
 
     $conn = getDBConnection();
-
     if (!$conn) {
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Database connection failed']);
+        echo json_encode(['success' => false, 'message' => 'Database connection failed.']);
         exit();
     }
 
     try {
-        // Check if user exists with this email and is a technician
-        // Order by id DESC to get the most recently created user first (for duplicate emails)
-        $stmt = $conn->prepare("SELECT user_id, email, fullname, password, status FROM users WHERE email = ? AND role = ? ORDER BY created_at DESC LIMIT 1");
+        $stmt = $conn->prepare(
+            "SELECT user_id, email, fullname, username, password, status
+               FROM users
+              WHERE email = ? AND role = ?
+              ORDER BY created_at DESC
+              LIMIT 1"
+        );
         $stmt->bind_param("ss", $email, $role);
         $stmt->execute();
         $result = $stmt->get_result();
 
         if ($result->num_rows === 0) {
-            error_log("DEBUG: Technician not found for email: $email");
+            error_log("technician not found: $email");
             http_response_code(401);
-            echo json_encode(['success' => false, 'message' => 'Invalid email or password']);
+            echo json_encode(['success' => false, 'message' => 'Invalid email or password.']);
             $stmt->close();
             $conn->close();
             exit();
@@ -105,62 +94,55 @@ function verifyLogin() {
 
         $user = $result->fetch_assoc();
         $stmt->close();
-        error_log("DEBUG: Technician found: " . $user['fullname'] . " status: " . $user['status']);
 
-        // Check if account is active
-        if (isset($user['status']) && $user['status'] !== 'active') {
-            error_log("DEBUG: Account not active for email: $email, status: " . $user['status']);
+        // Account status check
+        if (!empty($user['status']) && $user['status'] !== 'active') {
             http_response_code(403);
-            echo json_encode(['success' => false, 'message' => 'Your account is inactive. Please contact support.']);
+            echo json_encode(['success' => false, 'message' => 'Your account is inactive. Please contact your administrator.']);
             $conn->close();
             exit();
         }
 
-        // Verify password
-        $passwordVerifyResult = password_verify($password, $user['password']);
-        error_log("DEBUG: Password verify result: " . ($passwordVerifyResult ? "true" : "false"));
-        
-        if (!$passwordVerifyResult) {
-            error_log("DEBUG: Password incorrect for email: $email");
+        // Password check
+        if (!password_verify($password, $user['password'])) {
+            error_log("technician wrong password: $email");
             http_response_code(401);
-            echo json_encode(['success' => false, 'message' => 'Invalid email or password']);
+            echo json_encode(['success' => false, 'message' => 'Invalid email or password.']);
             $conn->close();
             exit();
         }
 
-        // Password is correct - now request OTP
-        $_SESSION['temp_user_id'] = $user['user_id'];
-        $_SESSION['temp_user_email'] = $user['email'];
-        $_SESSION['temp_user_name'] = $user['fullname'];
+        // Credentials OK — create session immediately (no OTP)
+        $_SESSION['user_id']    = $user['user_id'];
+        $_SESSION['user_email'] = $user['email'];
+        $_SESSION['fullname']   = $user['fullname'];
+        $_SESSION['role']       = $user['role'] ?? $role;
+        $_SESSION['username']   = $user['username'] ?? '';
+        $_SESSION['logged_in']  = true;
+        $_SESSION['login_time'] = time();
 
-        // Generate and send OTP
-        $otp_result = requestLoginOTP($email, $role);
-        error_log("DEBUG: OTP result: " . json_encode($otp_result));
-
-        if (!$otp_result['success']) {
-            http_response_code(400);
-            echo json_encode([
-                'success' => false, 
-                'message' => $otp_result['message'] ?? 'Failed to send OTP. Please try again.'
-            ]);
-            $conn->close();
-            exit();
-        }
-
+        // Update last login timestamp
+        $upd = $conn->prepare("UPDATE users SET last_login = NOW() WHERE user_id = ?");
+        $upd->bind_param("s", $user['user_id']);
+        $upd->execute();
+        $upd->close();
         $conn->close();
-        error_log("DEBUG: Login successful for email: $email, returning success");
+
+        error_log("technician login success: $email");
         echo json_encode([
             'success' => true,
-            'message' => 'OTP sent successfully. Please check your email.',
+            'message' => 'Login successful!',
             'data' => [
-                'email' => $email,
-                'require_otp' => true
+                'user_id'  => $user['user_id'],
+                'fullname' => $user['fullname'],
+                'email'    => $user['email'],
+                'redirect' => '../technician_dashboard.php'
             ]
         ]);
         exit();
 
     } catch (Exception $e) {
-        error_log("Login verification error: " . $e->getMessage());
+        error_log("verifyLogin error: " . $e->getMessage());
         http_response_code(500);
         echo json_encode(['success' => false, 'message' => 'An error occurred. Please try again.']);
         exit();
@@ -168,308 +150,142 @@ function verifyLogin() {
 }
 
 /**
- * Verify OTP and create session
- */
-function verifyOTPHandler() {
-    // Debug: Log what we're receiving
-    error_log("verifyOTPHandler called with: email=" . ($_POST['email'] ?? 'NOT SET') . ", otp_code=" . ($_POST['otp_code'] ?? 'NOT SET'));
-    
-    $email = trim($_POST['email'] ?? '');
-    $otp_code = trim($_POST['otp_code'] ?? '');
-    $role = 'technician';
-
-    if (empty($email) || empty($otp_code)) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Email and OTP code are required']);
-        exit();
-    }
-
-    if (strlen($otp_code) !== 6 || !is_numeric($otp_code)) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Invalid OTP format']);
-        exit();
-    }
-
-    // Debug: Log the email being used for verification
-    error_log("Verifying OTP for email: " . $email . " with code: " . $otp_code);
-    
-    // Verify OTP
-    $result = verifyOTP($email, $otp_code, $role);
-    
-    // Debug: Log the result
-    error_log("verifyOTP result: " . json_encode($result));
-
-    if (!$result['success']) {
-        http_response_code(401);
-        echo json_encode([
-            'success' => false, 
-            'message' => $result['message'] ?? 'Invalid or expired OTP'
-        ]);
-        exit();
-    }
-
-    // OTP verified - create session
-    $user = $result['user'];
-
-    $_SESSION['user_id'] = $user['user_id'];
-    $_SESSION['user_email'] = $user['email'];
-    $_SESSION['fullname'] = $user['fullname'];
-    $_SESSION['role'] = $user['role'];
-    $_SESSION['username'] = $user['username'] ?? '';
-    $_SESSION['logged_in'] = true;
-    $_SESSION['login_time'] = time();
-
-    // Clear temporary session data
-    unset($_SESSION['temp_user_id']);
-    unset($_SESSION['temp_user_email']);
-    unset($_SESSION['temp_user_name']);
-
-    // Update last login
-    $conn = getDBConnection();
-    if ($conn) {
-        $stmt = $conn->prepare("UPDATE users SET last_login = NOW() WHERE user_id = ?");
-        $stmt->bind_param("s", $user['user_id']);
-        $stmt->execute();
-        $stmt->close();
-        $conn->close();
-    }
-
-    echo json_encode([
-        'success' => true,
-        'message' => 'Login successful!',
-        'data' => [
-            'user_id' => $user['user_id'],
-            'fullname' => $user['fullname'],
-            'email' => $user['email'],
-            'redirect' => '../technician_dashboard.php'
-        ]
-    ]);
-    exit();
-}
-
-/**
- * Resend OTP
- */
-function resendOTP() {
-    $email = trim($_POST['email'] ?? '');
-    $role = 'technician';
-
-    if (empty($email)) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Email is required']);
-        exit();
-    }
-
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Invalid email format']);
-        exit();
-    }
-
-    $conn = getDBConnection();
-    if (!$conn) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Database connection failed']);
-        exit();
-    }
-
-    $stmt = $conn->prepare("SELECT user_id, email, fullname FROM users WHERE email = ? AND role = ? LIMIT 1");
-    $stmt->bind_param("ss", $email, $role);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    if ($result->num_rows === 0) {
-        echo json_encode(['success' => true, 'message' => 'If this email is registered, an OTP has been sent.']);
-        $stmt->close();
-        $conn->close();
-        exit();
-    }
-
-    $user = $result->fetch_assoc();
-    $stmt->close();
-    $conn->close();
-
-    // Request new OTP
-    $otp_result = requestLoginOTP($email, $role);
-
-    if (!$otp_result['success']) {
-        http_response_code(400);
-        echo json_encode([
-            'success' => false, 
-            'message' => $otp_result['message'] ?? 'Failed to send OTP. Please try again.'
-        ]);
-        exit();
-    }
-
-    echo json_encode([
-        'success' => true,
-        'message' => 'New OTP sent successfully. Please check your email.'
-    ]);
-    exit();
-}
-
-/**
- * Handle forgot password
+ * Send a password-reset link to the given email.
+ * Always returns a generic success message to prevent email enumeration.
  */
 function forgotPassword() {
     $email = trim($_POST['email'] ?? '');
-    $role = 'technician';
+    $role  = 'technician';
 
-    if (empty($email)) {
+    if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Email is required']);
-        exit();
-    }
-
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Invalid email format']);
+        echo json_encode(['success' => false, 'message' => 'A valid email address is required.']);
         exit();
     }
 
     $conn = getDBConnection();
     if (!$conn) {
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Database connection failed']);
+        echo json_encode(['success' => false, 'message' => 'Database connection failed.']);
         exit();
     }
 
-    $stmt = $conn->prepare("SELECT user_id, email, fullname FROM users WHERE email = ? AND role = ? LIMIT 1");
+    $stmt = $conn->prepare("SELECT user_id FROM users WHERE email = ? AND role = ? LIMIT 1");
     $stmt->bind_param("ss", $email, $role);
     $stmt->execute();
     $result = $stmt->get_result();
 
-    if ($result->num_rows === 0) {
-        echo json_encode([
-            'success' => true, 
-            'message' => 'If this email is registered, a password reset link has been sent.'
-        ]);
-        $stmt->close();
-        $conn->close();
-        exit();
+    if ($result->num_rows > 0) {
+        $token   = bin2hex(random_bytes(32));
+        $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
+
+        $ins = $conn->prepare("INSERT INTO password_resets (email, token, expires_at) VALUES (?, ?, ?)");
+        $ins->bind_param("sss", $email, $token, $expires);
+        $ins->execute();
+        $ins->close();
+
+        $reset_link = "http://localhost/bec_equipment/technician/reset_password.php?token=" . $token;
+        error_log("Password reset link for {$email}: {$reset_link}");
+        // TODO: send $reset_link via email (PHPMailer / your mail helper)
     }
 
-    $user = $result->fetch_assoc();
     $stmt->close();
-
-    // Generate password reset token
-    $token = bin2hex(random_bytes(32));
-    $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
-
-    // Store token in database
-    $stmt = $conn->prepare("INSERT INTO password_resets (email, token, expires_at) VALUES (?, ?, ?)");
-    $stmt->bind_param("sss", $email, $token, $expires);
-    $stmt->execute();
-    $stmt->close();
-
-    // Log the reset link
-    $reset_link = "http://localhost/bec_equipment/technician/reset_password.php?token=" . $token;
-    error_log("Password reset link for {$email}: " . $reset_link);
-
     $conn->close();
 
+    // Generic response regardless of whether the email was found
     echo json_encode([
         'success' => true,
-        'message' => 'If this email is registered, a password reset link has been sent.'
+        'message' => 'If that email is registered, a password reset link has been sent.'
     ]);
     exit();
 }
 
 /**
- * Reset password with token
+ * Reset a password using a valid token.
  */
 function resetPassword() {
-    $token = trim($_POST['token'] ?? '');
+    $token        = trim($_POST['token']        ?? '');
     $new_password = trim($_POST['new_password'] ?? '');
 
     if (empty($token) || empty($new_password)) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Token and new password are required']);
+        echo json_encode(['success' => false, 'message' => 'Token and new password are required.']);
         exit();
     }
 
     if (strlen($new_password) < 6) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Password must be at least 6 characters']);
+        echo json_encode(['success' => false, 'message' => 'Password must be at least 6 characters.']);
         exit();
     }
 
     $conn = getDBConnection();
     if (!$conn) {
         http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Database connection failed']);
+        echo json_encode(['success' => false, 'message' => 'Database connection failed.']);
         exit();
     }
 
-    // Find valid token
-    $stmt = $conn->prepare("
-        SELECT pr.user_id, u.email 
-        FROM password_resets pr
-        JOIN users u ON pr.email = u.email
-        WHERE pr.token = ? AND pr.expires_at > NOW()
-        LIMIT 1
-    ");
+    $stmt = $conn->prepare(
+        "SELECT u.user_id, u.email
+           FROM password_resets pr
+           JOIN users u ON pr.email = u.email
+          WHERE pr.token = ? AND pr.expires_at > NOW()
+          LIMIT 1"
+    );
     $stmt->bind_param("s", $token);
     $stmt->execute();
     $result = $stmt->get_result();
 
     if ($result->num_rows === 0) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Invalid or expired reset token']);
+        echo json_encode(['success' => false, 'message' => 'Invalid or expired reset link.']);
         $stmt->close();
         $conn->close();
         exit();
     }
 
-    $row = $result->fetch_assoc();
+    $row     = $result->fetch_assoc();
     $user_id = $row['user_id'];
-    $email = $row['email'];
     $stmt->close();
 
-    // Update password
-    $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
-    $stmt = $conn->prepare("UPDATE users SET password = ? WHERE user_id = ?");
-    $stmt->bind_param("ss", $hashed_password, $user_id);
-    $stmt->execute();
-    $stmt->close();
+    $hashed = password_hash($new_password, PASSWORD_DEFAULT);
 
-    // Delete token
-    $stmt = $conn->prepare("DELETE FROM password_resets WHERE token = ?");
-    $stmt->bind_param("s", $token);
-    $stmt->execute();
-    $stmt->close();
+    $upd = $conn->prepare("UPDATE users SET password = ? WHERE user_id = ?");
+    $upd->bind_param("ss", $hashed, $user_id);
+    $upd->execute();
+    $upd->close();
+
+    $del = $conn->prepare("DELETE FROM password_resets WHERE token = ?");
+    $del->bind_param("s", $token);
+    $del->execute();
+    $del->close();
 
     $conn->close();
 
     echo json_encode([
         'success' => true,
-        'message' => 'Password reset successful. You can now login with your new password.'
+        'message' => 'Password reset successful. You can now sign in with your new password.'
     ]);
     exit();
 }
 
 /**
- * Check if session is valid
+ * Check whether the current session is valid.
  */
 function checkSession() {
-    if (isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true && isset($_SESSION['user_id'])) {
+    if (!empty($_SESSION['logged_in']) && $_SESSION['logged_in'] === true && !empty($_SESSION['user_id'])) {
         echo json_encode([
             'success' => true,
             'data' => [
-                'user_id' => $_SESSION['user_id'],
-                'fullname' => $_SESSION['fullname'] ?? '',
-                'email' => $_SESSION['user_email'] ?? '',
-                'role' => $_SESSION['role'] ?? ''
+                'user_id'  => $_SESSION['user_id'],
+                'fullname' => $_SESSION['fullname']   ?? '',
+                'email'    => $_SESSION['user_email'] ?? '',
+                'role'     => $_SESSION['role']       ?? ''
             ]
         ]);
     } else {
-        echo json_encode(['success' => false, 'message' => 'No active session']);
+        echo json_encode(['success' => false, 'message' => 'No active session.']);
     }
     exit();
 }
-
-?>
-
-
-
-

@@ -5,6 +5,6 @@ $_SESSION = [];
 session_unset();
 session_destroy();
 setcookie(session_name(), '', time() - 3600, '/');
-header('Location: login.html?success=' . urlencode('Logged out successfully'));
+header('Location: admin_login_otp.html?success=' . urlencode('Logged out successfully'));
 exit();
 ?>

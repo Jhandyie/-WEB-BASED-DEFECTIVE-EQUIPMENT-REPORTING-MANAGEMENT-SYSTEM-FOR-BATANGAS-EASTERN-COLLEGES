@@ -153,6 +153,217 @@ function getAllDefectReports() {
     return getDefectReportsWithFilters('all', 'all', '');
 }
 
+function getDefectReportColumns() {
+    static $columns = null;
+
+    if ($columns !== null) {
+        return $columns;
+    }
+
+    $columns = [];
+    $conn = getDBConnection();
+    $result = $conn->query("SHOW COLUMNS FROM defect_reports");
+    if ($result) {
+        while ($row = $result->fetch_assoc()) {
+            $columns[$row['Field']] = true;
+        }
+    }
+
+    return $columns;
+}
+
+function inferDefectReportPhotoPaths(array $report) {
+    $photos = [];
+
+    foreach (['photo_path', 'photo_url', 'photo', 'image_path'] as $field) {
+        $value = trim((string)($report[$field] ?? ''));
+        if ($value !== '') {
+            $photos[] = str_replace('\\', '/', $value);
+        }
+    }
+
+    foreach (['defect_photos', 'photo_paths', 'photos'] as $field) {
+        $raw = $report[$field] ?? null;
+        if (empty($raw)) {
+            continue;
+        }
+
+        if (is_array($raw)) {
+            foreach ($raw as $path) {
+                $path = trim((string)$path);
+                if ($path !== '') {
+                    $photos[] = str_replace('\\', '/', $path);
+                }
+            }
+            continue;
+        }
+
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                foreach ($decoded as $path) {
+                    $path = trim((string)$path);
+                    if ($path !== '') {
+                        $photos[] = str_replace('\\', '/', $path);
+                    }
+                }
+            } else {
+                $raw = trim($raw);
+                if ($raw !== '') {
+                    $photos[] = str_replace('\\', '/', $raw);
+                }
+            }
+        }
+    }
+
+    $reportId = trim((string)($report['report_id'] ?? ''));
+    if ($reportId !== '') {
+        $patterns = [
+            __DIR__ . '/../uploads/reports/' . $reportId . '.*',
+            __DIR__ . '/../uploads/defect_reports/' . $reportId . '.*',
+            __DIR__ . '/../uploads/defect_photos/' . $reportId . '.*',
+        ];
+
+        foreach ($patterns as $pattern) {
+            foreach (glob($pattern) ?: [] as $file) {
+                if (!is_file($file)) {
+                    continue;
+                }
+                $realFile = realpath($file);
+                if ($realFile === false) {
+                    continue;
+                }
+                $relative = str_replace('\\', '/', str_replace(realpath(__DIR__ . '/..') . DIRECTORY_SEPARATOR, '', $realFile));
+                $photos[] = ltrim($relative, '/');
+            }
+        }
+    }
+
+    $photos = array_values(array_unique(array_filter($photos, static function ($path) {
+        if (!is_string($path) || trim($path) === '') {
+            return false;
+        }
+        if (preg_match('#^https?://#i', $path)) {
+            return true;
+        }
+        $fullPath = realpath(__DIR__ . '/..') . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, ltrim($path, '/'));
+        return is_file($fullPath);
+    })));
+
+    return $photos;
+}
+
+function normalizeDefectReportRow($report) {
+    if (!is_array($report)) {
+        return $report;
+    }
+
+    $photos = inferDefectReportPhotoPaths($report);
+    $report['photos'] = $photos;
+    $report['photo_path'] = $photos[0] ?? (string)($report['photo_path'] ?? '');
+
+    if (!isset($report['defect_photos']) || $report['defect_photos'] === null || $report['defect_photos'] === '') {
+        $report['defect_photos'] = !empty($photos) ? json_encode($photos) : null;
+    }
+
+    return $report;
+}
+
+function normalizeDefectReportRows(array $reports) {
+    foreach ($reports as $index => $report) {
+        $reports[$index] = normalizeDefectReportRow($report);
+    }
+
+    return $reports;
+}
+
+function defectWorkflowStatuses(): array {
+    return [
+        'reported' => 'Submitted',
+        'pmo_review' => 'PMO Review',
+        'dean_review' => 'Dean Approval',
+        'finance_review' => 'Finance Review',
+        'on_hold_budget' => 'On Hold for Budget',
+        'ready_for_assignment' => 'Ready for Assignment',
+        'assigned' => 'Assigned',
+        'in_progress' => 'In Progress',
+        'for_replacement' => 'For Replacement',
+        'completed' => 'Completed',
+        'verified' => 'Verified',
+        'closed' => 'Closed',
+        'rejected' => 'Rejected',
+    ];
+}
+
+function defectResolvedStatuses(): array {
+    return ['completed', 'verified', 'closed'];
+}
+
+function defectTerminalStatuses(): array {
+    return ['verified', 'closed', 'rejected'];
+}
+
+function defectAssignmentReadyStatuses(): array {
+    return ['ready_for_assignment', 'assigned', 'in_progress'];
+}
+
+function defectStatusLabel($status): string {
+    $status = strtolower(trim((string)$status));
+    $labels = defectWorkflowStatuses();
+    return $labels[$status] ?? ucwords(str_replace('_', ' ', $status));
+}
+
+function defectStatusCategory($status): string {
+    $status = strtolower(trim((string)$status));
+    return match ($status) {
+        'reported', 'pmo_review', 'dean_review', 'finance_review', 'on_hold_budget', 'ready_for_assignment' => 'pending',
+        'assigned', 'in_progress', 'for_replacement' => 'in_progress',
+        'completed', 'verified', 'closed' => 'completed',
+        'rejected' => 'rejected',
+        default => 'pending',
+    };
+}
+
+function defectTimelineSteps(array $report): array {
+    $status = strtolower(trim((string)($report['status'] ?? 'reported')));
+    $hasReached = static fn(array $statuses): bool => in_array($status, $statuses, true);
+
+    $steps = [
+        ['label' => 'Submitted', 'done' => true, 'active' => $status === 'reported'],
+        ['label' => 'PMO Review', 'done' => $hasReached(['dean_review', 'finance_review', 'on_hold_budget', 'ready_for_assignment', 'assigned', 'in_progress', 'for_replacement', 'completed', 'verified', 'closed']), 'active' => $status === 'pmo_review'],
+        ['label' => 'Dean Approval', 'done' => $hasReached(['finance_review', 'on_hold_budget', 'ready_for_assignment', 'assigned', 'in_progress', 'for_replacement', 'completed', 'verified', 'closed']), 'active' => $status === 'dean_review'],
+        ['label' => 'Finance Review', 'done' => $hasReached(['on_hold_budget', 'ready_for_assignment', 'assigned', 'in_progress', 'for_replacement', 'completed', 'verified', 'closed']), 'active' => $status === 'finance_review'],
+        ['label' => 'Technician Assignment', 'done' => $hasReached(['assigned', 'in_progress', 'for_replacement', 'completed', 'verified', 'closed']), 'active' => $status === 'ready_for_assignment'],
+        ['label' => 'Repair / Assessment', 'done' => $hasReached(['for_replacement', 'completed', 'verified', 'closed']), 'active' => in_array($status, ['assigned', 'in_progress'], true)],
+        ['label' => 'PMO Verification', 'done' => $hasReached(['verified', 'closed']), 'active' => $status === 'completed'],
+    ];
+
+    if ($status === 'on_hold_budget') {
+        array_splice($steps, 4, 0, [[
+            'label' => 'On Hold for Budget',
+            'done' => false,
+            'active' => true,
+        ]]);
+    }
+
+    if ($status === 'for_replacement') {
+        array_splice($steps, 6, 0, [[
+            'label' => 'Replacement Required',
+            'done' => true,
+            'active' => true,
+        ]]);
+    }
+
+    if ($status === 'rejected') {
+        return [
+            ['label' => 'Submitted', 'done' => true, 'active' => false],
+            ['label' => 'Rejected', 'done' => true, 'active' => true],
+        ];
+    }
+
+    return $steps;
+}
+
 /**
  * Auto-classify responsible department from reported equipment context.
  * Returns "ITSO" or "PMO" with PMO as conservative fallback.
@@ -224,20 +435,44 @@ function classifyDepartmentByEquipment($equipment_id = null, $equipment_name = '
 
 function addDefectReport($data) {
     $conn = getDBConnection();
+    $validColumns = getDefectReportColumns();
 
     if (isset($data['defect_photos']) && is_array($data['defect_photos'])) {
         $data['defect_photos'] = json_encode($data['defect_photos']);
     }
 
-    $fields = array_keys($data);
+    $filtered = [];
+    foreach ($data as $field => $value) {
+        if (!isset($validColumns[$field])) {
+            continue;
+        }
+        $filtered[$field] = $value;
+    }
+
+    if (empty($filtered)) {
+        return false;
+    }
+
+    $fields = array_keys($filtered);
     $placeholders = array_fill(0, count($fields), '?');
     $types = str_repeat('s', count($fields));
 
-    $sql = "INSERT INTO defect_reports (" . implode(', ', $fields) . ", report_date)
-            VALUES (" . implode(', ', $placeholders) . ", NOW())";
+    $extraFields = [];
+    $extraValues = [];
+    if (!isset($filtered['report_date']) && isset($validColumns['report_date'])) {
+        $extraFields[] = 'report_date';
+        $extraValues[] = 'NOW()';
+    }
+
+    $sql = "INSERT INTO defect_reports (" . implode(', ', array_merge($fields, $extraFields)) . ")
+            VALUES (" . implode(', ', array_merge($placeholders, $extraValues)) . ")";
 
     $stmt = $conn->prepare($sql);
-    $values = array_values($data);
+    if (!$stmt) {
+        return false;
+    }
+
+    $values = array_values($filtered);
     $stmt->bind_param($types, ...$values);
 
     $result = $stmt->execute();
@@ -261,7 +496,7 @@ function getDefectReportById($report_id) {
     $result = $stmt->get_result();
     $report = $result->fetch_assoc();
     $stmt->close();
-    return $report;
+    return normalizeDefectReportRow($report);
 }
 
 function getReportByIdPublic($report_id) {
@@ -284,7 +519,7 @@ function getUserDefectReports($user_id) {
     $result = $stmt->get_result();
     $reports = $result->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
-    return $reports;
+    return normalizeDefectReportRows($reports);
 }
 
 function updateDefectReport($report_id, $data) {
@@ -386,7 +621,7 @@ function getDefectReportsWithFilters($status = 'all', $priority = 'all', $search
     $reports = $result->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
 
-    return $reports;
+    return normalizeDefectReportRows($reports);
 }
 /**
  * Dashboard helpers
@@ -790,11 +1025,125 @@ function getAvailableTechnicians() {
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 }
 
+function assignDefectReportToTechnician(string $reportId, string $technicianId, array $options = []): array {
+    $reportId = trim($reportId);
+    $technicianId = trim($technicianId);
+
+    if ($reportId === '' || $technicianId === '') {
+        return ['ok' => false, 'message' => 'Report and technician are required.'];
+    }
+
+    $conn = getDBConnection();
+    $actorId = trim((string)($options['actor_id'] ?? ''));
+    $priority = trim((string)($options['priority'] ?? 'medium'));
+    $instructions = trim((string)($options['instructions'] ?? ''));
+    $department = trim((string)($options['department'] ?? ''));
+
+    try {
+        $report = getDefectReportById($reportId);
+        if (!$report) {
+            return ['ok' => false, 'message' => 'Report not found.'];
+        }
+
+        $currentStatus = trim((string)($report['status'] ?? ''));
+        if (!in_array($currentStatus, ['ready_for_assignment', 'assigned'], true)) {
+            return ['ok' => false, 'message' => 'Only reports ready for assignment can be assigned here.'];
+        }
+
+        $technicianExists = false;
+        foreach (getAvailableTechnicians() as $technician) {
+            $candidateId = trim((string)($technician['technician_id'] ?? $technician['user_id'] ?? ''));
+            if ($candidateId === $technicianId) {
+                $technicianExists = true;
+                break;
+            }
+        }
+
+        if (!$technicianExists) {
+            return ['ok' => false, 'message' => 'Selected technician is not active.'];
+        }
+
+        $availableCols = [];
+        $colRes = $conn->query("SHOW COLUMNS FROM defect_reports");
+        if ($colRes) {
+            while ($col = $colRes->fetch_assoc()) {
+                $availableCols[$col['Field']] = true;
+            }
+        }
+
+        $sets = [];
+        $types = '';
+        $params = [];
+
+        if (isset($availableCols['assigned_to'])) {
+            $sets[] = 'assigned_to = ?';
+            $types .= 's';
+            $params[] = $technicianId;
+        }
+        if (isset($availableCols['status'])) {
+            $sets[] = "status = 'assigned'";
+        }
+        if (isset($availableCols['priority'])) {
+            $sets[] = 'priority = ?';
+            $types .= 's';
+            $params[] = $priority;
+        }
+        if (isset($availableCols['handler_instructions'])) {
+            $sets[] = 'handler_instructions = ?';
+            $types .= 's';
+            $params[] = $instructions;
+        }
+        if ($department !== '' && isset($availableCols['department_assigned'])) {
+            $sets[] = 'department_assigned = ?';
+            $types .= 's';
+            $params[] = $department;
+        }
+        if (isset($availableCols['assigned_date'])) {
+            $sets[] = 'assigned_date = NOW()';
+        }
+        if ($actorId !== '' && isset($availableCols['assigned_by'])) {
+            $sets[] = 'assigned_by = ?';
+            $types .= 's';
+            $params[] = $actorId;
+        }
+
+        if (empty($sets)) {
+            return ['ok' => false, 'message' => 'No compatible assignment columns found in defect_reports.'];
+        }
+
+        $params[] = $reportId;
+        $types .= 's';
+        $sql = "UPDATE defect_reports SET " . implode(",\n                ", $sets) . "\n            WHERE report_id = ?";
+
+        $conn->begin_transaction();
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            throw new Exception('Failed to prepare assignment update.');
+        }
+        $stmt->bind_param($types, ...$params);
+        $stmt->execute();
+        $stmt->close();
+
+        addNotification($technicianId, "New maintenance task assigned - Report #{$reportId}", 'task_assigned', $reportId);
+        $conn->commit();
+
+        return ['ok' => true, 'message' => "Report #{$reportId} assigned successfully."];
+    } catch (Throwable $e) {
+        if ($conn->errno === 0 || $conn->errno >= 0) {
+            try {
+                $conn->rollback();
+            } catch (Throwable $ignored) {
+            }
+        }
+        return ['ok' => false, 'message' => 'Assignment failed: ' . $e->getMessage()];
+    }
+}
+
 function getTechnicianStatistics($technician_id) {
     $conn = getDBConnection();
 
     $stmt = $conn->prepare("SELECT
-        COUNT(CASE WHEN status IN ('assigned', 'in_progress') AND assigned_to = ? THEN 1 END) as assigned_tasks,
+        COUNT(CASE WHEN status IN ('assigned', 'in_progress', 'ready_for_assignment') AND assigned_to = ? THEN 1 END) as assigned_tasks,
         COUNT(CASE WHEN status = 'in_progress' AND assigned_to = ? THEN 1 END) as in_progress,
         COUNT(CASE WHEN status = 'completed' AND DATE(completion_date) = CURDATE() AND assigned_to = ? THEN 1 END) as completed_today,
         COUNT(CASE WHEN status = 'completed' AND assigned_to = ? THEN 1 END) as total_completed
@@ -819,7 +1168,7 @@ function getAssignedTasks($technician_id) {
                             CASE WHEN dr.assigned_to IS NULL THEN 'unassigned' ELSE 'assigned' END as task_type
                             FROM defect_reports dr
                             JOIN equipment e ON dr.equipment_id = e.{$equipmentIdCol}
-                            WHERE dr.assigned_to = ? AND dr.status IN ('assigned', 'in_progress')
+                            WHERE dr.assigned_to = ? AND dr.status IN ('assigned', 'in_progress', 'ready_for_assignment')
                             ORDER BY dr.priority DESC, dr.assigned_date ASC, dr.report_date ASC");
     $stmt->bind_param("s", $technician_id);
     $stmt->execute();
@@ -857,7 +1206,7 @@ function getCompletedWorkForVerification() {
             WHERE dr.status = 'completed'
             ORDER BY dr.completion_date DESC";
     $result = $conn->query($sql);
-    return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+    return $result ? normalizeDefectReportRows($result->fetch_all(MYSQLI_ASSOC)) : [];
 }
 
 function getUnassignedReports() {
@@ -866,27 +1215,17 @@ function getUnassignedReports() {
     $stmt = $conn->prepare("SELECT dr.*, e.equipment_name, e.{$equipmentIdCol} as asset_tag, e.location
                             FROM defect_reports dr
                             JOIN equipment e ON dr.equipment_id = e.{$equipmentIdCol}
-                            WHERE dr.status = 'reported' AND dr.assigned_to IS NULL
+                            WHERE dr.status = 'ready_for_assignment' AND dr.assigned_to IS NULL
                             ORDER BY dr.priority DESC, dr.report_date ASC");
     $stmt->execute();
     $result = $stmt->get_result();
     $reports = $result->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
-    return $reports;
+    return normalizeDefectReportRows($reports);
 }
 
 function getAvailableTasks() {
-    // Wrapper to return unassigned defect reports, with normalized photos field
-    $reports = getUnassignedReports();
-    foreach ($reports as &$r) {
-        if (isset($r['defect_photos']) && !empty($r['defect_photos'])) {
-            $decoded = json_decode($r['defect_photos'], true);
-            $r['photos'] = is_array($decoded) ? $decoded : [];
-        } else {
-            $r['photos'] = [];
-        }
-    }
-    return $reports;
+    return getUnassignedReports();
 }
 
 function getRecentAssignedTasks($technician_id, $limit = 5) {
@@ -895,7 +1234,7 @@ function getRecentAssignedTasks($technician_id, $limit = 5) {
     $sql = "SELECT dr.*, e.equipment_name, e.{$equipmentIdCol} as asset_tag, e.location
             FROM defect_reports dr
             JOIN equipment e ON dr.equipment_id = e.{$equipmentIdCol}
-            WHERE dr.assigned_to = ? AND dr.status IN ('assigned', 'in_progress', 'completed')
+            WHERE dr.assigned_to = ? AND dr.status IN ('assigned', 'in_progress', 'completed', 'for_replacement')
             ORDER BY dr.assigned_date DESC, dr.report_date DESC
             LIMIT ?";
 
@@ -907,7 +1246,7 @@ function getRecentAssignedTasks($technician_id, $limit = 5) {
     $tasks = $result->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
 
-    return $tasks;
+    return normalizeDefectReportRows($tasks);
 }
 
 // ============================================
@@ -927,11 +1266,18 @@ function getPriorityClass($priority) {
 function getStatusClass($status) {
     $classes = [
         'reported' => 'warning',
+        'pmo_review' => 'warning',
+        'dean_review' => 'warning',
+        'finance_review' => 'warning',
+        'on_hold_budget' => 'warning',
+        'ready_for_assignment' => 'info',
         'assigned' => 'info',
         'in_progress' => 'primary',
+        'for_replacement' => 'danger',
         'completed' => 'success',
         'verified' => 'success',
         'closed' => 'secondary',
+        'rejected' => 'danger',
         'available' => 'success',
         'in-use' => 'primary',
         'maintenance' => 'warning',
@@ -962,7 +1308,7 @@ function getReservationStatusClass($status) {
  * Verify user login credentials
  * @param string $email
  * @param string $password
- * @param string $role (admin, handler, technician, faculty, student)
+ * @param string $role (admin, pmo, dean, finance, handler, technician, faculty, student)
  * @return array|false User data or false
  */
 function authenticateUser($email, $password, $role) {
@@ -1006,6 +1352,9 @@ function getUserById($user_id, $role) {
 
     $roleTableMap = [
         'admin' => ['table' => 'admins', 'id_field' => 'admin_id'],
+        'pmo' => ['table' => 'users', 'id_field' => 'user_id'],
+        'dean' => ['table' => 'users', 'id_field' => 'user_id'],
+        'finance' => ['table' => 'users', 'id_field' => 'user_id'],
         'technician' => ['table' => 'maintenance_technicians', 'id_field' => 'technician_id'],
         'faculty' => ['table' => 'faculty_members', 'id_field' => 'faculty_id'],
         'student' => ['table' => 'students', 'id_field' => 'student_id']
@@ -1016,10 +1365,16 @@ function getUserById($user_id, $role) {
     }
 
     $config = $roleTableMap[$role];
-    $sql = "SELECT * FROM `{$config['table']}` WHERE {$config['id_field']} = ? LIMIT 1";
+    $sql = in_array($role, ['pmo', 'dean', 'finance'], true)
+        ? "SELECT * FROM `users` WHERE user_id = ? AND role = ? LIMIT 1"
+        : "SELECT * FROM `{$config['table']}` WHERE {$config['id_field']} = ? LIMIT 1";
 
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("s", $user_id);
+    if (in_array($role, ['pmo', 'dean', 'finance'], true)) {
+        $stmt->bind_param("ss", $user_id, $role);
+    } else {
+        $stmt->bind_param("s", $user_id);
+    }
     $stmt->execute();
     $result = $stmt->get_result();
 
@@ -1038,6 +1393,9 @@ function createUser($role, $userData) {
 
     $roleTableMap = [
         'admin' => ['table' => 'admins', 'id_prefix' => 'ADM'],
+        'pmo' => ['table' => 'users', 'id_prefix' => 'PMO'],
+        'dean' => ['table' => 'users', 'id_prefix' => 'DEAN'],
+        'finance' => ['table' => 'users', 'id_prefix' => 'FIN'],
         'technician' => ['table' => 'maintenance_technicians', 'id_prefix' => 'TEC'],
         'faculty' => ['table' => 'faculty_members', 'id_prefix' => 'FAC'],
         'student' => ['table' => 'students', 'id_prefix' => 'STU']
@@ -1049,7 +1407,7 @@ function createUser($role, $userData) {
 
     $config = $roleTableMap[$role];
     $table = $config['table'];
-    $idField = $role . '_id';
+    $idField = in_array($role, ['pmo', 'dean', 'finance'], true) ? 'user_id' : $role . '_id';
 
     // Generate ID
     if (!isset($userData[$idField])) {
@@ -1086,6 +1444,9 @@ function updateUser($user_id, $role, $updateData) {
 
     $roleTableMap = [
         'admin' => ['table' => 'admins', 'id_field' => 'admin_id'],
+        'pmo' => ['table' => 'users', 'id_field' => 'user_id'],
+        'dean' => ['table' => 'users', 'id_field' => 'user_id'],
+        'finance' => ['table' => 'users', 'id_field' => 'user_id'],
         'technician' => ['table' => 'maintenance_technicians', 'id_field' => 'technician_id'],
         'faculty' => ['table' => 'faculty_members', 'id_field' => 'faculty_id'],
         'student' => ['table' => 'students', 'id_field' => 'student_id']
@@ -1129,6 +1490,9 @@ function getAllUsersByRole($role) {
 
     $roleTableMap = [
         'admin' => 'admins',
+        'pmo' => 'users',
+        'dean' => 'users',
+        'finance' => 'users',
         'technician' => 'maintenance_technicians',
         'faculty' => 'faculty_members',
         'student' => 'students'
@@ -1139,12 +1503,25 @@ function getAllUsersByRole($role) {
     }
 
     $table = $roleTableMap[$role];
-    $sql = "SELECT * FROM `$table` ORDER BY fullname";
+    $sql = in_array($role, ['pmo', 'dean', 'finance'], true)
+        ? "SELECT * FROM `users` WHERE role = ? ORDER BY fullname"
+        : "SELECT * FROM `$table` ORDER BY fullname";
 
-    $result = $conn->query($sql);
+    if (in_array($role, ['pmo', 'dean', 'finance'], true)) {
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("s", $role);
+        $stmt->execute();
+        $result = $stmt->get_result();
+    } else {
+        $result = $conn->query($sql);
+    }
 
     if ($result) {
-        return $result->fetch_all(MYSQLI_ASSOC);
+        $rows = $result->fetch_all(MYSQLI_ASSOC);
+        if (isset($stmt)) {
+            $stmt->close();
+        }
+        return $rows;
     }
 
     return [];

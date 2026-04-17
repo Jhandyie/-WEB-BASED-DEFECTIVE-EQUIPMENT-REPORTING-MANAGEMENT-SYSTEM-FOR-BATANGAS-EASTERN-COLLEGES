@@ -18,6 +18,25 @@ if ($uColRes) {
 }
 $hasDeptCol = isset($userCols['department']);
 $hasPhoneCol = isset($userCols['phone']);
+$roleEnumValues = [];
+$roleColRes = $conn->query("SHOW COLUMNS FROM users LIKE 'role'");
+if ($roleColRes && ($roleCol = $roleColRes->fetch_assoc())) {
+    if (preg_match_all("/'([^']+)'/", (string)($roleCol['Type'] ?? ''), $matches)) {
+        $roleEnumValues = $matches[1];
+    }
+}
+$assignableRoleMeta = [
+    'reporter' => 'Reporter',
+    'pmo' => 'PMO',
+    'dean' => 'Dean',
+    'finance' => 'Finance',
+    'technician' => 'Technician',
+    'student' => 'Student',
+    'admin' => 'Administrator',
+];
+$assignableRoles = array_values(array_filter(array_keys($assignableRoleMeta), static fn($role) => in_array($role, $roleEnumValues, true)));
+$missingWorkflowRoleEnums = array_values(array_filter(['dean', 'finance'], static fn($role) => !in_array($role, $roleEnumValues, true)));
+$workflowRoleSetupReady = empty($missingWorkflowRoleEnums);
 
 $admin_id   = $_SESSION['user_id'];
 $admin_name = $_SESSION['fullname'] ?? 'Administrator';
@@ -41,6 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Valid email is required.';
         if (strlen($pass) < 8) $errors[] = 'Password must be at least 8 characters.';
         if ($pass !== $pass2) $errors[] = 'Passwords do not match.';
+        if (!in_array($role, $assignableRoles, true)) $errors[] = 'Selected role is not supported by the current database setup.';
 
         // Check duplicate email
         $chk = $conn->prepare("SELECT user_id FROM users WHERE email = ?");
@@ -87,6 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$fname) $errors[] = 'Full name is required.';
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Valid email is required.';
         if ($uid === $admin_id && $role !== 'admin') $errors[] = 'You cannot change your own admin role.';
+        if (!in_array($role, $assignableRoles, true)) $errors[] = 'Selected role is not supported by the current database setup.';
 
         // Check email duplicate (excluding self)
         $chk = $conn->prepare("SELECT user_id FROM users WHERE email = ? AND user_id != ?");
@@ -253,7 +274,7 @@ if ($sq !== '') {
     $params = array_merge($params, $searchParams);
     $types .= str_repeat('s', count($searchParams));
 }
-$q .= " ORDER BY FIELD(u.role,'admin','technician','reporter','student'), u.fullname ASC";
+$q .= " ORDER BY FIELD(u.role,'admin','pmo','dean','finance','technician','reporter','student'), u.fullname ASC";
 
 $stmt = $conn->prepare($q);
 if ($params) { $stmt->bind_param($types, ...$params); }
@@ -268,18 +289,21 @@ function cntU($arr,$fn){return count(array_filter($arr,$fn));}
 function normStatus($s){ $s = strtolower(trim((string)($s ?? ''))); return $s === 'active' ? 'active' : 'inactive'; }
 $c_total  = count($all_users_raw);
 $c_admin  = cntU($all_users_raw, fn($u)=>$u['role']==='admin' && normStatus($u['status'] ?? '')==='active');
+$c_pmo    = cntU($all_users_raw, fn($u)=>$u['role']==='pmo' && normStatus($u['status'] ?? '')==='active');
+$c_dean   = cntU($all_users_raw, fn($u)=>$u['role']==='dean' && normStatus($u['status'] ?? '')==='active');
+$c_fin    = cntU($all_users_raw, fn($u)=>$u['role']==='finance' && normStatus($u['status'] ?? '')==='active');
 $c_tech   = cntU($all_users_raw, fn($u)=>$u['role']==='technician' && normStatus($u['status'] ?? '')==='active');
 $c_rep    = cntU($all_users_raw, fn($u)=>$u['role']==='reporter' && normStatus($u['status'] ?? '')==='active');
 $c_active = cntU($all_users_raw, fn($u)=>normStatus($u['status'] ?? '')==='active');
 $c_inact  = cntU($all_users_raw, fn($u)=>normStatus($u['status'] ?? '')==='inactive');
 /* ─── HELPERS ───────────────────────────────────────── */
-function roleCls($r){return['admin'=>'r-admin','technician'=>'r-tech','reporter'=>'r-rep','student'=>'r-stud'][$r]??'r-rep';}
-function roleIco($r){return['admin'=>'fas fa-crown','technician'=>'fas fa-hard-hat','reporter'=>'fas fa-bullhorn','student'=>'fas fa-graduation-cap'][$r]??'fas fa-user';}
+function roleCls($r){return['admin'=>'r-admin','pmo'=>'r-pmo','dean'=>'r-dean','finance'=>'r-fin','technician'=>'r-tech','reporter'=>'r-rep','student'=>'r-stud'][$r]??'r-rep';}
+function roleIco($r){return['admin'=>'fas fa-crown','pmo'=>'fas fa-building','dean'=>'fas fa-user-tie','finance'=>'fas fa-wallet','technician'=>'fas fa-hard-hat','reporter'=>'fas fa-bullhorn','student'=>'fas fa-graduation-cap'][$r]??'fas fa-user';}
 function roleLbl($r){return ucfirst($r??'—');}
 function stCls($s){ $ns = normStatus($s); return $ns==='active' ? 's-act' : 's-inact'; }
 function stLbl($s){ return normStatus($s)==='active' ? 'Active' : 'Inactive'; }
 function initials($n){$p=array_filter(explode(' ',$n??''));return strtoupper(implode('',array_map(fn($x)=>substr($x,0,1),array_slice($p,0,2))));}
-function avatarColor($role){return['admin'=>'linear-gradient(135deg,#7B1D1D,#C53030)','technician'=>'linear-gradient(135deg,#1D4ED8,#60A5FA)','reporter'=>'linear-gradient(135deg,#7C3AED,#A78BFA)','student'=>'linear-gradient(135deg,#0891B2,#22D3EE)'][$role]??'linear-gradient(135deg,#6B7280,#9CA3AF)';}
+function avatarColor($role){return['admin'=>'linear-gradient(135deg,#7B1D1D,#C53030)','pmo'=>'linear-gradient(135deg,#92400E,#F59E0B)','dean'=>'linear-gradient(135deg,#0F766E,#2DD4BF)','finance'=>'linear-gradient(135deg,#166534,#4ADE80)','technician'=>'linear-gradient(135deg,#1D4ED8,#60A5FA)','reporter'=>'linear-gradient(135deg,#7C3AED,#A78BFA)','student'=>'linear-gradient(135deg,#0891B2,#22D3EE)'][$role]??'linear-gradient(135deg,#6B7280,#9CA3AF)';}
 function deptCls($d){
     $d=strtolower($d??'');
     if(str_contains($d,'itso')||str_contains($d,'computer')||str_contains($d,'it ')|| $d==='it')return'itso';
@@ -535,6 +559,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   flex-shrink:0;animation:dot 2.2s ease-in-out infinite;}
 @keyframes dot{0%,100%{opacity:1;}50%{opacity:.4;}}
 .r-admin{background:#FDECEA;color:var(--m3);}
+.r-pmo{background:#FFF7ED;color:#C2410C;}
+.r-dean{background:#ECFEFF;color:#0F766E;}
+.r-fin{background:#F0FDF4;color:#166534;}
 .r-tech{background:#EFF6FF;color:#1D4ED8;}
 .r-rep{background:#F5F3FF;color:#7C3AED;}
 .r-stud{background:#ECFEFF;color:#0891B2;}
@@ -561,6 +588,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .ucard:hover::before{transform:scale(1.6);opacity:.08;}
 .ucard:hover::after{transform:scaleX(1);}
 .ucard.role-admin{--ucol:var(--m3);--ucol-s:rgba(123,29,29,.12);}
+.ucard.role-pmo{--ucol:#C2410C;--ucol-s:rgba(194,65,12,.12);}
+.ucard.role-dean{--ucol:#0F766E;--ucol-s:rgba(15,118,110,.12);}
+.ucard.role-finance{--ucol:#166534;--ucol-s:rgba(22,101,52,.12);}
 .ucard.role-technician{--ucol:#2563EB;--ucol-s:rgba(37,99,235,.12);}
 .ucard.role-reporter{--ucol:#7C3AED;--ucol-s:rgba(124,58,237,.12);}
 .ucard.role-student{--ucol:#0891B2;--ucol-s:rgba(8,145,178,.12);}
@@ -758,11 +788,20 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
     </div>
     <?php endif; ?>
 
+    <?php if(!$workflowRoleSetupReady): ?>
+    <div class="flash err">
+      <i class="fas fa-exclamation-triangle"></i>
+      Dean/Finance accounts are not enabled in the live database yet. Missing `users.role` values:
+      <?php echo esc(implode(', ', $missingWorkflowRoleEnums)); ?>.
+      Apply <code>scripts/2026_04_workflow_role_portals.sql</code> first.
+    </div>
+    <?php endif; ?>
+
     <!-- Page Header -->
     <div class="ph">
       <div>
         <h1><i class="fas fa-users"></i> User Management</h1>
-        <p class="ph-sub">Create, edit, and manage all system users — administrators, technicians, reporters, and students.</p>
+        <p class="ph-sub">Create, edit, and manage all system users — administrators, PMO, Dean, Finance, technicians, reporters, and students.</p>
       </div>
       <div style="display:flex;gap:.45rem;">
         <button class="btn btn-ghost btn-sm" onclick="location.reload()"><i class="fas fa-sync-alt"></i> Refresh</button>
@@ -781,24 +820,39 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         <div class="snum" id="sn1"><?php echo $c_admin; ?></div>
         <div class="slbl">Administrators</div>
       </a>
-      <a href="?role=technician&status=all" class="scard sc-c">
+      <a href="?role=pmo&status=all" class="scard sc-c">
+        <div class="sico"><i class="fas fa-building"></i></div>
+        <div class="snum" id="sn2"><?php echo $c_pmo; ?></div>
+        <div class="slbl">PMO</div>
+      </a>
+      <a href="?role=dean&status=all" class="scard sc-d">
+        <div class="sico"><i class="fas fa-user-tie"></i></div>
+        <div class="snum" id="sn3"><?php echo $c_dean; ?></div>
+        <div class="slbl">Dean</div>
+      </a>
+      <a href="?role=finance&status=all" class="scard sc-e">
+        <div class="sico"><i class="fas fa-wallet"></i></div>
+        <div class="snum" id="sn4"><?php echo $c_fin; ?></div>
+        <div class="slbl">Finance</div>
+      </a>
+      <a href="?role=technician&status=all" class="scard sc-f">
         <div class="sico"><i class="fas fa-hard-hat"></i></div>
-        <div class="snum" id="sn2"><?php echo $c_tech; ?></div>
+        <div class="snum" id="sn5"><?php echo $c_tech; ?></div>
         <div class="slbl">Technicians</div>
       </a>
-      <a href="?role=reporter&status=all" class="scard sc-d">
+      <a href="?role=reporter&status=all" class="scard sc-a">
         <div class="sico"><i class="fas fa-bullhorn"></i></div>
-        <div class="snum" id="sn3"><?php echo $c_rep; ?></div>
+        <div class="snum" id="sn6"><?php echo $c_rep; ?></div>
         <div class="slbl">Reporters</div>
       </a>
-      <a href="?role=all&status=active" class="scard sc-e">
+      <a href="?role=all&status=active" class="scard sc-b">
         <div class="sico"><i class="fas fa-user-check"></i></div>
-        <div class="snum" id="sn4"><?php echo $c_active; ?></div>
+        <div class="snum" id="sn7"><?php echo $c_active; ?></div>
         <div class="slbl">Active</div>
       </a>
-      <a href="?role=all&status=inactive" class="scard sc-f">
+      <a href="?role=all&status=inactive" class="scard sc-c">
         <div class="sico"><i class="fas fa-user-times"></i></div>
-        <div class="snum" id="sn5"><?php echo $c_inact; ?></div>
+        <div class="snum" id="sn8"><?php echo $c_inact; ?></div>
         <div class="slbl">Inactive</div>
       </a>
     </div>
@@ -809,6 +863,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
       $tabs=[
         ['all',   'All Users',     'fas fa-users',          'on'],
         ['admin', 'Admins',        'fas fa-crown',          'rtab-admin'],
+        ['pmo', 'PMO',             'fas fa-building',       'rtab-rep'],
+        ['dean', 'Dean',           'fas fa-user-tie',       'rtab-stud'],
+        ['finance', 'Finance',     'fas fa-wallet',         'rtab-tech'],
         ['technician','Technicians','fas fa-hard-hat',      'rtab-tech'],
         ['reporter','Reporters',   'fas fa-bullhorn',       'rtab-rep'],
         ['student','Students',     'fas fa-graduation-cap', 'rtab-stud'],
@@ -1036,10 +1093,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
           <div class="fg">
             <label class="fl">Role <span>*</span></label>
             <select name="role" class="fc" required>
-              <option value="reporter">Reporter</option>
-              <option value="technician">Technician</option>
-              <option value="student">Student</option>
-              <option value="admin">Administrator</option>
+              <?php foreach($assignableRoleMeta as $roleValue => $roleLabel): ?>
+                <option value="<?php echo esc($roleValue); ?>" <?php echo in_array($roleValue, $assignableRoles, true) ? '' : 'disabled'; ?>>
+                  <?php echo esc($roleLabel . (in_array($roleValue, $assignableRoles, true) ? '' : ' (DB setup needed)')); ?>
+                </option>
+              <?php endforeach; ?>
             </select>
           </div>
           <div class="fg">
@@ -1105,10 +1163,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
           <div class="fg">
             <label class="fl">Role <span>*</span></label>
             <select name="role" id="eRole" class="fc" required>
-              <option value="reporter">Reporter</option>
-              <option value="technician">Technician</option>
-              <option value="student">Student</option>
-              <option value="admin">Administrator</option>
+              <?php foreach($assignableRoleMeta as $roleValue => $roleLabel): ?>
+                <option value="<?php echo esc($roleValue); ?>" <?php echo in_array($roleValue, $assignableRoles, true) ? '' : 'disabled'; ?>>
+                  <?php echo esc($roleLabel . (in_array($roleValue, $assignableRoles, true) ? '' : ' (DB setup needed)')); ?>
+                </option>
+              <?php endforeach; ?>
             </select>
           </div>
           <div class="fg">
@@ -1482,9 +1541,9 @@ document.addEventListener('DOMContentLoaded',()=>{
 });
 
 /* ─── HELPERS ─────────────────────────────────────────── */
-function avColor(role){return{admin:'linear-gradient(135deg,#7B1D1D,#C53030)',technician:'linear-gradient(135deg,#1D4ED8,#60A5FA)',reporter:'linear-gradient(135deg,#7C3AED,#A78BFA)',student:'linear-gradient(135deg,#0891B2,#22D3EE)'}[role]||'linear-gradient(135deg,#6B7280,#9CA3AF)';}
+function avColor(role){return{admin:'linear-gradient(135deg,#7B1D1D,#C53030)',pmo:'linear-gradient(135deg,#92400E,#F59E0B)',dean:'linear-gradient(135deg,#0F766E,#2DD4BF)',finance:'linear-gradient(135deg,#166534,#4ADE80)',technician:'linear-gradient(135deg,#1D4ED8,#60A5FA)',reporter:'linear-gradient(135deg,#7C3AED,#A78BFA)',student:'linear-gradient(135deg,#0891B2,#22D3EE)'}[role]||'linear-gradient(135deg,#6B7280,#9CA3AF)';}
 function initials(n){const p=n.trim().split(/\s+/);return(p[0][0]+(p[1]?p[1][0]:'')).toUpperCase();}
-function roleBadge(r){const m={admin:'r-admin',technician:'r-tech',reporter:'r-rep',student:'r-stud'};return`<span class="bdg ${m[r]||'r-rep'}">${r||'—'}</span>`;}
+function roleBadge(r){const m={admin:'r-admin',pmo:'r-pmo',dean:'r-dean',finance:'r-fin',technician:'r-tech',reporter:'r-rep',student:'r-stud'};return`<span class="bdg ${m[r]||'r-rep'}">${r||'—'}</span>`;}
 function deptBadge(d){if(!d)return'<span style="color:var(--t4)">—</span>';
   const c=d.toLowerCase();
   if(c.includes('itso')||c.includes('computer')||c==='it')return`<span class="dept-itso"><i class="fas fa-laptop-code"></i>${d}</span>`;

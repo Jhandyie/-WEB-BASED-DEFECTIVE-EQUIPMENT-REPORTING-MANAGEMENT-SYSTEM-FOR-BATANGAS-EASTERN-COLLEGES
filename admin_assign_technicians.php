@@ -13,7 +13,7 @@ $conn = getDBConnection();
 $admin_id   = $_SESSION['user_id'];
 $admin_name = $_SESSION['fullname'] ?? 'Administrator';
 
-/* ─── POST ACTIONS ─────────────────────────────────── */
+/* --- POST ACTIONS ----------------------------------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $act = $_POST['action'] ?? '';
 
@@ -23,89 +23,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $prio  = $_POST['priority']    ?? 'medium';
         $instr = $_POST['instructions']?? '';
         $dept  = $_POST['department']  ?? '';
-
-        try {
-            $conn->begin_transaction();
-
-            // Update defect report (compatible with both old and new schemas)
-            $availableCols = [];
-            $colRes = $conn->query("SHOW COLUMNS FROM defect_reports");
-            if ($colRes) {
-                while ($col = $colRes->fetch_assoc()) {
-                    $availableCols[$col['Field']] = true;
-                }
-            }
-
-            $sets = [];
-            $types = '';
-            $params = [];
-
-            if (isset($availableCols['assigned_to'])) {
-                $sets[] = 'assigned_to = ?';
-                $types .= 's';
-                $params[] = $tid;
-            }
-            if (isset($availableCols['status'])) {
-                $sets[] = "status = 'assigned'";
-            }
-            if (isset($availableCols['priority'])) {
-                $sets[] = 'priority = ?';
-                $types .= 's';
-                $params[] = $prio;
-            }
-            if (isset($availableCols['handler_instructions'])) {
-                $sets[] = 'handler_instructions = ?';
-                $types .= 's';
-                $params[] = $instr;
-            }
-            if (isset($availableCols['department_assigned'])) {
-                $sets[] = 'department_assigned = ?';
-                $types .= 's';
-                $params[] = $dept;
-            }
-            if (isset($availableCols['assigned_date'])) {
-                $sets[] = 'assigned_date = NOW()';
-            }
-            if (isset($availableCols['assigned_by'])) {
-                $sets[] = 'assigned_by = ?';
-                $types .= 's';
-                $params[] = $admin_id;
-            }
-
-            if (empty($sets)) {
-                throw new Exception('No compatible assignment columns found in defect_reports.');
-            }
-
-            $sql = "UPDATE defect_reports SET " . implode(",\n                    ", $sets) . "\n                WHERE report_id = ?";
-            $types .= 's';
-            $params[] = $rid;
-
-            $stmt = $conn->prepare($sql);
-            $stmt->bind_param($types, ...$params);
-            $stmt->execute();
-
-            // Notification for technician
-            $msg = "New maintenance task assigned — Report #$rid";
-            $stmt2 = $conn->prepare("
-                INSERT INTO notifications (user_id, message, type, related_id, created_date)
-                VALUES (?, ?, 'task_assigned', ?, NOW())
-            ");
-            $stmt2->bind_param('sss', $tid, $msg, $rid);
-            $stmt2->execute();
-
-            $conn->commit();
-            $_SESSION['flash'] = ['ok', "Report #$rid assigned to technician successfully."];
-        } catch (Exception $e) {
-            $conn->rollback();
-            $_SESSION['flash'] = ['err', 'Assignment failed: ' . $e->getMessage()];
-        }
+        $result = assignDefectReportToTechnician($rid, $tid, [
+            'actor_id' => $admin_id,
+            'priority' => $prio,
+            'instructions' => $instr,
+            'department' => $dept,
+        ]);
+        $_SESSION['flash'] = [$result['ok'] ? 'ok' : 'err', $result['message']];
     }
 
     if ($act === 'unassign') {
         $rid = $_POST['report_id'] ?? '';
         updateDefectReport($rid, [
             'assigned_to'  => null,
-            'status'       => 'reported',
+            'status'       => 'ready_for_assignment',
             'assigned_date'=> null,
         ]);
         $_SESSION['flash'] = ['ok', "Report #$rid unassigned."];
@@ -115,11 +46,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit();
 }
 
-/* ─── DATA ──────────────────────────────────────────── */
+/* --- DATA -------------------------------------------- */
 // All unassigned / pending reports
 $unassigned = array_values(array_filter(
     getAllDefectReports(),
-    fn($r) => in_array($r['status'], ['reported']) && ($r['assigned_to'] ?? '') === ''
+    fn($r) => in_array($r['status'], ['ready_for_assignment']) && ($r['assigned_to'] ?? '') === ''
 ));
 
 // In-progress reports (assigned but not done)
@@ -146,9 +77,9 @@ if (isset($_GET['report'])) {
     $preReport = getDefectReportById($_GET['report']);
     if ($preReport) {
         $eq = getEquipmentById($preReport['equipment_id'] ?? '');
-        $preReport['equipment_name'] = $eq['equipment_name'] ?? '—';
-        $preReport['asset_tag']      = $eq['asset_tag']      ?? '—';
-        $preReport['location']       = $eq['location']       ?? '—';
+        $preReport['equipment_name'] = $eq['equipment_name'] ?? '-';
+        $preReport['asset_tag']      = $eq['asset_tag']      ?? '-';
+        $preReport['location']       = $eq['location']       ?? '-';
     }
 }
 
@@ -159,12 +90,12 @@ $busyTechs       = $totalTechs - $availTechs;
 $totalUnassigned = count($unassigned);
 $totalInProgress = count($inprogress);
 
-/* ─── HELPERS ───────────────────────────────────────── */
+/* --- HELPERS ----------------------------------------- */
 function prCls($p){return['critical'=>'crit','high'=>'hi','medium'=>'med','low'=>'lo'][$p]??'lo';}
-function prLbl($p){return ucfirst($p??'—');}
-function stLbl($s){return['reported'=>'Pending','assigned'=>'Assigned','in_progress'=>'In Progress'][$s]??ucfirst(str_replace('_',' ',$s));}
-function stCls($s){return['reported'=>'pend','assigned'=>'prog','in_progress'=>'prog2'][$s]??'pend';}
-function esc($s){return htmlspecialchars((string)($s??'—'),ENT_QUOTES,'UTF-8');}
+function prLbl($p){return ucfirst($p??'-');}
+function stLbl($s){return['ready_for_assignment'=>'Ready','assigned'=>'Assigned','in_progress'=>'In Progress','for_replacement'=>'For Replacement'][$s]??ucfirst(str_replace('_',' ',$s));}
+function stCls($s){return['ready_for_assignment'=>'pend','assigned'=>'prog','in_progress'=>'prog2','for_replacement'=>'rej'][$s]??'pend';}
+function esc($s){return htmlspecialchars((string)($s??'-'),ENT_QUOTES,'UTF-8');}
 function wlClass($n){if($n===0)return'wl-free';if($n<=2)return'wl-ok';if($n<=4)return'wl-busy';return'wl-over';}
 function wlLabel($n){if($n===0)return'Available';if($n<=2)return'Light load';if($n<=4)return'Busy';return'Overloaded';}
 function wlColor($n){if($n===0)return'#16A34A';if($n<=2)return'#2563EB';if($n<=4)return'#D97706';return'#DC2626';}
@@ -179,14 +110,14 @@ function deptClass($d){
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Assign Technicians — BEC Admin</title>
+<title>Assign Technicians - BEC Admin</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
-/* ═══════════════════════════════════════════════════════
-   BEC ADMIN — Assign Technicians
-   Maroon × Gold × Warm | Outfit + DM Sans
-═══════════════════════════════════════════════════════ */
+/* =======================================================
+   BEC ADMIN - Assign Technicians
+   Maroon x Gold x Warm | Outfit + DM Sans
+======================================================= */
 :root{
   --m1:#2D0505;--m2:#4A0E0E;--m3:#7B1D1D;--m4:#9B2C2C;--m5:#C53030;
   --g1:#92600A;--g2:#D4A017;--g3:#F0C040;--gp:#FEF9E7;
@@ -207,7 +138,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   min-height:100vh;overflow-x:hidden;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.022'/%3E%3C/svg%3E");}
 
-/* ── SIDEBAR ─────────────────────────────────────── */
+/* -- SIDEBAR --------------------------------------- */
 .sb{position:fixed;left:0;top:0;width:var(--sb);height:100vh;
   background:linear-gradient(168deg,#1E0202 0%,#350808 38%,#4A0E0E 68%,#3A0808 100%);
   display:flex;flex-direction:column;z-index:400;overflow:hidden;
@@ -273,7 +204,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .lout:hover{background:rgba(220,38,38,.14);color:#fca5a5;border-color:rgba(220,38,38,.22);}
 .lout i{transition:transform .3s;}.lout:hover i{transform:rotate(180deg);}
 
-/* ── MAIN LAYOUT ─────────────────────────────────── */
+/* -- MAIN LAYOUT ----------------------------------- */
 .wrap{margin-left:var(--sb);min-height:100vh;display:flex;flex-direction:column;}
 .topbar{background:rgba(255,252,245,.93);backdrop-filter:blur(14px);
   border-bottom:1px solid var(--bdr);height:58px;padding:0 1.75rem;
@@ -297,7 +228,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 @keyframes pp{0%,100%{transform:scale(1);}50%{transform:scale(1.4);}}
 .pg{padding:1.5rem 1.75rem;flex:1;}
 
-/* ── FLASH ───────────────────────────────────────── */
+/* -- FLASH ----------------------------------------- */
 .flash{display:flex;align-items:center;gap:.65rem;padding:.7rem 1.1rem;
   border-radius:var(--r2);margin-bottom:1.125rem;font-size:.81rem;font-weight:600;
   animation:fIn .25s ease;border-left:3px solid;}
@@ -305,7 +236,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .flash.ok{background:#F0FDF4;color:#15803D;border-color:#22C55E;}
 .flash.err{background:#FFF1F2;color:#DC2626;border-color:#EF4444;}
 
-/* ── PAGE HEADER ─────────────────────────────────── */
+/* -- PAGE HEADER ----------------------------------- */
 .ph{display:flex;align-items:flex-end;justify-content:space-between;
   margin-bottom:1.25rem;gap:1rem;flex-wrap:wrap;}
 .ph h1{font-family:'Outfit',sans-serif;font-size:1.45rem;font-weight:800;
@@ -314,7 +245,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .ph-sub{font-size:.78rem;color:var(--t3);margin-top:.18rem;}
 .ph-acts{display:flex;gap:.45rem;}
 
-/* ── BTN SYSTEM ──────────────────────────────────── */
+/* -- BTN SYSTEM ------------------------------------ */
 .btn{display:inline-flex;align-items:center;gap:.32rem;padding:.4rem .875rem;
   border-radius:var(--r1);font-family:'DM Sans',sans-serif;font-size:.77rem;
   font-weight:700;cursor:pointer;border:none;transition:all .17s;
@@ -338,7 +269,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .bi-a{background:#F0FDF4;color:#15803D;}.bi-a:hover{background:#DCFCE7;}
 .bi-d{background:#FFF1F2;color:#BE123C;}.bi-d:hover{background:#FFE4E6;}
 
-/* ── SUMMARY CARDS ───────────────────────────────── */
+/* -- SUMMARY CARDS --------------------------------- */
 .sums{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.375rem;}
 .scard{background:var(--s1);border-radius:var(--r3);padding:1.1rem 1.2rem;
   border:1px solid var(--bdr);position:relative;overflow:hidden;
@@ -376,10 +307,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   position:relative;z-index:1;display:flex;align-items:center;gap:.3rem;}
 .smicro i{font-size:.62rem;}
 
-/* ── MAIN GRID ───────────────────────────────────── */
+/* -- MAIN GRID ------------------------------------- */
 .main-grid{display:grid;grid-template-columns:1fr 360px;gap:1.25rem;align-items:start;}
 
-/* ── PANEL ───────────────────────────────────────── */
+/* -- PANEL ----------------------------------------- */
 .panel{background:var(--s1);border-radius:var(--r3);border:1px solid var(--bdr);
   box-shadow:var(--sh1);overflow:hidden;transition:box-shadow .22s;}
 .panel:hover{box-shadow:var(--sh2);}
@@ -390,7 +321,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   color:var(--t1);display:flex;align-items:center;gap:.35rem;margin:0;}
 .ph3 h3 i{color:var(--m3);}
 
-/* ── TABLE ───────────────────────────────────────── */
+/* -- TABLE ----------------------------------------- */
 .tbl{width:100%;border-collapse:collapse;}
 .tbl thead th{padding:.52rem 1rem;font-size:.6rem;text-transform:uppercase;
   letter-spacing:.85px;color:var(--t3);font-weight:800;text-align:left;
@@ -404,7 +335,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .rid{font-family:'Outfit',sans-serif;font-weight:800;color:var(--m3);font-size:.78rem;}
 .en{font-weight:700;}.esl{font-size:.64rem;color:var(--t3);}
 
-/* ── BADGES ──────────────────────────────────────── */
+/* -- BADGES ---------------------------------------- */
 .bdg{display:inline-flex;align-items:center;gap:.22rem;padding:.2rem .58rem;
   border-radius:20px;font-size:.6rem;font-weight:800;
   text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;}
@@ -419,7 +350,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .b-med{background:#EFF6FF;color:#1D4ED8;}
 .b-lo{background:#F0FDF4;color:#15803D;}
 
-/* ── TECHNICIAN CARDS ────────────────────────────── */
+/* -- TECHNICIAN CARDS ------------------------------ */
 .tech-grid{display:flex;flex-direction:column;gap:.625rem;padding:.875rem;}
 .tcard{background:var(--s1);border:1.5px solid var(--bdr);border-radius:var(--r2);
   padding:.875rem 1rem;cursor:pointer;transition:all .22s cubic-bezier(.4,0,.2,1);
@@ -473,7 +404,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   border-radius:20px;font-size:.6rem;font-weight:800;
   background:var(--s2);color:var(--t2);border:1px solid var(--bdr);}
 
-/* ── ASSIGNMENT PANEL ────────────────────────────── */
+/* -- ASSIGNMENT PANEL ------------------------------ */
 .assign-panel{background:var(--s1);border-radius:var(--r3);
   border:1.5px solid var(--bdr);box-shadow:var(--sh1);overflow:hidden;
   position:sticky;top:72px;}
@@ -536,7 +467,7 @@ textarea.fc{resize:vertical;min-height:80px;}
 .fc-hidden{border-color:var(--bdr2) !important;background:var(--s3) !important;color:var(--t3);}
 .divider{height:1px;background:var(--bdr);margin:.75rem 0;}
 
-/* ── ACTIVE ASSIGNMENTS TABLE ────────────────────── */
+/* -- ACTIVE ASSIGNMENTS TABLE ---------------------- */
 .act-row{display:flex;align-items:center;gap:.5rem;padding:.6rem .875rem;
   border-bottom:1px solid var(--bdr);transition:all .16s;}
 .act-row:last-child{border:none;}
@@ -546,7 +477,7 @@ textarea.fc{resize:vertical;min-height:80px;}
 .act-bar-wrap{flex:2;height:6px;background:var(--s3);border-radius:6px;overflow:hidden;}
 .act-bar-fill{height:100%;border-radius:6px;transition:width .7s cubic-bezier(.4,0,.2,1);}
 
-/* ── MODAL ───────────────────────────────────────── */
+/* -- MODAL ----------------------------------------- */
 .mo{position:fixed;inset:0;background:rgba(26,8,8,.6);backdrop-filter:blur(7px);
   z-index:500;display:none;align-items:flex-start;justify-content:center;
   padding:1.5rem 1rem;overflow-y:auto;}
@@ -578,14 +509,14 @@ textarea.fc{resize:vertical;min-height:80px;}
   display:flex;justify-content:flex-end;gap:.45rem;
   background:var(--s2);border-radius:0 0 var(--r4) var(--r4);}
 
-/* ── UNASSIGN CONFIRMATION ───────────────────────── */
+/* -- UNASSIGN CONFIRMATION ------------------------- */
 .conf-panel{background:#FFF1F2;border:1.5px solid #FECDD3;border-radius:var(--r2);
   padding:.875rem 1rem;display:flex;gap:.75rem;align-items:flex-start;margin-top:.5rem;}
 .conf-icon{width:34px;height:34px;background:#FEE2E2;color:#DC2626;
   border-radius:50%;display:flex;align-items:center;justify-content:center;
   flex-shrink:0;font-size:.85rem;}
 
-/* ── TOAST ───────────────────────────────────────── */
+/* -- TOAST ----------------------------------------- */
 .ttray{position:fixed;bottom:1.5rem;right:1.5rem;display:flex;
   flex-direction:column;gap:.38rem;z-index:9999;}
 .tst{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r2);
@@ -597,11 +528,11 @@ textarea.fc{resize:vertical;min-height:80px;}
 .tst-t{font-size:.77rem;font-weight:700;color:var(--t1);}
 .tst-m{font-size:.69rem;color:var(--t2);margin-top:1px;}
 
-/* ── EMPTY ───────────────────────────────────────── */
+/* -- EMPTY ----------------------------------------- */
 .empty{text-align:center;padding:2.5rem 1.5rem;color:var(--t3);}
 .empty i{font-size:2.2rem;display:block;margin-bottom:.65rem;opacity:.22;}
 
-/* ── RESPONSIVE ──────────────────────────────────── */
+/* -- RESPONSIVE ------------------------------------ */
 @media(max-width:1200px){.main-grid{grid-template-columns:1fr;}
   .assign-panel{position:static;}}
 @media(max-width:768px){.sb{transform:translateX(-100%);}.sb.open{transform:translateX(0);}
@@ -619,7 +550,7 @@ textarea.fc{resize:vertical;min-height:80px;}
 </head>
 <body>
 
-<!-- ═══════════ SIDEBAR ═══════════════════════════════ -->
+<!-- =========== SIDEBAR =============================== -->
 <aside class="sb" id="sb">
   <div class="sb-top">
     <div class="seal-ring">
@@ -665,7 +596,7 @@ textarea.fc{resize:vertical;min-height:80px;}
   </div>
 </aside>
 
-<!-- ═══════════ MAIN ══════════════════════════════════ -->
+<!-- =========== MAIN ================================== -->
 <div class="wrap">
   <header class="topbar">
     <div class="tb-l">
@@ -709,7 +640,7 @@ textarea.fc{resize:vertical;min-height:80px;}
     <div class="ph">
       <div>
         <h1><i class="fas fa-user-cog"></i> Assign Technicians</h1>
-        <p class="ph-sub">Select an unassigned report, pick a technician, set priority and instructions — then confirm.</p>
+        <p class="ph-sub">Select an unassigned report, pick a technician, set priority and instructions - then confirm.</p>
       </div>
       <div class="ph-acts">
         <a href="admin_defect_reports.php" class="btn btn-ghost btn-sm">
@@ -760,7 +691,7 @@ textarea.fc{resize:vertical;min-height:80px;}
               <span style="background:var(--m3);color:#fff;font-size:.58rem;padding:1px 7px;border-radius:20px;font-weight:900;margin-left:.25rem;"><?php echo $totalUnassigned;?></span>
               <?php endif;?>
             </h3>
-            <a href="admin_defect_reports.php?status=reported" class="btn btn-ghost btn-sm">
+            <a href="admin_defect_reports.php?status=ready_for_assignment" class="btn btn-ghost btn-sm">
               <i class="fas fa-external-link-alt"></i> View All
             </a>
           </div>
@@ -775,7 +706,7 @@ textarea.fc{resize:vertical;min-height:80px;}
               <?php if(empty($unassigned)): ?>
               <tr><td colspan="6"><div class="empty">
                 <i class="fas fa-check-circle" style="color:#16A34A;"></i>
-                All reports are assigned — great work!
+                All reports are assigned - great work!
               </div></td></tr>
               <?php else: foreach($unassigned as $r): ?>
               <tr id="row-<?php echo esc($r['report_id']); ?>">
@@ -786,7 +717,7 @@ textarea.fc{resize:vertical;min-height:80px;}
                 </td>
                 <td style="max-width:180px;">
                   <div style="font-size:.77rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                    <?php echo esc(substr($r['issue_description']??'',0,50)); ?>…
+                    <?php echo esc(substr($r['issue_description']??'',0,50)); ?>...
                   </div>
                 </td>
                 <td><span class="bdg b-<?php echo prCls($r['priority']); ?>"><?php echo prLbl($r['priority']); ?></span></td>
@@ -836,12 +767,12 @@ textarea.fc{resize:vertical;min-height:80px;}
                   <?php if(!empty($r['asset_tag'])): ?><div class="esl"><?php echo esc($r['asset_tag']); ?></div><?php endif; ?>
                 </td>
                 <td style="font-size:.79rem;font-weight:600;">
-                  <?php echo esc($r['assigned_to']??'—'); ?>
+                  <?php echo esc($r['assigned_to']??'-'); ?>
                 </td>
                 <td><span class="bdg b-<?php echo prCls($r['priority']); ?>"><?php echo prLbl($r['priority']); ?></span></td>
                 <td><span class="bdg b-<?php echo stCls($r['status']); ?>"><?php echo stLbl($r['status']); ?></span></td>
                 <td style="font-size:.71rem;color:var(--t3);">
-                  <?php echo !empty($r['assigned_date'])?date('M j',strtotime($r['assigned_date'])):'—'; ?>
+                  <?php echo !empty($r['assigned_date'])?date('M j',strtotime($r['assigned_date'])):'-'; ?>
                 </td>
                 <td style="text-align:center;">
                   <button class="btn bico bi-d btn-sm" title="Unassign"
@@ -909,9 +840,9 @@ textarea.fc{resize:vertical;min-height:80px;}
               <button class="rep-clear" onclick="clearReport()" title="Clear selection">
                 <i class="fas fa-times"></i>
               </button>
-              <div class="rep-id" id="rpId">—</div>
-              <div class="rep-eq" id="rpEq">—</div>
-              <div class="rep-desc" id="rpDesc">—</div>
+              <div class="rep-id" id="rpId">-</div>
+              <div class="rep-eq" id="rpEq">-</div>
+              <div class="rep-desc" id="rpDesc">-</div>
               <div style="margin-top:.45rem;display:flex;gap:.35rem;flex-wrap:wrap;" id="rpMeta"></div>
             </div>
           </div>
@@ -926,7 +857,7 @@ textarea.fc{resize:vertical;min-height:80px;}
               <label class="fl">Technician <span>*</span></label>
               <select name="technician_id" id="fTech" class="fc" required
                 onchange="techChanged(this)" <?php if(empty($technicians))echo 'disabled';?>>
-                <option value="">Choose technician…</option>
+                <option value="">Choose technician...</option>
                 <?php foreach($technicians as $t):
                   $tid = $t['technician_id'] ?? $t['user_id'] ?? '';
                   $dept = $t['dept']??'';
@@ -941,8 +872,8 @@ textarea.fc{resize:vertical;min-height:80px;}
                   data-name="<?php echo esc($t['fullname']??'Technician'); ?>"
                   data-deptcls="<?php echo deptClass($dept); ?>">
                   <?php echo esc($t['fullname']??'Technician'); ?>
-                  (<?php echo $wlTxt; ?> — <?php echo $wl; ?> task<?php echo $wl!=1?'s':'';?>)
-                  <?php if(!empty($dept)) echo '· '.$dept; ?>
+                  (<?php echo $wlTxt; ?> - <?php echo $wl; ?> task<?php echo $wl!=1?'s':'';?>)
+                  <?php if(!empty($dept)) echo ' -  '.$dept; ?>
                 </option>
                 <?php endforeach; ?>
               </select>
@@ -952,7 +883,7 @@ textarea.fc{resize:vertical;min-height:80px;}
             <div class="tech-prev" id="techPrev">
               <div class="tp-av" id="tpAv">??</div>
               <div>
-                <div class="tp-name" id="tpName">—</div>
+                <div class="tp-name" id="tpName">-</div>
                 <div style="display:flex;gap:.3rem;margin-top:.2rem;flex-wrap:wrap;" id="tpMeta"></div>
               </div>
             </div>
@@ -961,9 +892,9 @@ textarea.fc{resize:vertical;min-height:80px;}
             <div class="fg">
               <label class="fl">Department <span>*</span></label>
               <select name="department" id="fDept" class="fc" required>
-                <option value="">Select department…</option>
-                <option value="ITSO">ITSO — IT &amp; Computer Labs</option>
-                <option value="PMO">PMO — Physical Maintenance &amp; Facilities</option>
+                <option value="">Select department...</option>
+                <option value="ITSO">ITSO - IT &amp; Computer Labs</option>
+                <option value="PMO">PMO - Physical Maintenance &amp; Facilities</option>
               </select>
             </div>
 
@@ -971,11 +902,11 @@ textarea.fc{resize:vertical;min-height:80px;}
             <div class="fg">
               <label class="fl">Priority Level <span>*</span></label>
               <select name="priority" id="fPrio" class="fc" required>
-                <option value="">Select priority…</option>
+                <option value="">Select priority...</option>
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
-                <option value="critical" style="color:#C2410C;font-weight:700;">⚡ Critical</option>
+                <option value="critical" style="color:#C2410C;font-weight:700;">Critical Critical</option>
               </select>
             </div>
 
@@ -983,7 +914,7 @@ textarea.fc{resize:vertical;min-height:80px;}
             <div class="fg">
               <label class="fl">Handler Instructions</label>
               <textarea name="instructions" id="fInstr" class="fc"
-                placeholder="Provide specific instructions for the technician (tools needed, safety notes, access info)…"></textarea>
+                placeholder="Provide specific instructions for the technician (tools needed, safety notes, access info)..."></textarea>
             </div>
 
             <div class="divider"></div>
@@ -1003,7 +934,7 @@ textarea.fc{resize:vertical;min-height:80px;}
   </div><!-- /pg -->
 </div><!-- /wrap -->
 
-<!-- ═══ UNASSIGN CONFIRM MODAL ════════════════════════ -->
+<!-- === UNASSIGN CONFIRM MODAL ======================== -->
 <div class="mo" id="unMo" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="mw">
     <div class="mhd">
@@ -1018,10 +949,10 @@ textarea.fc{resize:vertical;min-height:80px;}
         <div class="conf-icon"><i class="fas fa-exclamation-triangle"></i></div>
         <div>
           <div style="font-weight:700;font-size:.85rem;margin-bottom:.25rem;">
-            Unassign report <span id="unRid" style="color:var(--m3);font-family:'Outfit',sans-serif;">—</span>?
+            Unassign report <span id="unRid" style="color:var(--m3);font-family:'Outfit',sans-serif;">-</span>?
           </div>
           <div style="font-size:.78rem;color:var(--t2);line-height:1.5;">
-            <strong id="unEq">—</strong> will be returned to the unassigned queue.
+            <strong id="unEq">-</strong> will be returned to the unassigned queue.
             The assigned technician will lose access to this task.
           </div>
         </div>
@@ -1038,7 +969,7 @@ textarea.fc{resize:vertical;min-height:80px;}
   </div>
 </div>
 
-<!-- ═══ LOGOUT MODAL ══════════════════════════════════ -->
+<!-- === LOGOUT MODAL ================================== -->
 <div class="mo" id="lgmo" onclick="if(event.target===this)this.classList.remove('open')">
   <div style="background:var(--s1);border-radius:var(--r4);padding:2rem;max-width:330px;
     width:90%;text-align:center;box-shadow:var(--sh3);animation:mUp .25s ease;margin:auto;">
@@ -1057,10 +988,10 @@ textarea.fc{resize:vertical;min-height:80px;}
 <div class="ttray" id="ttray"></div>
 
 <script>
-/* ─── STATE ──────────────────────────────────────── */
+/* --- STATE ---------------------------------------- */
 let _selReport = null;
 
-/* ─── SELECT REPORT ──────────────────────────────── */
+/* --- SELECT REPORT -------------------------------- */
 function selectReport(data) {
   _selReport = data;
 
@@ -1069,7 +1000,7 @@ function selectReport(data) {
   document.getElementById('repFilled').style.display = 'block';
   document.getElementById('repPrev').classList.add('filled');
   document.getElementById('rpId').textContent = '#' + data.id;
-  document.getElementById('rpEq').textContent = data.equipment + (data.asset ? ' · ' + data.asset : '');
+  document.getElementById('rpEq').textContent = data.equipment + (data.asset ? '  -  ' + data.asset : '');
   document.getElementById('rpDesc').textContent = data.issue;
 
   // Priority + dept badges
@@ -1114,7 +1045,7 @@ function clearAll() {
   document.querySelectorAll('.tcard').forEach(c => c.classList.remove('selected'));
 }
 
-/* ─── TECHNICIAN CHANGED ─────────────────────────── */
+/* --- TECHNICIAN CHANGED --------------------------- */
 function techChanged(sel) {
   const opt = sel.options[sel.selectedIndex];
   const prev = document.getElementById('techPrev');
@@ -1151,14 +1082,14 @@ function techChanged(sel) {
   }
 }
 
-/* ─── TECHNICIAN CARD CLICK ──────────────────────── */
+/* --- TECHNICIAN CARD CLICK ------------------------ */
 function pickTech(id) {
   const sel = document.getElementById('fTech');
   sel.value = id;
   techChanged(sel);
 }
 
-/* ─── VALIDATION ─────────────────────────────────── */
+/* --- VALIDATION ----------------------------------- */
 function validateAssign() {
   if (!document.getElementById('fRid').value) {
     toast('err', 'Please select a report first.', 'Missing Report');
@@ -1171,7 +1102,7 @@ function validateAssign() {
   return true;
 }
 
-/* ─── UNASSIGN MODAL ─────────────────────────────── */
+/* --- UNASSIGN MODAL ------------------------------- */
 function openUnassign(rid, eq) {
   document.getElementById('unRid').textContent = rid;
   document.getElementById('unEq').textContent  = eq;
@@ -1179,7 +1110,7 @@ function openUnassign(rid, eq) {
   document.getElementById('unMo').classList.add('open');
 }
 
-/* ─── ANIMATED COUNTERS ──────────────────────────── */
+/* --- ANIMATED COUNTERS ---------------------------- */
 function animN(id, to) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -1199,7 +1130,7 @@ document.addEventListener('DOMContentLoaded', () => {
   animN('sn3', <?php echo $totalInProgress; ?>);
 });
 
-/* ─── PRE-SELECT REPORT FROM URL ─────────────────── */
+/* --- PRE-SELECT REPORT FROM URL ------------------- */
 <?php if($preReport): ?>
 document.addEventListener('DOMContentLoaded', () => {
   selectReport({
@@ -1213,11 +1144,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 <?php endif; ?>
 
-/* ─── BADGE HELPERS ──────────────────────────────── */
+/* --- BADGE HELPERS -------------------------------- */
 function prBadge(p) {
   const map = { critical:'crit', high:'hi', medium:'med', low:'lo' };
   const cls = map[p] || 'lo';
-  return `<span class="bdg b-${cls}">${p||'—'}</span>`;
+  return `<span class="bdg b-${cls}">${p||'-'}</span>`;
 }
 function deptBadge(d) {
   if(d==='ITSO') return '<span class="dept-itso"><i class="fas fa-laptop-code"></i>ITSO</span>';
@@ -1235,7 +1166,7 @@ function wlBadge(n) {
   return `<span style="background:${bg};color:${c};padding:.14rem .48rem;border-radius:20px;font-size:.6rem;font-weight:800;">${lbl} (${n})</span>`;
 }
 
-/* ─── TOAST ──────────────────────────────────────── */
+/* --- TOAST ---------------------------------------- */
 function toast(type, msg, title) {
   const el = document.createElement('div');
   el.className = 'tst ' + type;
@@ -1245,7 +1176,7 @@ function toast(type, msg, title) {
 }
 </script>
 
-<!-- ── Technician Cards (right-side panel in wider viewports, below left) -->
+<!-- -- Technician Cards (right-side panel in wider viewports, below left) -->
 <!-- These are rendered as JS-clickable cards in the sidebar -->
 <script>
 // Inject tech cards into the technician section of the panel
@@ -1254,6 +1185,7 @@ function toast(type, msg, title) {
 
 </body>
 </html>
+
 
 
 

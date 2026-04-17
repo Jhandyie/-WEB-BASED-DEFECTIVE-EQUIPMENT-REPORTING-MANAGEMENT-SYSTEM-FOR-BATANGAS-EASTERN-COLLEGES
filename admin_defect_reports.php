@@ -3,6 +3,7 @@ require_once __DIR__ . '/includes/session_bootstrap.php';
 startRoleSession('admin');
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/mail_helper.php';
 require_once __DIR__ . '/file_storage_helpers.php';
 
 requireRole('admin');
@@ -10,14 +11,293 @@ requireRole('admin');
 $admin_id   = $_SESSION['user_id'];
 $admin_name = $_SESSION['fullname'] ?? 'Administrator';
 
+function adminWorkflowNotifyRole(mysqli $conn, string $role, string $message, string $reportId): void {
+    $stmt = $conn->prepare("SELECT user_id FROM users WHERE role = ? AND status = 'active'");
+    if (!$stmt) {
+        return;
+    }
+    $stmt->bind_param('s', $role);
+    $stmt->execute();
+    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+
+    foreach ($rows as $row) {
+        $userId = trim((string)($row['user_id'] ?? ''));
+        if ($userId !== '') {
+            addNotification($userId, $message, 'workflow_update', $reportId);
+        }
+    }
+}
+
+function autoCreateWorkOrderFromReport($reportId, $adminId, $department, $priority, $adminNotes = '') {
+    $conn = getDBConnection();
+
+    $tbl = $conn->query("SHOW TABLES LIKE 'work_orders'");
+    if (!$tbl || $tbl->num_rows === 0) {
+        return ['status' => 'skipped'];
+    }
+
+    $existingStmt = $conn->prepare("SELECT work_order_id FROM work_orders WHERE report_id = ? AND status != 'deleted' LIMIT 1");
+    $existingStmt->bind_param('s', $reportId);
+    $existingStmt->execute();
+    $existing = $existingStmt->get_result()->fetch_assoc();
+    $existingStmt->close();
+
+    if (!empty($existing['work_order_id'])) {
+        return ['status' => 'exists', 'work_order_id' => $existing['work_order_id']];
+    }
+
+    $report = getDefectReportById($reportId);
+    if (!$report) {
+        return ['status' => 'error', 'message' => 'report not found'];
+    }
+
+    $priority = in_array($priority, ['critical', 'high', 'medium', 'low'], true) ? $priority : 'medium';
+    $dueMap = ['critical' => 1, 'high' => 3, 'medium' => 7, 'low' => 14];
+    $dueDate = date('Y-m-d', strtotime('+' . $dueMap[$priority] . ' days'));
+
+    $equipmentName = trim((string)($report['equipment_name'] ?? 'Equipment'));
+    $issue = trim((string)($report['issue_description'] ?? 'Reported issue'));
+    $title = $equipmentName . ': ' . $issue;
+    if ($title === ': ') {
+        $title = 'Maintenance Request for ' . $reportId;
+    }
+    if (strlen($title) > 255) {
+        $title = substr($title, 0, 252) . '...';
+    }
+
+    $notes = 'Auto-created from defect report ' . $reportId . '.';
+    $adminNotes = trim((string)$adminNotes);
+    if ($adminNotes !== '') {
+        $notes .= "\n\nAdmin notes:\n" . $adminNotes;
+    }
+
+    $workOrderId = 'WO-' . strtoupper(substr(md5(uniqid((string)$reportId, true)), 0, 6));
+    $assignedTech = null;
+
+    $insert = $conn->prepare("INSERT INTO work_orders (work_order_id, report_id, title, department, priority, due_date, assigned_technician, notes, status, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,'open',?,NOW())");
+    $insert->bind_param('sssssssss', $workOrderId, $reportId, $title, $department, $priority, $dueDate, $assignedTech, $notes, $adminId);
+    if (!$insert->execute()) {
+        $err = $insert->error;
+        $insert->close();
+        return ['status' => 'error', 'message' => $err];
+    }
+    $insert->close();
+
+    return ['status' => 'created', 'work_order_id' => $workOrderId];
+}
+
 /* ─── POST ACTIONS ─────────────────────────────────────── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $act = $_POST['action'] ?? '';
+    $reportId = trim((string)($_POST['report_id'] ?? ''));
+    $conn = getDBConnection();
+    $report = $reportId !== '' ? getDefectReportById($reportId) : null;
 
-    if ($act === 'approve') {
+    if ($reportId === '' || !$report) {
+        $_SESSION['flash'] = ['err', 'Report not found.'];
+        header('Location: admin_defect_reports.php');
+        exit();
+    }
+
+    if ($act === 'submit_for_dean') {
+        $dept = trim((string)($_POST['department_assigned'] ?? 'PMO'));
+        $priority = trim((string)($_POST['priority_level'] ?? $_POST['priority'] ?? ($report['priority'] ?? 'medium')));
+        $adminNotes = trim((string)($_POST['admin_notes'] ?? ''));
+
+        $ok = updateDefectReport($reportId, [
+            'status' => 'dean_review',
+            'department_assigned' => $dept,
+            'priority' => $priority,
+            'pmo_review_status' => 'reviewed',
+            'pmo_reviewed_by' => $admin_id,
+            'pmo_reviewed_at' => date('Y-m-d H:i:s'),
+            'pmo_notes' => $adminNotes,
+            'admin_notes' => $adminNotes,
+            'categorized_by' => $admin_id,
+            'categorized_date' => date('Y-m-d H:i:s'),
+        ]);
+
+        if ($ok) {
+            adminWorkflowNotifyRole($conn, 'dean', 'Report ' . $reportId . ' is awaiting Dean approval.', $reportId);
+            $emailReport = getDefectReportById($reportId) ?: array_merge($report, ['status' => 'dean_review']);
+            $emailResult = sendDefectWorkflowEmail(
+                $emailReport,
+                ['dean'],
+                'Equipment Defect Report ' . $reportId . ' Requires Dean Approval',
+                'Defect Report Endorsed for Dean Approval',
+                'Administrative review has been completed and this defect report is now ready for Dean approval.',
+                [
+                    'notes_label' => 'Review Notes',
+                    'notes' => $adminNotes !== '' ? $adminNotes : 'Reviewed and endorsed by ' . $admin_name . '.',
+                    'requested_action' => 'Please evaluate the defect report and record the official approval or rejection in the admin workflow.',
+                ]
+            );
+            $_SESSION['flash'] = ['ok', 'Report forwarded to Dean approval.' . (($emailResult['sent'] ?? 0) > 0 ? ' Formal email notice sent.' : '')];
+        } else {
+            $_SESSION['flash'] = ['err', 'Unable to forward the report to Dean approval.'];
+        }
+    }
+    elseif ($act === 'dean_approve' && ($report['status'] ?? '') === 'dean_review') {
+        $deanNotes = trim((string)($_POST['dean_notes'] ?? ''));
+        $ok = updateDefectReport($reportId, [
+            'status' => 'finance_review',
+            'dean_approval_status' => 'approved',
+            'dean_approved_by' => $admin_id,
+            'dean_approved_at' => date('Y-m-d H:i:s'),
+            'dean_notes' => $deanNotes,
+            'admin_notes' => $deanNotes !== '' ? $deanNotes : ($report['admin_notes'] ?? ''),
+        ]);
+
+        if ($ok) {
+            adminWorkflowNotifyRole($conn, 'finance', 'Report ' . $reportId . ' is awaiting Finance review.', $reportId);
+            adminWorkflowNotifyRole($conn, 'pmo', 'Report ' . $reportId . ' was approved and sent to Finance.', $reportId);
+            $emailReport = getDefectReportById($reportId) ?: array_merge($report, ['status' => 'finance_review']);
+            $emailResult = sendDefectWorkflowEmail(
+                $emailReport,
+                ['finance', 'pmo'],
+                'Equipment Defect Report ' . $reportId . ' Approved by Dean',
+                'Dean Approval Recorded for Equipment Defect Report',
+                'The report has passed the Dean approval stage and is now routed for Finance review.',
+                [
+                    'notes_label' => 'Dean Remarks',
+                    'notes' => $deanNotes !== '' ? $deanNotes : 'Approved by ' . $admin_name . ' in the consolidated admin workflow.',
+                    'requested_action' => 'Finance should review the budget requirement, while PMO may continue monitoring the report progress.',
+                ]
+            );
+            $_SESSION['flash'] = ['ok', 'Dean approval recorded. Sent to Finance review.' . (($emailResult['sent'] ?? 0) > 0 ? ' Formal email notice sent.' : '')];
+        } else {
+            $_SESSION['flash'] = ['err', 'Unable to save the Dean approval.'];
+        }
+    }
+    elseif ($act === 'dean_reject' && ($report['status'] ?? '') === 'dean_review') {
+        $deanNotes = trim((string)($_POST['dean_notes'] ?? ''));
+        $ok = updateDefectReport($reportId, [
+            'status' => 'rejected',
+            'dean_approval_status' => 'rejected',
+            'dean_approved_by' => $admin_id,
+            'dean_approved_at' => date('Y-m-d H:i:s'),
+            'dean_notes' => $deanNotes,
+            'admin_notes' => $deanNotes !== '' ? $deanNotes : ($report['admin_notes'] ?? ''),
+        ]);
+
+        if ($ok) {
+            adminWorkflowNotifyRole($conn, 'pmo', 'Report ' . $reportId . ' was rejected during Dean review.', $reportId);
+            $emailReport = getDefectReportById($reportId) ?: array_merge($report, ['status' => 'rejected']);
+            $emailResult = sendDefectWorkflowEmail(
+                $emailReport,
+                ['pmo'],
+                'Equipment Defect Report ' . $reportId . ' Rejected During Dean Review',
+                'Dean Review Result: Request Not Approved',
+                'The request was not approved at the Dean review stage.',
+                [
+                    'notes_label' => 'Dean Decision Notes',
+                    'notes' => $deanNotes !== '' ? $deanNotes : 'Rejected by ' . $admin_name . ' in the consolidated admin workflow.',
+                    'requested_action' => 'Please review the remarks and decide whether the request should be revised, clarified, or closed.',
+                ]
+            );
+            $_SESSION['flash'] = ['err', 'Dean rejection recorded.' . (($emailResult['sent'] ?? 0) > 0 ? ' Formal email notice sent.' : '')];
+        } else {
+            $_SESSION['flash'] = ['err', 'Unable to save the Dean rejection.'];
+        }
+    }
+    elseif ($act === 'finance_approve' && in_array(($report['status'] ?? ''), ['finance_review', 'on_hold_budget'], true)) {
+        $financeNotes = trim((string)($_POST['finance_notes'] ?? ''));
+        $ok = updateDefectReport($reportId, [
+            'status' => 'ready_for_assignment',
+            'finance_approval_status' => 'approved',
+            'finance_approved_by' => $admin_id,
+            'finance_approved_at' => date('Y-m-d H:i:s'),
+            'finance_notes' => $financeNotes,
+            'budget_status' => 'approved',
+            'admin_notes' => $financeNotes !== '' ? $financeNotes : ($report['admin_notes'] ?? ''),
+        ]);
+
+        if ($ok) {
+            adminWorkflowNotifyRole($conn, 'pmo', 'Report ' . $reportId . ' passed Finance review and is ready for assignment.', $reportId);
+            $emailReport = getDefectReportById($reportId) ?: array_merge($report, ['status' => 'ready_for_assignment']);
+            $emailResult = sendDefectWorkflowEmail(
+                $emailReport,
+                ['pmo', 'admin'],
+                'Equipment Defect Report ' . $reportId . ' Cleared by Finance',
+                'Finance Approval Completed',
+                'Finance has approved the request and the report is now ready for technician assignment.',
+                [
+                    'notes_label' => 'Finance Remarks',
+                    'notes' => $financeNotes !== '' ? $financeNotes : 'Approved by ' . $admin_name . ' in the consolidated admin workflow.',
+                    'requested_action' => 'Please proceed with technician assignment and the related repair or replacement activity.',
+                ]
+            );
+            $_SESSION['flash'] = ['ok', 'Finance approval recorded. Report is ready for technician assignment.' . (($emailResult['sent'] ?? 0) > 0 ? ' Formal email notice sent.' : '')];
+        } else {
+            $_SESSION['flash'] = ['err', 'Unable to save the Finance approval.'];
+        }
+    }
+    elseif ($act === 'finance_hold' && ($report['status'] ?? '') === 'finance_review') {
+        $financeNotes = trim((string)($_POST['finance_notes'] ?? ''));
+        $ok = updateDefectReport($reportId, [
+            'status' => 'on_hold_budget',
+            'finance_approval_status' => 'on_hold',
+            'finance_approved_by' => $admin_id,
+            'finance_approved_at' => date('Y-m-d H:i:s'),
+            'finance_notes' => $financeNotes,
+            'budget_status' => 'on_hold',
+            'admin_notes' => $financeNotes !== '' ? $financeNotes : ($report['admin_notes'] ?? ''),
+        ]);
+
+        if ($ok) {
+            adminWorkflowNotifyRole($conn, 'pmo', 'Report ' . $reportId . ' is on hold pending budget availability.', $reportId);
+            $emailReport = getDefectReportById($reportId) ?: array_merge($report, ['status' => 'on_hold_budget']);
+            $emailResult = sendDefectWorkflowEmail(
+                $emailReport,
+                ['pmo'],
+                'Equipment Defect Report ' . $reportId . ' Placed on Budget Hold',
+                'Finance Review Paused for Budget Availability',
+                'Finance has temporarily placed the report on hold pending budget availability.',
+                [
+                    'notes_label' => 'Finance Hold Notes',
+                    'notes' => $financeNotes !== '' ? $financeNotes : 'Budget hold recorded by ' . $admin_name . '.',
+                    'requested_action' => 'Please monitor the case and prepare supporting documents until budget review resumes.',
+                ]
+            );
+            $_SESSION['flash'] = ['ok', 'Report placed on hold for budget.' . (($emailResult['sent'] ?? 0) > 0 ? ' Formal email notice sent.' : '')];
+        } else {
+            $_SESSION['flash'] = ['err', 'Unable to place the report on budget hold.'];
+        }
+    }
+    elseif ($act === 'resume_finance_review' && ($report['status'] ?? '') === 'on_hold_budget') {
+        $financeNotes = trim((string)($_POST['finance_notes'] ?? ''));
+        $ok = updateDefectReport($reportId, [
+            'status' => 'finance_review',
+            'budget_status' => 'pending',
+            'finance_notes' => $financeNotes,
+            'admin_notes' => $financeNotes !== '' ? $financeNotes : ($report['admin_notes'] ?? ''),
+        ]);
+
+        if ($ok) {
+            adminWorkflowNotifyRole($conn, 'pmo', 'Report ' . $reportId . ' returned to active Finance review.', $reportId);
+            $emailReport = getDefectReportById($reportId) ?: array_merge($report, ['status' => 'finance_review']);
+            $emailResult = sendDefectWorkflowEmail(
+                $emailReport,
+                ['pmo'],
+                'Equipment Defect Report ' . $reportId . ' Returned to Active Finance Review',
+                'Budget Hold Cleared',
+                'The report has been returned to active Finance review after the budget hold was cleared.',
+                [
+                    'notes_label' => 'Finance Update',
+                    'notes' => $financeNotes !== '' ? $financeNotes : 'Budget hold cleared by ' . $admin_name . '.',
+                    'requested_action' => 'Please continue monitoring the request while the Finance decision is finalized.',
+                ]
+            );
+            $_SESSION['flash'] = ['ok', 'Budget hold cleared. Returned to Finance review.' . (($emailResult['sent'] ?? 0) > 0 ? ' Formal email notice sent.' : '')];
+        } else {
+            $_SESSION['flash'] = ['err', 'Unable to resume Finance review.'];
+        }
+    }
+    elseif ($act === 'approve') {
         $dept = trim((string)($_POST['department_assigned'] ?? ''));
         if (!in_array($dept, ['ITSO','PMO'], true)) {
-            $src = getDefectReportById($_POST['report_id']);
+            $src = $report;
             $dept = classifyDepartmentByEquipment(
                 $src['equipment_id'] ?? null,
                 $src['equipment_name'] ?? '',
@@ -27,19 +307,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
         }
 
-        updateDefectReport($_POST['report_id'], [
+        $priority = $_POST['priority_level'] ?? ($_POST['priority'] ?? 'medium');
+        $adminNotes = $_POST['admin_notes'] ?? '';
+
+        updateDefectReport($reportId, [
             'admin_approval_status' => 'approved',
             'status'                => 'assigned',
             'department_assigned'   => $dept,
-            'priority'              => $_POST['priority_level'] ?? ($_POST['priority'] ?? 'medium'),
-            'admin_notes'           => $_POST['admin_notes'] ?? '',
+            'priority'              => $priority,
+            'admin_notes'           => $adminNotes,
             'categorized_by'        => $admin_id,
             'categorized_date'      => date('Y-m-d H:i:s'),
         ]);
-        $_SESSION['flash'] = ['ok', 'Report approved and categorised.'];
+
+        $woResult = autoCreateWorkOrderFromReport($reportId, $admin_id, $dept, $priority, $adminNotes);
+        if (($woResult['status'] ?? '') === 'created') {
+            $_SESSION['flash'] = ['ok', 'Report approved and categorised. Work order ' . ($woResult['work_order_id'] ?? '') . ' was auto-created.'];
+        } elseif (($woResult['status'] ?? '') === 'exists') {
+            $_SESSION['flash'] = ['ok', 'Report approved and categorised. Existing work order ' . ($woResult['work_order_id'] ?? '') . ' already linked.'];
+        } elseif (($woResult['status'] ?? '') === 'error') {
+            $_SESSION['flash'] = ['err', 'Report approved, but auto-creating work order failed: ' . ($woResult['message'] ?? 'unknown error')];
+        } else {
+            $_SESSION['flash'] = ['ok', 'Report approved and categorised.'];
+        }
     }
     elseif ($act === 'reject') {
-        updateDefectReport($_POST['report_id'], [
+        updateDefectReport($reportId, [
             'admin_approval_status' => 'rejected',
             'status'                => 'rejected',
             'admin_notes'           => $_POST['rejection_reason'] ?? '',
@@ -47,19 +340,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['flash'] = ['err', 'Report rejected.'];
     }
     elseif ($act === 'verify_completion') {
-        updateDefectReport($_POST['report_id'], [
+        updateDefectReport($reportId, [
             'status'                        => 'verified',
             'completion_verified_by_admin'  => $admin_id,
             'admin_notes'                   => $_POST['verification_notes'] ?? '',
         ]);
-        $_SESSION['flash'] = ['ok', 'Completion verified — report closed.'];
+
+        $cur = getDefectReportById($reportId);
+        $vDept = $cur['department_assigned'] ?? 'PMO';
+        $vPrio = $cur['priority'] ?? 'medium';
+        $vNotes = $_POST['verification_notes'] ?? '';
+        $woResult = autoCreateWorkOrderFromReport($reportId, $admin_id, $vDept, $vPrio, $vNotes);
+
+        if (($woResult['status'] ?? '') === 'created') {
+            $_SESSION['flash'] = ['ok', 'Completion verified and work order ' . ($woResult['work_order_id'] ?? '') . ' was auto-created.'];
+        } elseif (($woResult['status'] ?? '') === 'exists') {
+            $_SESSION['flash'] = ['ok', 'Completion verified. Existing work order ' . ($woResult['work_order_id'] ?? '') . ' already linked.'];
+        } else {
+            $_SESSION['flash'] = ['ok', 'Completion verified - report closed.'];
+        }
     }
     elseif ($act === 'return_to_progress') {
-        updateDefectReport($_POST['report_id'], ['status' => 'in_progress']);
+        updateDefectReport($reportId, ['status' => 'in_progress']);
         $_SESSION['flash'] = ['ok', 'Report returned to In Progress.'];
     }
     elseif ($act === 'delete') {
-        deleteDefectReport($_POST['report_id']);
+        deleteDefectReport($reportId);
         $_SESSION['flash'] = ['ok', 'Report deleted.'];
     }
 
@@ -108,8 +414,8 @@ if (isset($_GET['view_id'])) {
 /* ─── COUNTS ───────────────────────────────────────────── */
 function cnt($arr, $fn) { return count(array_filter($arr, $fn)); }
 $c_all  = count($all_raw);
-$c_pend = cnt($all_raw, fn($r)=>$r['status']==='reported');
-$c_app  = cnt($all_raw, fn($r)=>$r['status']==='assigned');
+$c_pend = cnt($all_raw, fn($r)=>in_array($r['status'],['reported','dean_review','finance_review','on_hold_budget'], true));
+$c_app  = cnt($all_raw, fn($r)=>in_array($r['status'],['ready_for_assignment','assigned'], true));
 $c_prog = cnt($all_raw, fn($r)=>$r['status']==='in_progress');
 $c_done = cnt($all_raw, fn($r)=>in_array($r['status'],['completed','verified','closed']));
 $c_rej  = cnt($all_raw, fn($r)=>$r['status']==='rejected');
@@ -118,6 +424,10 @@ $c_crit = cnt($all_raw, fn($r)=>$r['priority']==='critical'&&!in_array($r['statu
 /* ─── KANBAN COLUMNS ───────────────────────────────────── */
 $cols = [
     'reported'    => ['label'=>'Pending Verification', 'icon'=>'hourglass-half',  'color'=>'#D97706', 'bg'=>'#FFFBEB', 'bdr'=>'#FDE68A'],
+    'dean_review' => ['label'=>'Dean Approval',       'icon'=>'user-tie',        'color'=>'#0F766E', 'bg'=>'#ECFEFF', 'bdr'=>'#A5F3FC'],
+    'finance_review' => ['label'=>'Finance Review',   'icon'=>'wallet',          'color'=>'#166534', 'bg'=>'#F0FDF4', 'bdr'=>'#BBF7D0'],
+    'on_hold_budget' => ['label'=>'Budget Hold',      'icon'=>'pause-circle',    'color'=>'#B45309', 'bg'=>'#FFF7ED', 'bdr'=>'#FED7AA'],
+    'ready_for_assignment' => ['label'=>'Ready to Assign', 'icon'=>'user-plus', 'color'=>'#2563EB', 'bg'=>'#EFF6FF', 'bdr'=>'#BFDBFE'],
     'assigned'    => ['label'=>'Approved',             'icon'=>'check-double',    'color'=>'#2563EB', 'bg'=>'#EFF6FF', 'bdr'=>'#BFDBFE'],
     'in_progress' => ['label'=>'In Progress',          'icon'=>'wrench',          'color'=>'#7C3AED', 'bg'=>'#F5F3FF', 'bdr'=>'#DDD6FE'],
     'completed'   => ['label'=>'Completed',            'icon'=>'check-circle',    'color'=>'#16A34A', 'bg'=>'#F0FDF4', 'bdr'=>'#BBF7D0'],
@@ -132,11 +442,11 @@ $kanban['completed'] = array_values(array_filter($all_raw,
     fn($r) => in_array($r['status'], ['completed','verified','closed'])));
 
 /* ─── HELPERS ──────────────────────────────────────────── */
-function stCls($s){return['reported'=>'pend','assigned'=>'prog','in_progress'=>'prog2','completed'=>'done','verified'=>'done','closed'=>'done','rejected'=>'rej'][$s]??'pend';}
-function stLbl($s){return['reported'=>'Pending','assigned'=>'Approved','in_progress'=>'In Progress','completed'=>'Completed','verified'=>'Verified','closed'=>'Closed','rejected'=>'Rejected'][$s]??ucfirst(str_replace('_',' ',$s));}
+function stCls($s){return['reported'=>'pend','dean_review'=>'prog','finance_review'=>'prog','on_hold_budget'=>'pend','ready_for_assignment'=>'prog','assigned'=>'prog','in_progress'=>'prog2','completed'=>'done','verified'=>'done','closed'=>'done','rejected'=>'rej'][$s]??'pend';}
+function stLbl($s){return['reported'=>'Pending','dean_review'=>'Dean Approval','finance_review'=>'Finance Review','on_hold_budget'=>'Budget Hold','ready_for_assignment'=>'Ready to Assign','assigned'=>'Assigned','in_progress'=>'In Progress','completed'=>'Completed','verified'=>'Verified','closed'=>'Closed','rejected'=>'Rejected'][$s]??ucfirst(str_replace('_',' ',$s));}
 function prCls($p){return['critical'=>'crit','high'=>'hi','medium'=>'med','low'=>'lo'][$p]??'lo';}
 function prLbl($p){return ucfirst($p??'—');}
-function esc($s){return htmlspecialchars((string)($s??'�'),ENT_QUOTES,'UTF-8');}
+function esc($s){return htmlspecialchars((string)($s ?? '—'), ENT_QUOTES, 'UTF-8');}
 function photoListFromRow($row){
   $photos = [];
   if (!empty($row['photo_url'])) $photos[] = (string)$row['photo_url'];
@@ -149,6 +459,20 @@ function photoListFromRow($row){
         foreach ($dec as $p) $photos[] = (string)$p;
       } else {
         $photos[] = $raw;
+      }
+    }
+  }
+  $reportId = trim((string)($row['report_id'] ?? ''));
+  if ($reportId !== '') {
+    foreach ([
+      __DIR__ . '/uploads/reports/' . $reportId . '.*',
+      __DIR__ . '/uploads/defect_reports/' . $reportId . '.*',
+      __DIR__ . '/uploads/defect_photos/' . $reportId . '.*',
+    ] as $pattern) {
+      foreach (glob($pattern) ?: [] as $match) {
+        if (is_file($match)) {
+          $photos[] = str_replace('\\', '/', ltrim(str_replace(__DIR__, '', $match), '\\/'));
+        }
       }
     }
   }
@@ -834,6 +1158,10 @@ textarea.fc{resize:vertical;min-height:70px;}
       <select class="fsel" id="fss" onchange="go()">
         <option value="all" <?php echo $sf==='all'?'selected':''; ?>>All Status</option>
         <option value="reported"    <?php echo $sf==='reported'?'selected':''; ?>>Pending Verify</option>
+        <option value="dean_review" <?php echo $sf==='dean_review'?'selected':''; ?>>Dean Approval</option>
+        <option value="finance_review" <?php echo $sf==='finance_review'?'selected':''; ?>>Finance Review</option>
+        <option value="on_hold_budget" <?php echo $sf==='on_hold_budget'?'selected':''; ?>>Budget Hold</option>
+        <option value="ready_for_assignment" <?php echo $sf==='ready_for_assignment'?'selected':''; ?>>Ready to Assign</option>
         <option value="assigned"    <?php echo $sf==='assigned'?'selected':''; ?>>Approved</option>
         <option value="in_progress" <?php echo $sf==='in_progress'?'selected':''; ?>>In Progress</option>
         <option value="completed"   <?php echo $sf==='completed'?'selected':''; ?>>Completed</option>
@@ -1015,6 +1343,25 @@ textarea.fc{resize:vertical;min-height:70px;}
           <div class="notes-box"><?php echo nl2br(esc($vr['admin_notes'])); ?></div>
         </div>
         <?php endif; ?>        <!-- Photo -->
+        <?php if(!empty($vr['pmo_notes'])): ?>
+        <div style="margin-top:.75rem;">
+          <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:.4rem;">PMO Notes</div>
+          <div class="notes-box"><?php echo nl2br(esc($vr['pmo_notes'])); ?></div>
+        </div>
+        <?php endif; ?>
+        <?php if(!empty($vr['dean_notes'])): ?>
+        <div style="margin-top:.75rem;">
+          <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:.4rem;">Dean Notes</div>
+          <div class="notes-box"><?php echo nl2br(esc($vr['dean_notes'])); ?></div>
+        </div>
+        <?php endif; ?>
+        <?php if(!empty($vr['finance_notes'])): ?>
+        <div style="margin-top:.75rem;">
+          <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:.4rem;">Finance Notes</div>
+          <div class="notes-box"><?php echo nl2br(esc($vr['finance_notes'])); ?></div>
+        </div>
+        <?php endif; ?>
+        <!-- Photo -->
         <?php $vrPhotoList = !empty($vr['photo_urls']) ? $vr['photo_urls'] : (!empty($vr['photo_url']) ? [$vr['photo_url']] : []); if(!empty($vrPhotoList)): ?>
         <div style="margin-top:.875rem;">
           <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:.4rem;">
@@ -1068,9 +1415,8 @@ textarea.fc{resize:vertical;min-height:70px;}
         <?php if($vr['status']==='reported'): ?>
         <!-- APPROVE -->
         <div class="af af-approve" id="approveAf">
-          <div class="af-title"><i class="fas fa-check-circle"></i> Approve & Categorise</div>
+          <div class="af-title"><i class="fas fa-check-circle"></i> Admin Review</div>
           <form method="POST" action="?view_id=<?php echo $vr['report_id'];?>&view=<?php echo $vw;?>">
-            <input type="hidden" name="action" value="approve">
             <input type="hidden" name="report_id" value="<?php echo esc($vr['report_id']);?>">
             <div class="fg2">
               <div class="fg">
@@ -1097,7 +1443,8 @@ textarea.fc{resize:vertical;min-height:70px;}
               <textarea name="admin_notes" class="fc" placeholder="Instructions or observations…"></textarea>
             </div>
             <div class="af-actions">
-              <button type="submit" class="btn btn-green btn-sm"><i class="fas fa-check"></i> Approve</button>
+              <button type="submit" name="action" value="submit_for_dean" class="btn btn-green btn-sm"><i class="fas fa-paper-plane"></i> Send to Dean</button>
+              <button type="submit" name="action" value="approve" class="btn btn-maroon btn-sm"><i class="fas fa-check"></i> Direct Approve</button>
               <button type="button" class="btn btn-ghost btn-sm" onclick="toggleReject()"><i class="fas fa-times"></i> Reject Instead</button>
             </div>
           </form>
@@ -1117,6 +1464,88 @@ textarea.fc{resize:vertical;min-height:70px;}
               <button type="button" class="btn btn-ghost btn-sm" onclick="toggleReject()">Cancel</button>
             </div>
           </form>
+        </div>
+
+        <?php elseif($vr['status']==='dean_review'): ?>
+        <div class="af af-approve">
+          <div class="af-title"><i class="fas fa-user-tie"></i> Dean Approval Stage</div>
+          <form method="POST" action="?view_id=<?php echo $vr['report_id'];?>&view=<?php echo $vw;?>">
+            <input type="hidden" name="action" value="dean_approve">
+            <input type="hidden" name="report_id" value="<?php echo esc($vr['report_id']);?>">
+            <div class="fg">
+              <label class="fl">Dean Notes</label>
+              <textarea name="dean_notes" class="fc" placeholder="Decision notes for the Dean approval stage…"></textarea>
+            </div>
+            <div class="af-actions">
+              <button type="submit" class="btn btn-green btn-sm"><i class="fas fa-check"></i> Approve and Send to Finance</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="toggleReject()">Reject Instead</button>
+            </div>
+          </form>
+        </div>
+        <div class="af af-reject" id="rejectAf" style="display:none;margin-top:.6rem;">
+          <div class="af-title"><i class="fas fa-times-circle"></i> Reject During Dean Review</div>
+          <form method="POST" action="?view_id=<?php echo $vr['report_id'];?>&view=<?php echo $vw;?>">
+            <input type="hidden" name="action" value="dean_reject">
+            <input type="hidden" name="report_id" value="<?php echo esc($vr['report_id']);?>">
+            <div class="fg">
+              <label class="fl">Rejection Reason <span>*</span></label>
+              <textarea name="dean_notes" class="fc" placeholder="Explain why the request is not approved…" required></textarea>
+            </div>
+            <div class="af-actions">
+              <button type="submit" class="btn btn-red btn-sm"><i class="fas fa-times"></i> Confirm Rejection</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="toggleReject()">Cancel</button>
+            </div>
+          </form>
+        </div>
+
+        <?php elseif(in_array($vr['status'],['finance_review','on_hold_budget'], true)): ?>
+        <div class="af af-verify">
+          <div class="af-title"><i class="fas fa-wallet"></i> Finance Review Stage</div>
+          <form method="POST" action="?view_id=<?php echo $vr['report_id'];?>&view=<?php echo $vw;?>">
+            <input type="hidden" name="action" value="finance_approve">
+            <input type="hidden" name="report_id" value="<?php echo esc($vr['report_id']);?>">
+            <div class="fg">
+              <label class="fl">Finance Notes</label>
+              <textarea name="finance_notes" class="fc" placeholder="Budget decision notes…"></textarea>
+            </div>
+            <div class="af-actions">
+              <button type="submit" class="btn btn-green btn-sm"><i class="fas fa-check-circle"></i> Approve Budget</button>
+              <?php if($vr['status']==='finance_review'): ?>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="toggleReject()"><i class="fas fa-pause"></i> Place on Hold</button>
+              <?php else: ?>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('resumeFrm').submit()"><i class="fas fa-play"></i> Resume Review</button>
+              <?php endif; ?>
+            </div>
+          </form>
+          <?php if($vr['status']==='finance_review'): ?>
+          <form id="rejectAf" method="POST" action="?view_id=<?php echo $vr['report_id'];?>&view=<?php echo $vw;?>" style="display:none;margin-top:.6rem;">
+            <input type="hidden" name="action" value="finance_hold">
+            <input type="hidden" name="report_id" value="<?php echo esc($vr['report_id']);?>">
+            <div class="fg">
+              <label class="fl">Budget Hold Notes <span>*</span></label>
+              <textarea name="finance_notes" class="fc" placeholder="Explain the budget hold…" required></textarea>
+            </div>
+            <div class="af-actions">
+              <button type="submit" class="btn btn-red btn-sm"><i class="fas fa-pause"></i> Confirm Hold</button>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="toggleReject()">Cancel</button>
+            </div>
+          </form>
+          <?php else: ?>
+          <form id="resumeFrm" method="POST" action="?view_id=<?php echo $vr['report_id'];?>&view=<?php echo $vw;?>" style="display:none;">
+            <input type="hidden" name="action" value="resume_finance_review">
+            <input type="hidden" name="report_id" value="<?php echo esc($vr['report_id']);?>">
+            <input type="hidden" name="finance_notes" value="Budget hold cleared from the admin workflow.">
+          </form>
+          <?php endif; ?>
+        </div>
+
+        <?php elseif($vr['status']==='ready_for_assignment'): ?>
+        <div class="af af-approve">
+          <div class="af-title"><i class="fas fa-user-plus"></i> Ready for Technician Assignment</div>
+          <div class="notes-box" style="margin-bottom:.75rem;">This report has completed the approval flow and is now ready for technician assignment.</div>
+          <div class="af-actions">
+            <a href="admin_assign_technicians.php?report=<?php echo $vr['report_id'];?>" class="btn btn-maroon btn-sm"><i class="fas fa-user-plus"></i> Assign Technician</a>
+          </div>
         </div>
 
         <?php elseif($vr['status']==='completed'): ?>
@@ -1390,6 +1819,8 @@ function toast(type, msg, title) {
 </script>
 </body>
 </html>
+
+
 
 
 

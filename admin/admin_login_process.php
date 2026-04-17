@@ -151,7 +151,7 @@ function verifyLogin() {
         error_log("DEBUG: Admin login successful for email: $email, returning success");
         echo json_encode([
             'success' => true,
-            'message' => 'OTP sent successfully. Please check your email.',
+            'message' => ($otp_result['message'] ?? 'OTP sent successfully. Please check your email.'),
             'data' => [
                 'email' => $email,
                 'require_otp' => true
@@ -303,7 +303,7 @@ function resendOTP() {
 
     echo json_encode([
         'success' => true,
-        'message' => 'New OTP sent successfully. Please check your email.'
+        'message' => ($otp_result['message'] ?? 'New OTP sent successfully. Please check your email.')
     ]);
     exit();
 }
@@ -469,6 +469,7 @@ function checkSession() {
 }
 
 ?>
+
 
 
 

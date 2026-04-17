@@ -32,7 +32,7 @@ $email = trim($data['email']);
 $role = isset($data['role']) ? trim($data['role']) : 'admin';
 
 // Validate role - Include all roles including student
-$allowed_roles = ['admin', 'handler', 'technician', 'student', 'faculty', 'guest'];
+$allowed_roles = ['admin', 'pmo', 'dean', 'finance', 'handler', 'technician', 'student', 'faculty', 'guest'];
 if (!in_array($role, $allowed_roles)) {
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'Invalid role']);

@@ -4,27 +4,40 @@
  * Uses direct SMTP connection with TLS authentication
  */
 
+require_once __DIR__ . '/../config/database.php';
+
 function sendEmail($to, $subject, $message, $settings = null, $role = 'admin') {
-    // Get role-based email settings
-    $email_settings = $settings ?: getEmailSettingsByRole($role);
+    // If explicit settings are provided, use them directly.
+    if ($settings) {
+        $smtp_result = sendEmailSMTP($to, $subject, $message, $settings);
+        if ($smtp_result) {
+            return true;
+        }
 
-    // Try SMTP first, fall back to PHP mail() if it fails
-    $smtp_result = sendEmailSMTP($to, $subject, $message, $email_settings);
-
-    if ($smtp_result) {
-        return true;
+        error_log("SMTP failed, falling back to PHP mail() function");
+        return sendEmailPHP($to, $subject, $message, $settings);
     }
 
-    // Fallback to PHP mail() function
-    error_log("SMTP failed, falling back to PHP mail() function");
-    return sendEmailPHP($to, $subject, $message, $email_settings);
+    // Try all configured SMTP accounts for the role (primary + additional accounts).
+    $email_candidates = getEmailSettingsCandidatesByRole($role);
+    foreach ($email_candidates as $index => $email_settings) {
+        if (sendEmailSMTP($to, $subject, $message, $email_settings)) {
+            return true;
+        }
+        error_log("SMTP failed for role {$role} account index {$index}");
+    }
+
+    // Final fallback to PHP mail() using the first candidate.
+    $fallback_settings = $email_candidates[0] ?? getEmailSettingsByRole($role);
+    error_log("All SMTP accounts failed, falling back to PHP mail() function");
+    return sendEmailPHP($to, $subject, $message, $fallback_settings);
 }
 
-function getEmailSettingsByRole($role = 'admin') {
+function getEmailSettingsCandidatesByRole($role = 'admin') {
     $settings_file = __DIR__ . '/../data/system_settings.json';
     if (!file_exists($settings_file)) {
         error_log("Settings file not found: $settings_file");
-        return null;
+        return [];
     }
 
     $settings = json_decode(file_get_contents($settings_file), true);
@@ -38,9 +51,33 @@ function getEmailSettingsByRole($role = 'admin') {
     $role_key = strtolower((string)$role);
     $role_settings = $email_config[$role_key] ?? [];
 
-    return array_merge($base_settings, $role_settings);
+    $candidates = [];
+
+    if (!empty($role_settings['smtp_accounts']) && is_array($role_settings['smtp_accounts'])) {
+        foreach ($role_settings['smtp_accounts'] as $account) {
+            if (!is_array($account)) {
+                continue;
+            }
+            $candidates[] = array_merge($base_settings, $role_settings, $account);
+        }
+    }
+
+    if (empty($candidates)) {
+        $candidates[] = array_merge($base_settings, $role_settings);
+    }
+
+    foreach ($candidates as &$candidate) {
+        unset($candidate['smtp_accounts']);
+    }
+    unset($candidate);
+
+    return $candidates;
 }
 
+function getEmailSettingsByRole($role = 'admin') {
+    $candidates = getEmailSettingsCandidatesByRole($role);
+    return $candidates[0] ?? null;
+}
 function sendEmailSMTP($to, $subject, $message, $settings = null) {
     if (!$settings) {
         $settings_file = __DIR__ . '/../data/system_settings.json';
@@ -571,8 +608,8 @@ function sendPasswordResetEmail($email, $reset_link) {
                     <div class="footer-brand">?? BATANGAS EASTERN COLLEGES</div>
                     <div class="footer-divider"></div>
                     <p class="footer-text">
-                        © {$year} Batangas Eastern Colleges. All rights reserved.<br>
-                        This is an automated message — please do not reply to this email.
+                        Â© {$year} Batangas Eastern Colleges. All rights reserved.<br>
+                        This is an automated message â€” please do not reply to this email.
                     </p>
                 </div>
 
@@ -584,3 +621,132 @@ HTML;
 
     return sendEmail($email, $subject, $message);
 }
+
+function getActiveRoleEmailRecipients(array $roles): array {
+    $roles = array_values(array_filter(array_map(
+        static fn($role) => strtolower(trim((string)$role)),
+        $roles
+    )));
+
+    if ($roles === []) {
+        return [];
+    }
+
+    $placeholders = implode(',', array_fill(0, count($roles), '?'));
+    $typeString = str_repeat('s', count($roles));
+
+    $conn = getDBConnection();
+    $sql = "SELECT user_id, fullname, email, role
+            FROM users
+            WHERE role IN ($placeholders)
+              AND status = 'active'
+              AND email IS NOT NULL
+              AND email != ''
+            ORDER BY fullname ASC";
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) {
+        error_log('getActiveRoleEmailRecipients() prepare failed: ' . $conn->error);
+        return [];
+    }
+
+    $stmt->bind_param($typeString, ...$roles);
+    $stmt->execute();
+    $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
+
+    return array_values(array_filter($rows, static function ($row) {
+        return filter_var((string)($row['email'] ?? ''), FILTER_VALIDATE_EMAIL);
+    }));
+}
+
+function sendDefectWorkflowEmail(array $report, array $targetRoles, string $subject, string $headline, string $summary, array $options = []): array {
+    $recipients = getActiveRoleEmailRecipients($targetRoles);
+    if ($recipients === []) {
+        return ['sent' => 0, 'failed' => 0, 'recipients' => []];
+    }
+
+    $reportId = trim((string)($report['report_id'] ?? 'N/A'));
+    $equipmentName = trim((string)($report['equipment_name'] ?? 'Equipment'));
+    $assetTag = trim((string)($report['asset_tag'] ?? 'Not specified'));
+    $category = trim((string)($report['category_name'] ?? $report['category'] ?? 'Not specified'));
+    $location = trim((string)($report['location'] ?? 'Not specified'));
+    $priority = ucfirst(trim((string)($report['priority'] ?? 'medium')));
+    $statusRaw = trim((string)($report['status'] ?? 'reported'));
+    $statusLabel = function_exists('defectStatusLabel')
+        ? defectStatusLabel($statusRaw)
+        : ucwords(str_replace('_', ' ', $statusRaw));
+    $reportDate = trim((string)($report['report_date'] ?? date('Y-m-d H:i:s')));
+    $reporterName = trim((string)($report['reporter_name'] ?? $report['reported_by'] ?? 'Not specified'));
+    $department = trim((string)($report['department_assigned'] ?? 'Not yet assigned'));
+    $issueDescription = nl2br(htmlspecialchars(trim((string)($report['issue_description'] ?? 'No description provided.'))));
+    $requestedAction = trim((string)($options['requested_action'] ?? 'Please review this report and record your decision in the system at the earliest opportunity.'));
+    $notesLabel = trim((string)($options['notes_label'] ?? 'Workflow Notes'));
+    $notes = trim((string)($options['notes'] ?? ''));
+
+    $notesSection = '';
+    if ($notes !== '') {
+        $notesSection = '
+            <div style="margin-top:18px;padding:14px 16px;background:#f8f1eb;border:1px solid #ead9cd;border-radius:10px;">
+                <div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#7a5a49;margin-bottom:6px;">' . htmlspecialchars($notesLabel) . '</div>
+                <div style="font-size:14px;line-height:1.65;color:#2f221d;">' . nl2br(htmlspecialchars($notes)) . '</div>
+            </div>';
+    }
+
+    $message = '
+    <html>
+    <body style="margin:0;padding:24px;background:#f4efe9;font-family:Arial,sans-serif;color:#241713;">
+        <div style="max-width:760px;margin:0 auto;background:#ffffff;border:1px solid #e7d8cc;border-radius:18px;overflow:hidden;">
+            <div style="padding:24px 28px;background:linear-gradient(135deg,#6f1d1b,#9f3b2e);color:#ffffff;">
+                <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;opacity:.82;">BEC Equipment Management System</div>
+                <h1 style="margin:10px 0 8px;font-size:26px;line-height:1.25;">' . htmlspecialchars($headline) . '</h1>
+                <p style="margin:0;font-size:15px;line-height:1.65;opacity:.94;">' . htmlspecialchars($summary) . '</p>
+            </div>
+            <div style="padding:24px 28px;">
+                <p style="margin:0 0 16px;font-size:14px;line-height:1.7;">Good day. This is a formal notification regarding an equipment defect report that requires monitoring for verification and approval within the established workflow.</p>
+                <table style="width:100%;border-collapse:collapse;">
+                    <tr><td style="padding:10px 0;border-bottom:1px solid #efe3da;font-weight:700;width:34%;">Report ID</td><td style="padding:10px 0;border-bottom:1px solid #efe3da;">' . htmlspecialchars($reportId) . '</td></tr>
+                    <tr><td style="padding:10px 0;border-bottom:1px solid #efe3da;font-weight:700;">Equipment</td><td style="padding:10px 0;border-bottom:1px solid #efe3da;">' . htmlspecialchars($equipmentName) . '</td></tr>
+                    <tr><td style="padding:10px 0;border-bottom:1px solid #efe3da;font-weight:700;">Asset Tag</td><td style="padding:10px 0;border-bottom:1px solid #efe3da;">' . htmlspecialchars($assetTag) . '</td></tr>
+                    <tr><td style="padding:10px 0;border-bottom:1px solid #efe3da;font-weight:700;">Category</td><td style="padding:10px 0;border-bottom:1px solid #efe3da;">' . htmlspecialchars($category) . '</td></tr>
+                    <tr><td style="padding:10px 0;border-bottom:1px solid #efe3da;font-weight:700;">Location</td><td style="padding:10px 0;border-bottom:1px solid #efe3da;">' . htmlspecialchars($location) . '</td></tr>
+                    <tr><td style="padding:10px 0;border-bottom:1px solid #efe3da;font-weight:700;">Priority</td><td style="padding:10px 0;border-bottom:1px solid #efe3da;">' . htmlspecialchars($priority) . '</td></tr>
+                    <tr><td style="padding:10px 0;border-bottom:1px solid #efe3da;font-weight:700;">Current Status</td><td style="padding:10px 0;border-bottom:1px solid #efe3da;">' . htmlspecialchars($statusLabel) . '</td></tr>
+                    <tr><td style="padding:10px 0;border-bottom:1px solid #efe3da;font-weight:700;">Department</td><td style="padding:10px 0;border-bottom:1px solid #efe3da;">' . htmlspecialchars($department) . '</td></tr>
+                    <tr><td style="padding:10px 0;border-bottom:1px solid #efe3da;font-weight:700;">Reported By</td><td style="padding:10px 0;border-bottom:1px solid #efe3da;">' . htmlspecialchars($reporterName) . '</td></tr>
+                    <tr><td style="padding:10px 0;font-weight:700;">Report Date</td><td style="padding:10px 0;">' . htmlspecialchars($reportDate) . '</td></tr>
+                </table>
+                <div style="margin-top:18px;padding:16px;border:1px solid #ead9cd;border-radius:10px;background:#fcf8f5;">
+                    <div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#7a5a49;margin-bottom:8px;">Defect Details</div>
+                    <div style="font-size:14px;line-height:1.7;color:#2f221d;">' . $issueDescription . '</div>
+                </div>'
+                . $notesSection .
+                '<div style="margin-top:18px;padding:16px;border-radius:10px;background:#eef6ff;border:1px solid #cfe0ff;">
+                    <div style="font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#284b8f;margin-bottom:8px;">Requested Action</div>
+                    <div style="font-size:14px;line-height:1.7;color:#1f2d3d;">' . htmlspecialchars($requestedAction) . '</div>
+                </div>
+                <p style="margin:20px 0 0;font-size:14px;line-height:1.7;">Thank you for your prompt attention to this matter.</p>
+                <p style="margin:18px 0 0;font-size:14px;line-height:1.7;">Sincerely,<br><strong>BEC Equipment Management System</strong></p>
+            </div>
+        </div>
+    </body>
+    </html>';
+
+    $sent = 0;
+    $failed = 0;
+    foreach ($recipients as $recipient) {
+        $ok = sendEmail((string)$recipient['email'], $subject, $message, null, 'admin');
+        if ($ok) {
+            $sent++;
+        } else {
+            $failed++;
+        }
+    }
+
+    return [
+        'sent' => $sent,
+        'failed' => $failed,
+        'recipients' => array_column($recipients, 'email'),
+    ];
+}
+
+

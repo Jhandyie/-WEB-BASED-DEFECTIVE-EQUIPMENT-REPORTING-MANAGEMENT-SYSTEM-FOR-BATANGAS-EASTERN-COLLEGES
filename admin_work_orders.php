@@ -29,6 +29,7 @@ $woIssueExpr = isset($drCols['issue_description']) ? 'd.issue_description' : (is
 $woPrioExpr  = isset($drCols['priority']) ? 'd.priority' : "'medium'";
 $woDeptExpr  = isset($drCols['department_assigned']) ? 'd.department_assigned' : "''";
 $woEqJoin    = isset($drCols['equipment_name']) ? '' : 'LEFT JOIN equipment e ON e.equipment_id = d.equipment_id';
+$drHasWorkOrderId = isset($drCols['work_order_id']);
 
 $eligEqExpr    = isset($drCols['equipment_name']) ? 'r.equipment_name' : "COALESCE(er.equipment_name, r.equipment_id)";
 $eligIssueExpr = isset($drCols['issue_description']) ? 'r.issue_description' : (isset($drCols['defect_description']) ? 'r.defect_description' : "''");
@@ -74,7 +75,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->bind_param('sssssssss', $wo_id, $rid, $title, $dept, $prio, $due, $tech, $notes, $admin_id);
             $stmt->execute();
             if ($rid) {
-                $conn->query("UPDATE defect_reports SET status='in_progress', work_order_id='$wo_id' WHERE report_id='".mysqli_real_escape_string($conn,$rid)."'");
+                $setSql = "status='in_progress'";
+                if ($drHasWorkOrderId) {
+                    $setSql .= ", work_order_id='" . mysqli_real_escape_string($conn, $wo_id) . "'";
+                }
+                $syncSql = "UPDATE defect_reports SET {$setSql} WHERE report_id='" . mysqli_real_escape_string($conn, $rid) . "'";
+                if (!$conn->query($syncSql)) {
+                    throw new Exception('Failed to sync report status: ' . $conn->error);
+                }
             }
             if ($tech) {
                 $msg = "Work order $wo_id assigned to you.";
@@ -419,6 +427,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .tbl tbody tr{transition:background .1s,transform .1s;}
 .tbl tbody tr:hover td{background:var(--s2);}
 .tbl tbody tr:hover{transform:translateX(2px);}
+.wo-row{cursor:pointer;}
+.wo-row:focus-visible{outline:2px solid var(--g2);outline-offset:-2px;}
 .woid{font-family:'Outfit',sans-serif;font-weight:800;color:var(--m3);font-size:.78rem;}
 .en{font-weight:700;}.esl{font-size:.64rem;color:var(--t3);}
 
@@ -736,7 +746,7 @@ textarea.fc{resize:vertical;min-height:72px;}
             $overdue = isOverdue($w);
             $dl = daysLeft($w['due_date'] ?? null);
           ?>
-          <tr>
+          <tr class="wo-row" tabindex="0" role="button" aria-label="Open work order details" data-woid="<?php echo esc($w['work_order_id']); ?>" onclick="location.href='admin_work_orders.php?view=<?php echo urlencode($w['work_order_id']); ?>';" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();location.href='admin_work_orders.php?view=<?php echo urlencode($w['work_order_id']); ?>';}">
             <td><span class="woid"><?php echo esc($w['work_order_id']); ?></span></td>
             <td>
               <div class="en" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
@@ -745,7 +755,7 @@ textarea.fc{resize:vertical;min-height:72px;}
             </td>
             <td>
               <?php if(!empty($w['report_id'])): ?>
-              <a href="admin_defect_reports.php?view_id=<?php echo esc($w['report_id']); ?>"
+              <a href="admin_defect_reports.php?view_id=<?php echo esc($w['report_id']); ?>" onclick="event.stopPropagation()"
                 style="font-family:'Outfit',sans-serif;font-weight:800;font-size:.75rem;color:var(--m3);text-decoration:none;">
                 <?php echo esc($w['report_id']); ?>
               </a>
@@ -780,15 +790,15 @@ textarea.fc{resize:vertical;min-height:72px;}
             <td style="text-align:center;">
               <div style="display:flex;gap:.25rem;justify-content:center;">
                 <button class="btn bico bi-v" title="View Details"
-                  onclick="openView(<?php echo htmlspecialchars(json_encode($w), ENT_QUOTES); ?>)">
+                  onclick="event.stopPropagation();openViewById('<?php echo esc($w['work_order_id']); ?>')">
                   <i class="fas fa-eye"></i>
                 </button>
                 <button class="btn bico bi-e" title="Update Status"
-                  onclick="openStatus('<?php echo esc($w['work_order_id']); ?>','<?php echo esc($w['status']); ?>')">
+                  onclick="event.stopPropagation();openStatus('<?php echo esc($w['work_order_id']); ?>','<?php echo esc($w['status']); ?>')">
                   <i class="fas fa-edit"></i>
                 </button>
                 <button class="btn bico bi-d" title="Delete"
-                  onclick="delWO('<?php echo esc($w['work_order_id']); ?>')">
+                  onclick="event.stopPropagation();delWO('<?php echo esc($w['work_order_id']); ?>')">
                   <i class="fas fa-trash"></i>
                 </button>
               </div>
@@ -1070,6 +1080,8 @@ function toggleExport(e){
 document.addEventListener('click',()=>{const m=document.getElementById('expMenu');if(m)m.style.display='none';});
 
 /* ─── TABLE DATA ─────────────────────────────────────── */
+const workOrdersMap = <?php echo json_encode($all_wos, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_INVALID_UTF8_SUBSTITUTE); ?>;
+const preselectedWO = <?php echo $vwo ? json_encode($vwo, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_INVALID_UTF8_SUBSTITUTE) : 'null'; ?>;
 function getRows(){
   const hdrs=['WO ID','Title','Linked Report','Equipment','Technician','Priority','Status','Department','Due Date'];
   const rows=[];
@@ -1144,6 +1156,12 @@ function repChanged(sel){
 }
 
 /* ─── VIEW MODAL ────────────────────────────────────── */
+function openViewById(woid){
+  const list = Array.isArray(workOrdersMap) ? workOrdersMap : [];
+  const w = list.find(x => (x.work_order_id || '') === woid);
+  if (!w) return;
+  openView(w);
+}
 function openView(w){
   document.getElementById('vWoid').textContent=w.work_order_id;
   document.getElementById('vCreated').textContent='Created '+fmtDate(w.created_at);
@@ -1253,9 +1271,59 @@ function toast(type,msg,title){
   document.getElementById('ttray').appendChild(el);
   setTimeout(()=>{el.style.transition='opacity .3s';el.style.opacity='0';setTimeout(()=>el.remove(),300);},4000);
 }
+
+
+document.addEventListener('DOMContentLoaded', ()=>{
+  const table = document.getElementById('woTbl');
+  if (!table) return;
+
+  table.querySelectorAll('tbody tr.wo-row').forEach((row)=>{
+    const id = row.getAttribute('data-woid') || '';
+    if (!id) return;
+
+    row.querySelectorAll('td').forEach((td, idx)=>{
+      const isActionsCol = (idx === 9);
+      if (isActionsCol) return;
+      td.style.cursor = 'pointer';
+      td.addEventListener('click', ()=> openViewById(id));
+    });
+
+    row.addEventListener('keydown', (ev)=>{
+      if (ev.key === 'Enter' || ev.key === ' ') {
+        ev.preventDefault();
+        openViewById(id);
+      }
+    });
+  });
+
+  if (preselectedWO) {
+    openView(preselectedWO);
+  }
+});
 </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

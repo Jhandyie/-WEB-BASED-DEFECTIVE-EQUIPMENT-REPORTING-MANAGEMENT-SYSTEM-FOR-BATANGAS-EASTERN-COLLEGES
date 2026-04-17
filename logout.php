@@ -22,7 +22,7 @@ foreach (['admin', 'technician', 'student', 'main'] as $ctx) {
 
 switch ($role) {
     case 'admin':
-        header('Location: admin/login.html?success=' . urlencode('Logged out successfully'));
+        header('Location: admin/admin_login_otp.html?success=' . urlencode('Logged out successfully'));
         break;
     case 'handler':
         header('Location: handler/login.html?success=' . urlencode('Logged out successfully'));

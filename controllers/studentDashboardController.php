@@ -1,536 +1,542 @@
 <?php
-/**
- * Student Dashboard Controller
- * Handles all backend logic for student dashboard functionality
- */
 
 require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../models/DefectReport.php';
+require_once __DIR__ . '/../includes/notification_helper.php';
 
-class StudentDashboardController {
-    private $db;
-    private $defectReport;
-    
-    public function __construct() {
-        $database = Database::getInstance();
-        $this->db = $database->getConnection();
-        $this->defectReport = new DefectReport($this->db);
+class StudentDashboardController
+{
+    private mysqli $conn;
+
+    public function __construct()
+    {
+        $this->conn = getDBConnection();
     }
-    
-    /**
-     * Get dashboard statistics for user
-     */
-    public function getDashboardStats($user_id) {
-        try {
-            // Get defect report statistics
-            $reportStats = $this->defectReport->getStatistics($user_id);
-            
-            // Get reservation statistics
-            $reservationStats = $this->getReservationStats($user_id);
-            
-            // Get equipment statistics (public)
-            $equipmentStats = $this->getEquipmentStats();
-            
-            // Get notification count
-            $notificationCount = $this->getUnreadNotificationCount($user_id);
-            
+
+    public function getDashboardStats(string $userId): array
+    {
+        $reports = getUserDefectReports($userId);
+        $pending = 0;
+        $inProgress = 0;
+        $completed = 0;
+
+        foreach ($reports as $report) {
+            $status = $this->mapReportStatus((string)($report['status'] ?? 'reported'));
+            if ($status === 'pending') {
+                $pending++;
+            } elseif ($status === 'in_progress') {
+                $inProgress++;
+            } elseif ($status === 'completed') {
+                $completed++;
+            }
+        }
+
+        return [
+            'success' => true,
+            'data' => [
+                'reports' => [
+                    'total_reports' => count($reports),
+                    'pending_reports' => $pending,
+                    'in_progress_reports' => $inProgress,
+                    'completed_reports' => $completed,
+                ],
+                'notifications' => $this->getUnreadNotificationCount($userId),
+            ],
+        ];
+    }
+
+    public function getMyReports(string $userId, ?int $limit = null): array
+    {
+        $reports = array_map(fn($row) => $this->formatReport($row), getUserDefectReports($userId));
+        if ($limit !== null && $limit > 0) {
+            $reports = array_slice($reports, 0, $limit);
+        }
+
+        return ['success' => true, 'data' => $reports];
+    }
+
+    public function getRecentReports(int $limit = 5): array
+    {
+        $reports = array_map(fn($row) => $this->formatReport($row), getAllDefectReports());
+        return ['success' => true, 'data' => array_slice($reports, 0, max(1, $limit))];
+    }
+
+    public function getMyReservations(string $userId, ?int $limit = null): array
+    {
+        if (!$this->tableExists('reservations')) {
+            return ['success' => true, 'data' => []];
+        }
+
+        $equipmentIdCol = equipmentIdColumn($this->conn);
+        $sql = "SELECT r.*, e.equipment_name, COALESCE(e.asset_tag, e.{$equipmentIdCol}) AS asset_tag
+                FROM reservations r
+                LEFT JOIN equipment e ON r.equipment_id = e.{$equipmentIdCol}
+                WHERE r.user_id = ?
+                ORDER BY r.request_date DESC";
+
+        if ($limit !== null && $limit > 0) {
+            $sql .= " LIMIT " . (int)$limit;
+        }
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param('s', $userId);
+        $stmt->execute();
+        $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+
+        return ['success' => true, 'data' => $rows];
+    }
+
+    public function getNotifications(string $userId, int $limit = 10, bool $unreadOnly = false): array
+    {
+        if (!$this->tableExists('notifications')) {
+            return ['success' => true, 'data' => []];
+        }
+
+        $sql = "SELECT notification_id, message, type, related_id, is_read, created_date
+                FROM notifications
+                WHERE (user_id = ? OR user_id IS NULL)";
+        if ($unreadOnly) {
+            $sql .= " AND is_read = 0";
+        }
+        $sql .= " ORDER BY created_date DESC LIMIT ?";
+
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param('si', $userId, $limit);
+        $stmt->execute();
+        $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+
+        $data = array_map(function (array $row): array {
             return [
-                'success' => true,
-                'data' => [
-                    'reports' => $reportStats,
-                    'reservations' => $reservationStats,
-                    'equipment' => $equipmentStats,
-                    'notifications' => $notificationCount
-                ]
+                'id' => "'" . str_replace("'", "\\'", (string)$row['notification_id']) . "'",
+                'notification_id' => (string)$row['notification_id'],
+                'title' => $this->notificationTitle((string)($row['type'] ?? 'notification')),
+                'message' => (string)($row['message'] ?? ''),
+                'type' => (string)($row['type'] ?? 'notification'),
+                'related_id' => (string)($row['related_id'] ?? ''),
+                'is_read' => (int)($row['is_read'] ?? 0),
+                'created_at' => (string)($row['created_date'] ?? ''),
             ];
-            
-        } catch (Exception $e) {
-            return [
-                'success' => false,
-                'message' => $e->getMessage()
+        }, $rows);
+
+        return ['success' => true, 'data' => $data];
+    }
+
+    public function markNotificationRead(string $notificationId, string $userId): array
+    {
+        if (!$this->tableExists('notifications')) {
+            return ['success' => false, 'message' => 'Notifications are unavailable.'];
+        }
+
+        $stmt = $this->conn->prepare(
+            "UPDATE notifications
+             SET is_read = 1
+             WHERE notification_id = ? AND (user_id = ? OR user_id IS NULL)"
+        );
+        $stmt->bind_param('ss', $notificationId, $userId);
+        $ok = $stmt->execute();
+        $stmt->close();
+
+        return ['success' => (bool)$ok];
+    }
+
+    public function markAllNotificationsRead(string $userId): array
+    {
+        if (!$this->tableExists('notifications')) {
+            return ['success' => false, 'message' => 'Notifications are unavailable.'];
+        }
+
+        $stmt = $this->conn->prepare(
+            "UPDATE notifications
+             SET is_read = 1
+             WHERE (user_id = ? OR user_id IS NULL) AND is_read = 0"
+        );
+        $stmt->bind_param('s', $userId);
+        $ok = $stmt->execute();
+        $affected = $stmt->affected_rows;
+        $stmt->close();
+
+        return ['success' => (bool)$ok, 'count' => max(0, $affected)];
+    }
+
+    public function getAvailableEquipment(): array
+    {
+        $equipment = [];
+        foreach (getAllEquipment() as $row) {
+            $status = strtolower((string)($row['status'] ?? ''));
+            if ($status === 'deleted') {
+                continue;
+            }
+
+            $equipment[] = [
+                'id' => (string)($row['equipment_id'] ?? $row['id'] ?? ''),
+                'equipment_id' => (string)($row['equipment_id'] ?? $row['id'] ?? ''),
+                'equipment_name' => (string)($row['equipment_name'] ?? $row['name'] ?? ''),
+                'equipment_category' => (string)($row['category_name'] ?? $row['category'] ?? 'Uncategorized'),
+                'location' => (string)($row['location'] ?? ''),
+                'quantity' => max(0, (int)($row['quantity'] ?? 1)),
+                'reserved_qty' => 0,
+                'asset_tag' => (string)($row['asset_tag'] ?? ''),
+                'status' => (string)($row['status'] ?? ''),
             ];
         }
+
+        return ['success' => true, 'data' => $equipment];
     }
-    
-    /**
-     * Submit defect report
-     */
-    public function submitDefectReport($data) {
-        if (!isset($_SESSION['user_id'])) {
-            return ['success' => false, 'message' => 'User not authenticated'];
+
+    public function getReportDetails(string $reportId): array
+    {
+        $report = getDefectReportById($reportId);
+        if (!$report) {
+            return ['success' => false, 'message' => 'Report not found.'];
         }
-        
-        $data['user_id'] = $_SESSION['user_id'];
-        
-        // Handle multiple photos
-        if (isset($_FILES['defect_photos'])) {
-            $photos = [];
-            $fileCount = count($_FILES['defect_photos']['name']);
-            
-            for ($i = 0; $i < $fileCount; $i++) {
-                if ($_FILES['defect_photos']['error'][$i] === UPLOAD_ERR_OK) {
-                    $photos[] = [
-                        'name' => $_FILES['defect_photos']['name'][$i],
-                        'type' => $_FILES['defect_photos']['type'][$i],
-                        'tmp_name' => $_FILES['defect_photos']['tmp_name'][$i],
-                        'error' => $_FILES['defect_photos']['error'][$i],
-                        'size' => $_FILES['defect_photos']['size'][$i]
+
+        return ['success' => true, 'data' => $this->formatReport($report, true)];
+    }
+
+    public function submitReport(string $userId, array $post, array $files): array
+    {
+        $equipmentRef = trim((string)($post['equipment_id'] ?? $post['equipment'] ?? ''));
+        $equipmentId = $this->resolveEquipmentId($equipmentRef);
+        $description = trim((string)($post['issue_description'] ?? $post['description'] ?? ''));
+        $location = trim((string)($post['location'] ?? ''));
+        $category = trim((string)($post['category'] ?? ''));
+        $reporterName = trim((string)($_SESSION['fullname'] ?? $_SESSION['username'] ?? ''));
+        $reporterEmail = trim((string)($_SESSION['email'] ?? $_SESSION['user_email'] ?? ''));
+
+        if ($equipmentId === '' || $description === '') {
+            return ['success' => false, 'message' => 'Equipment and issue description are required.'];
+        }
+
+        $reportId = 'BEC-' . strtoupper(substr(md5(uniqid((string)mt_rand(), true)), 0, 8));
+        $savedPhotos = $this->saveUploadedPhotos($reportId, $files);
+
+        $payload = [
+            'report_id' => $reportId,
+            'equipment_id' => $equipmentId,
+            'reported_by' => $userId,
+            'issue_description' => $description,
+            'priority' => $this->inferPriority($description),
+            'status' => 'reported',
+            'location' => $location,
+            'category' => $category,
+            'reporter_name' => $reporterName,
+            'reporter_email' => $reporterEmail,
+        ];
+
+        if (!empty($savedPhotos)) {
+            $payload['photo_path'] = $savedPhotos[0];
+            $payload['defect_photos'] = $savedPhotos;
+        }
+
+        if (!addDefectReport($payload)) {
+            return ['success' => false, 'message' => 'Failed to submit the report.'];
+        }
+
+        $this->notifyWorkflowReviewers($reportId, $equipmentId);
+
+        return [
+            'success' => true,
+            'message' => 'Defect report submitted successfully.',
+            'report_id' => $reportId,
+        ];
+    }
+
+    public function createReservation(string $userId, array $post): array
+    {
+        if (!$this->tableExists('reservations')) {
+            return ['success' => false, 'message' => 'Reservation feature is not available right now.'];
+        }
+
+        $equipmentId = trim((string)($post['equipment_id'] ?? ''));
+        $startDate = trim((string)($post['reservation_date'] ?? $post['start_date'] ?? ''));
+        $endDate = trim((string)($post['return_date'] ?? $post['end_date'] ?? $startDate));
+        $purpose = trim((string)($post['purpose'] ?? 'Equipment reservation'));
+
+        if ($equipmentId === '' || $startDate === '' || $endDate === '') {
+            return ['success' => false, 'message' => 'Equipment and reservation dates are required.'];
+        }
+
+        if (checkReservationConflict($equipmentId, $startDate, $endDate)) {
+            return ['success' => false, 'message' => 'That equipment is already reserved for the selected dates.'];
+        }
+
+        $reservationId = 'RSV-' . strtoupper(substr(md5(uniqid((string)mt_rand(), true)), 0, 8));
+        $saved = addReservation([
+            'reservation_id' => $reservationId,
+            'equipment_id' => $equipmentId,
+            'user_id' => $userId,
+            'start_date' => $startDate,
+            'end_date' => $endDate,
+            'purpose' => $purpose,
+            'status' => 'pending',
+        ]);
+
+        return [
+            'success' => (bool)$saved,
+            'message' => $saved ? 'Reservation submitted successfully.' : 'Failed to submit reservation.',
+            'reservation_id' => $saved ? $reservationId : null,
+        ];
+    }
+
+    public function updateProfile(string $userId, string $name, string $email): array
+    {
+        $name = trim($name);
+        $email = trim($email);
+
+        if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return ['success' => false, 'message' => 'A valid name and email are required.'];
+        }
+
+        $dup = $this->conn->prepare("SELECT user_id FROM users WHERE email = ? AND user_id != ? LIMIT 1");
+        $dup->bind_param('ss', $email, $userId);
+        $dup->execute();
+        $exists = (bool)$dup->get_result()->fetch_assoc();
+        $dup->close();
+        if ($exists) {
+            return ['success' => false, 'message' => 'That email address is already in use.'];
+        }
+
+        $stmt = $this->conn->prepare("UPDATE users SET fullname = ?, email = ? WHERE user_id = ?");
+        $stmt->bind_param('sss', $name, $email, $userId);
+        $ok = $stmt->execute();
+        $stmt->close();
+
+        if ($ok) {
+            $_SESSION['fullname'] = $name;
+            $_SESSION['email'] = $email;
+            $_SESSION['user_email'] = $email;
+        }
+
+        return ['success' => (bool)$ok, 'message' => $ok ? 'Profile updated successfully.' : 'Failed to update profile.'];
+    }
+
+    public function changePassword(string $userId, string $currentPassword, string $newPassword): array
+    {
+        if (strlen($newPassword) < 8) {
+            return ['success' => false, 'message' => 'Password must be at least 8 characters.'];
+        }
+
+        $stmt = $this->conn->prepare("SELECT password FROM users WHERE user_id = ? LIMIT 1");
+        $stmt->bind_param('s', $userId);
+        $stmt->execute();
+        $user = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$user || !password_verify($currentPassword, (string)$user['password'])) {
+            return ['success' => false, 'message' => 'Current password is incorrect.'];
+        }
+
+        $hash = password_hash($newPassword, PASSWORD_DEFAULT);
+        $update = $this->conn->prepare("UPDATE users SET password = ? WHERE user_id = ?");
+        $update->bind_param('ss', $hash, $userId);
+        $ok = $update->execute();
+        $update->close();
+
+        return ['success' => (bool)$ok, 'message' => $ok ? 'Password updated successfully.' : 'Failed to update password.'];
+    }
+
+    private function getUnreadNotificationCount(string $userId): int
+    {
+        if (!$this->tableExists('notifications')) {
+            return 0;
+        }
+
+        $stmt = $this->conn->prepare("SELECT COUNT(*) AS count FROM notifications WHERE (user_id = ? OR user_id IS NULL) AND is_read = 0");
+        $stmt->bind_param('s', $userId);
+        $stmt->execute();
+        $count = (int)($stmt->get_result()->fetch_assoc()['count'] ?? 0);
+        $stmt->close();
+
+        return $count;
+    }
+
+    private function formatReport(array $report, bool $includeDetails = false): array
+    {
+        $photos = array_values(array_filter(array_map('strval', $report['photos'] ?? [])));
+
+        $formatted = [
+            'id' => (string)($report['report_id'] ?? ''),
+            'report_id' => (string)($report['report_id'] ?? ''),
+            'equipment_id' => (string)($report['equipment_id'] ?? ''),
+            'equipment_name' => (string)($report['equipment_name'] ?? ''),
+            'category' => (string)($report['category_name'] ?? $report['category'] ?? ''),
+            'location' => (string)($report['location'] ?? ''),
+            'issue_description' => (string)($report['issue_description'] ?? ''),
+            'description' => (string)($report['issue_description'] ?? ''),
+            'priority' => (string)($report['priority'] ?? ''),
+            'status' => $this->mapReportStatus((string)($report['status'] ?? 'reported')),
+            'raw_status' => (string)($report['status'] ?? 'reported'),
+            'report_date' => (string)($report['report_date'] ?? ''),
+            'completion_date' => (string)($report['completion_date'] ?? ''),
+            'remarks' => (string)($report['technician_notes'] ?? $report['verification_notes'] ?? ''),
+            'photo_url' => $photos[0] ?? (string)($report['photo_path'] ?? ''),
+            'photos' => $photos,
+        ];
+
+        if ($includeDetails) {
+            $formatted['assigned_date'] = (string)($report['assigned_date'] ?? '');
+            $formatted['verification_notes'] = (string)($report['verification_notes'] ?? '');
+        }
+
+        return $formatted;
+    }
+
+    private function mapReportStatus(string $status): string
+    {
+        return match (strtolower($status)) {
+            'reported', 'pending', 'pmo_review', 'dean_review', 'finance_review', 'on_hold_budget', 'ready_for_assignment' => 'pending',
+            'assigned', 'in_progress', 'for_replacement' => 'in_progress',
+            'completed', 'verified', 'closed' => 'completed',
+            'rejected' => 'rejected',
+            default => 'pending',
+        };
+    }
+
+    private function notificationTitle(string $type): string
+    {
+        return match ($type) {
+            'new_defect_report', 'defect_report' => 'New Report',
+            'new_reservation' => 'Reservation Update',
+            'task_completed', 'completed' => 'Task Completed',
+            'support_response' => 'Support Reply',
+            default => 'Notification',
+        };
+    }
+
+    private function inferPriority(string $description): string
+    {
+        $text = strtolower($description);
+        foreach (['urgent', 'fire', 'smoke', 'spark', 'shock', 'offline', 'no power'] as $word) {
+            if (strpos($text, $word) !== false) {
+                return 'critical';
+            }
+        }
+        foreach (['broken', 'not working', 'failed', 'damaged', 'error', 'black screen'] as $word) {
+            if (strpos($text, $word) !== false) {
+                return 'high';
+            }
+        }
+        foreach (['minor', 'loose', 'slow', 'small'] as $word) {
+            if (strpos($text, $word) !== false) {
+                return 'low';
+            }
+        }
+        return 'medium';
+    }
+
+    private function saveUploadedPhotos(string $reportId, array $files): array
+    {
+        $saved = [];
+        $uploads = [];
+
+        if (isset($files['photo']) && is_uploaded_file($files['photo']['tmp_name'] ?? '')) {
+            $uploads[] = $files['photo'];
+        }
+
+        if (isset($files['defect_photos'])) {
+            $batch = $files['defect_photos'];
+            if (is_array($batch['name'] ?? null)) {
+                foreach (($batch['name'] ?? []) as $index => $name) {
+                    $uploads[] = [
+                        'name' => $name,
+                        'type' => $batch['type'][$index] ?? '',
+                        'tmp_name' => $batch['tmp_name'][$index] ?? '',
+                        'error' => $batch['error'][$index] ?? UPLOAD_ERR_NO_FILE,
+                        'size' => $batch['size'][$index] ?? 0,
                     ];
                 }
             }
-            
-            $data['photos'] = $photos;
         }
-        
-        return $this->defectReport->create($data);
-    }
-    
-    /**
-     * Get user's defect reports
-     */
-    public function getMyReports($user_id, $limit = null) {
-        try {
-            $reports = $this->defectReport->getUserReports($user_id, $limit);
-            
-            return [
-                'success' => true,
-                'data' => $reports
-            ];
-            
-        } catch (Exception $e) {
-            return [
-                'success' => false,
-                'message' => $e->getMessage()
-            ];
+
+        $targetDir = realpath(__DIR__ . '/..') . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'reports';
+        if (!is_dir($targetDir)) {
+            @mkdir($targetDir, 0755, true);
         }
-    }
-    
-    /**
-     * Get recent reports (public view)
-     */
-    public function getRecentReports($limit = 5) {
-        try {
-            $reports = $this->defectReport->getAll(['limit' => $limit]);
-            
-            // Filter to show only active reports
-            $activeReports = array_filter($reports, function($report) {
-                return in_array($report['status'], ['pending', 'in_progress']);
-            });
-            
-            return [
-                'success' => true,
-                'data' => array_slice($activeReports, 0, $limit)
-            ];
-            
-        } catch (Exception $e) {
-            return [
-                'success' => false,
-                'message' => $e->getMessage()
-            ];
-        }
-    }
-    
-    /**
-     * Get report details
-     */
-    public function getReportDetails($report_id) {
-        try {
-            $report = $this->defectReport->getById($report_id);
-            
-            if (!$report) {
-                return ['success' => false, 'message' => 'Report not found'];
+
+        foreach ($uploads as $index => $upload) {
+            if (($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+                continue;
             }
-            
-            // Get status history
-            $statusHistory = $this->defectReport->getStatusHistory($report_id);
-            
-            return [
-                'success' => true,
-                'data' => [
-                    'report' => $report,
-                    'history' => $statusHistory
-                ]
-            ];
-            
-        } catch (Exception $e) {
-            return [
-                'success' => false,
-                'message' => $e->getMessage()
-            ];
-        }
-    }
-    
-    /**
-     * Get equipment for reservation
-     */
-    public function getAvailableEquipment() {
-        try {
-            $query = "SELECT e.*, 
-                            COALESCE(SUM(CASE WHEN r.status = 'approved' 
-                                         AND r.reservation_date >= CURDATE() 
-                                         THEN r.quantity ELSE 0 END), 0) as reserved_qty
-                     FROM equipment e
-                     LEFT JOIN reservations r ON e.id = r.equipment_id
-                     WHERE e.status = 'active' AND e.quantity > 0
-                     GROUP BY e.id
-                     HAVING (e.quantity - reserved_qty) > 0
-                     ORDER BY e.equipment_name ASC";
-            
-            $stmt = $this->db->prepare($query);
-            $stmt->execute();
-            
-            return [
-                'success' => true,
-                'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)
-            ];
-            
-        } catch (Exception $e) {
-            return [
-                'success' => false,
-                'message' => $e->getMessage()
-            ];
-        }
-    }
-    
-    /**
-     * Create equipment reservation
-     */
-    public function createReservation($data) {
-        try {
-            if (!isset($_SESSION['user_id'])) {
-                return ['success' => false, 'message' => 'User not authenticated'];
+
+            $tmpName = (string)($upload['tmp_name'] ?? '');
+            if ($tmpName === '' || !is_uploaded_file($tmpName)) {
+                continue;
             }
-            
-            // Validate equipment availability
-            $availability = $this->checkEquipmentAvailability(
-                $data['equipment_id'], 
-                $data['reservation_date'], 
-                $data['quantity']
-            );
-            
-            if (!$availability['available']) {
-                return [
-                    'success' => false, 
-                    'message' => 'Equipment not available for selected date and quantity. Only ' . $availability['available_quantity'] . ' units available.'
-                ];
+
+            $extension = strtolower(pathinfo((string)($upload['name'] ?? ''), PATHINFO_EXTENSION));
+            if (!in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)) {
+                continue;
             }
-            
-            $query = "INSERT INTO reservations 
-                     (user_id, equipment_id, reservation_date, return_date, quantity, purpose, 
-                      contact_person, contact_number, department, special_instructions, 
-                      status, request_date) 
-                     VALUES (:user_id, :equipment_id, :reservation_date, :return_date, :quantity, :purpose,
-                             :contact_person, :contact_number, :department, :special_instructions,
-                             'pending', NOW())";
-            
-            $stmt = $this->db->prepare($query);
-            
-            $stmt->bindParam(':user_id', $_SESSION['user_id']);
-            $stmt->bindParam(':equipment_id', $data['equipment_id']);
-            $stmt->bindParam(':reservation_date', $data['reservation_date']);
-            $stmt->bindParam(':return_date', $data['return_date']);
-            $stmt->bindParam(':quantity', $data['quantity']);
-            $stmt->bindParam(':purpose', $data['purpose']);
-            $stmt->bindParam(':contact_person', $data['contact_person']);
-            $stmt->bindParam(':contact_number', $data['contact_number']);
-            $stmt->bindParam(':department', $data['department']);
-            $stmt->bindParam(':special_instructions', $data['special_instructions']);
-            
-            if ($stmt->execute()) {
-                $reservation_id = $this->db->lastInsertId();
-                
-                // Create notification
-                $this->createNotification(
-                    $_SESSION['user_id'], 
-                    'reservation', 
-                    'Reservation Request Submitted',
-                    'Your equipment reservation request has been submitted for approval.',
-                    $reservation_id
-                );
-                
-                return [
-                    'success' => true,
-                    'reservation_id' => $reservation_id,
-                    'message' => 'Reservation request submitted successfully! You will be notified once it is reviewed.'
-                ];
+
+            $filename = $reportId . ($index > 0 ? '-' . $index : '') . '.' . $extension;
+            $destination = $targetDir . DIRECTORY_SEPARATOR . $filename;
+            if (move_uploaded_file($tmpName, $destination)) {
+                $saved[] = 'uploads/reports/' . $filename;
             }
-            
-            return ['success' => false, 'message' => 'Failed to create reservation'];
-            
-        } catch (Exception $e) {
-            return [
-                'success' => false,
-                'message' => $e->getMessage()
-            ];
         }
+
+        return $saved;
     }
-    
-    /**
-     * Get user's reservations
-     */
-    public function getMyReservations($user_id, $limit = null) {
-        try {
-            $query = "SELECT r.*, 
-                            e.equipment_name,
-                            e.equipment_category,
-                            e.location
-                     FROM reservations r
-                     LEFT JOIN equipment e ON r.equipment_id = e.id
-                     WHERE r.user_id = :user_id
-                     ORDER BY r.request_date DESC";
-            
-            if ($limit) {
-                $query .= " LIMIT :limit";
-            }
-            
-            $stmt = $this->db->prepare($query);
-            $stmt->bindParam(':user_id', $user_id);
-            
-            if ($limit) {
-                $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
-            }
-            
-            $stmt->execute();
-            
-            return [
-                'success' => true,
-                'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)
-            ];
-            
-        } catch (Exception $e) {
-            return [
-                'success' => false,
-                'message' => $e->getMessage()
-            ];
-        }
-    }
-    
-    /**
-     * Get user notifications
-     */
-    public function getNotifications($user_id, $limit = 10, $unread_only = false) {
-        try {
-            $query = "SELECT * FROM notifications 
-                     WHERE user_id = :user_id";
-            
-            if ($unread_only) {
-                $query .= " AND is_read = 0";
-            }
-            
-            $query .= " ORDER BY created_at DESC LIMIT :limit";
-            
-            $stmt = $this->db->prepare($query);
-            $stmt->bindParam(':user_id', $user_id);
-            $stmt->bindValue(':limit', (int)$limit, PDO::PARAM_INT);
-            $stmt->execute();
-            
-            return [
-                'success' => true,
-                'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)
-            ];
-            
-        } catch (Exception $e) {
-            return [
-                'success' => false,
-                'message' => $e->getMessage()
-            ];
-        }
-    }
-    
-    /**
-     * Mark notification as read
-     */
-    public function markNotificationRead($notification_id, $user_id) {
-        try {
-            $query = "UPDATE notifications 
-                     SET is_read = 1, read_at = NOW() 
-                     WHERE id = :id AND user_id = :user_id";
-            
-            $stmt = $this->db->prepare($query);
-            $stmt->bindParam(':id', $notification_id);
-            $stmt->bindParam(':user_id', $user_id);
-            
-            return [
-                'success' => $stmt->execute(),
-                'message' => 'Notification marked as read'
-            ];
-            
-        } catch (Exception $e) {
-            return [
-                'success' => false,
-                'message' => $e->getMessage()
-            ];
-        }
-    }
-    
-    /**
-     * Mark all notifications as read
-     */
-    public function markAllNotificationsRead($user_id) {
-        try {
-            $query = "UPDATE notifications 
-                     SET is_read = 1, read_at = NOW() 
-                     WHERE user_id = :user_id AND is_read = 0";
-            
-            $stmt = $this->db->prepare($query);
-            $stmt->bindParam(':user_id', $user_id);
-            
-            return [
-                'success' => $stmt->execute(),
-                'message' => 'All notifications marked as read'
-            ];
-            
-        } catch (Exception $e) {
-            return [
-                'success' => false,
-                'message' => $e->getMessage()
-            ];
-        }
-    }
-    
-    /**
-     * Check equipment availability
-     */
-    private function checkEquipmentAvailability($equipment_id, $date, $quantity) {
-        $query = "SELECT e.quantity,
-                        COALESCE(SUM(CASE WHEN r.status = 'approved' 
-                                     AND r.reservation_date <= :date 
-                                     AND r.return_date >= :date 
-                                     THEN r.quantity ELSE 0 END), 0) as reserved
-                 FROM equipment e
-                 LEFT JOIN reservations r ON e.id = r.equipment_id
-                 WHERE e.id = :equipment_id
-                 GROUP BY e.id";
-        
-        $stmt = $this->db->prepare($query);
-        $stmt->bindParam(':equipment_id', $equipment_id);
-        $stmt->bindParam(':date', $date);
-        $stmt->execute();
-        
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        
+
+    private function notifyWorkflowReviewers(string $reportId, string $equipmentId): void
+    {
+        $equipment = getEquipmentById($equipmentId);
+        $equipmentName = trim((string)($equipment['equipment_name'] ?? $equipmentId));
+        $message = 'New defect report ' . $reportId . ' submitted for ' . $equipmentName . ' and is awaiting PMO review.';
+
+        $result = $this->conn->query("SELECT user_id FROM users WHERE role IN ('admin', 'pmo') AND status = 'active'");
         if (!$result) {
-            return ['available' => false];
+            return;
         }
-        
-        $available_qty = $result['quantity'] - $result['reserved'];
-        
-        return [
-            'available' => $available_qty >= $quantity,
-            'available_quantity' => $available_qty
-        ];
-    }
-    
-    /**
-     * Get reservation statistics
-     */
-    private function getReservationStats($user_id) {
-        $query = "SELECT 
-                    COUNT(*) as total,
-                    SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-                    SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
-                    SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
-                    SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
-                 FROM reservations
-                 WHERE user_id = :user_id";
-        
-        $stmt = $this->db->prepare($query);
-        $stmt->bindParam(':user_id', $user_id);
-        $stmt->execute();
-        
-        return $stmt->fetch(PDO::FETCH_ASSOC);
-    }
-    
-    /**
-     * Get equipment statistics
-     */
-    private function getEquipmentStats() {
-        $query = "SELECT 
-                    COUNT(*) as total_items,
-                    SUM(quantity) as total_quantity,
-                    SUM(CASE WHEN status = 'active' THEN quantity ELSE 0 END) as available_quantity
-                 FROM equipment";
-        
-        $stmt = $this->db->prepare($query);
-        $stmt->execute();
-        
-        return $stmt->fetch(PDO::FETCH_ASSOC);
-    }
-    
-    /**
-     * Get unread notification count
-     */
-    private function getUnreadNotificationCount($user_id) {
-        $query = "SELECT COUNT(*) as count 
-                 FROM notifications 
-                 WHERE user_id = :user_id AND is_read = 0";
-        
-        $stmt = $this->db->prepare($query);
-        $stmt->bindParam(':user_id', $user_id);
-        $stmt->execute();
-        
-        $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $result['count'];
-    }
-    
-    /**
-     * Create notification
-     */
-    private function createNotification($user_id, $type, $title, $message, $related_id = null) {
-        $query = "INSERT INTO notifications 
-                 (user_id, type, title, message, related_id, created_at) 
-                 VALUES (:user_id, :type, :title, :message, :related_id, NOW())";
-        
-        $stmt = $this->db->prepare($query);
-        $stmt->bindParam(':user_id', $user_id);
-        $stmt->bindParam(':type', $type);
-        $stmt->bindParam(':title', $title);
-        $stmt->bindParam(':message', $message);
-        $stmt->bindParam(':related_id', $related_id);
-        
-        return $stmt->execute();
-    }
-    
-    /**
-     * Get report status updates (for real-time tracking)
-     */
-    public function getReportStatusUpdates($user_id, $since_timestamp = null) {
-        try {
-            $query = "SELECT dr.id, dr.status, dr.equipment_id, e.equipment_name,
-                            dr.report_date, dr.completed_date,
-                            (SELECT MAX(changed_date) FROM defect_report_status_history 
-                             WHERE report_id = dr.id) as last_update
-                     FROM defect_reports dr
-                     LEFT JOIN equipment e ON dr.equipment_id = e.id
-                     WHERE dr.user_id = :user_id";
-            
-            if ($since_timestamp) {
-                $query .= " AND (SELECT MAX(changed_date) FROM defect_report_status_history 
-                            WHERE report_id = dr.id) > :since";
+
+        while ($row = $result->fetch_assoc()) {
+            $adminId = trim((string)($row['user_id'] ?? ''));
+            if ($adminId === '') {
+                continue;
             }
-            
-            $query .= " ORDER BY dr.report_date DESC";
-            
-            $stmt = $this->db->prepare($query);
-            $stmt->bindParam(':user_id', $user_id);
-            
-            if ($since_timestamp) {
-                $stmt->bindParam(':since', $since_timestamp);
-            }
-            
-            $stmt->execute();
-            
-            return [
-                'success' => true,
-                'data' => $stmt->fetchAll(PDO::FETCH_ASSOC),
-                'timestamp' => date('Y-m-d H:i:s')
-            ];
-            
-        } catch (Exception $e) {
-            return [
-                'success' => false,
-                'message' => $e->getMessage()
-            ];
+            addNotification($adminId, $message, 'new_defect_report', $reportId);
         }
+    }
+
+    private function resolveEquipmentId(string $reference): string
+    {
+        $reference = trim($reference);
+        if ($reference === '') {
+            return '';
+        }
+
+        $equipment = getEquipmentById($reference);
+        if (!empty($equipment['equipment_id'])) {
+            return (string)$equipment['equipment_id'];
+        }
+
+        $stmt = $this->conn->prepare(
+            "SELECT equipment_id
+             FROM equipment
+             WHERE equipment_id = ?
+                OR asset_tag = ?
+                OR equipment_name = ?
+                OR equipment_name LIKE ?
+             ORDER BY CASE WHEN equipment_name = ? THEN 0 ELSE 1 END, equipment_name ASC
+             LIMIT 1"
+        );
+        $like = '%' . $reference . '%';
+        $stmt->bind_param('sssss', $reference, $reference, $reference, $like, $reference);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        return (string)($row['equipment_id'] ?? '');
+    }
+
+    private function tableExists(string $table): bool
+    {
+        $safeTable = preg_replace('/[^a-zA-Z0-9_]/', '', $table);
+        if ($safeTable === '') {
+            return false;
+        }
+        $result = $this->conn->query("SHOW TABLES LIKE '{$safeTable}'");
+        return $result instanceof mysqli_result && $result->num_rows > 0;
     }
 }

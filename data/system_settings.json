@@ -21,13 +21,41 @@
                                   "smtp_username":  "jhanmark_decastro@bec.edu.ph",
                                   "smtp_password":  "sfol oyzr fwqb mepf",
                                   "from_email":  "jhanmark_decastro@bec.edu.ph",
-                                  "from_name":  "BEC Student"
+                                  "from_name":  "BEC Student",
+                                  "smtp_accounts":  [
+                                                        {
+                                                            "from_name":  "BEC Student",
+                                                            "smtp_password":  "sfol oyzr fwqb mepf",
+                                                            "from_email":  "jhanmark_decastro@bec.edu.ph",
+                                                            "smtp_username":  "jhanmark_decastro@bec.edu.ph"
+                                                        },
+                                                        {
+                                                            "from_name":  "BEC Student",
+                                                            "smtp_password":  "csjq kqjn cmfx tzdx",
+                                                            "from_email":  "stutest775@gmail.com",
+                                                            "smtp_username":  "stutest775@gmail.com"
+                                                        }
+                                                    ]
                               },
                   "technician":  {
                                      "smtp_username":  "technician9123@gmail.com",
                                      "smtp_password":  "izwa etnz eqoo fbky",
                                      "from_email":  "technician9123@gmail.com",
-                                     "from_name":  "BEC Technician"
+                                     "from_name":  "BEC Technician",
+                                     "smtp_accounts":  [
+                                                           {
+                                                               "from_name":  "BEC Technician",
+                                                               "smtp_password":  "izwa etnz eqoo fbky",
+                                                               "from_email":  "technician9123@gmail.com",
+                                                               "smtp_username":  "technician9123@gmail.com"
+                                                           },
+                                                           {
+                                                               "from_name":  "BEC Technician",
+                                                               "smtp_password":  "gihj lpvt wguf ubhu",
+                                                               "from_email":  "jaymielcolegio@gmail.com",
+                                                               "smtp_username":  "jaymielcolegio@gmail.com"
+                                                           }
+                                                       ]
                                  }
               }
 }

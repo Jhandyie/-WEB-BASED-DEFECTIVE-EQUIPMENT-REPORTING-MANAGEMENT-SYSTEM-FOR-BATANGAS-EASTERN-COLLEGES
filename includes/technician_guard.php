@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 if (!function_exists('technicianNormalizeIdentity')) {
     function technicianNormalizeIdentity($value): string {
@@ -18,6 +18,13 @@ if (!function_exists('technicianIdentityKeysFromSession')) {
             return [''];
         }
         return $keys;
+    }
+}
+
+if (!function_exists('technicianHasIdentityKeys')) {
+    function technicianHasIdentityKeys(array $session): bool {
+        $keys = technicianIdentityKeysFromSession($session);
+        return !(count($keys) === 1 && $keys[0] === '');
     }
 }
 
@@ -46,6 +53,21 @@ if (!function_exists('technicianResolveAssigneeColumn')) {
             return 'assigned_technician';
         }
         return 'assigned_to';
+    }
+}
+
+if (!function_exists('technicianFetchDefectReportColumns')) {
+    function technicianFetchDefectReportColumns(mysqli $conn): array {
+        $cols = [];
+        try {
+            $res = $conn->query('SHOW COLUMNS FROM defect_reports');
+            if ($res) {
+                while ($row = $res->fetch_assoc()) {
+                    $cols[$row['Field']] = true;
+                }
+            }
+        } catch (Exception $e) {}
+        return $cols;
     }
 }
 

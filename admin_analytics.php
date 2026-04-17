@@ -23,6 +23,8 @@ if ($range === 'custom') {
 
 $df = $date_from;
 $dt = $date_to;
+$df_ts = $df . ' 00:00:00';
+$dt_ts = $dt . ' 23:59:59';
 
 /* ─── HELPERS ─────────────────────────────────────────── */
 function q($conn, $sql, $types='', ...$params) {
@@ -60,8 +62,8 @@ $kpi_total_users= scalar($conn,"SELECT COUNT(*) FROM users WHERE status='active'
 $kpi_total_tech = scalar($conn,"SELECT COUNT(*) FROM users WHERE role='technician' AND status='active'");
 
 // In date range
-$kpi_reports    = scalar($conn,"SELECT COUNT(*) FROM defect_reports WHERE report_date BETWEEN ? AND ?","ss",$df,$dt);
-$kpi_resolved   = scalar($conn,"SELECT COUNT(*) FROM defect_reports WHERE status IN('completed','verified','closed') AND report_date BETWEEN ? AND ?","ss",$df,$dt);
+$kpi_reports    = scalar($conn,"SELECT COUNT(*) FROM defect_reports WHERE report_date BETWEEN ? AND ?","ss",$df_ts,$dt_ts);
+$kpi_resolved   = scalar($conn,"SELECT COUNT(*) FROM defect_reports WHERE status IN('completed','verified','closed') AND report_date BETWEEN ? AND ?","ss",$df_ts,$dt_ts);
 $kpi_pending    = scalar($conn,"SELECT COUNT(*) FROM defect_reports WHERE status='reported'");
 $kpi_wos        = $has_work_orders ? scalar($conn,"SELECT COUNT(*) FROM work_orders WHERE created_at BETWEEN ? AND ?","ss",$df,$dt) : 0;
 $kpi_crit       = scalar($conn,"SELECT COUNT(*) FROM defect_reports WHERE priority='critical' AND status NOT IN('completed','verified','closed','rejected','deleted')");
@@ -74,7 +76,7 @@ $avg_res = [null];
 if ($resolutionDateCol !== null) {
     $avg_sql = "SELECT AVG(DATEDIFF({$resolutionDateCol}, report_date)) FROM defect_reports WHERE status IN('completed','verified','closed') AND report_date BETWEEN ? AND ?";
     $avg_stmt = $conn->prepare($avg_sql);
-    $avg_stmt->bind_param('ss', $df, $dt);
+    $avg_stmt->bind_param('ss', $df_ts, $dt_ts);
     $avg_stmt->execute();
     $avg_res = $avg_stmt->get_result()->fetch_row();
 }
@@ -91,7 +93,7 @@ $chart1_res = q($conn, "
     FROM defect_reports
     WHERE report_date BETWEEN ? AND ?
     GROUP BY $grp ORDER BY $grp
-", "ss", $df, $dt)->fetch_all(MYSQLI_ASSOC);
+", "ss", $df_ts, $dt_ts)->fetch_all(MYSQLI_ASSOC);
 $chart1_labels   = array_column($chart1_res,'lbl');
 $chart1_total    = array_column($chart1_res,'total');
 $chart1_resolved = array_column($chart1_res,'resolved');
@@ -101,7 +103,7 @@ $status_res = q($conn,"
     SELECT status, COUNT(*) AS n FROM defect_reports
     WHERE report_date BETWEEN ? AND ? AND status!='deleted'
     GROUP BY status ORDER BY n DESC
-","ss",$df,$dt)->fetch_all(MYSQLI_ASSOC);
+","ss",$df_ts,$dt_ts)->fetch_all(MYSQLI_ASSOC);
 $status_labels = array_column($status_res,'status');
 $status_vals   = array_column($status_res,'n');
 
@@ -110,7 +112,7 @@ $prio_res = q($conn,"
     SELECT priority, COUNT(*) AS n FROM defect_reports
     WHERE report_date BETWEEN ? AND ? AND status!='deleted'
     GROUP BY priority ORDER BY FIELD(priority,'critical','high','medium','low')
-","ss",$df,$dt)->fetch_all(MYSQLI_ASSOC);
+","ss",$df_ts,$dt_ts)->fetch_all(MYSQLI_ASSOC);
 $prio_labels = array_column($prio_res,'priority');
 $prio_vals   = array_column($prio_res,'n');
 
@@ -121,7 +123,7 @@ $dept_res = q($conn,"
     LEFT JOIN users u ON r.assigned_to = u.user_id
     WHERE r.report_date BETWEEN ? AND ? AND r.status!='deleted'
     GROUP BY dept ORDER BY n DESC LIMIT 8
-","ss",$df,$dt)->fetch_all(MYSQLI_ASSOC);
+","ss",$df_ts,$dt_ts)->fetch_all(MYSQLI_ASSOC);
 $dept_labels = array_column($dept_res,'dept');
 $dept_vals   = array_column($dept_res,'n');
 
@@ -139,7 +141,7 @@ $top_eq_res = q($conn,"
     JOIN equipment e ON r.equipment_id = e.equipment_id
     WHERE r.report_date BETWEEN ? AND ? AND r.status!='deleted'
     GROUP BY e.equipment_id ORDER BY defects DESC, crit DESC LIMIT 8
-","ss",$df,$dt)->fetch_all(MYSQLI_ASSOC);
+","ss",$df_ts,$dt_ts)->fetch_all(MYSQLI_ASSOC);
 $top_eq_labels = array_map(fn($e)=>substr($e['equipment_name'],0,22).'..', array_slice($top_eq_res,0,8));
 $top_eq_vals   = array_column($top_eq_res,'defects');
 
@@ -153,7 +155,7 @@ $tech_res = q($conn,"
         AND r.report_date BETWEEN ? AND ?
     WHERE u.role='technician' AND u.status='active'
     GROUP BY u.user_id ORDER BY done DESC, total DESC LIMIT 8
-","ss",$df,$dt)->fetch_all(MYSQLI_ASSOC);
+","ss",$df_ts,$dt_ts)->fetch_all(MYSQLI_ASSOC);
 
 /* ─── CHART 8: Work order status breakdown ───────────── */
 $wo_res = $has_work_orders
@@ -195,7 +197,7 @@ if ($reporterJoinCol !== null) {
     FROM defect_reports r JOIN users u ON r.{$reporterJoinCol}=u.user_id
     WHERE r.report_date BETWEEN ? AND ? AND r.status!='deleted'
     GROUP BY u.user_id ORDER BY n DESC LIMIT 5
-","ss",$df,$dt)->fetch_all(MYSQLI_ASSOC);
+","ss",$df_ts,$dt_ts)->fetch_all(MYSQLI_ASSOC);
 }
 
 function jArr($arr){return json_encode(array_values($arr),JSON_UNESCAPED_UNICODE);}
