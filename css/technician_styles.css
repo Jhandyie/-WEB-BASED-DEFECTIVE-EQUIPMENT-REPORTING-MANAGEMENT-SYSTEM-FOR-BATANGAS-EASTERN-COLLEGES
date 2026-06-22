@@ -1,3 +1,5 @@
+@import url('typography.css');
+
 /* ============================================
    BEC EQUIPMENT MANAGEMENT SYSTEM
    Technician Styles - Maintenance Technician Interface
@@ -32,7 +34,7 @@
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: var(--font-primary);
     background: var(--main-bg);
     color: var(--text-primary);
     overflow-x: hidden;

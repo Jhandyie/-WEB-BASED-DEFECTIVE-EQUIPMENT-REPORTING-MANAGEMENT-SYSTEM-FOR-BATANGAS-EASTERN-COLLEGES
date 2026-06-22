@@ -549,6 +549,7 @@ function qurl(array $params): string { return '?' . http_build_query($params); }
 <title>Inventory - BEC Admin</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="css/typography.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 /* -------------------------------------------------------
@@ -1817,5 +1818,4 @@ function toast(type,msg,title){
 </script>
 </body>
 </html>
-
 

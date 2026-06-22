@@ -699,9 +699,10 @@ function submitDefectReport() {
     const submitBtn = document.getElementById('submitDefectBtn');
     
     // Validate equipment selection
-    const equipmentId = document.getElementById('equipment_id').value;
-    if (!equipmentId) {
-        showNotification('error', 'Please select an equipment.');
+    const equipmentName = document.getElementById('equipment_id').value.trim();
+    if (!equipmentName) {
+        showNotification('error', 'Please enter the equipment name.');
+        document.getElementById('equipment_id').focus();
         return;
     }
     
@@ -715,7 +716,9 @@ function submitDefectReport() {
     // Get form data
     const formData = new FormData();
     formData.append('action', 'submit_report');
-    formData.append('equipment_id', equipmentId);
+    formData.append('equipment_id', equipmentName);
+    formData.append('equipment', equipmentName);
+    formData.append('equipment_name', equipmentName);
     formData.append('issue_description', document.getElementById('issue_description').value);
     formData.append('location', location);
     
@@ -741,7 +744,7 @@ function submitDefectReport() {
         
         if (data.success) {
             // Show success message
-            showNotification('success', data.message || 'Defect report submitted successfully!');
+            showNotification('success', data.report_id ? `Report ${data.report_id} submitted successfully.` : (data.message || 'Defect report submitted successfully!'));
             
             // Close modal after short delay
             setTimeout(() => {
@@ -750,6 +753,15 @@ function submitDefectReport() {
                 // Refresh dashboard data
                 if (typeof loadDashboardData === 'function') {
                     loadDashboardData();
+                }
+                if (typeof loadStats === 'function') {
+                    loadStats();
+                }
+                if (typeof loadRecent === 'function') {
+                    loadRecent();
+                }
+                if (typeof loadHist === 'function') {
+                    loadHist();
                 }
                 if (typeof loadNotifications === 'function') {
                     loadNotifications();

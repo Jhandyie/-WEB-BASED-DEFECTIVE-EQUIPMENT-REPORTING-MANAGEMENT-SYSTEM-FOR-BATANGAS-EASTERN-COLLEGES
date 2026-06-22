@@ -2,6 +2,53 @@
 // config/database.php - Centralized Database Configuration
 // Updated: 2026-04-17
 
+if (!function_exists('loadDatabaseEnvFile')) {
+    function loadDatabaseEnvFile(): void {
+        static $loaded = false;
+        if ($loaded) {
+            return;
+        }
+        $loaded = true;
+
+        $envPath = dirname(__DIR__) . '/.env';
+        if (!is_readable($envPath)) {
+            return;
+        }
+
+        $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if ($lines === false) {
+            return;
+        }
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line === '' || str_starts_with($line, '#') || !str_contains($line, '=')) {
+                continue;
+            }
+
+            [$key, $value] = explode('=', $line, 2);
+            $key = trim($key);
+            if ($key === '' || getenv($key) !== false) {
+                continue;
+            }
+
+            $value = trim($value);
+            if (
+                strlen($value) >= 2 &&
+                (($value[0] === '"' && substr($value, -1) === '"') || ($value[0] === "'" && substr($value, -1) === "'"))
+            ) {
+                $value = substr($value, 1, -1);
+            }
+
+            putenv($key . '=' . $value);
+            $_ENV[$key] = $value;
+            $_SERVER[$key] = $value;
+        }
+    }
+}
+
+loadDatabaseEnvFile();
+
 if (!function_exists('dbEnv')) {
     function dbEnv(string $key, $default = null) {
         $value = getenv($key);
@@ -2489,6 +2536,5 @@ function initializeSystem() {
 
 // Auto-initialize on first run
 // initializeSystem();
-
 
 

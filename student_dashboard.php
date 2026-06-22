@@ -25,6 +25,7 @@ $ticket  = '';
 $email_notice = '';
 $conn = getDBConnection();
 $equipment_rows = getAllEquipment();
+$category_rows = getAllCategories();
 $equipment_list = array_values(array_map(static function ($row) {
     return [
         'id' => (string)($row['equipment_id'] ?? $row['id'] ?? ''),
@@ -40,6 +41,13 @@ $location_options = array_values(array_unique(array_filter(array_map(
     $equipment_list
 ))));
 sort($location_options, SORT_NATURAL | SORT_FLAG_CASE);
+
+$category_options = array_values(array_unique(array_filter(array_merge(
+    array_map(static fn($row) => trim((string)($row['category_name'] ?? '')), $category_rows),
+    array_map(static fn($item) => trim((string)($item['category'] ?? '')), $equipment_list),
+    ['Other / Not sure']
+))));
+sort($category_options, SORT_NATURAL | SORT_FLAG_CASE);
 
 function getGuestReporterId(): string {
     if (!empty($_SESSION['guest_reporter_id'])) {
@@ -102,6 +110,106 @@ function notifyAdminsOfStudentReport(mysqli $conn, string $reportId, string $equ
     }
 }
 
+function ensureStudentManualCategoryId(mysqli $conn, string $category): ?int {
+    $category = trim($category);
+    if ($category === '') {
+        $category = 'Other / Not sure';
+    }
+
+    $stmt = $conn->prepare("SELECT category_id FROM categories WHERE category_name = ? LIMIT 1");
+    if (!$stmt) {
+        return null;
+    }
+    $stmt->bind_param("s", $category);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $existing = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    if ($existing && isset($existing['category_id'])) {
+        return (int)$existing['category_id'];
+    }
+
+    $description = 'Created from a manual student report entry.';
+    $stmt = $conn->prepare("INSERT INTO categories (category_name, description) VALUES (?, ?)");
+    if (!$stmt) {
+        return null;
+    }
+    $stmt->bind_param("ss", $category, $description);
+    if (!$stmt->execute()) {
+        $stmt->close();
+        return null;
+    }
+    $categoryId = (int)$conn->insert_id;
+    $stmt->close();
+
+    return $categoryId > 0 ? $categoryId : null;
+}
+
+function createStudentManualEquipment(mysqli $conn, string $name, string $category, string $location, string $assetTag = ''): ?array {
+    $name = trim($name);
+    $category = trim($category) !== '' ? trim($category) : 'Other / Not sure';
+    $location = trim($location);
+    $assetTag = strtoupper(trim($assetTag));
+
+    if ($name === '') {
+        return null;
+    }
+
+    if ($assetTag !== '') {
+        $stmt = $conn->prepare("SELECT e.equipment_id, e.equipment_name, e.asset_tag, e.location, COALESCE(c.category_name, '') AS category_name FROM equipment e LEFT JOIN categories c ON c.category_id = e.category_id WHERE e.asset_tag = ? AND e.status != 'deleted' LIMIT 1");
+        if ($stmt) {
+            $stmt->bind_param("s", $assetTag);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $existing = $result ? $result->fetch_assoc() : null;
+            $stmt->close();
+            if ($existing) {
+                return [
+                    'id' => (string)$existing['equipment_id'],
+                    'name' => (string)$existing['equipment_name'],
+                    'category' => (string)($existing['category_name'] ?: $category),
+                    'asset_tag' => (string)$existing['asset_tag'],
+                    'location' => (string)$existing['location'],
+                ];
+            }
+        }
+    }
+
+    $seed = strtoupper(substr(md5($name . '|' . $location . '|' . microtime(true)), 0, 10));
+    $equipmentId = 'MAN-' . $seed;
+    $finalAssetTag = $assetTag !== '' ? $assetTag : 'MAN-' . $seed;
+    $categoryId = ensureStudentManualCategoryId($conn, $category);
+    $description = 'Manual student report entry. Review and merge with inventory if needed.';
+
+    for ($attempt = 0; $attempt < 3; $attempt++) {
+        $stmt = $conn->prepare("INSERT INTO equipment (equipment_id, asset_tag, equipment_name, category_id, description, location, status, condition_status, quantity, min_stock_level, reorder_point) VALUES (?, ?, ?, ?, ?, ?, 'available', 'fair', 1, 1, 0)");
+        if (!$stmt) {
+            return null;
+        }
+        $stmt->bind_param("sssiss", $equipmentId, $finalAssetTag, $name, $categoryId, $description, $location);
+        if ($stmt->execute()) {
+            $stmt->close();
+            return [
+                'id' => $equipmentId,
+                'name' => $name,
+                'category' => $category,
+                'asset_tag' => $finalAssetTag,
+                'location' => $location,
+            ];
+        }
+        $stmt->close();
+
+        $seed = strtoupper(substr(md5($seed . '|' . $attempt . '|' . microtime(true)), 0, 10));
+        $equipmentId = 'MAN-' . $seed;
+        if ($assetTag === '') {
+            $finalAssetTag = 'MAN-' . $seed;
+        }
+    }
+
+    return null;
+}
+
 function buildStudentTicketEmail(string $student_name, string $ticket, array $report): string {
     $equipment = htmlspecialchars((string)($report['equipment_name'] ?? ''), ENT_QUOTES, 'UTF-8');
     $category = htmlspecialchars((string)($report['category'] ?? ''), ENT_QUOTES, 'UTF-8');
@@ -139,24 +247,66 @@ HTML;
 
 // ── POST handler ──────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $selected_equipment_id = trim($_POST['equipment_id'] ?? '');
+    $selected_equipment_id = trim((string)($_POST['equipment_id'] ?? ''));
+    $postedEquipmentName = trim((string)($_POST['equipment_name'] ?? ''));
+    if ($postedEquipmentName === '') {
+        $postedEquipmentName = trim((string)($_POST['equipment_name_display'] ?? ''));
+    }
+    $postedAssetTag = trim((string)($_POST['asset_tag'] ?? ''));
+    $_POST['equipment_name'] = $postedEquipmentName;
+
     $selected_equipment = null;
     foreach ($equipment_list as $item) {
-        if ($item['id'] === $selected_equipment_id) {
+        if ($selected_equipment_id !== '' && $item['id'] === $selected_equipment_id) {
             $selected_equipment = $item;
             break;
         }
     }
 
+    if (!$selected_equipment && $postedAssetTag !== '') {
+        foreach ($equipment_list as $item) {
+            if (strcasecmp((string)($item['asset_tag'] ?? ''), $postedAssetTag) === 0) {
+                $selected_equipment = $item;
+                break;
+            }
+        }
+    }
+
+    if (!$selected_equipment && $postedEquipmentName !== '') {
+        foreach ($equipment_list as $item) {
+            if (strcasecmp((string)($item['name'] ?? ''), $postedEquipmentName) === 0) {
+                $selected_equipment = $item;
+                break;
+            }
+        }
+    }
+
     if (!$selected_equipment) {
-        $error = 'Please select equipment from the list.';
-    } else {
+        $manualName = $postedEquipmentName;
+        $manualCategory = trim((string)($_POST['category'] ?? ''));
+        $manualLocation = trim((string)($_POST['location'] ?? ''));
+        $manualAssetTag = $postedAssetTag;
+
+        if ($manualName === '') {
+            $error = 'Please enter the equipment name.';
+        } else {
+            $selected_equipment = createStudentManualEquipment($conn, $manualName, $manualCategory, $manualLocation, $manualAssetTag);
+            if (!$selected_equipment) {
+                $error = 'We could not save that equipment entry. Please check the details and try again.';
+            }
+        }
+    }
+
+    if ($selected_equipment) {
+        $_POST['equipment_id'] = $selected_equipment['id'];
         $_POST['equipment_name'] = $selected_equipment['name'];
-        $_POST['category'] = $selected_equipment['category'];
+        $_POST['category'] = $selected_equipment['category'] !== '' ? $selected_equipment['category'] : trim((string)($_POST['category'] ?? 'Other / Not sure'));
         $_POST['asset_tag'] = $selected_equipment['asset_tag'];
         if (empty(trim($_POST['location'] ?? '')) && $selected_equipment['location'] !== '') {
             $_POST['location'] = $selected_equipment['location'];
         }
+    } else {
+        $_POST['category'] = trim((string)($_POST['category'] ?? 'Other / Not sure'));
     }
 
     // Validate required fields
@@ -248,6 +398,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <title>Submit Equipment Report — BEC</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="css/typography.css">
 <style>
 :root {
   --maroon: #7B1D1D;
@@ -529,6 +680,11 @@ body::after {
   flex-shrink:0;
 }
 .eq-empty { padding:.75rem .85rem;font-size:.82rem;color:var(--ink3);text-align:center; }
+.eq-manual {
+  padding:.7rem .85rem;border-top:1px solid var(--border);
+  background:#FFFBEF;color:var(--ink2);font-size:.78rem;line-height:1.45;
+}
+.eq-manual strong { color:var(--maroon); }
 .loc-item {
   display:flex;align-items:center;gap:.55rem;
   padding:.6rem .85rem;cursor:pointer;
@@ -616,8 +772,42 @@ body::after {
 .btn-submit:active { transform:translateY(1px);box-shadow:0 2px 0 var(--maroon-dd); }
 .btn-arrow { width:20px;height:20px;background:rgba(255,255,255,.18);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;transition:transform .2s; }
 .btn-submit:hover .btn-arrow { transform:translateX(3px); }
+.btn-submit.is-loading {
+  pointer-events:none;opacity:.82;transform:none;
+}
+.btn-submit.is-loading .btn-arrow {
+  animation:spin .9s linear infinite;
+}
 .btn-cancel { padding:.9rem 1.25rem;border:1.5px solid var(--border);border-radius:11px;color:var(--ink3);font-size:.85rem;font-weight:500;background:none;cursor:pointer;transition:all .18s; text-decoration:none;display:inline-flex;align-items:center; }
 .btn-cancel:hover { border-color:var(--maroon);color:var(--maroon); }
+
+.loading-overlay {
+  position:fixed;inset:0;z-index:800;
+  background:rgba(248,243,234,.88);
+  backdrop-filter:blur(4px);
+  display:none;align-items:center;justify-content:center;
+  padding:1.5rem;text-align:center;
+}
+.loading-overlay.show { display:flex; }
+.loading-box {
+  width:min(360px,100%);
+  background:#fff;border:1.5px solid var(--border);
+  border-radius:16px;padding:1.4rem;
+  box-shadow:var(--shadow-md);
+}
+.loading-spinner {
+  width:44px;height:44px;border-radius:50%;
+  border:4px solid #F0E3D7;border-top-color:var(--maroon);
+  animation:spin .85s linear infinite;
+  margin:0 auto .9rem;
+}
+.loading-title {
+  font-family:'Fraunces',serif;font-size:1.2rem;font-weight:700;color:var(--ink);
+}
+.loading-sub {
+  margin-top:.35rem;font-size:.82rem;line-height:1.5;color:var(--ink3);
+}
+@keyframes spin { to { transform:rotate(360deg); } }
 
 /* ── SUCCESS MODAL ── */
 .modal-overlay {
@@ -896,7 +1086,7 @@ body::after {
   </div>
   <?php endif; ?>
 
-  <form method="POST" enctype="multipart/form-data">
+  <form method="POST" enctype="multipart/form-data" id="report-form">
 
     <!-- ── SECTION 1: REPORTER INFO ── -->
     <div class="section-card">
@@ -944,8 +1134,8 @@ body::after {
           <div class="equip-wrap">
             <div class="fi-wrap">
               <i class="fas fa-search fi-icon"></i>
-              <input type="text" id="equip-search" class="fi" placeholder="Type to search equipment…"
-                autocomplete="off"
+              <input type="text" id="equip-search" name="equipment_name_display" class="fi" placeholder="Type to search equipment…"
+                autocomplete="off" required
                 value="<?php echo htmlspecialchars($_POST['equipment_name'] ?? ''); ?>">
             </div>
             <input type="hidden" name="equipment_id" id="equip-id-hidden" value="<?php echo htmlspecialchars($_POST['equipment_id'] ?? ''); ?>">
@@ -953,23 +1143,23 @@ body::after {
             <input type="hidden" name="category"       id="cat-hidden"   value="<?php echo htmlspecialchars($_POST['category'] ?? ''); ?>">
             <div class="equip-dropdown" id="equip-dropdown"></div>
           </div>
-          <div class="fi-hint"><i class="fas fa-lightbulb"></i> Start typing the equipment name and pick a real record from inventory.</div>
+          <div class="fi-hint"><i class="fas fa-lightbulb"></i> Start typing to search, click the field to browse all, or enter a new equipment name manually.</div>
         </div>
 
-        <!-- Category (auto-filled) -->
+        <!-- Category -->
         <div class="fg">
-          <label class="fl">Category</label>
+          <label class="fl">Category <span class="req">*</span></label>
           <div class="fi-wrap fi-wrap-sel">
             <i class="fas fa-tag fi-icon"></i>
-            <select name="category_display" id="cat-display" class="fsel" disabled>
-              <option value="">Auto-filled from equipment</option>
+            <select id="cat-display" class="fsel" required>
+              <option value="">Select category</option>
               <?php
-              $cats = array_unique(array_column($equipment_list,'category'));
-              foreach($cats as $c): ?>
+              foreach($category_options as $c): ?>
               <option value="<?php echo $c; ?>" <?php echo (($_POST['category']??'')===$c)?'selected':''; ?>><?php echo $c; ?></option>
               <?php endforeach; ?>
             </select>
           </div>
+          <div class="fi-hint"><i class="fas fa-tag"></i> If the item is not listed, choose the closest category.</div>
         </div>
 
         <!-- Asset Tag -->
@@ -978,9 +1168,9 @@ body::after {
           <div class="fi-wrap">
             <i class="fas fa-barcode fi-icon"></i>
             <input type="text" name="asset_tag" class="fi" placeholder="e.g. BEC-LAB2-PC05"
-              value="<?php echo htmlspecialchars($_POST['asset_tag'] ?? ''); ?>" readonly>
+              value="<?php echo htmlspecialchars($_POST['asset_tag'] ?? ''); ?>">
           </div>
-          <div class="fi-hint"><i class="fas fa-info-circle"></i> Auto-filled from the selected equipment record.</div>
+          <div class="fi-hint"><i class="fas fa-info-circle"></i> Auto-filled when you select an inventory item, or type it manually if visible.</div>
         </div>
       </div>
     </div>
@@ -1001,13 +1191,13 @@ body::after {
             <div class="fi-wrap">
               <i class="fas fa-map-marker-alt fi-icon"></i>
               <input type="text" id="location-search" class="fi" placeholder="Type to search location…"
-                autocomplete="off"
+                autocomplete="off" required
                 value="<?php echo htmlspecialchars($_POST['location'] ?? ''); ?>">
             </div>
             <input type="hidden" name="location" id="location-hidden" value="<?php echo htmlspecialchars($_POST['location'] ?? ''); ?>">
             <div class="search-dd" id="location-dropdown"></div>
           </div>
-          <div class="fi-hint"><i class="fas fa-info-circle"></i> Locations come from the existing equipment records in inventory.</div>
+          <div class="fi-hint"><i class="fas fa-info-circle"></i> Choose an existing location or type the room/location manually.</div>
         </div>
       </div>
     </div>
@@ -1092,6 +1282,14 @@ body::after {
   </form>
 </div><!-- /page -->
 
+<div class="loading-overlay" id="loading-overlay" aria-live="polite" aria-hidden="true">
+  <div class="loading-box">
+    <div class="loading-spinner"></div>
+    <div class="loading-title">Submitting report</div>
+    <div class="loading-sub">Please wait while we save the report and generate the ticket number.</div>
+  </div>
+</div>
+
 <script>
 // ── Equipment search / autocomplete ──────────────────────────────────────
 const equipData = <?php echo json_encode($equipment_list); ?>;
@@ -1107,6 +1305,9 @@ const locationHiddenEl = document.getElementById('location-hidden');
 const locationData = <?php echo json_encode(array_values($location_options)); ?>;
 const dropdown    = document.getElementById('equip-dropdown');
 const locationDropdown = document.getElementById('location-dropdown');
+const reportForm = document.getElementById('report-form');
+const loadingOverlay = document.getElementById('loading-overlay');
+const submitBtn = reportForm?.querySelector('.btn-submit');
 
 let focusIdx = -1;
 let locationFocusIdx = -1;
@@ -1118,20 +1319,33 @@ function groupBy(arr, key) {
   }, {});
 }
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  }[char]));
+}
+
 function renderDropdown(query) {
   const q = query.trim().toLowerCase();
-  if (!q) { dropdown.classList.remove('open'); return; }
-
-  const matches = equipData.filter(e =>
-    (e.name || '').toLowerCase().includes(q) ||
-    (e.id || '').toLowerCase().includes(q) ||
-    (e.category || '').toLowerCase().includes(q) ||
-    (e.asset_tag || '').toLowerCase().includes(q) ||
-    (e.location || '').toLowerCase().includes(q)
-  );
+  const matches = q
+    ? equipData.filter(e =>
+      (e.name || '').toLowerCase().includes(q) ||
+      (e.id || '').toLowerCase().includes(q) ||
+      (e.category || '').toLowerCase().includes(q) ||
+      (e.asset_tag || '').toLowerCase().includes(q) ||
+      (e.location || '').toLowerCase().includes(q)
+    )
+    : equipData.slice();
 
   if (!matches.length) {
-    dropdown.innerHTML = '<div class="eq-empty"><i class="fas fa-search" style="margin-right:.3rem;opacity:.5"></i>No equipment found</div>';
+    dropdown.innerHTML = `
+      <div class="eq-empty"><i class="fas fa-search" style="margin-right:.3rem;opacity:.5"></i>No equipment found</div>
+      <div class="eq-manual"><strong>Manual entry:</strong> keep the name you typed, choose a category and location, then submit.</div>
+    `;
     dropdown.classList.add('open');
     return;
   }
@@ -1139,13 +1353,17 @@ function renderDropdown(query) {
   const grouped = groupBy(matches, 'category');
   let html = '';
   for (const [cat, items] of Object.entries(grouped)) {
-    html += `<div class="eq-group-label">${cat}</div>`;
+    html += `<div class="eq-group-label">${escapeHtml(cat)}</div>`;
     items.forEach((item) => {
-      const safeLocation = item.location ? ` <span style="color:#9E8070;">• ${item.location}</span>` : '';
-      html += `<div class="eq-item" data-name="${item.name}" data-cat="${item.category}" data-id="${item.id}" data-asset-tag="${item.asset_tag || ''}" data-location="${item.location || ''}">
-        <span class="eq-id">${item.id}</span>${item.name}${safeLocation}
+      const itemIndex = equipData.indexOf(item);
+      const safeLocation = item.location ? ` <span style="color:#9E8070;">• ${escapeHtml(item.location)}</span>` : '';
+      html += `<div class="eq-item" data-index="${itemIndex}">
+        <span class="eq-id">${escapeHtml(item.id)}</span>${escapeHtml(item.name)}${safeLocation}
       </div>`;
     });
+  }
+  if (q) {
+    html += '<div class="eq-manual"><strong>Not in the list?</strong> Keep typing the new equipment name and submit it manually.</div>';
   }
   dropdown.innerHTML = html;
   dropdown.classList.add('open');
@@ -1154,43 +1372,43 @@ function renderDropdown(query) {
   dropdown.querySelectorAll('.eq-item').forEach(el => {
     el.addEventListener('mousedown', e => {
       e.preventDefault();
-      selectEquip(el.dataset);
+      selectEquip(equipData[Number(el.dataset.index)] || {});
     });
   });
 }
 
 function selectEquip(data) {
+  const category = data.cat || data.category || '';
+  const assetTag = data.assetTag || data.asset_tag || '';
   searchEl.value   = data.name || '';
   equipIdEl.value  = data.id || '';
   hiddenEl.value   = data.name || '';
-  catHidden.value  = data.cat || '';
-  assetTagEl.value = data.assetTag || '';
+  catHidden.value  = category;
+  assetTagEl.value = assetTag;
   if (data.location) {
     locationSearchEl.value = data.location;
     locationHiddenEl.value = data.location;
   }
   for (const opt of catDisplay.options) {
-    opt.selected = opt.value === (data.cat || '');
+    opt.selected = opt.value === category;
   }
   dropdown.classList.remove('open');
   focusIdx = -1;
 }
 
+catDisplay.addEventListener('change', () => {
+  catHidden.value = catDisplay.value;
+});
+
 searchEl.addEventListener('input', () => {
+  equipIdEl.value = '';
+  hiddenEl.value = searchEl.value.trim();
   if (!searchEl.value.trim()) {
-    equipIdEl.value = '';
-    hiddenEl.value = '';
-    catHidden.value = '';
     assetTagEl.value = '';
-    locationSearchEl.value = '';
-    locationHiddenEl.value = '';
-    for (const opt of catDisplay.options) {
-      opt.selected = opt.value === '';
-    }
   }
   renderDropdown(searchEl.value);
 });
-searchEl.addEventListener('focus', () => { if(searchEl.value) renderDropdown(searchEl.value); });
+searchEl.addEventListener('focus', () => renderDropdown(searchEl.value));
 searchEl.addEventListener('blur',  () => setTimeout(() => dropdown.classList.remove('open'), 150));
 
 searchEl.addEventListener('keydown', e => {
@@ -1209,7 +1427,7 @@ searchEl.addEventListener('keydown', e => {
   } else if (e.key === 'Enter' && focusIdx >= 0) {
     e.preventDefault();
     const el = items[focusIdx];
-    selectEquip(el.dataset);
+    selectEquip(equipData[Number(el.dataset.index)] || {});
   } else if (e.key === 'Escape') {
     dropdown.classList.remove('open');
   }
@@ -1226,6 +1444,14 @@ if (equipIdEl.value) {
       location: currentEquipment.location
     });
   }
+} else if (searchEl.value.trim()) {
+  hiddenEl.value = searchEl.value.trim();
+}
+
+if (catHidden.value) {
+  for (const opt of catDisplay.options) {
+    opt.selected = opt.value === catHidden.value;
+  }
 }
 
 function renderLocationDropdown(query) {
@@ -1241,10 +1467,10 @@ function renderLocationDropdown(query) {
   }
 
   locationDropdown.innerHTML = matches.map(location => `
-    <div class="loc-item" data-location="${location}">
+    <div class="loc-item" data-index="${locationData.indexOf(location)}">
       <span class="loc-pin"><i class="fas fa-map-marker-alt"></i></span>
       <span class="loc-meta">
-        <span class="loc-name">${location}</span>
+        <span class="loc-name">${escapeHtml(location)}</span>
         <span class="loc-sub">Inventory location</span>
       </span>
     </div>
@@ -1255,7 +1481,7 @@ function renderLocationDropdown(query) {
   locationDropdown.querySelectorAll('.loc-item').forEach(el => {
     el.addEventListener('mousedown', e => {
       e.preventDefault();
-      selectLocation(el.dataset.location || '');
+      selectLocation(locationData[Number(el.dataset.index)] || '');
     });
   });
 }
@@ -1288,7 +1514,7 @@ locationSearchEl.addEventListener('keydown', e => {
     items[locationFocusIdx]?.scrollIntoView({block:'nearest'});
   } else if (e.key === 'Enter' && locationFocusIdx >= 0) {
     e.preventDefault();
-    selectLocation(items[locationFocusIdx].dataset.location || '');
+    selectLocation(locationData[Number(items[locationFocusIdx].dataset.index)] || '');
   } else if (e.key === 'Escape') {
     locationDropdown.classList.remove('open');
   }
@@ -1322,6 +1548,23 @@ removePhoto.addEventListener('click', () => {
 // Drag & drop highlight
 ['dragenter','dragover'].forEach(ev => photoZone.addEventListener(ev, e => { e.preventDefault(); photoZone.classList.add('drag'); }));
 ['dragleave','drop'].forEach(ev => photoZone.addEventListener(ev, e => { e.preventDefault(); photoZone.classList.remove('drag'); }));
+
+reportForm?.addEventListener('submit', () => {
+  hiddenEl.value = searchEl.value.trim();
+  locationHiddenEl.value = locationSearchEl.value.trim();
+  catHidden.value = catDisplay.value;
+
+  if (!reportForm.checkValidity()) {
+    return;
+  }
+
+  loadingOverlay?.classList.add('show');
+  loadingOverlay?.setAttribute('aria-hidden', 'false');
+  if (submitBtn) {
+    submitBtn.classList.add('is-loading');
+    submitBtn.innerHTML = 'Submitting <span class="btn-arrow"><i class="fas fa-spinner"></i></span>';
+  }
+});
 </script>
 </body>
 </html>

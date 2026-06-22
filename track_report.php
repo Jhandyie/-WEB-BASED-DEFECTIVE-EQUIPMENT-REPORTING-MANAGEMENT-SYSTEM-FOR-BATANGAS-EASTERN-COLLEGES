@@ -173,6 +173,7 @@ function tr_timeline(array $report): array {
 <title>Track Report - BEC Equipment</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="css/typography.css">
 <style>
 :root{
   --m:#7B1D1D;--md:#4A0E0E;--g:#C9960C;--k:#1C1008;--k2:#5C3838;--k3:#9E8070;--p:#F8F3EA;--s:#FFFFFF;--b:#E8DDD0;

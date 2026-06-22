@@ -1,0 +1,7 @@
+project_id = "uhybvuwfaowazncabtty"
+
+[functions.todos]
+verify_jwt = true
+
+[functions.health]
+verify_jwt = false

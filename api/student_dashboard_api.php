@@ -137,6 +137,8 @@ $pending_reports   = $dashboardData['reports']['pending_reports']       ?? 0;
 $inprog_reports    = $dashboardData['reports']['in_progress_reports']   ?? 0;
 $completed_reports = $dashboardData['reports']['completed_reports']       ?? 0;
 $unread_notifs     = $dashboardData['notifications']                  ?? 0;
+$equipmentOptionsResult = $controller->getAvailableEquipment();
+$equipmentOptions = $equipmentOptionsResult['success'] ? ($equipmentOptionsResult['data'] ?? []) : [];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -146,6 +148,7 @@ $unread_notifs     = $dashboardData['notifications']                  ?? 0;
 <title>Student Dashboard — BEC Equipment Management</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="../css/typography.css">
 <style>
 /* ═══════════════════════════════════════════════════
    BEC EQUIPMENT MANAGEMENT — STUDENT DASHBOARD
@@ -1194,7 +1197,12 @@ textarea.f-ctrl{resize:vertical;min-height:90px;}
       <div class="f-row">
         <div class="f-group">
           <label class="f-label">Equipment Name <span>*</span></label>
-          <input type="text" class="f-ctrl" id="fEq" placeholder="e.g. Dell Projector #3">
+          <input type="text" class="f-ctrl" id="fEq" name="equipment_name" list="equipmentOptions" placeholder="e.g. Dell Projector #3" required>
+          <datalist id="equipmentOptions">
+            <?php foreach ($equipmentOptions as $equipment): ?>
+              <option value="<?php echo htmlspecialchars((string)($equipment['equipment_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
+            <?php endforeach; ?>
+          </datalist>
           <div class="f-err" id="fEqE">Please enter the equipment name.</div>
         </div>
         <div class="f-group">
@@ -1455,6 +1463,7 @@ function openReportModal(){
   clearErrs();
   document.getElementById('fDate').value=new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
   document.getElementById('reportModal').classList.add('open');
+  setTimeout(()=>document.getElementById('fEq')?.focus(), 80);
 }
 function closeReportModal(){document.getElementById('reportModal').classList.remove('open');}
 
@@ -1468,8 +1477,9 @@ function previewPhoto(e){
 }
 
 function openConfirm(){
+  clearErrs();
   let ok=true;
-  const v=(id,eid)=>{const el=document.getElementById(id),e=document.getElementById(eid),v2=el.value.trim()!='';e.style.display=v2?'none':'block';if(!v2)ok=false;};
+  const v=(id,eid)=>{const el=document.getElementById(id),e=document.getElementById(eid),v2=(el?.value||'').trim()!=='';e.style.display=v2?'none':'block';if(!v2)ok=false;};
   v('fEq','fEqE');v('fCat','fCatE');v('fLoc','fLocE');v('fDesc','fDescE');
   if(!ok){toast('err','Please fill in all required fields.','Validation Error');return;}
   document.getElementById('confirmModal').classList.add('open');
@@ -1477,9 +1487,25 @@ function openConfirm(){
 function closeCo(){document.getElementById('confirmModal').classList.remove('open');}
 
 function doSubmit(){
+  clearErrs();
   const fd2=new FormData();
+  const equipmentName = document.getElementById('fEq').value.trim();
+  if (!equipmentName) {
+    closeCo();
+    document.getElementById('fEqE').style.display = 'block';
+    document.getElementById('reportModal').classList.add('open');
+    document.getElementById('fEq').focus();
+    toast('err','Please enter the equipment name.','Validation Error');
+    return;
+  }
+  const submitButton = document.querySelector('#confirmModal .btn-gold');
+  if (submitButton) {
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting';
+  }
   fd2.append('action','submit_report');
-  fd2.append('equipment',document.getElementById('fEq').value.trim());
+  fd2.append('equipment',equipmentName);
+  fd2.append('equipment_name',equipmentName);
   fd2.append('category',document.getElementById('fCat').value);
   fd2.append('location',document.getElementById('fLoc').value.trim());
   fd2.append('description',document.getElementById('fDesc').value.trim());
@@ -1488,16 +1514,25 @@ function doSubmit(){
 
   fetch(API_ENDPOINT,{method:'POST',body:fd2})
     .then(r=>r.json()).then(d=>{
-      closeCo();closeReportModal();
       if(d.success){
+        closeCo();closeReportModal();
         toast('ok',`Report ${d.report_id||''} submitted! Status: Pending.`,'Submission Confirmed');
         loadStats();loadRecent();
+        if (document.getElementById('page-history')?.classList.contains('active')) loadHist();
         ['fEq','fCat','fLoc','fDesc','fPhoto'].forEach(id=>document.getElementById(id).value='');
         document.getElementById('imgPrev').style.display='none';
       } else {
+        closeCo();
+        document.getElementById('reportModal').classList.add('open');
         toast('err',d.message||'Submission failed.','Error');
       }
-    }).catch(()=>{closeCo();toast('err','Network error. Please try again.','Error');});
+    }).catch(()=>{closeCo();document.getElementById('reportModal').classList.add('open');toast('err','Network error. Please try again.','Error');})
+    .finally(()=>{
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.innerHTML = '<i class="fas fa-check"></i> Yes, Submit';
+      }
+    });
 }
 
 function clearErrs(){['fEqE','fCatE','fLocE','fDescE'].forEach(id=>document.getElementById(id).style.display='none');}

@@ -209,6 +209,7 @@ function jArr($arr){return json_encode(array_values($arr),JSON_UNESCAPED_UNICODE
 <title>Analytics — BEC Admin</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="css/typography.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 /* ═══════════════════════════════════════════════════════
@@ -1082,7 +1083,6 @@ function toast(type, msg, title) {
 </script>
 </body>
 </html>
-
 
 
 

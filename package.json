@@ -1,0 +1,10 @@
+{
+  "type": "module",
+  "scripts": {
+    "check:supabase-server": "node --env-file=.env scripts/check_supabase_server_env.mjs"
+  },
+  "dependencies": {
+    "@supabase/server": "^1.1.0",
+    "@supabase/supabase-js": "^2.108.2"
+  }
+}

@@ -196,13 +196,23 @@ class StudentDashboardController
 
     public function submitReport(string $userId, array $post, array $files): array
     {
-        $equipmentRef = trim((string)($post['equipment_id'] ?? $post['equipment'] ?? ''));
+        $equipmentRef = trim((string)($post['equipment_id'] ?? $post['equipment'] ?? $post['equipment_name'] ?? ''));
+        $equipmentName = trim((string)($post['equipment_name'] ?? $post['equipment'] ?? ''));
         $equipmentId = $this->resolveEquipmentId($equipmentRef);
         $description = trim((string)($post['issue_description'] ?? $post['description'] ?? ''));
         $location = trim((string)($post['location'] ?? ''));
         $category = trim((string)($post['category'] ?? ''));
         $reporterName = trim((string)($_SESSION['fullname'] ?? $_SESSION['username'] ?? ''));
         $reporterEmail = trim((string)($_SESSION['email'] ?? $_SESSION['user_email'] ?? ''));
+
+        if ($equipmentId === '' && $equipmentName === '' && $equipmentRef !== '') {
+            $equipmentName = $equipmentRef;
+        }
+
+        if ($equipmentId === '' && $equipmentName !== '') {
+            $manualEquipment = $this->createManualEquipment($equipmentName, $category, $location);
+            $equipmentId = (string)($manualEquipment['id'] ?? '');
+        }
 
         if ($equipmentId === '' || $description === '') {
             return ['success' => false, 'message' => 'Equipment and issue description are required.'];
@@ -485,6 +495,78 @@ class StudentDashboardController
             }
             addNotification($adminId, $message, 'new_defect_report', $reportId);
         }
+    }
+
+    private function ensureManualCategoryId(string $category): ?int
+    {
+        $category = trim($category) !== '' ? trim($category) : 'Other / Not sure';
+
+        $stmt = $this->conn->prepare("SELECT category_id FROM categories WHERE category_name = ? LIMIT 1");
+        if (!$stmt) {
+            return null;
+        }
+        $stmt->bind_param('s', $category);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!empty($row['category_id'])) {
+            return (int)$row['category_id'];
+        }
+
+        $description = 'Created from a manual student report entry.';
+        $stmt = $this->conn->prepare("INSERT INTO categories (category_name, description) VALUES (?, ?)");
+        if (!$stmt) {
+            return null;
+        }
+        $stmt->bind_param('ss', $category, $description);
+        if (!$stmt->execute()) {
+            $stmt->close();
+            return null;
+        }
+        $categoryId = (int)$this->conn->insert_id;
+        $stmt->close();
+
+        return $categoryId > 0 ? $categoryId : null;
+    }
+
+    private function createManualEquipment(string $name, string $category, string $location): ?array
+    {
+        $name = trim($name);
+        $category = trim($category) !== '' ? trim($category) : 'Other / Not sure';
+        $location = trim($location);
+
+        if ($name === '') {
+            return null;
+        }
+
+        $seed = strtoupper(substr(md5($name . '|' . $location . '|' . microtime(true)), 0, 10));
+        $categoryId = $this->ensureManualCategoryId($category);
+        $description = 'Manual student report entry. Review and merge with inventory if needed.';
+
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            $equipmentId = 'MAN-' . $seed;
+            $assetTag = 'MAN-' . $seed;
+            $stmt = $this->conn->prepare("INSERT INTO equipment (equipment_id, asset_tag, equipment_name, category_id, description, location, status, condition_status, quantity, min_stock_level, reorder_point) VALUES (?, ?, ?, ?, ?, ?, 'available', 'fair', 1, 1, 0)");
+            if (!$stmt) {
+                return null;
+            }
+            $stmt->bind_param('sssiss', $equipmentId, $assetTag, $name, $categoryId, $description, $location);
+            if ($stmt->execute()) {
+                $stmt->close();
+                return [
+                    'id' => $equipmentId,
+                    'name' => $name,
+                    'category' => $category,
+                    'asset_tag' => $assetTag,
+                    'location' => $location,
+                ];
+            }
+            $stmt->close();
+            $seed = strtoupper(substr(md5($seed . '|' . $attempt . '|' . microtime(true)), 0, 10));
+        }
+
+        return null;
     }
 
     private function resolveEquipmentId(string $reference): string

@@ -1,3 +1,5 @@
+@import url('typography.css');
+
 /* ============================================
    BEC EQUIPMENT MANAGEMENT SYSTEM
    User Styles - Faculty/Student Interface
@@ -28,7 +30,7 @@
 }
 
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: var(--font-primary);
     background: var(--bg-light);
     color: var(--text-dark);
     line-height: 1.6;
