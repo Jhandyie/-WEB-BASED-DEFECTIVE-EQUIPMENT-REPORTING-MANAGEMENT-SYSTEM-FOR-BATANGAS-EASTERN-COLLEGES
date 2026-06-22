@@ -240,72 +240,46 @@ function sendOTPEmail($email, $otp, $role = 'admin') {
 }
 
 function storeOTP($email, $otp, $role = 'admin') {
-    $conn = getDBConnection();
-    $stmt = $conn->prepare("UPDATE email_otp SET is_used = 1 WHERE email = ? AND is_used = 0");
-    $stmt->bind_param("s", $email);
-    $stmt->execute();
-    $stmt->close();
-    $stmt = $conn->prepare("INSERT INTO email_otp (email, otp_code, user_role, expires_at) VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE))");
-    $stmt->bind_param("sss", $email, $otp, $role);
-    $result = $stmt->execute();
-    $stmt->close();
-    return $result;
+    markEmailOtpUsed((string)$email);
+    return insertEmailOtp((string)$email, (string)$otp, (string)$role, 10);
 }
 
 function verifyOTP($email, $otp_code, $role = 'admin') {
-    $conn = getDBConnection();
-    $stmt = $conn->prepare("SELECT * FROM email_otp WHERE email = ? AND otp_code = ? AND user_role = ? AND is_used = 0 AND expires_at > NOW() ORDER BY created_at DESC LIMIT 1");
-    $stmt->bind_param("sss", $email, $otp_code, $role);
-    $stmt->execute();
-    $otp_record = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
+    $otp_record = findEmailOtpRecord((string)$email, (string)$otp_code, (string)$role, 'valid');
     if (!$otp_record) {
-        $stmt = $conn->prepare("SELECT * FROM email_otp WHERE email = ? AND otp_code = ? AND user_role = ? AND is_used = 0 AND expires_at <= NOW() ORDER BY created_at DESC LIMIT 1");
-        $stmt->bind_param("sss", $email, $otp_code, $role);
-        $stmt->execute();
-        if ($stmt->get_result()->fetch_assoc()) { $stmt->close(); return ['success' => false, 'message' => 'OTP has expired. Please request a new one.', 'user' => null]; }
-        $stmt->close();
-        $stmt = $conn->prepare("SELECT * FROM email_otp WHERE email = ? AND otp_code = ? AND user_role = ? AND is_used = 1 ORDER BY created_at DESC LIMIT 1");
-        $stmt->bind_param("sss", $email, $otp_code, $role);
-        $stmt->execute();
-        $used = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
+        $expired = findEmailOtpRecord((string)$email, (string)$otp_code, (string)$role, 'expired');
+        if ($expired) {
+            return ['success' => false, 'message' => 'OTP has expired. Please request a new one.', 'user' => null];
+        }
+        $used = findEmailOtpRecord((string)$email, (string)$otp_code, (string)$role, 'used');
         return ['success' => false, 'message' => $used ? 'This OTP has already been used.' : 'Invalid OTP code.', 'user' => null];
     }
-    $stmt = $conn->prepare("UPDATE email_otp SET is_used = 1 WHERE otp_id = ?");
-    $stmt->bind_param("i", $otp_record['otp_id']);
-    $stmt->execute();
-    $stmt->close();
+    markOtpUsedById((int)($otp_record['otp_id'] ?? 0));
     $allowed_roles = ['admin', 'pmo', 'dean', 'finance', 'student', 'faculty', 'technician', 'handler', 'guest'];
     if (!in_array($role, $allowed_roles)) return ['success' => false, 'message' => 'Invalid role.', 'user' => null];
-    $stmt = $conn->prepare("SELECT * FROM `users` WHERE email = ? AND role = ? LIMIT 1");
-    $stmt->bind_param("ss", $email, $role);
-    $stmt->execute();
-    $user = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
+    $user = findUserByEmailAndRole((string)$email, (string)$role, [
+        'user_id',
+        'email',
+        'fullname',
+        'username',
+        'password',
+        'status',
+        'role',
+    ]);
     if (!$user) return ['success' => false, 'message' => 'User account not found.', 'user' => null];
     if (isset($user['status']) && $user['status'] !== 'active') return ['success' => false, 'message' => 'Your account is inactive. Please contact support.', 'user' => null];
     return ['success' => true, 'message' => 'OTP verified successfully.', 'user' => $user];
 }
 
 function requestLoginOTP($email, $role = 'admin') {
-    $conn = getDBConnection();
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) return ['success' => false, 'message' => 'Invalid email address format.'];
     $allowed_roles = ['admin', 'pmo', 'dean', 'finance', 'student', 'faculty', 'technician', 'handler', 'guest'];
     if (!in_array($role, $allowed_roles)) return ['success' => false, 'message' => 'Invalid role.'];
-    $stmt = $conn->prepare("SELECT email, fullname FROM `users` WHERE email = ? AND role = ? LIMIT 1");
-    $stmt->bind_param("ss", $email, $role);
-    $stmt->execute();
-    $user = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
+    $user = findUserByEmailAndRole((string)$email, (string)$role, ['email', 'fullname', 'status']);
     if (!$user) return ['success' => true, 'message' => 'If this email is registered, an OTP has been sent.'];
-    $stmt = $conn->prepare("SELECT TIMESTAMPDIFF(SECOND, created_at, NOW()) as seconds_ago FROM email_otp WHERE email = ? AND created_at > DATE_SUB(NOW(), INTERVAL 10 SECOND) ORDER BY created_at DESC LIMIT 1");
-    $stmt->bind_param("s", $email);
-    $stmt->execute();
-    $recent = $stmt->get_result()->fetch_assoc();
-    $stmt->close();
-    if ($recent) {
-        $wait = max(0, 10 - max(0, $recent['seconds_ago']));
+    $recentSecondsAgo = getRecentOtpSecondsAgo((string)$email, 10);
+    if ($recentSecondsAgo !== null) {
+        $wait = max(0, 10 - max(0, $recentSecondsAgo));
         if ($wait > 0) return ['success' => false, 'message' => "Please wait {$wait} seconds before requesting another OTP."];
     }
     $otp = generateOTP();
@@ -336,10 +310,11 @@ function requestLoginOTP($email, $role = 'admin') {
 }
 
 function cleanupExpiredOTPs() {
-    $conn = getDBConnection();
-    $result = $conn->query("DELETE FROM email_otp WHERE expires_at < NOW()");
-    if ($result) { $deleted = $conn->affected_rows; error_log("Cleaned up {$deleted} expired OTP records"); return $deleted; }
-    return 0;
+    $deleted = deleteExpiredOtps();
+    if ($deleted > 0) {
+        error_log("Cleaned up {$deleted} expired OTP records");
+    }
+    return $deleted;
 }
 
 

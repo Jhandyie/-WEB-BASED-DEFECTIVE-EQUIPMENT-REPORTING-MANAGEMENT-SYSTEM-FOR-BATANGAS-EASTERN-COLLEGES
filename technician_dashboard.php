@@ -66,6 +66,16 @@ function picon(string $p): string {
         'low' => 'fa-arrow-down',
     ][strtolower(trim($p))] ?? 'fa-equals';
 }
+function nextActionLabel(string $status): string {
+    return [
+        'assigned' => 'Needs inspection',
+        'in_progress' => 'Continue repair',
+        'for_replacement' => 'Review replacement recommendation',
+        'completed' => 'Waiting for PMO',
+        'verified' => 'Verified record',
+        'closed' => 'Closed record',
+    ][strtolower(trim($status))] ?? 'Review task';
+}
 function taskPhotos(array $row): array {
     $out = [];
     foreach (['photo_path', 'photo_url', 'image_path'] as $field) {
@@ -141,6 +151,7 @@ if (isset($drCols['equipment_id']) && (isset($eqCols['equipment_id']) || isset($
 $tab = trim((string)($_GET['tab'] ?? 'my_tasks'));
 if (!in_array($tab, ['my_tasks', 'history'], true)) $tab = 'my_tasks';
 $search = trim((string)($_GET['search'] ?? ''));
+$queueFilter = trim((string)($_GET['queue'] ?? 'all'));
 $selectedId = trim((string)($_GET['report'] ?? ''));
 $flash = ['type' => trim((string)($_GET['flash_type'] ?? '')), 'message' => trim((string)($_GET['flash'] ?? ''))];
 
@@ -230,8 +241,32 @@ unset($t);
 foreach ($historyTasks as &$t) $t['photos'] = taskPhotos($t);
 unset($t);
 
+$filterConfig = $tab === 'history'
+    ? [
+        'all' => fn(array $row): bool => true,
+        'verified' => fn(array $row): bool => strtolower((string)($row['status'] ?? '')) === 'verified',
+        'closed' => fn(array $row): bool => strtolower((string)($row['status'] ?? '')) === 'closed',
+      ]
+    : [
+        'all' => fn(array $row): bool => true,
+        'urgent' => fn(array $row): bool => in_array(strtolower((string)($row['priority'] ?? '')), ['critical', 'high'], true),
+        'assigned' => fn(array $row): bool => strtolower((string)($row['status'] ?? '')) === 'assigned',
+        'in_progress' => fn(array $row): bool => strtolower((string)($row['status'] ?? '')) === 'in_progress',
+        'completed' => fn(array $row): bool => strtolower((string)($row['status'] ?? '')) === 'completed',
+      ];
+if (!isset($filterConfig[$queueFilter])) $queueFilter = 'all';
+
+$queueCounts = [];
+foreach ($filterConfig as $key => $matcher) {
+    $target = $tab === 'history' ? $historyTasks : $activeTasks;
+    $queueCounts[$key] = count(array_filter($target, $matcher));
+}
+
+$activeViewTasks = array_values(array_filter($activeTasks, $filterConfig[$queueFilter] ?? $filterConfig['all']));
+$historyViewTasks = array_values(array_filter($historyTasks, $filterConfig[$queueFilter] ?? $filterConfig['all']));
+
 $selected = null;
-$list = $tab === 'history' ? $historyTasks : $activeTasks;
+$list = $tab === 'history' ? $historyViewTasks : $activeViewTasks;
 foreach ($list as $row) if ($selectedId !== '' && (string)$row['report_id'] === $selectedId) $selected = $row;
 if (!$selected && $list) { $selected = $list[0]; $selectedId = (string)$selected['report_id']; }
 
@@ -314,6 +349,17 @@ button, input, textarea { font: inherit; }
   display: grid;
   grid-template-columns: 290px minmax(0, 1fr);
   min-height: 100vh;
+}
+
+.sidebar-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 10, 10, 0.38);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 250;
 }
 
 .sidebar {
@@ -673,6 +719,43 @@ button, input, textarea { font: inherit; }
   margin-bottom: 18px;
 }
 
+.toolbar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.toolbar-copy strong {
+  display: block;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.92rem;
+  color: var(--maroon-dark);
+}
+
+.toolbar-copy span {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.sidebar-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  background: #fff8ef;
+  color: var(--maroon);
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .tabs {
   display: flex;
   align-items: center;
@@ -756,6 +839,38 @@ button, input, textarea { font: inherit; }
 .ghost-btn:hover,
 .actions button:hover {
   transform: translateY(-1px);
+}
+
+.queue-filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fffaf4;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.filter-chip strong {
+  color: inherit;
+  font-size: 0.68rem;
+}
+
+.filter-chip.active {
+  color: #fff7ee;
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--maroon), #9d3535 70%, var(--gold));
+  box-shadow: 0 10px 22px rgba(123, 29, 29, 0.16);
 }
 
 .flash {
@@ -1215,6 +1330,10 @@ body.modal-open {
   margin-top: 16px;
 }
 
+.modal-action-bar {
+  position: relative;
+}
+
 .actions button {
   border: 0;
   padding: 12px 18px;
@@ -1247,17 +1366,36 @@ body.modal-open {
     grid-template-columns: 1fr;
   }
 
+  .sidebar-scrim {
+    display: block;
+  }
+
   .sidebar {
-    position: relative;
-    min-height: auto;
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: min(320px, calc(100vw - 24px));
+    height: 100vh;
+    min-height: 100vh;
     padding: 14px;
+    transform: translateX(calc(-100% - 18px));
+    transition: transform 0.24s ease;
     border-right: 0;
-    border-bottom: 1px solid rgba(255, 232, 205, 0.12);
-    border-radius: 0 0 24px 24px;
+    border-radius: 0 24px 24px 0;
+    z-index: 300;
+  }
+
+  body.sidebar-open .sidebar {
+    transform: translateX(0);
+  }
+
+  body.sidebar-open .sidebar-scrim {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .side-inner {
-    min-height: auto;
+    min-height: calc(100vh - 28px);
     gap: 12px;
   }
 
@@ -1306,6 +1444,10 @@ body.modal-open {
     padding: 14px;
   }
 
+  .sidebar-toggle {
+    display: inline-flex;
+  }
+
   .tabs {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1329,6 +1471,10 @@ body.modal-open {
 
   .search input {
     width: 100%;
+  }
+
+  .queue-filters {
+    gap: 8px;
   }
 
   .list-shell {
@@ -1462,6 +1608,10 @@ body.modal-open {
     padding: 14px;
   }
 
+  .toolbar-top {
+    align-items: flex-start;
+  }
+
   .tabs {
     grid-template-columns: 1fr;
     gap: 10px;
@@ -1524,6 +1674,26 @@ body.modal-open {
     padding: 8px;
   }
 
+  .queue-filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filter-chip {
+    justify-content: space-between;
+    min-width: 0;
+  }
+
+  .modal-action-bar {
+    position: sticky;
+    bottom: -14px;
+    margin: 16px -14px -14px;
+    padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(180deg, rgba(248, 239, 230, 0.7), rgba(255, 252, 248, 0.98));
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--line);
+  }
+
   .actions button,
   .empty-action {
     width: 100%;
@@ -1582,6 +1752,10 @@ body.modal-open {
     height: 40px;
     border-radius: 14px;
   }
+
+  .queue-filters {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (min-width: 900px) and (max-width: 1280px) and (max-height: 900px) {
@@ -1596,8 +1770,9 @@ body.modal-open {
 </style>
 </head>
 <body>
+<div class="sidebar-scrim" data-close-sidebar></div>
 <div class="shell">
-  <aside class="sidebar">
+  <aside class="sidebar" id="technicianSidebar">
     <div class="side-inner">
       <div class="side-brand">
         <div class="side-logo"><img src="assets/logs.png" alt="BEC logo"></div>
@@ -1637,14 +1812,22 @@ body.modal-open {
       </section>
 
       <section class="card toolbar">
+        <div class="toolbar-top">
+          <div class="toolbar-copy">
+            <strong><?php echo $tab === 'history' ? 'Resolved Records' : 'Technician Work Queue'; ?></strong>
+            <span><?php echo $tab === 'history' ? 'Review verified and closed records quickly.' : 'Use quick filters to jump to the next best task.'; ?></span>
+          </div>
+          <button type="button" class="sidebar-toggle" id="sidebarToggle" aria-expanded="false" aria-controls="technicianSidebar"><i class="fas fa-bars"></i> Menu</button>
+        </div>
         <div class="tabs">
           <a class="tab <?php echo $tab === 'my_tasks' ? 'active' : ''; ?>" href="?tab=my_tasks<?php echo $search !== '' ? '&search=' . urlencode($search) : ''; ?>"><i class="fas fa-list-check"></i> My Tasks</a>
           <a class="tab <?php echo $tab === 'history' ? 'active' : ''; ?>" href="?tab=history<?php echo $search !== '' ? '&search=' . urlencode($search) : ''; ?>"><i class="fas fa-clock-rotate-left"></i> Work History</a>
           <form class="search" method="get">
           <input type="hidden" name="tab" value="<?php echo e($tab); ?>">
+          <input type="hidden" name="queue" value="<?php echo e($queueFilter); ?>">
           <input type="text" name="search" value="<?php echo e($search); ?>" placeholder="Search report, equipment, location, or issue">
           <button type="submit"><i class="fas fa-magnifying-glass"></i> Search</button>
-          <?php if ($search !== ''): ?><a href="?tab=<?php echo e($tab); ?>"><i class="fas fa-xmark"></i> Clear</a><?php endif; ?>
+          <?php if ($search !== ''): ?><a href="?tab=<?php echo e($tab); ?>&queue=<?php echo e($queueFilter); ?>"><i class="fas fa-xmark"></i> Clear</a><?php endif; ?>
           </form>
         </div>
       </section>
@@ -1660,15 +1843,30 @@ body.modal-open {
           <small><?php echo $tab === 'history' ? 'Completed Records' : 'Active Task Queue'; ?></small>
           <h2 class="section-title"><?php echo $tab === 'history' ? 'Work History' : 'My Tasks'; ?></h2>
         </div>
-        <div class="ghost-btn"><?php echo $tab === 'history' ? $cHist : $taskCount; ?> items</div>
+        <div class="ghost-btn"><?php echo $totalItems; ?> items</div>
       </div>
-      <?php $source = $tab === 'history' ? $historyTasks : $activeTasks; ?>
+      <?php $source = $list; ?>
       <div class="list-stack">
       <div class="list-head">
         <div>
           <strong><?php echo $tab === 'history' ? 'Resolved technician records' : 'Assigned repair workload'; ?></strong>
           <div class="subtle"><?php echo $search !== '' ? 'Filtered by your current search.' : 'Showing the current queue for this view.'; ?></div>
         </div>
+      </div>
+      <div class="queue-filters">
+        <?php if ($tab === 'history'): ?>
+          <?php foreach ([['all','All Records','fa-layer-group'],['verified','Verified','fa-badge-check'],['closed','Closed','fa-circle-check']] as [$filterKey,$filterLabel,$filterIcon]): ?>
+            <a class="filter-chip <?php echo $queueFilter === $filterKey ? 'active' : ''; ?>" href="?tab=<?php echo e($tab); ?>&queue=<?php echo e($filterKey); ?><?php echo $search !== '' ? '&search=' . urlencode($search) : ''; ?>">
+              <i class="fas <?php echo e($filterIcon); ?>"></i> <?php echo e($filterLabel); ?> <strong><?php echo (int)($queueCounts[$filterKey] ?? 0); ?></strong>
+            </a>
+          <?php endforeach; ?>
+        <?php else: ?>
+          <?php foreach ([['all','All Tasks','fa-layer-group'],['urgent','Urgent','fa-bolt'],['assigned','Assigned','fa-clipboard-list'],['in_progress','In Progress','fa-screwdriver-wrench'],['completed','Awaiting PMO','fa-user-check']] as [$filterKey,$filterLabel,$filterIcon]): ?>
+            <a class="filter-chip <?php echo $queueFilter === $filterKey ? 'active' : ''; ?>" href="?tab=<?php echo e($tab); ?>&queue=<?php echo e($filterKey); ?><?php echo $search !== '' ? '&search=' . urlencode($search) : ''; ?>">
+              <i class="fas <?php echo e($filterIcon); ?>"></i> <?php echo e($filterLabel); ?> <strong><?php echo (int)($queueCounts[$filterKey] ?? 0); ?></strong>
+            </a>
+          <?php endforeach; ?>
+        <?php endif; ?>
       </div>
       <?php if (!$source): ?>
       <div class="empty">
@@ -1687,7 +1885,7 @@ body.modal-open {
         <div class="item">
           <div class="item-topline">
             <div class="report-chip"><i class="fas fa-hashtag"></i> Report <?php echo e((string)$row['report_id']); ?></div>
-            <div class="quick-note"><?php echo $tab === 'history' ? 'Resolved case record' : 'Tap to review and update'; ?></div>
+            <div class="quick-note"><?php echo e(nextActionLabel((string)($row['status'] ?? 'assigned'))); ?></div>
           </div>
           <div class="row">
             <div>
@@ -1819,7 +2017,7 @@ body.modal-open {
             <input type="hidden" name="report_id" value="<?php echo e((string)$row['report_id']); ?>">
             <label for="technician_notes_<?php echo e((string)$row['report_id']); ?>">Inspection / repair summary</label>
             <textarea id="technician_notes_<?php echo e((string)$row['report_id']); ?>" name="technician_notes" placeholder="Record the inspection findings, repair work performed, test results, or the reason replacement is recommended."><?php echo e((string)($row['technician_notes'] ?? '')); ?></textarea>
-            <div class="actions">
+            <div class="actions modal-action-bar">
               <?php if ($modalStatus === 'assigned'): ?><button class="b1" type="submit" name="action" value="start">Start Inspection</button><?php endif; ?>
               <?php if (in_array($modalStatus, ['assigned','in_progress','for_replacement','completed'], true)): ?><button class="b2" type="submit" name="action" value="save">Save Notes</button><?php endif; ?>
               <?php if (in_array($modalStatus, ['assigned','in_progress'], true)): ?><button class="b3" type="submit" name="action" value="replace">Recommend Replacement</button><?php endif; ?>
@@ -1837,6 +2035,30 @@ body.modal-open {
   </main>
 </div>
 <script>
+const body = document.body;
+const sidebar = document.getElementById('technicianSidebar');
+const sidebarToggle = document.getElementById('sidebarToggle');
+const sidebarClosers = document.querySelectorAll('[data-close-sidebar]');
+
+function setSidebarOpen(open) {
+  body.classList.toggle('sidebar-open', open);
+  if (sidebarToggle) sidebarToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
+if (sidebarToggle) {
+  sidebarToggle.addEventListener('click', () => {
+    setSidebarOpen(!body.classList.contains('sidebar-open'));
+  });
+}
+
+sidebarClosers.forEach((node) => {
+  node.addEventListener('click', () => setSidebarOpen(false));
+});
+
+window.addEventListener('resize', () => {
+  if (window.innerWidth > 960) setSidebarOpen(false);
+});
+
 document.querySelectorAll('[data-modal-target]').forEach((trigger) => {
   trigger.addEventListener('click', () => {
     const modal = document.getElementById(trigger.getAttribute('data-modal-target'));
@@ -1864,6 +2086,9 @@ document.querySelectorAll('.modal').forEach((modal) => {
   });
 });
 document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && body.classList.contains('sidebar-open')) {
+    setSidebarOpen(false);
+  }
   if (event.key !== 'Escape') return;
   document.querySelectorAll('.modal.open').forEach((modal) => {
     modal.classList.remove('open');

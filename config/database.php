@@ -1,25 +1,156 @@
 <?php
 // config/database.php - Centralized Database Configuration
-// Updated: 2026-01-15
+// Updated: 2026-04-17
+
+if (!function_exists('dbEnv')) {
+    function dbEnv(string $key, $default = null) {
+        $value = getenv($key);
+        if ($value === false || $value === '') {
+            return $default;
+        }
+        return $value;
+    }
+}
+
+if (!function_exists('getDatabaseConfig')) {
+    function getDatabaseConfig(): array {
+        return [
+            'driver' => strtolower((string)dbEnv('DB_DRIVER', 'mysql')),
+            'mysql' => [
+                'host' => (string)dbEnv('MYSQL_HOST', '127.0.0.1'),
+                'port' => (int)dbEnv('MYSQL_PORT', '3306'),
+                'username' => (string)dbEnv('MYSQL_USERNAME', 'root'),
+                'password' => (string)dbEnv('MYSQL_PASSWORD', ''),
+                'database' => (string)dbEnv('MYSQL_DATABASE', 'bec_equipment_db'),
+                'charset' => (string)dbEnv('MYSQL_CHARSET', 'utf8mb4'),
+                'timezone' => (string)dbEnv('APP_DB_TIMEZONE', '+08:00'),
+            ],
+            'pgsql' => [
+                'host' => (string)dbEnv('PGHOST', ''),
+                'port' => (int)dbEnv('PGPORT', '5432'),
+                'database' => (string)dbEnv('PGDATABASE', ''),
+                'username' => (string)dbEnv('PGUSER', ''),
+                'password' => (string)dbEnv('PGPASSWORD', ''),
+                'sslmode' => (string)dbEnv('PGSSLMODE', 'require'),
+            ],
+            'supabase' => [
+                'url' => (string)dbEnv('SUPABASE_URL', ''),
+                'anon_key' => (string)dbEnv('SUPABASE_ANON_KEY', ''),
+                'service_role_key' => (string)dbEnv('SUPABASE_SERVICE_ROLE_KEY', ''),
+            ],
+        ];
+    }
+}
+
+if (!function_exists('getDatabaseDriver')) {
+    function getDatabaseDriver(): string {
+        $config = getDatabaseConfig();
+        return strtolower((string)($config['driver'] ?? 'mysql'));
+    }
+}
+
+if (!function_exists('isMySqlDriver')) {
+    function isMySqlDriver(): bool {
+        return getDatabaseDriver() === 'mysql';
+    }
+}
+
+if (!function_exists('isPgSqlDriver')) {
+    function isPgSqlDriver(): bool {
+        return in_array(getDatabaseDriver(), ['pgsql', 'postgres', 'postgresql', 'supabase'], true);
+    }
+}
+
+class PgsqlDatabase {
+    private static $instance = null;
+    private ?PDO $connection = null;
+    private array $config;
+
+    private function __construct() {
+        $this->config = getDatabaseConfig();
+    }
+
+    public static function getInstance(): self {
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
+
+    public function getConnection(): PDO {
+        if ($this->connection instanceof PDO) {
+            return $this->connection;
+        }
+
+        $pgsql = $this->config['pgsql'] ?? [];
+        $host = trim((string)($pgsql['host'] ?? ''));
+        $port = (int)($pgsql['port'] ?? 5432);
+        $database = trim((string)($pgsql['database'] ?? ''));
+        $username = trim((string)($pgsql['username'] ?? ''));
+        $password = (string)($pgsql['password'] ?? '');
+        $sslmode = trim((string)($pgsql['sslmode'] ?? 'require'));
+
+        if ($host === '' || $database === '' || $username === '') {
+            throw new RuntimeException('PostgreSQL/Supabase connection variables are incomplete.');
+        }
+
+        $dsn = sprintf(
+            'pgsql:host=%s;port=%d;dbname=%s;sslmode=%s',
+            $host,
+            $port,
+            $database,
+            $sslmode !== '' ? $sslmode : 'require'
+        );
+
+        $this->connection = new PDO($dsn, $username, $password, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ]);
+
+        $timezone = (string)($this->config['mysql']['timezone'] ?? '+08:00');
+        $stmt = $this->connection->prepare('SET TIME ZONE :tz');
+        $stmt->execute(['tz' => $timezone]);
+
+        return $this->connection;
+    }
+}
+
+if (!function_exists('getPgsqlPdoConnection')) {
+    function getPgsqlPdoConnection(): PDO {
+        return PgsqlDatabase::getInstance()->getConnection();
+    }
+}
 
 class Database {
     private static $instance = null;
     private $connection;
     private $is_connected = false;
-
-    private $host = "127.0.0.1";
-    private $username = "root";
-    private $password = "";
-    private $database = "bec_equipment_db";
+    private array $config;
 
     private function __construct() {
         try {
-            $this->connection = new mysqli($this->host, $this->username, $this->password, $this->database);
+            $this->config = getDatabaseConfig();
+            if (($this->config['driver'] ?? 'mysql') !== 'mysql') {
+                throw new Exception(
+                    "DB_DRIVER=" . ($this->config['driver'] ?? 'unknown') . " is not active yet. " .
+                    "This app still runs on mysqli/MySQL while the Supabase migration is in progress."
+                );
+            }
+
+            $mysql = $this->config['mysql'];
+            $this->connection = new mysqli(
+                $mysql['host'],
+                $mysql['username'],
+                $mysql['password'],
+                $mysql['database'],
+                (int)$mysql['port']
+            );
             if ($this->connection->connect_error) {
                 throw new Exception("Connection failed: " . $this->connection->connect_error);
             }
-            $this->connection->set_charset("utf8mb4");
-            $this->connection->query("SET time_zone = '+08:00';");
+            $this->connection->set_charset((string)$mysql['charset']);
+            $this->connection->query("SET time_zone = '" . $this->connection->real_escape_string((string)$mysql['timezone']) . "';");
             $this->is_connected = true;
         } catch (Exception $e) {
             error_log("Database connection error: " . $e->getMessage());
@@ -57,19 +188,644 @@ function getDBConnection() {
     return Database::getInstance()->getConnection();
 }
 
+if (!function_exists('getTableColumns')) {
+    function getTableColumns(string $tableName, string $schema = 'public'): array {
+        static $cache = [];
+        $driver = getDatabaseDriver();
+        $cacheKey = strtolower($driver . ':' . $schema . '.' . $tableName);
+        if (isset($cache[$cacheKey])) {
+            return $cache[$cacheKey];
+        }
+
+        $columns = [];
+        if (isPgSqlDriver()) {
+            try {
+                $pdo = getPgsqlPdoConnection();
+                $sql = "SELECT column_name, data_type, is_nullable, column_default
+                        FROM information_schema.columns
+                        WHERE table_schema = :schema AND table_name = :table
+                        ORDER BY ordinal_position";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([
+                    'schema' => $schema,
+                    'table' => strtolower($tableName),
+                ]);
+                foreach ($stmt->fetchAll() as $row) {
+                    $columns[(string)$row['column_name']] = $row;
+                }
+            } catch (Throwable $e) {
+                error_log('PostgreSQL column lookup failed for ' . $tableName . ': ' . $e->getMessage());
+            }
+        } else {
+            $conn = getDBConnection();
+            $safeTable = preg_replace('/[^A-Za-z0-9_]+/', '', $tableName);
+            if ($safeTable === '') {
+                return [];
+            }
+            $result = $conn->query("SHOW COLUMNS FROM `{$safeTable}`");
+            if ($result) {
+                while ($row = $result->fetch_assoc()) {
+                    $columns[(string)$row['Field']] = $row;
+                }
+            }
+        }
+
+        $cache[$cacheKey] = $columns;
+        return $columns;
+    }
+}
+
+if (!function_exists('tableHasColumn')) {
+    function tableHasColumn(string $tableName, string $columnName, string $schema = 'public'): bool {
+        $columns = getTableColumns($tableName, $schema);
+        return isset($columns[$columnName]);
+    }
+}
+
+if (!function_exists('tableExists')) {
+    function tableExists(string $tableName, string $schema = 'public'): bool {
+        return getTableColumns($tableName, $schema) !== [];
+    }
+}
+
+if (!function_exists('findUserByEmailAndRole')) {
+    function findUserByEmailAndRole(string $email, string $role, array $fields = ['user_id', 'email', 'fullname', 'username', 'password', 'status', 'role']): ?array {
+        $safeFields = array_values(array_filter($fields, static fn($f) => preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', (string)$f)));
+        if (empty($safeFields)) {
+            $safeFields = ['user_id', 'email', 'fullname', 'username', 'password', 'status', 'role'];
+        }
+        $fieldList = implode(', ', $safeFields);
+
+        if (isPgSqlDriver()) {
+            $pdo = getPgsqlPdoConnection();
+            $stmt = $pdo->prepare("SELECT {$fieldList} FROM public.users WHERE email = :email AND role = :role ORDER BY created_at DESC LIMIT 1");
+            $stmt->execute(['email' => $email, 'role' => $role]);
+            $row = $stmt->fetch();
+            return is_array($row) ? $row : null;
+        }
+
+        $conn = getDBConnection();
+        $stmt = $conn->prepare("SELECT {$fieldList} FROM users WHERE email = ? AND role = ? ORDER BY created_at DESC LIMIT 1");
+        $stmt->bind_param('ss', $email, $role);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result ? $result->fetch_assoc() : null;
+        $stmt->close();
+        return $row ?: null;
+    }
+}
+
+if (!function_exists('userExistsByEmail')) {
+    function userExistsByEmail(string $email, ?string $excludeUserId = null): bool {
+        if ($email === '') {
+            return false;
+        }
+
+        if (isPgSqlDriver()) {
+            $pdo = getPgsqlPdoConnection();
+            $sql = 'SELECT user_id FROM public.users WHERE email = :email';
+            $params = ['email' => $email];
+            if ($excludeUserId !== null && $excludeUserId !== '') {
+                $sql .= ' AND user_id != :exclude_user_id';
+                $params['exclude_user_id'] = $excludeUserId;
+            }
+            $sql .= ' ORDER BY created_at DESC LIMIT 1';
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            return (bool)$stmt->fetch();
+        }
+
+        $conn = getDBConnection();
+        if ($excludeUserId !== null && $excludeUserId !== '') {
+            $stmt = $conn->prepare('SELECT user_id FROM users WHERE email = ? AND user_id != ? ORDER BY created_at DESC LIMIT 1');
+            $stmt->bind_param('ss', $email, $excludeUserId);
+        } else {
+            $stmt = $conn->prepare('SELECT user_id FROM users WHERE email = ? ORDER BY created_at DESC LIMIT 1');
+            $stmt->bind_param('s', $email);
+        }
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result ? $result->fetch_assoc() : null;
+        $stmt->close();
+        return (bool)$row;
+    }
+}
+
+if (!function_exists('userExistsByUsername')) {
+    function userExistsByUsername(string $username, ?string $excludeUserId = null): bool {
+        if ($username === '') {
+            return false;
+        }
+
+        if (isPgSqlDriver()) {
+            $pdo = getPgsqlPdoConnection();
+            $sql = 'SELECT user_id FROM public.users WHERE username = :username';
+            $params = ['username' => $username];
+            if ($excludeUserId !== null && $excludeUserId !== '') {
+                $sql .= ' AND user_id != :exclude_user_id';
+                $params['exclude_user_id'] = $excludeUserId;
+            }
+            $sql .= ' ORDER BY created_at DESC LIMIT 1';
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            return (bool)$stmt->fetch();
+        }
+
+        $conn = getDBConnection();
+        if ($excludeUserId !== null && $excludeUserId !== '') {
+            $stmt = $conn->prepare('SELECT user_id FROM users WHERE username = ? AND user_id != ? ORDER BY created_at DESC LIMIT 1');
+            $stmt->bind_param('ss', $username, $excludeUserId);
+        } else {
+            $stmt = $conn->prepare('SELECT user_id FROM users WHERE username = ? ORDER BY created_at DESC LIMIT 1');
+            $stmt->bind_param('s', $username);
+        }
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result ? $result->fetch_assoc() : null;
+        $stmt->close();
+        return (bool)$row;
+    }
+}
+
+if (!function_exists('getLatestUserIdForRolePrefix')) {
+    function getLatestUserIdForRolePrefix(string $role, string $prefix): ?string {
+        $prefix = trim($prefix);
+        if ($role === '' || $prefix === '') {
+            return null;
+        }
+
+        if (isPgSqlDriver()) {
+            $pdo = getPgsqlPdoConnection();
+            $stmt = $pdo->prepare("
+                SELECT user_id
+                FROM public.users
+                WHERE role = :role
+                  AND user_id LIKE :prefix_like
+                ORDER BY CAST(SUBSTRING(user_id FROM :start_pos) AS integer) DESC
+                LIMIT 1
+            ");
+            $stmt->execute([
+                'role' => $role,
+                'prefix_like' => $prefix . '-%',
+                'start_pos' => strlen($prefix) + 2,
+            ]);
+            $row = $stmt->fetch();
+            return is_array($row) ? (string)($row['user_id'] ?? '') : null;
+        }
+
+        $conn = getDBConnection();
+        $prefixLike = $prefix . '-%';
+        $startPos = strlen($prefix) + 2;
+        $sql = "SELECT user_id FROM users WHERE role = ? AND user_id LIKE ? ORDER BY CAST(SUBSTRING(user_id, {$startPos}) AS UNSIGNED) DESC LIMIT 1";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param('ss', $role, $prefixLike);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result ? $result->fetch_assoc() : null;
+        $stmt->close();
+        return $row['user_id'] ?? null;
+    }
+}
+
+if (!function_exists('generateNextRoleUserId')) {
+    function generateNextRoleUserId(string $role): string {
+        $roleMap = [
+            'admin' => 'ADMIN',
+            'technician' => 'TECH',
+            'student' => 'STU',
+        ];
+        $prefix = $roleMap[$role] ?? strtoupper(substr($role, 0, 4));
+        $latestUserId = getLatestUserIdForRolePrefix($role, $prefix);
+
+        if (!$latestUserId) {
+            return $prefix . '-001';
+        }
+
+        $number = (int)preg_replace('/^\D+-/', '', $latestUserId);
+        return $prefix . '-' . str_pad((string)($number + 1), 3, '0', STR_PAD_LEFT);
+    }
+}
+
+if (!function_exists('createUserAccount')) {
+    function createUserAccount(array $userData): bool {
+        $allowedFields = ['user_id', 'username', 'password', 'fullname', 'email', 'role', 'status', 'phone', 'department'];
+        $insertData = [];
+        foreach ($allowedFields as $field) {
+            if (array_key_exists($field, $userData)) {
+                $insertData[$field] = $userData[$field];
+            }
+        }
+
+        if (empty($insertData['user_id']) || empty($insertData['username']) || empty($insertData['password']) || empty($insertData['fullname']) || empty($insertData['email']) || empty($insertData['role'])) {
+            return false;
+        }
+
+        if (!isset($insertData['status']) || trim((string)$insertData['status']) === '') {
+            $insertData['status'] = 'active';
+        }
+
+        if (isPgSqlDriver()) {
+            $pdo = getPgsqlPdoConnection();
+            $fields = array_keys($insertData);
+            $sql = 'INSERT INTO public.users (' . implode(', ', $fields) . ') VALUES (:' . implode(', :', $fields) . ')';
+            $stmt = $pdo->prepare($sql);
+            return $stmt->execute($insertData);
+        }
+
+        $conn = getDBConnection();
+        $fields = array_keys($insertData);
+        $placeholders = implode(', ', array_fill(0, count($fields), '?'));
+        $sql = 'INSERT INTO users (' . implode(', ', $fields) . ') VALUES (' . $placeholders . ')';
+        $stmt = $conn->prepare($sql);
+        $values = array_values($insertData);
+        $stmt->bind_param(str_repeat('s', count($values)), ...$values);
+        $ok = $stmt->execute();
+        $stmt->close();
+        return (bool)$ok;
+    }
+}
+
+if (!function_exists('findUserById')) {
+    function findUserById(string $userId, array $fields = ['user_id', 'email', 'fullname', 'username', 'password', 'status', 'role']): ?array {
+        if ($userId === '') {
+            return null;
+        }
+
+        $safeFields = array_values(array_filter($fields, static fn($f) => preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', (string)$f)));
+        if (empty($safeFields)) {
+            $safeFields = ['user_id', 'email', 'fullname', 'username', 'password', 'status', 'role'];
+        }
+        $fieldList = implode(', ', $safeFields);
+
+        if (isPgSqlDriver()) {
+            $pdo = getPgsqlPdoConnection();
+            $stmt = $pdo->prepare("SELECT {$fieldList} FROM public.users WHERE user_id = :user_id LIMIT 1");
+            $stmt->execute(['user_id' => $userId]);
+            $row = $stmt->fetch();
+            return is_array($row) ? $row : null;
+        }
+
+        $conn = getDBConnection();
+        $stmt = $conn->prepare("SELECT {$fieldList} FROM users WHERE user_id = ? LIMIT 1");
+        $stmt->bind_param('s', $userId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result ? $result->fetch_assoc() : null;
+        $stmt->close();
+        return $row ?: null;
+    }
+}
+
+if (!function_exists('updateUserFieldsById')) {
+    function updateUserFieldsById(string $userId, array $updateData): bool {
+        if ($userId === '') {
+            return false;
+        }
+
+        $allowedFields = ['fullname', 'email', 'password', 'role', 'status', 'phone', 'department', 'username', 'last_login'];
+        $filtered = [];
+        foreach ($updateData as $field => $value) {
+            if (in_array($field, $allowedFields, true)) {
+                $filtered[$field] = $value;
+            }
+        }
+        if (empty($filtered)) {
+            return false;
+        }
+
+        if (isPgSqlDriver()) {
+            $pdo = getPgsqlPdoConnection();
+            $sets = [];
+            foreach (array_keys($filtered) as $field) {
+                $sets[] = "{$field} = :{$field}";
+            }
+            $filtered['user_id'] = $userId;
+            $stmt = $pdo->prepare('UPDATE public.users SET ' . implode(', ', $sets) . ' WHERE user_id = :user_id');
+            return $stmt->execute($filtered);
+        }
+
+        $conn = getDBConnection();
+        $sets = [];
+        foreach (array_keys($filtered) as $field) {
+            $sets[] = "{$field} = ?";
+        }
+        $values = array_values($filtered);
+        $values[] = $userId;
+        $stmt = $conn->prepare('UPDATE users SET ' . implode(', ', $sets) . ' WHERE user_id = ?');
+        $stmt->bind_param(str_repeat('s', count($values)), ...$values);
+        $ok = $stmt->execute();
+        $stmt->close();
+        return (bool)$ok;
+    }
+}
+
+if (!function_exists('updateUserLastLogin')) {
+    function updateUserLastLogin(string $userId): bool {
+        if ($userId === '') {
+            return false;
+        }
+        if (isPgSqlDriver()) {
+            $pdo = getPgsqlPdoConnection();
+            $stmt = $pdo->prepare('UPDATE public.users SET last_login = now() WHERE user_id = :user_id');
+            return $stmt->execute(['user_id' => $userId]);
+        }
+        $conn = getDBConnection();
+        $stmt = $conn->prepare("UPDATE users SET last_login = NOW() WHERE user_id = ?");
+        $stmt->bind_param('s', $userId);
+        $ok = $stmt->execute();
+        $stmt->close();
+        return (bool)$ok;
+    }
+}
+
+if (!function_exists('createPasswordResetRecord')) {
+    function createPasswordResetRecord(string $email, string $token, string $expiresAt): bool {
+        if (isPgSqlDriver()) {
+            $pdo = getPgsqlPdoConnection();
+            $stmt = $pdo->prepare('INSERT INTO public.password_resets (email, token, expires_at, created_at) VALUES (:email, :token, :expires_at, now())');
+            return $stmt->execute([
+                'email' => $email,
+                'token' => $token,
+                'expires_at' => $expiresAt,
+            ]);
+        }
+        $conn = getDBConnection();
+        $stmt = $conn->prepare("INSERT INTO password_resets (email, token, expires_at) VALUES (?, ?, ?)");
+        $stmt->bind_param('sss', $email, $token, $expiresAt);
+        $ok = $stmt->execute();
+        $stmt->close();
+        return (bool)$ok;
+    }
+}
+
+if (!function_exists('replacePasswordResetRecord')) {
+    function replacePasswordResetRecord(string $email, string $token, string $expiresAt): bool {
+        if ($email === '' || $token === '' || $expiresAt === '') {
+            return false;
+        }
+
+        if (isPgSqlDriver()) {
+            $pdo = getPgsqlPdoConnection();
+            $pdo->beginTransaction();
+            try {
+                $delete = $pdo->prepare('DELETE FROM public.password_resets WHERE email = :email');
+                $delete->execute(['email' => $email]);
+                $insert = $pdo->prepare('INSERT INTO public.password_resets (email, token, expires_at, created_at) VALUES (:email, :token, :expires_at, now())');
+                $insert->execute([
+                    'email' => $email,
+                    'token' => $token,
+                    'expires_at' => $expiresAt,
+                ]);
+                $pdo->commit();
+                return true;
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                throw $e;
+            }
+        }
+
+        $conn = getDBConnection();
+        $conn->begin_transaction();
+        try {
+            $delete = $conn->prepare('DELETE FROM password_resets WHERE email = ?');
+            $delete->bind_param('s', $email);
+            $delete->execute();
+            $delete->close();
+
+            $insert = $conn->prepare('INSERT INTO password_resets (email, token, expires_at) VALUES (?, ?, ?)');
+            $insert->bind_param('sss', $email, $token, $expiresAt);
+            $ok = $insert->execute();
+            $insert->close();
+
+            $conn->commit();
+            return (bool)$ok;
+        } catch (Throwable $e) {
+            $conn->rollback();
+            throw $e;
+        }
+    }
+}
+
+if (!function_exists('findActivePasswordResetUserByToken')) {
+    function findActivePasswordResetUserByToken(string $token, ?string $role = null): ?array {
+        if (isPgSqlDriver()) {
+            $pdo = getPgsqlPdoConnection();
+            $sql = "SELECT u.user_id, u.email
+                    FROM public.password_resets pr
+                    JOIN public.users u ON pr.email = u.email
+                    WHERE pr.token = :token AND pr.expires_at > now()";
+            $params = ['token' => $token];
+            if ($role !== null && $role !== '') {
+                $sql .= " AND u.role = :role";
+                $params['role'] = $role;
+            }
+            $sql .= " ORDER BY pr.created_at DESC LIMIT 1";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            $row = $stmt->fetch();
+            return is_array($row) ? $row : null;
+        }
+
+        $conn = getDBConnection();
+        $sql = "SELECT u.user_id, u.email
+                FROM password_resets pr
+                JOIN users u ON pr.email = u.email
+                WHERE pr.token = ? AND pr.expires_at > NOW()";
+        $types = 's';
+        $args = [$token];
+        if ($role !== null && $role !== '') {
+            $sql .= " AND u.role = ?";
+            $types .= 's';
+            $args[] = $role;
+        }
+        $sql .= " LIMIT 1";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param($types, ...$args);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result ? $result->fetch_assoc() : null;
+        $stmt->close();
+        return $row ?: null;
+    }
+}
+
+if (!function_exists('deletePasswordResetToken')) {
+    function deletePasswordResetToken(string $token): bool {
+        if (isPgSqlDriver()) {
+            $pdo = getPgsqlPdoConnection();
+            $stmt = $pdo->prepare('DELETE FROM public.password_resets WHERE token = :token');
+            return $stmt->execute(['token' => $token]);
+        }
+        $conn = getDBConnection();
+        $stmt = $conn->prepare("DELETE FROM password_resets WHERE token = ?");
+        $stmt->bind_param('s', $token);
+        $ok = $stmt->execute();
+        $stmt->close();
+        return (bool)$ok;
+    }
+}
+
+if (!function_exists('updateUserPasswordById')) {
+    function updateUserPasswordById(string $userId, string $hashedPassword): bool {
+        if (isPgSqlDriver()) {
+            $pdo = getPgsqlPdoConnection();
+            $stmt = $pdo->prepare('UPDATE public.users SET password = :password WHERE user_id = :user_id');
+            return $stmt->execute([
+                'password' => $hashedPassword,
+                'user_id' => $userId,
+            ]);
+        }
+        $conn = getDBConnection();
+        $stmt = $conn->prepare("UPDATE users SET password = ? WHERE user_id = ?");
+        $stmt->bind_param('ss', $hashedPassword, $userId);
+        $ok = $stmt->execute();
+        $stmt->close();
+        return (bool)$ok;
+    }
+}
+
+if (!function_exists('markEmailOtpUsed')) {
+    function markEmailOtpUsed(string $email): bool {
+        if (isPgSqlDriver()) {
+            $pdo = getPgsqlPdoConnection();
+            $stmt = $pdo->prepare('UPDATE public.email_otp SET is_used = true WHERE email = :email AND is_used = false');
+            return $stmt->execute(['email' => $email]);
+        }
+        $conn = getDBConnection();
+        $stmt = $conn->prepare("UPDATE email_otp SET is_used = 1 WHERE email = ? AND is_used = 0");
+        $stmt->bind_param('s', $email);
+        $ok = $stmt->execute();
+        $stmt->close();
+        return (bool)$ok;
+    }
+}
+
+if (!function_exists('insertEmailOtp')) {
+    function insertEmailOtp(string $email, string $otp, string $role = 'admin', int $ttlMinutes = 10): bool {
+        if (isPgSqlDriver()) {
+            $pdo = getPgsqlPdoConnection();
+            $stmt = $pdo->prepare("INSERT INTO public.email_otp (email, otp_code, user_role, expires_at, created_at, is_used, attempts)
+                                   VALUES (:email, :otp_code, :user_role, now() + make_interval(mins => :ttl), now(), false, 0)");
+            return $stmt->execute([
+                'email' => $email,
+                'otp_code' => $otp,
+                'user_role' => $role,
+                'ttl' => $ttlMinutes,
+            ]);
+        }
+        $conn = getDBConnection();
+        $stmt = $conn->prepare("INSERT INTO email_otp (email, otp_code, user_role, expires_at) VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL {$ttlMinutes} MINUTE))");
+        $stmt->bind_param('sss', $email, $otp, $role);
+        $ok = $stmt->execute();
+        $stmt->close();
+        return (bool)$ok;
+    }
+}
+
+if (!function_exists('getRecentOtpSecondsAgo')) {
+    function getRecentOtpSecondsAgo(string $email, int $windowSeconds = 10): ?int {
+        if (isPgSqlDriver()) {
+            $pdo = getPgsqlPdoConnection();
+            $stmt = $pdo->prepare("SELECT EXTRACT(EPOCH FROM (now() - created_at))::int AS seconds_ago
+                                   FROM public.email_otp
+                                   WHERE email = :email AND created_at > now() - make_interval(secs => :window)
+                                   ORDER BY created_at DESC LIMIT 1");
+            $stmt->execute(['email' => $email, 'window' => $windowSeconds]);
+            $row = $stmt->fetch();
+            return isset($row['seconds_ago']) ? (int)$row['seconds_ago'] : null;
+        }
+        $conn = getDBConnection();
+        $stmt = $conn->prepare("SELECT TIMESTAMPDIFF(SECOND, created_at, NOW()) as seconds_ago FROM email_otp WHERE email = ? AND created_at > DATE_SUB(NOW(), INTERVAL {$windowSeconds} SECOND) ORDER BY created_at DESC LIMIT 1");
+        $stmt->bind_param('s', $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result ? $result->fetch_assoc() : null;
+        $stmt->close();
+        return isset($row['seconds_ago']) ? (int)$row['seconds_ago'] : null;
+    }
+}
+
+if (!function_exists('findEmailOtpRecord')) {
+    function findEmailOtpRecord(string $email, string $otpCode, string $role = 'admin', string $state = 'valid'): ?array {
+        if (isPgSqlDriver()) {
+            $pdo = getPgsqlPdoConnection();
+            $base = "SELECT * FROM public.email_otp WHERE email = :email AND otp_code = :otp_code AND user_role = :user_role";
+            if ($state === 'valid') {
+                $base .= " AND is_used = false AND expires_at > now()";
+            } elseif ($state === 'expired') {
+                $base .= " AND is_used = false AND expires_at <= now()";
+            } elseif ($state === 'used') {
+                $base .= " AND is_used = true";
+            }
+            $base .= " ORDER BY created_at DESC LIMIT 1";
+            $stmt = $pdo->prepare($base);
+            $stmt->execute([
+                'email' => $email,
+                'otp_code' => $otpCode,
+                'user_role' => $role,
+            ]);
+            $row = $stmt->fetch();
+            return is_array($row) ? $row : null;
+        }
+        $conn = getDBConnection();
+        $sql = "SELECT * FROM email_otp WHERE email = ? AND otp_code = ? AND user_role = ?";
+        if ($state === 'valid') {
+            $sql .= " AND is_used = 0 AND expires_at > NOW()";
+        } elseif ($state === 'expired') {
+            $sql .= " AND is_used = 0 AND expires_at <= NOW()";
+        } elseif ($state === 'used') {
+            $sql .= " AND is_used = 1";
+        }
+        $sql .= " ORDER BY created_at DESC LIMIT 1";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param('sss', $email, $otpCode, $role);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result ? $result->fetch_assoc() : null;
+        $stmt->close();
+        return $row ?: null;
+    }
+}
+
+if (!function_exists('markOtpUsedById')) {
+    function markOtpUsedById(int $otpId): bool {
+        if (isPgSqlDriver()) {
+            $pdo = getPgsqlPdoConnection();
+            $stmt = $pdo->prepare('UPDATE public.email_otp SET is_used = true WHERE otp_id = :otp_id');
+            return $stmt->execute(['otp_id' => $otpId]);
+        }
+        $conn = getDBConnection();
+        $stmt = $conn->prepare("UPDATE email_otp SET is_used = 1 WHERE otp_id = ?");
+        $stmt->bind_param('i', $otpId);
+        $ok = $stmt->execute();
+        $stmt->close();
+        return (bool)$ok;
+    }
+}
+
+if (!function_exists('deleteExpiredOtps')) {
+    function deleteExpiredOtps(): int {
+        if (isPgSqlDriver()) {
+            $pdo = getPgsqlPdoConnection();
+            $stmt = $pdo->prepare('DELETE FROM public.email_otp WHERE expires_at < now()');
+            $stmt->execute();
+            return (int)$stmt->rowCount();
+        }
+        $conn = getDBConnection();
+        $result = $conn->query("DELETE FROM email_otp WHERE expires_at < NOW()");
+        return $result ? (int)$conn->affected_rows : 0;
+    }
+}
+
 function equipmentTableColumns($conn) {
     static $columns = null;
     if ($columns !== null) {
         return $columns;
     }
 
-    $columns = [];
-    $res = $conn->query("SHOW COLUMNS FROM equipment");
-    if ($res) {
-        while ($row = $res->fetch_assoc()) {
-            $columns[$row['Field']] = true;
-        }
-    }
+    $columns = array_fill_keys(array_keys(getTableColumns('equipment')), true);
     return $columns;
 }
 
@@ -160,15 +916,7 @@ function getDefectReportColumns() {
         return $columns;
     }
 
-    $columns = [];
-    $conn = getDBConnection();
-    $result = $conn->query("SHOW COLUMNS FROM defect_reports");
-    if ($result) {
-        while ($row = $result->fetch_assoc()) {
-            $columns[$row['Field']] = true;
-        }
-    }
-
+    $columns = array_fill_keys(array_keys(getTableColumns('defect_reports')), true);
     return $columns;
 }
 
@@ -524,13 +1272,7 @@ function getUserDefectReports($user_id) {
 
 function updateDefectReport($report_id, $data) {
     $conn = getDBConnection();
-    $validColumns = [];
-    $colRes = $conn->query("SHOW COLUMNS FROM defect_reports");
-    if ($colRes) {
-        while ($col = $colRes->fetch_assoc()) {
-            $validColumns[$col['Field']] = true;
-        }
-    }
+    $validColumns = array_fill_keys(array_keys(getTableColumns('defect_reports')), true);
 
     $updates = [];
     $types = "";
@@ -664,21 +1406,14 @@ function getReservationsOverTime($days = 7) {
     }
 
     $hasReservations = false;
-    if ($res = $conn->query("SHOW TABLES LIKE 'reservations'")) {
-        $hasReservations = $res->num_rows > 0;
-    }
+    $hasReservations = tableExists('reservations');
     if (!$hasReservations) {
         $out = [];
         foreach ($buckets as $date => $count) $out[] = ['date' => $date, 'count' => $count];
         return $out;
     }
 
-    $cols = [];
-    if ($cr = $conn->query("SHOW COLUMNS FROM reservations")) {
-        while ($cr && ($r = $cr->fetch_assoc())) {
-            $cols[$r['Field']] = true;
-        }
-    }
+    $cols = array_fill_keys(array_keys(getTableColumns('reservations')), true);
 
     $dateCol = isset($cols['request_date']) ? 'request_date'
         : (isset($cols['created_at']) ? 'created_at' : null);
@@ -725,21 +1460,14 @@ function getEquipmentUsageOverTime($days = 7) {
     }
 
     $hasReservations = false;
-    if ($res = $conn->query("SHOW TABLES LIKE 'reservations'")) {
-        $hasReservations = $res->num_rows > 0;
-    }
+    $hasReservations = tableExists('reservations');
     if (!$hasReservations) {
         $out = [];
         foreach ($buckets as $date => $count) $out[] = ['date' => $date, 'count' => $count];
         return $out;
     }
 
-    $cols = [];
-    if ($cr = $conn->query("SHOW COLUMNS FROM reservations")) {
-        while ($cr && ($r = $cr->fetch_assoc())) {
-            $cols[$r['Field']] = true;
-        }
-    }
+    $cols = array_fill_keys(array_keys(getTableColumns('reservations')), true);
 
     $statusCol = isset($cols['status']) ? 'status' : null;
     $startCol = isset($cols['start_date']) ? 'start_date' : (isset($cols['request_date']) ? 'request_date' : null);
@@ -787,10 +1515,7 @@ function getSystemStatistics() {
         'defective_equipment' => 0,
     ];
 
-    $hasEquipment = false;
-    if ($res = $conn->query("SHOW TABLES LIKE 'equipment'")) {
-        $hasEquipment = $res->num_rows > 0;
-    }
+    $hasEquipment = tableExists('equipment');
     if (!$hasEquipment) return $stats;
 
     $statusExpr = "LOWER(COALESCE(status,''))";
@@ -1063,13 +1788,7 @@ function assignDefectReportToTechnician(string $reportId, string $technicianId, 
             return ['ok' => false, 'message' => 'Selected technician is not active.'];
         }
 
-        $availableCols = [];
-        $colRes = $conn->query("SHOW COLUMNS FROM defect_reports");
-        if ($colRes) {
-            while ($col = $colRes->fetch_assoc()) {
-                $availableCols[$col['Field']] = true;
-            }
-        }
+        $availableCols = array_fill_keys(array_keys(getTableColumns('defect_reports')), true);
 
         $sets = [];
         $types = '';
@@ -1312,32 +2031,29 @@ function getReservationStatusClass($status) {
  * @return array|false User data or false
  */
 function authenticateUser($email, $password, $role) {
-    $conn = getDBConnection();
+    $user = findUserByEmailAndRole((string)$email, (string)$role, [
+        'user_id',
+        'email',
+        'fullname',
+        'username',
+        'password',
+        'status',
+        'role',
+        'last_login',
+        'created_at',
+    ]);
 
-    // Query the unified users table
-    $sql = "SELECT * FROM `users`
-            WHERE email = ? AND role = ? AND status = 'active'
-            LIMIT 1";
-
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("ss", $email, $role);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    if ($result->num_rows === 0) {
+    if (!$user) {
         return false;
     }
 
-    $user = $result->fetch_assoc();
+    if (isset($user['status']) && trim((string)$user['status']) !== '' && $user['status'] !== 'active') {
+        return false;
+    }
 
     // Verify password
     if (password_verify($password, $user['password'])) {
-        // Update last login - use user_id since that's the primary key in users table
-        $updateSql = "UPDATE `users` SET last_login = NOW() WHERE user_id = ?";
-        $updateStmt = $conn->prepare($updateSql);
-        $updateStmt->bind_param("s", $user['user_id']);
-        $updateStmt->execute();
-
+        updateUserLastLogin((string)$user['user_id']);
         return $user;
     }
 
@@ -1672,12 +2388,23 @@ function getEmployeesOnVacation() {
  * Create user session record
  */
 function createSession($user_id, $user_role) {
-    $conn = getDBConnection();
-
     $session_id = session_id();
     $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
     $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
 
+    if (isPgSqlDriver()) {
+        $pdo = getPgsqlPdoConnection();
+        $stmt = $pdo->prepare('INSERT INTO public.user_sessions (session_id, user_id, user_role, ip_address, user_agent) VALUES (:session_id, :user_id, :user_role, :ip_address, :user_agent)');
+        return $stmt->execute([
+            'session_id' => $session_id,
+            'user_id' => $user_id,
+            'user_role' => $user_role,
+            'ip_address' => $ip_address,
+            'user_agent' => $user_agent,
+        ]);
+    }
+
+    $conn = getDBConnection();
     $sql = "INSERT INTO user_sessions (session_id, user_id, user_role, ip_address, user_agent)
             VALUES (?, ?, ?, ?, ?)";
 
@@ -1691,8 +2418,13 @@ function createSession($user_id, $user_role) {
  * Close user session
  */
 function closeSession($session_id) {
-    $conn = getDBConnection();
+    if (isPgSqlDriver()) {
+        $pdo = getPgsqlPdoConnection();
+        $stmt = $pdo->prepare('UPDATE public.user_sessions SET logout_time = now() WHERE session_id = :session_id');
+        return $stmt->execute(['session_id' => $session_id]);
+    }
 
+    $conn = getDBConnection();
     $sql = "UPDATE user_sessions SET logout_time = NOW() WHERE session_id = ?";
 
     $stmt = $conn->prepare($sql);

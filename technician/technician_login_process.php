@@ -64,42 +64,19 @@ function verifyLogin() {
         exit();
     }
 
-    $conn = getDBConnection();
-    if (!$conn) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Database connection failed.']);
-        exit();
-    }
-
     try {
-        $stmt = $conn->prepare(
-            "SELECT user_id, email, fullname, username, password, status
-               FROM users
-              WHERE email = ? AND role = ?
-              ORDER BY created_at DESC
-              LIMIT 1"
-        );
-        $stmt->bind_param("ss", $email, $role);
-        $stmt->execute();
-        $result = $stmt->get_result();
-
-        if ($result->num_rows === 0) {
+        $user = findUserByEmailAndRole($email, $role, ['user_id', 'email', 'fullname', 'username', 'password', 'status', 'role']);
+        if (!$user) {
             error_log("technician not found: $email");
             http_response_code(401);
             echo json_encode(['success' => false, 'message' => 'Invalid email or password.']);
-            $stmt->close();
-            $conn->close();
             exit();
         }
-
-        $user = $result->fetch_assoc();
-        $stmt->close();
 
         // Account status check
         if (!empty($user['status']) && $user['status'] !== 'active') {
             http_response_code(403);
             echo json_encode(['success' => false, 'message' => 'Your account is inactive. Please contact your administrator.']);
-            $conn->close();
             exit();
         }
 
@@ -108,7 +85,6 @@ function verifyLogin() {
             error_log("technician wrong password: $email");
             http_response_code(401);
             echo json_encode(['success' => false, 'message' => 'Invalid email or password.']);
-            $conn->close();
             exit();
         }
 
@@ -122,11 +98,7 @@ function verifyLogin() {
         $_SESSION['login_time'] = time();
 
         // Update last login timestamp
-        $upd = $conn->prepare("UPDATE users SET last_login = NOW() WHERE user_id = ?");
-        $upd->bind_param("s", $user['user_id']);
-        $upd->execute();
-        $upd->close();
-        $conn->close();
+        updateUserLastLogin((string)$user['user_id']);
 
         error_log("technician login success: $email");
         echo json_encode([
@@ -163,34 +135,16 @@ function forgotPassword() {
         exit();
     }
 
-    $conn = getDBConnection();
-    if (!$conn) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Database connection failed.']);
-        exit();
-    }
-
-    $stmt = $conn->prepare("SELECT user_id FROM users WHERE email = ? AND role = ? LIMIT 1");
-    $stmt->bind_param("ss", $email, $role);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    if ($result->num_rows > 0) {
+    $user = findUserByEmailAndRole($email, $role, ['user_id', 'email']);
+    if ($user) {
         $token   = bin2hex(random_bytes(32));
         $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
-
-        $ins = $conn->prepare("INSERT INTO password_resets (email, token, expires_at) VALUES (?, ?, ?)");
-        $ins->bind_param("sss", $email, $token, $expires);
-        $ins->execute();
-        $ins->close();
+        createPasswordResetRecord($email, $token, $expires);
 
         $reset_link = "http://localhost/bec_equipment/technician/reset_password.php?token=" . $token;
         error_log("Password reset link for {$email}: {$reset_link}");
         // TODO: send $reset_link via email (PHPMailer / your mail helper)
     }
-
-    $stmt->close();
-    $conn->close();
 
     // Generic response regardless of whether the email was found
     echo json_encode([
@@ -219,49 +173,19 @@ function resetPassword() {
         exit();
     }
 
-    $conn = getDBConnection();
-    if (!$conn) {
-        http_response_code(500);
-        echo json_encode(['success' => false, 'message' => 'Database connection failed.']);
-        exit();
-    }
-
-    $stmt = $conn->prepare(
-        "SELECT u.user_id, u.email
-           FROM password_resets pr
-           JOIN users u ON pr.email = u.email
-          WHERE pr.token = ? AND pr.expires_at > NOW()
-          LIMIT 1"
-    );
-    $stmt->bind_param("s", $token);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    if ($result->num_rows === 0) {
+    $row = findActivePasswordResetUserByToken($token, 'technician');
+    if (!$row) {
         http_response_code(400);
         echo json_encode(['success' => false, 'message' => 'Invalid or expired reset link.']);
-        $stmt->close();
-        $conn->close();
         exit();
     }
 
-    $row     = $result->fetch_assoc();
     $user_id = $row['user_id'];
-    $stmt->close();
 
     $hashed = password_hash($new_password, PASSWORD_DEFAULT);
 
-    $upd = $conn->prepare("UPDATE users SET password = ? WHERE user_id = ?");
-    $upd->bind_param("ss", $hashed, $user_id);
-    $upd->execute();
-    $upd->close();
-
-    $del = $conn->prepare("DELETE FROM password_resets WHERE token = ?");
-    $del->bind_param("s", $token);
-    $del->execute();
-    $del->close();
-
-    $conn->close();
+    updateUserPasswordById((string)$user_id, $hashed);
+    deletePasswordResetToken($token);
 
     echo json_encode([
         'success' => true,

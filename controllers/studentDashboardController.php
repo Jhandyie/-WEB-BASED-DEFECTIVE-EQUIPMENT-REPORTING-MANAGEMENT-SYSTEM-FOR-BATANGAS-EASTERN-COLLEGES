@@ -5,7 +5,7 @@ require_once __DIR__ . '/../includes/notification_helper.php';
 
 class StudentDashboardController
 {
-    private mysqli $conn;
+    private $conn;
 
     public function __construct()
     {
@@ -288,19 +288,14 @@ class StudentDashboardController
             return ['success' => false, 'message' => 'A valid name and email are required.'];
         }
 
-        $dup = $this->conn->prepare("SELECT user_id FROM users WHERE email = ? AND user_id != ? LIMIT 1");
-        $dup->bind_param('ss', $email, $userId);
-        $dup->execute();
-        $exists = (bool)$dup->get_result()->fetch_assoc();
-        $dup->close();
-        if ($exists) {
+        if (userExistsByEmail($email, $userId)) {
             return ['success' => false, 'message' => 'That email address is already in use.'];
         }
 
-        $stmt = $this->conn->prepare("UPDATE users SET fullname = ?, email = ? WHERE user_id = ?");
-        $stmt->bind_param('sss', $name, $email, $userId);
-        $ok = $stmt->execute();
-        $stmt->close();
+        $ok = updateUserFieldsById($userId, [
+            'fullname' => $name,
+            'email' => $email,
+        ]);
 
         if ($ok) {
             $_SESSION['fullname'] = $name;
@@ -317,21 +312,14 @@ class StudentDashboardController
             return ['success' => false, 'message' => 'Password must be at least 8 characters.'];
         }
 
-        $stmt = $this->conn->prepare("SELECT password FROM users WHERE user_id = ? LIMIT 1");
-        $stmt->bind_param('s', $userId);
-        $stmt->execute();
-        $user = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
+        $user = findUserById($userId, ['password']);
 
         if (!$user || !password_verify($currentPassword, (string)$user['password'])) {
             return ['success' => false, 'message' => 'Current password is incorrect.'];
         }
 
         $hash = password_hash($newPassword, PASSWORD_DEFAULT);
-        $update = $this->conn->prepare("UPDATE users SET password = ? WHERE user_id = ?");
-        $update->bind_param('ss', $hash, $userId);
-        $ok = $update->execute();
-        $update->close();
+        $ok = updateUserFieldsById($userId, ['password' => $hash]);
 
         return ['success' => (bool)$ok, 'message' => $ok ? 'Password updated successfully.' : 'Failed to update password.'];
     }

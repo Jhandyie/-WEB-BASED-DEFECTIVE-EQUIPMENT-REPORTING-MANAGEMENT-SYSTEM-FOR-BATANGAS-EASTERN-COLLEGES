@@ -6,21 +6,20 @@ require_once __DIR__ . '/includes/auth.php';
 
 requireRole('admin');
 
-$conn = getDBConnection();
+$isPgSql = isPgSqlDriver();
+$pdo = $isPgSql ? getPgsqlPdoConnection() : null;
+$conn = $isPgSql ? null : getDBConnection();
+$usersTable = $isPgSql ? 'public.users' : 'users';
+$defectReportsTable = $isPgSql ? 'public.defect_reports' : 'defect_reports';
 
 // Detect optional users table columns to keep SQL compatible across schema versions.
-$userCols = [];
-$uColRes = $conn->query("SHOW COLUMNS FROM users");
-if ($uColRes) {
-    while ($uc = $uColRes->fetch_assoc()) {
-        $userCols[strtolower($uc['Field'])] = true;
-    }
-}
+$rawUserColumns = getTableColumns('users');
+$userCols = array_fill_keys(array_keys($rawUserColumns), true);
 $hasDeptCol = isset($userCols['department']);
 $hasPhoneCol = isset($userCols['phone']);
 $roleEnumValues = [];
-$roleColRes = $conn->query("SHOW COLUMNS FROM users LIKE 'role'");
-if ($roleColRes && ($roleCol = $roleColRes->fetch_assoc())) {
+$roleCol = $rawUserColumns['role'] ?? null;
+if (is_array($roleCol) && isset($roleCol['Type'])) {
     if (preg_match_all("/'([^']+)'/", (string)($roleCol['Type'] ?? ''), $matches)) {
         $roleEnumValues = $matches[1];
     }
@@ -34,9 +33,11 @@ $assignableRoleMeta = [
     'student' => 'Student',
     'admin' => 'Administrator',
 ];
-$assignableRoles = array_values(array_filter(array_keys($assignableRoleMeta), static fn($role) => in_array($role, $roleEnumValues, true)));
+$assignableRoles = $roleEnumValues
+    ? array_values(array_filter(array_keys($assignableRoleMeta), static fn($role) => in_array($role, $roleEnumValues, true)))
+    : array_keys($assignableRoleMeta);
 $missingWorkflowRoleEnums = array_values(array_filter(['dean', 'finance'], static fn($role) => !in_array($role, $roleEnumValues, true)));
-$workflowRoleSetupReady = empty($missingWorkflowRoleEnums);
+$workflowRoleSetupReady = $roleEnumValues ? empty($missingWorkflowRoleEnums) : true;
 
 $admin_id   = $_SESSION['user_id'];
 $admin_name = $_SESSION['fullname'] ?? 'Administrator';
@@ -63,31 +64,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!in_array($role, $assignableRoles, true)) $errors[] = 'Selected role is not supported by the current database setup.';
 
         // Check duplicate email
-        $chk = $conn->prepare("SELECT user_id FROM users WHERE email = ?");
-        $chk->bind_param('s', $email); $chk->execute();
-        if ($chk->get_result()->num_rows > 0) $errors[] = 'Email address is already registered.';
+        if (userExistsByEmail($email)) $errors[] = 'Email address is already registered.';
 
         if ($errors) {
             $_SESSION['flash'] = ['err', implode(' ', $errors)];
         } else {
             $hash = password_hash($pass, PASSWORD_DEFAULT);
             $uid  = 'USR-' . strtoupper(substr(md5(uniqid()), 0, 8));
-
-            if ($hasDeptCol && $hasPhoneCol) {
-                $stmt = $conn->prepare("INSERT INTO users (user_id, fullname, email, role, department, phone, password, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', NOW())");
-                $stmt->bind_param('sssssss', $uid, $fname, $email, $role, $dept, $phone, $hash);
-            } elseif ($hasDeptCol) {
-                $stmt = $conn->prepare("INSERT INTO users (user_id, fullname, email, role, department, password, status, created_at) VALUES (?, ?, ?, ?, ?, ?, 'active', NOW())");
-                $stmt->bind_param('ssssss', $uid, $fname, $email, $role, $dept, $hash);
-            } elseif ($hasPhoneCol) {
-                $stmt = $conn->prepare("INSERT INTO users (user_id, fullname, email, role, phone, password, status, created_at) VALUES (?, ?, ?, ?, ?, ?, 'active', NOW())");
-                $stmt->bind_param('ssssss', $uid, $fname, $email, $role, $phone, $hash);
-            } else {
-                $stmt = $conn->prepare("INSERT INTO users (user_id, fullname, email, role, password, status, created_at) VALUES (?, ?, ?, ?, ?, 'active', NOW())");
-                $stmt->bind_param('sssss', $uid, $fname, $email, $role, $hash);
+            $insertData = [
+                'user_id' => $uid,
+                'fullname' => $fname,
+                'email' => $email,
+                'role' => $role,
+                'password' => $hash,
+                'status' => 'active',
+            ];
+            if ($hasDeptCol) {
+                $insertData['department'] = $dept;
+            }
+            if ($hasPhoneCol) {
+                $insertData['phone'] = $phone;
             }
 
-            $stmt->execute();
+            if ($isPgSql) {
+                $fields = array_keys($insertData);
+                $sql = "INSERT INTO {$usersTable} (" . implode(', ', $fields) . ", created_at) VALUES (:" . implode(', :', $fields) . ", now())";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute($insertData);
+            } else {
+                $fields = array_keys($insertData);
+                $placeholders = implode(', ', array_fill(0, count($fields), '?'));
+                $sql = "INSERT INTO {$usersTable} (" . implode(', ', $fields) . ", created_at) VALUES ({$placeholders}, NOW())";
+                $stmt = $conn->prepare($sql);
+                $values = array_values($insertData);
+                $stmt->bind_param(str_repeat('s', count($values)), ...$values);
+                $stmt->execute();
+            }
             $_SESSION['flash'] = ['ok', "User \"$fname\" created successfully (ID: $uid)."];
         }
     }
@@ -110,51 +122,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!in_array($role, $assignableRoles, true)) $errors[] = 'Selected role is not supported by the current database setup.';
 
         // Check email duplicate (excluding self)
-        $chk = $conn->prepare("SELECT user_id FROM users WHERE email = ? AND user_id != ?");
-        $chk->bind_param('ss', $email, $uid); $chk->execute();
-        if ($chk->get_result()->num_rows > 0) $errors[] = 'Email already used by another user.';
+        if (userExistsByEmail($email, $uid)) $errors[] = 'Email already used by another user.';
 
         if ($errors) {
             $_SESSION['flash'] = ['err', implode(' ', $errors)];
         } else {
             $usePass = ($newpass && strlen($newpass) >= 8);
-            if ($usePass) $hash = password_hash($newpass, PASSWORD_DEFAULT);
-
-            if ($hasDeptCol && $hasPhoneCol) {
-                if ($usePass) {
-                    $stmt = $conn->prepare("UPDATE users SET fullname=?,email=?,role=?,department=?,phone=?,status=?,password=? WHERE user_id=?");
-                    $stmt->bind_param('ssssssss', $fname, $email, $role, $dept, $phone, $status, $hash, $uid);
-                } else {
-                    $stmt = $conn->prepare("UPDATE users SET fullname=?,email=?,role=?,department=?,phone=?,status=? WHERE user_id=?");
-                    $stmt->bind_param('sssssss', $fname, $email, $role, $dept, $phone, $status, $uid);
-                }
-            } elseif ($hasDeptCol) {
-                if ($usePass) {
-                    $stmt = $conn->prepare("UPDATE users SET fullname=?,email=?,role=?,department=?,status=?,password=? WHERE user_id=?");
-                    $stmt->bind_param('sssssss', $fname, $email, $role, $dept, $status, $hash, $uid);
-                } else {
-                    $stmt = $conn->prepare("UPDATE users SET fullname=?,email=?,role=?,department=?,status=? WHERE user_id=?");
-                    $stmt->bind_param('ssssss', $fname, $email, $role, $dept, $status, $uid);
-                }
-            } elseif ($hasPhoneCol) {
-                if ($usePass) {
-                    $stmt = $conn->prepare("UPDATE users SET fullname=?,email=?,role=?,phone=?,status=?,password=? WHERE user_id=?");
-                    $stmt->bind_param('sssssss', $fname, $email, $role, $phone, $status, $hash, $uid);
-                } else {
-                    $stmt = $conn->prepare("UPDATE users SET fullname=?,email=?,role=?,phone=?,status=? WHERE user_id=?");
-                    $stmt->bind_param('ssssss', $fname, $email, $role, $phone, $status, $uid);
-                }
-            } else {
-                if ($usePass) {
-                    $stmt = $conn->prepare("UPDATE users SET fullname=?,email=?,role=?,status=?,password=? WHERE user_id=?");
-                    $stmt->bind_param('ssssss', $fname, $email, $role, $status, $hash, $uid);
-                } else {
-                    $stmt = $conn->prepare("UPDATE users SET fullname=?,email=?,role=?,status=? WHERE user_id=?");
-                    $stmt->bind_param('sssss', $fname, $email, $role, $status, $uid);
-                }
+            $updateData = [
+                'fullname' => $fname,
+                'email' => $email,
+                'role' => $role,
+                'status' => $status,
+            ];
+            if ($hasDeptCol) {
+                $updateData['department'] = $dept;
+            }
+            if ($hasPhoneCol) {
+                $updateData['phone'] = $phone;
+            }
+            if ($usePass) {
+                $updateData['password'] = password_hash($newpass, PASSWORD_DEFAULT);
             }
 
-            $stmt->execute();
+            if ($isPgSql) {
+                $sets = [];
+                foreach (array_keys($updateData) as $field) {
+                    $sets[] = "{$field} = :{$field}";
+                }
+                $updateData['user_id'] = $uid;
+                $stmt = $pdo->prepare("UPDATE {$usersTable} SET " . implode(', ', $sets) . " WHERE user_id = :user_id");
+                $stmt->execute($updateData);
+            } else {
+                $sets = [];
+                foreach (array_keys($updateData) as $field) {
+                    $sets[] = "{$field} = ?";
+                }
+                $values = array_values($updateData);
+                $values[] = $uid;
+                $stmt = $conn->prepare("UPDATE {$usersTable} SET " . implode(', ', $sets) . " WHERE user_id = ?");
+                $stmt->bind_param(str_repeat('s', count($values)), ...$values);
+                $stmt->execute();
+            }
             $_SESSION['flash'] = ['ok', "User \"$fname\" updated successfully."];
         }
     }
@@ -166,14 +174,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($uid === $admin_id) {
             $_SESSION['flash'] = ['err', 'You cannot deactivate your own account.'];
         } else {
-            $stmt = $conn->prepare("UPDATE users SET status=? WHERE user_id=?");
-            if ($stmt) {
-                $stmt->bind_param('ss', $newst, $uid);
-                $stmt->execute();
-                $_SESSION['flash'] = ['ok', 'User status updated to '.ucfirst($newst).'.'];
+            if ($isPgSql) {
+                $stmt = $pdo->prepare("UPDATE {$usersTable} SET status = :status WHERE user_id = :user_id");
+                $ok = $stmt->execute(['status' => $newst, 'user_id' => $uid]);
             } else {
-                $_SESSION['flash'] = ['err', 'Failed to update user status.'];
+                $stmt = $conn->prepare("UPDATE {$usersTable} SET status=? WHERE user_id=?");
+                $ok = false;
+                if ($stmt) {
+                    $stmt->bind_param('ss', $newst, $uid);
+                    $ok = (bool)$stmt->execute();
+                }
             }
+            $_SESSION['flash'] = $ok
+                ? ['ok', 'User status updated to '.ucfirst($newst).'.']
+                : ['err', 'Failed to update user status.'];
         }
     }
 
@@ -187,10 +201,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Prefer hard delete so counts drop immediately.
             try {
-                $stmt = $conn->prepare("DELETE FROM users WHERE user_id = ?");
-                if ($stmt) {
-                    $stmt->bind_param('s', $uid);
-                    $deleted = (bool)$stmt->execute();
+                if ($isPgSql) {
+                    $stmt = $pdo->prepare("DELETE FROM {$usersTable} WHERE user_id = :user_id");
+                    $deleted = (bool)$stmt->execute(['user_id' => $uid]);
+                } else {
+                    $stmt = $conn->prepare("DELETE FROM {$usersTable} WHERE user_id = ?");
+                    if ($stmt) {
+                        $stmt->bind_param('s', $uid);
+                        $deleted = (bool)$stmt->execute();
+                    }
                 }
             } catch (Throwable $e) {
                 $deleted = false;
@@ -198,10 +217,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // If constrained by related records, deactivate instead.
             if (!$deleted) {
-                $stmt = $conn->prepare("UPDATE users SET status = 'inactive' WHERE user_id = ?");
-                if ($stmt) {
-                    $stmt->bind_param('s', $uid);
-                    $deleted = (bool)$stmt->execute();
+                if ($isPgSql) {
+                    $stmt = $pdo->prepare("UPDATE {$usersTable} SET status = 'inactive' WHERE user_id = :user_id");
+                    $deleted = (bool)$stmt->execute(['user_id' => $uid]);
+                } else {
+                    $stmt = $conn->prepare("UPDATE {$usersTable} SET status = 'inactive' WHERE user_id = ?");
+                    if ($stmt) {
+                        $stmt->bind_param('s', $uid);
+                        $deleted = (bool)$stmt->execute();
+                    }
                 }
             }
 
@@ -221,9 +245,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['flash'] = ['err', implode(' ', $errors)];
         } else {
             $hash = password_hash($newpw, PASSWORD_DEFAULT);
-            $stmt = $conn->prepare("UPDATE users SET password=? WHERE user_id=?");
-            $stmt->bind_param('ss', $hash, $uid);
-            $stmt->execute();
+            if ($isPgSql) {
+                $stmt = $pdo->prepare("UPDATE {$usersTable} SET password = :password WHERE user_id = :user_id");
+                $stmt->execute(['password' => $hash, 'user_id' => $uid]);
+            } else {
+                $stmt = $conn->prepare("UPDATE {$usersTable} SET password=? WHERE user_id=?");
+                $stmt->bind_param('ss', $hash, $uid);
+                $stmt->execute();
+            }
             $_SESSION['flash'] = ['ok', 'Password reset successfully.'];
         }
     }
@@ -237,21 +266,25 @@ $sf  = $_GET['status'] ?? 'all';
 $sq  = $_GET['search'] ?? '';
 
 // Fetch all users
-$drColRes = $conn->query("SHOW COLUMNS FROM defect_reports");
-$drCols = [];
-if ($drColRes) {
-    while ($c = $drColRes->fetch_assoc()) {
-        $drCols[strtolower($c['Field'])] = true;
-    }
-}
+$drCols = array_fill_keys(array_keys(getTableColumns('defect_reports')), true);
 $reporterJoinCol = isset($drCols['reporter_id']) ? 'reporter_id' : (isset($drCols['reported_by']) ? 'reported_by' : (isset($drCols['user_id']) ? 'user_id' : null));
-$reportCountExpr = $reporterJoinCol ? "(SELECT COUNT(*) FROM defect_reports WHERE {$reporterJoinCol} = u.user_id)" : "0";
+$reportCountExpr = $reporterJoinCol ? "(SELECT COUNT(*) FROM {$defectReportsTable} WHERE {$reporterJoinCol} = u.user_id)" : "0";
+$roleSortExpr = "CASE u.role
+    WHEN 'admin' THEN 1
+    WHEN 'pmo' THEN 2
+    WHEN 'dean' THEN 3
+    WHEN 'finance' THEN 4
+    WHEN 'technician' THEN 5
+    WHEN 'reporter' THEN 6
+    WHEN 'student' THEN 7
+    ELSE 99
+END";
 
 $q = "SELECT u.*,
         {$reportCountExpr} AS report_count,
-        (SELECT COUNT(*) FROM defect_reports WHERE assigned_to = u.user_id
+        (SELECT COUNT(*) FROM {$defectReportsTable} WHERE assigned_to = u.user_id
          AND status NOT IN ('completed','verified','closed','rejected')) AS active_tasks
-      FROM users u
+      FROM {$usersTable} u
       WHERE u.status != 'deleted'";
 $params = []; $types = '';
 if ($rf !== 'all')   { $q .= " AND u.role = ?";   $params[] = $rf;   $types .= 's'; }
@@ -274,16 +307,28 @@ if ($sq !== '') {
     $params = array_merge($params, $searchParams);
     $types .= str_repeat('s', count($searchParams));
 }
-$q .= " ORDER BY FIELD(u.role,'admin','pmo','dean','finance','technician','reporter','student'), u.fullname ASC";
+$q .= " ORDER BY {$roleSortExpr}, u.fullname ASC";
 
-$stmt = $conn->prepare($q);
-if ($params) { $stmt->bind_param($types, ...$params); }
-$stmt->execute();
-$users = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+if (isPgSqlDriver()) {
+    $pdo = getPgsqlPdoConnection();
+    $stmt = $pdo->prepare($q);
+    $stmt->execute($params);
+    $users = $stmt->fetchAll();
+} else {
+    $stmt = $conn->prepare($q);
+    if ($params) { $stmt->bind_param($types, ...$params); }
+    $stmt->execute();
+    $users = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+}
 
 // All users for counts
-$all_users_res = $conn->query("SELECT role, status FROM users WHERE status IS NULL OR status != 'deleted'");
-$all_users_raw = $all_users_res ? $all_users_res->fetch_all(MYSQLI_ASSOC) : [];
+if (isPgSqlDriver()) {
+    $all_users_stmt = $pdo->query("SELECT role, status FROM {$usersTable} WHERE status IS NULL OR status != 'deleted'");
+    $all_users_raw = $all_users_stmt ? $all_users_stmt->fetchAll() : [];
+} else {
+    $all_users_res = $conn->query("SELECT role, status FROM {$usersTable} WHERE status IS NULL OR status != 'deleted'");
+    $all_users_raw = $all_users_res ? $all_users_res->fetch_all(MYSQLI_ASSOC) : [];
+}
 
 function cntU($arr,$fn){return count(array_filter($arr,$fn));}
 function normStatus($s){ $s = strtolower(trim((string)($s ?? ''))); return $s === 'active' ? 'active' : 'inactive'; }

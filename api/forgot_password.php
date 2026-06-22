@@ -35,16 +35,7 @@ if ($username === 'admin') {
     $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
 
     // Store reset token in database
-    $conn = getDBConnection();
-    $sql = "INSERT INTO password_resets (email, token, expires_at, created_at) VALUES (?, ?, ?, NOW())
-            ON DUPLICATE KEY UPDATE token = VALUES(token), expires_at = VALUES(expires_at), created_at = NOW()";
-    $stmt = $conn->prepare($sql);
-
-    if ($stmt) {
-        $stmt->bind_param("sss", $admin_email, $reset_token, $expires);
-        $stmt->execute();
-        $stmt->close();
-    }
+    replacePasswordResetRecord($admin_email, $reset_token, $expires);
 
     $reset_link = "http://localhost/bec_equipment/admin/reset_password.php?token=$reset_token";
     $subject = "Password Reset - BEC Equipment Management System";
@@ -130,19 +121,8 @@ $email = $user['email'];
 $reset_token = bin2hex(random_bytes(32));
 $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
 
-// Store reset token in database (you might need to create a password_resets table)
-$sql = "INSERT INTO password_resets (email, token, expires_at, created_at) VALUES (?, ?, ?, NOW())
-        ON DUPLICATE KEY UPDATE token = VALUES(token), expires_at = VALUES(expires_at), created_at = NOW()";
-$stmt = $conn->prepare($sql);
-
-if (!$stmt) {
-    echo json_encode(['success' => false, 'message' => 'Database error.']);
-    exit();
-}
-
-$stmt->bind_param("sss", $email, $reset_token, $expires);
-$success = $stmt->execute();
-$stmt->close();
+// Store reset token in database (replace any prior email token)
+$success = replacePasswordResetRecord($email, $reset_token, $expires);
 
 if (!$success) {
     echo json_encode(['success' => false, 'message' => 'Failed to generate reset token.']);
