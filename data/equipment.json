@@ -1,0 +1,49 @@
+[
+    {
+        "equipment_id": "EQ-001",
+        "equipment_name": "Dell Laptop",
+        "asset_tag": "DL-2023-001",
+        "category_name": "Computer",
+        "status": "in-use",
+        "location": "Computer Lab 1",
+        "photo": "uploads\/equipment\/dell_laptop.jpg",
+        "updated_at": "2026-01-15 03:37:13"
+    },
+    {
+        "equipment_id": "EQ-002",
+        "equipment_name": "Projector",
+        "asset_tag": "PR-2023-001",
+        "category_name": "Audio Visual",
+        "status": "maintenance",
+        "location": "Room 301",
+        "photo": "uploads\/equipment\/projector.jpg",
+        "updated_at": "2026-01-15 03:36:35"
+    },
+    {
+        "equipment_id": "EQ-003",
+        "equipment_name": "Microscope",
+        "asset_tag": "MC-2023-001",
+        "category_name": "Laboratory",
+        "status": "available",
+        "location": "Science Lab",
+        "photo": "uploads\/equipment\/microscope.jpg"
+    },
+    {
+        "equipment_id": "EQ-004",
+        "equipment_name": "Basketball",
+        "asset_tag": "BB-2023-001",
+        "category_name": "Sports Equipment",
+        "status": "available",
+        "location": "Gymnasium",
+        "photo": "uploads\/equipment\/basketball.jpg"
+    },
+    {
+        "equipment_id": "EQ-005",
+        "equipment_name": "Whiteboard",
+        "asset_tag": "WB-2023-001",
+        "category_name": "Furniture",
+        "status": "defective",
+        "location": "Classroom 101",
+        "photo": "uploads\/equipment\/whiteboard.jpg"
+    }
+]

@@ -1,0 +1,60 @@
+# XAMPP / Apache / MySQL
+htdocs/xampp/
+htdocs/mysql/
+htdocs/phpmyadmin/
+htdocs/tmp/
+htdocs/config/
+
+# PHP
+*.php~
+*.phar
+*.phpt
+*.phtml
+/vendor/
+composer.phar
+
+# Node
+node_modules/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.*.local
+config/chat_secrets.php
+# Mail credentials (Gmail app password lives here) — keep out of git
+data/system_settings.json
+
+# Uploads - Don't upload user files
+/uploads/*
+!/uploads/.gitkeep
+
+# Database
+*.sql.bak
+*.sqlite
+*.db
+
+# Logs
+*.log
+logs/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Temporary files
+temp/
+tmp/
+cache/
+
+# Local backups / exported copies
+system_backup_*.tar.gz
+system_folder_for_desktop.zip
+/-WEB-BASED-DEFECTIVE-EQUIPMENT-REPORTING-MANAGEMENT-SYSTEM-FOR-BATANGAS-EASTERN-COLLEGES/

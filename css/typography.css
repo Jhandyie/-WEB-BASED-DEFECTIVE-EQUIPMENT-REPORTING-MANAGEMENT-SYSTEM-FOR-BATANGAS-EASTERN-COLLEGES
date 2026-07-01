@@ -1,0 +1,274 @@
+/* css/typography.css - BEC system typography */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+:root {
+  --font-primary: 'Inter', 'Roboto', 'SF Pro Display', 'Poppins', 'Nunito Sans', Arial, sans-serif;
+  --font-display: 'Inter', 'Roboto', 'SF Pro Display', 'Poppins', 'Nunito Sans', Arial, sans-serif;
+  --font-mono: 'Roboto Mono', 'SFMono-Regular', Consolas, monospace;
+
+  --type-app-title: clamp(1.25rem, 2vw, 1.65rem);
+  --type-page-title: clamp(1.15rem, 1.7vw, 1.45rem);
+  --type-section-title: .98rem;
+  --type-card-title: .92rem;
+  --type-label: .75rem;
+  --type-input: .88rem;
+  --type-button: .82rem;
+  --type-table-head: .72rem;
+  --type-table-body: .82rem;
+  --type-status: .68rem;
+  --type-notification: .82rem;
+  --type-nav: .82rem;
+  --type-bottom-nav: .7rem;
+  --type-modal-title: 1.08rem;
+  --type-modal-body: .88rem;
+  --type-footer: .74rem;
+
+  --line-tight: 1.2;
+  --line-title: 1.28;
+  --line-body: 1.55;
+  --line-control: 1.35;
+}
+
+html {
+  font-family: var(--font-primary);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body,
+button,
+input,
+select,
+textarea {
+  font-family: var(--font-primary) !important;
+}
+
+body {
+  font-size: .875rem;
+  line-height: var(--line-body);
+  letter-spacing: 0;
+}
+
+.app-title,
+.brand-title,
+.logo-text,
+.sb-brand strong,
+.brand-name {
+  font-family: var(--font-display) !important;
+  font-size: var(--type-app-title);
+  line-height: var(--line-title);
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.page-title,
+.pg-title,
+.top-title,
+.hero-title,
+.ph h1,
+h1 {
+  font-family: var(--font-display) !important;
+  font-size: var(--type-page-title);
+  line-height: var(--line-title);
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.section-title,
+.section-h h2,
+.panel-head h3,
+.panel-h h3,
+.ph3 h3,
+h2,
+h3 {
+  font-family: var(--font-display) !important;
+  font-size: var(--type-section-title);
+  line-height: var(--line-title);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.card-title,
+.tb-title,
+.ap-head h3,
+.ec-name,
+.uc-name,
+.report-detail-title,
+.modal-card-title {
+  font-family: var(--font-display) !important;
+  font-size: var(--type-card-title);
+  line-height: var(--line-title);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+label,
+.f-label,
+.fl,
+.form-label,
+.field-label,
+.ro-label,
+.det-k,
+.dk {
+  font-size: var(--type-label);
+  line-height: var(--line-control);
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+
+input,
+select,
+textarea,
+.f-ctrl,
+.fi,
+.fsel,
+.fc,
+.search-in {
+  font-size: var(--type-input);
+  line-height: var(--line-control);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+button,
+.btn,
+.btn-submit,
+.btn-cancel,
+.nav-item,
+.ni,
+.lout {
+  font-size: var(--type-button);
+  line-height: var(--line-control);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+th,
+.table-header,
+.th,
+.khead {
+  font-size: var(--type-table-head);
+  line-height: var(--line-control);
+  font-weight: 800;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+td,
+.table-content,
+.table-cell,
+.report-row,
+.dr,
+.d-row {
+  font-size: var(--type-table-body);
+  line-height: var(--line-body);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.badge,
+.status,
+.status-badge,
+.pill,
+.chip,
+.ticket-label,
+.st {
+  font-size: var(--type-status);
+  line-height: var(--line-control);
+  font-weight: 800;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+
+.toast,
+.toast-notification,
+.notification,
+.notif,
+.alert,
+.fi-hint,
+.section-sub,
+.hero-sub {
+  font-size: var(--type-notification);
+  line-height: var(--line-body);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.sidebar a,
+.sidebar button,
+.nav-menu,
+.nav-link,
+.nav-item,
+.ni {
+  font-size: var(--type-nav);
+  line-height: var(--line-control);
+  font-weight: 600;
+}
+
+.bottom-nav,
+.bottom-nav a,
+.bottom-nav button {
+  font-size: var(--type-bottom-nav);
+  line-height: var(--line-control);
+  font-weight: 700;
+}
+
+.modal-title,
+.m-head-txt h2,
+.mhd-t h2,
+.cbox h3,
+.loading-title {
+  font-family: var(--font-display) !important;
+  font-size: var(--type-modal-title);
+  line-height: var(--line-title);
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.modal,
+.modal-content,
+.m-body,
+.cbox p,
+.loading-sub {
+  font-size: var(--type-modal-body);
+  line-height: var(--line-body);
+  font-weight: 500;
+}
+
+footer,
+.footer,
+.page-footer,
+.copyright {
+  font-size: var(--type-footer);
+  line-height: var(--line-body);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.rid,
+.woid,
+.eid,
+.ticket-num,
+.report-id,
+.asset-tag {
+  font-family: var(--font-mono) !important;
+  letter-spacing: 0;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --type-page-title: 1.18rem;
+    --type-section-title: .94rem;
+    --type-card-title: .88rem;
+    --type-input: 1rem;        /* 16px: prevents iOS Safari zoom-on-focus */
+    --type-button: .8rem;
+    --type-table-body: .78rem;
+    --type-modal-title: 1rem;
+  }
+  /* Safety net: any form control under 16px zooms on iOS; force 16px on phones. */
+  input, select, textarea,
+  .fi, .fsel, .fc, .f-ctrl, .search-in, .input, .ci {
+    font-size: 16px;
+  }
+}

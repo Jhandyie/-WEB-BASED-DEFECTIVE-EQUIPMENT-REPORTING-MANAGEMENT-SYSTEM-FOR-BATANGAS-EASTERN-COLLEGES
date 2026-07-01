@@ -1,0 +1,35 @@
+# ──────────────────────────────────────────────────────────────
+# BEC Equipment Reporting System — web hardening
+# Prevents sensitive server-side files from being served over HTTP.
+# (PHP `require`/`include` still work — those read from the filesystem,
+#  not via HTTP, so blocking HTTP access here does not break the app.)
+# ──────────────────────────────────────────────────────────────
+
+# No directory listings
+Options -Indexes
+
+# Block dotfiles (.env, .git, etc.)
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+# Block sensitive file types anywhere in the tree
+<FilesMatch "(?i)\.(env|log|sql|md|lock|ini|bak|sh|yml|yaml)$">
+    Require all denied
+</FilesMatch>
+
+# Block the *.example.php and secrets
+<FilesMatch "(?i)(chat_secrets\.php|.*\.example\.php)$">
+    Require all denied
+</FilesMatch>
+
+# Block direct web access to server-only directories
+# (data store, logs, config, server includes, MVC layers)
+RedirectMatch 403 (?i)/(data|logs|config|includes|models|controllers)/
+
+# Defense-in-depth: also deny via rewrite if mod_rewrite is on
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule (?i)(^|/)\.env$ - [F,L]
+    RewriteRule (?i)/(data|logs|config|includes|models|controllers)/ - [F,L]
+</IfModule>

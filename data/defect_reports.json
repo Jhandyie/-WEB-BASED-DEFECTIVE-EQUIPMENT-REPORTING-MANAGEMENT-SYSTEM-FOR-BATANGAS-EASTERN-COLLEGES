@@ -1,0 +1,98 @@
+[
+    {
+        "report_id": "DR-20260115-4D9DB5",
+        "equipment_id": "EQ-002",
+        "issue_description": "haha",
+        "priority": "medium",
+        "location": "School canteen",
+        "reported_by": null,
+        "reporter_name": "Jhan",
+        "reporter_email": "jhanmarkdecastro28@gmail.com",
+        "defect_photos": [
+            "uploads\/defect_reports\/69684da4d81e4_Screenshot 2025-08-31 221919.png"
+        ],
+        "status": "reported",
+        "is_guest_report": true,
+        "report_date": "2026-01-15 03:15:00"
+    },
+    {
+        "report_id": "DR-20260115-65169A",
+        "equipment_id": "EQ-001",
+        "issue_description": "hahahahhahahahahahhahahaah",
+        "priority": "critical",
+        "location": "School canteen",
+        "reported_by": null,
+        "reporter_name": "Jhan",
+        "reporter_email": "jhanmarkdecastro28@gmail.com",
+        "defect_photos": [
+            "uploads\/defect_reports\/69684f26509d8_Screenshot 2025-05-12 113341.png"
+        ],
+        "status": "reported",
+        "is_guest_report": true,
+        "report_date": "2026-01-15 03:21:26"
+    },
+    {
+        "report_id": "DR-20260115-61143A",
+        "equipment_id": "EQ-001",
+        "issue_description": "hahahahaha",
+        "priority": "critical",
+        "location": "School canteen",
+        "reported_by": "guest_69684f0c95e96",
+        "reporter_name": "Jhan",
+        "reporter_email": "jhanmarkdecastro28@gmail.com",
+        "defect_photos": [
+            "uploads\/defect_reports\/69684ff61084d_Screenshot 2025-05-12 113417.png"
+        ],
+        "status": "reported",
+        "is_guest_report": true,
+        "report_date": "2026-01-15 03:24:54"
+    },
+    {
+        "report_id": "DR-20260115-ED4ACE",
+        "equipment_id": "EQ-001",
+        "issue_description": "shhshsh",
+        "priority": "medium",
+        "location": "School canteen",
+        "reported_by": "guest_6968514da3096",
+        "reporter_name": "Jhan",
+        "reporter_email": "jhanmarkdecastro28@gmail.com",
+        "defect_photos": [
+            "uploads\/defect_reports\/6968516ed3fdd_Screenshot 2025-05-12 113417.png"
+        ],
+        "status": "reported",
+        "is_guest_report": true,
+        "report_date": "2026-01-15 03:31:10"
+    },
+    {
+        "report_id": "DR-20260115-355B4B",
+        "equipment_id": "EQ-002",
+        "issue_description": "haha",
+        "priority": "medium",
+        "location": "School canteen",
+        "reported_by": "guest_6968529f2b47d",
+        "reporter_name": "Jhan",
+        "reporter_email": "jhanmarkdecastro28@gmail.com",
+        "defect_photos": [
+            "uploads\/defect_reports\/696852b35517d_Screenshot 2025-05-12 113341.png"
+        ],
+        "status": "reported",
+        "is_guest_report": true,
+        "report_date": "2026-01-15 03:36:35"
+    },
+    {
+        "report_id": "DR-20260115-9C3E74",
+        "equipment_id": "EQ-001",
+        "issue_description": "hahahahahaha",
+        "priority": "critical",
+        "location": "School canteen",
+        "reported_by": "guest_6968529f2b47d",
+        "reporter_name": "Jhan",
+        "reporter_email": "jhanmarkdecastro28@gmail.com",
+        "defect_photos": [
+            "uploads\/defect_reports\/696852d9c2d12_Screenshot 2025-05-12 113417.png"
+        ],
+        "status": "reported",
+        "is_guest_report": true,
+        "report_date": "2026-01-15 03:37:13"
+    }
+]

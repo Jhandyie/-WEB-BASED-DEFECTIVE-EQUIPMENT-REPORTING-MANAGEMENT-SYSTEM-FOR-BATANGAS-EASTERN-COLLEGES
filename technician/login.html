@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../css/typography.css" />
+    <link rel="icon" type="image/png" href="../assets/logs.png" />
+    <meta name="theme-color" content="#4A0E0E" />
+    <title>BEC PMO — Technician Sign In</title>
+    <style>
+      :root {
+        --maroon: #7B1D1D;
+        --maroon-d: #4A0E0E;
+        --gold: #C9960C;
+        --ink: #1C1008;
+        --ink2: #5C3838;
+        --ink3: #8A7466;
+        --paper: #F4F1EC;
+        --surface: #FFFFFF;
+        --border: #E2D9CC;
+        --field: #FBF9F6;
+        --danger: #B42318;
+        --success: #1A7A33;
+        --info: #1F6F8B;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        font-family: 'DM Sans', system-ui, sans-serif;
+        color: var(--ink);
+        background: var(--maroon-d);
+        min-height: 100vh;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        padding: 24px; position: relative;
+      }
+      /* Lightly blurred BEC campus background with a maroon wash */
+      body::before {
+        content: ''; position: fixed; inset: 0; z-index: -2;
+        background: url('../assets/bec background (2).png') center center / cover no-repeat;
+        filter: blur(5px) brightness(.9); transform: scale(1.06);
+      }
+      body::after {
+        content: ''; position: fixed; inset: 0; z-index: -1;
+        background: linear-gradient(135deg, rgba(45,5,5,.60), rgba(74,14,14,.45));
+      }
+
+      .auth-card {
+        width: 100%; max-width: 430px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        box-shadow: 0 1px 2px rgba(28,16,8,.06), 0 10px 28px rgba(44,10,10,.18);
+        overflow: hidden;
+      }
+      .auth-accent { height: 3px; background: linear-gradient(90deg, var(--maroon-d), var(--maroon) 60%, var(--gold)); }
+
+      .auth-head { background: var(--maroon-d); color: #fff; padding: 22px 28px 20px; text-align: center; }
+      .auth-seal {
+        width: 56px; height: 56px; border-radius: 50%; background: #fff; margin: 0 auto 12px;
+        display: flex; align-items: center; justify-content: center; overflow: hidden;
+        box-shadow: 0 0 0 3px rgba(255,255,255,.12);
+      }
+      .auth-seal img { width: 100%; height: 100%; object-fit: cover; }
+      .auth-head h1 { font-family: 'Fraunces', serif; font-weight: 700; font-size: 1.05rem; line-height: 1.3; }
+      .auth-head .org { font-size: .72rem; color: rgba(255,255,255,.72); margin-top: 3px; }
+      .auth-head .role {
+        display: inline-block; margin-top: 12px;
+        font-size: .66rem; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase;
+        color: var(--gold); border: 1px solid rgba(201,150,12,.4); border-radius: 4px; padding: 3px 10px;
+      }
+
+      .auth-body { padding: 26px 28px 22px; }
+      .form-title { font-size: 1.05rem; font-weight: 700; color: var(--ink); }
+      .form-hint { font-size: .82rem; color: var(--ink3); margin: 3px 0 18px; }
+
+      .field { margin-bottom: 15px; }
+      .field > label {
+        display: block; font-size: .76rem; font-weight: 600; color: var(--ink2); margin-bottom: 6px;
+      }
+      .field-wrap { position: relative; }
+      .auth-body input[type="text"],
+      .auth-body input[type="email"],
+      .auth-body input[type="password"] {
+        width: 100%; background: var(--field);
+        border: 1px solid var(--border); border-radius: 8px;
+        padding: 11px 40px 11px 38px; font-size: .9rem; color: var(--ink);
+        font-family: inherit; outline: none;
+        transition: border-color .15s, box-shadow .15s, background .15s;
+      }
+      .auth-body input:focus { background: #fff; border-color: var(--maroon); box-shadow: 0 0 0 3px rgba(123,29,29,.10); }
+      .auth-body input::placeholder { color: #B7A99C; }
+      .f-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--ink3); font-size: .82rem; pointer-events: none; }
+      input:focus ~ .f-icon { color: var(--maroon); }
+      .toggle-pwd { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--ink3); cursor: pointer; font-size: .82rem; }
+      .toggle-pwd:hover { color: var(--maroon); }
+
+      .opt-row { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 18px; font-size: .82rem; }
+      .remember-label { display: flex; align-items: center; gap: 7px; cursor: pointer; -webkit-user-select: none; user-select: none; }
+      .remember-label input[type="checkbox"] { width: auto; accent-color: var(--maroon); cursor: pointer; }
+      .remember-label span { color: var(--ink2); }
+      .forgot-link { color: var(--maroon); font-weight: 600; text-decoration: none; }
+      .forgot-link:hover { text-decoration: underline; }
+
+      .btn-login {
+        width: 100%; padding: 12px 16px; background: var(--maroon); color: #fff;
+        border: none; border-radius: 8px; font-family: inherit; font-size: .92rem; font-weight: 600;
+        cursor: pointer; transition: background .15s;
+        display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      }
+      .btn-login:hover:not(:disabled) { background: var(--maroon-d); }
+      .btn-login:disabled { opacity: .65; cursor: not-allowed; }
+      .btn-login .spinner { display: none; }
+      .btn-login.loading .btn-text { display: none; }
+      .btn-login.loading .spinner { display: inline-block; }
+
+      .form-note { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); text-align: center; }
+      .form-note p { font-size: .8rem; color: var(--ink3); margin: 0; }
+      .form-note strong { color: var(--maroon); font-weight: 600; }
+
+      .auth-foot {
+        background: var(--field); border-top: 1px solid var(--border); padding: 12px 28px; text-align: center;
+        font-size: .72rem; color: var(--ink3); display: flex; align-items: center; justify-content: center; gap: 6px;
+      }
+      .page-note { margin-top: 16px; font-size: .72rem; color: rgba(255,255,255,.7); text-align: center; }
+
+      /* Message banner */
+      .msg-banner { display: none; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 8px; margin-bottom: 14px; font-size: .82rem; font-weight: 500; }
+      .msg-banner.show { display: flex; }
+      .msg-banner.success { background: #eef7f0; color: var(--success); border: 1px solid #cfe9d6; }
+      .msg-banner.error   { background: #fdf3f2; color: var(--danger);  border: 1px solid #f3d2cf; }
+      .msg-banner.info    { background: #eef5f7; color: var(--info);    border: 1px solid #cfe3ea; }
+
+      @media (max-width: 480px) {
+        .auth-head, .auth-body { padding-left: 20px; padding-right: 20px; }
+      }
+    </style>
+</head>
+<body>
+    <div class="auth-card">
+      <div class="auth-accent"></div>
+
+      <div class="auth-head">
+        <div class="auth-seal">
+          <img src="../assets/logs.png" alt="BEC Logo"
+               onerror="this.style.display='none'; this.parentElement.innerHTML='<i class=\'fas fa-graduation-cap\' style=\'color:#7B1D1D;font-size:24px\'></i>'" />
+        </div>
+        <h1>Batangas Eastern Colleges</h1>
+        <div class="org">Property Management Office</div>
+        <span class="role"><i class="fas fa-screwdriver-wrench"></i>&nbsp; Technician Portal</span>
+      </div>
+
+      <div class="auth-body">
+        <div class="form-title">Sign in to your account</div>
+        <div class="form-hint">Enter the credentials issued by your administrator.</div>
+
+        <div id="loginMessage"></div>
+
+        <form id="loginForm" novalidate>
+          <div class="field">
+            <label for="loginEmail">Email Address</label>
+            <div class="field-wrap">
+              <input type="email" id="loginEmail" name="email" placeholder="you@bec.edu.ph" autocomplete="username" required />
+              <i class="fas fa-envelope f-icon"></i>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="loginPassword">Password</label>
+            <div class="field-wrap">
+              <input type="password" id="loginPassword" name="password" placeholder="Enter your password" autocomplete="current-password" required />
+              <i class="fas fa-lock f-icon"></i>
+              <i class="fas fa-eye-slash toggle-pwd" id="togglePwd" onclick="togglePassword()"></i>
+            </div>
+          </div>
+
+          <div class="opt-row">
+            <label class="remember-label">
+              <input type="checkbox" id="rememberMe" />
+              <span>Keep me signed in</span>
+            </label>
+            <a href="#" class="forgot-link" onclick="forgotPassword(); return false;">Forgot password?</a>
+          </div>
+
+          <button type="submit" class="btn-login" id="loginBtn">
+            <span class="btn-text"><i class="fas fa-right-to-bracket"></i> Sign In</span>
+            <i class="fas fa-circle-notch fa-spin spinner"></i>
+          </button>
+        </form>
+
+        <div class="form-note">
+          <p>No account? <strong>Contact the Property Management Office.</strong></p>
+        </div>
+      </div>
+
+      <div class="auth-foot"><i class="fas fa-lock"></i> Secure connection · Authorized personnel only</div>
+    </div>
+
+    <p class="page-note">© Batangas Eastern Colleges — Property Management Office</p>
+
+    <script>
+        // Fetch a CSRF token once and reuse it for all POSTs.
+        let CSRF_TOKEN = null;
+        async function ensureCsrf() {
+            if (CSRF_TOKEN) return CSRF_TOKEN;
+            try {
+                const r = await fetch('technician_login_process.php?action=get_csrf', { credentials: 'same-origin' });
+                const d = await r.json();
+                CSRF_TOKEN = d.token || null;
+            } catch {}
+            return CSRF_TOKEN;
+        }
+        ensureCsrf();
+
+        // Toggle password visibility
+        function togglePassword() {
+            const input = document.getElementById('loginPassword');
+            const icon  = document.getElementById('togglePwd');
+            const show  = input.type === 'password';
+            input.type  = show ? 'text' : 'password';
+            icon.className = show ? 'fas fa-eye toggle-pwd' : 'fas fa-eye-slash toggle-pwd';
+        }
+
+        // Show inline message
+        function showMsg(type, text) {
+            const el = document.getElementById('loginMessage');
+            const icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', info: 'fa-info-circle' };
+            el.innerHTML = `<div class="msg-banner ${type} show"><i class="fas ${icons[type]}"></i>${text}</div>`;
+            if (type !== 'error') setTimeout(() => el.innerHTML = '', 5000);
+        }
+
+        // Set button loading state
+        function setLoading(loading) {
+            const btn = document.getElementById('loginBtn');
+            btn.disabled = loading;
+            btn.classList.toggle('loading', loading);
+        }
+
+        // Sign in
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email    = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+
+            if (!email || !password) {
+                showMsg('error', 'Please enter both your email and password.');
+                return;
+            }
+
+            setLoading(true);
+            document.getElementById('loginMessage').innerHTML = '';
+
+            try {
+                const formData = new FormData();
+                formData.append('email',    email);
+                formData.append('password', password);
+                formData.append('action',   'verify_login');
+                formData.append('role',     'technician');
+                const token = await ensureCsrf();
+                if (token) formData.append('csrf_token', token);
+
+                const res  = await fetch('technician_login_process.php', { method: 'POST', body: formData, credentials: 'same-origin' });
+                const data = await res.json();
+
+                if (data.success) {
+                    showMsg('success', 'Login successful! Redirecting…');
+                    setTimeout(() => { window.location.href = '../technician_dashboard.php'; }, 1000);
+                } else {
+                    showMsg('error', data.message || 'Invalid email or password. Please try again.');
+                    setLoading(false);
+                }
+            } catch {
+                showMsg('error', 'Connection error. Please try again.');
+                setLoading(false);
+            }
+        });
+
+        // Forgot password
+        async function forgotPassword() {
+            const email = document.getElementById('loginEmail').value.trim();
+            if (!email) {
+                showMsg('info', 'Please enter your email address first, then click Forgot password.');
+                document.getElementById('loginEmail').focus();
+                return;
+            }
+
+            setLoading(true);
+            try {
+                const formData = new FormData();
+                formData.append('email',  email);
+                formData.append('action', 'forgot_password');
+                formData.append('role',   'technician');
+                const token = await ensureCsrf();
+                if (token) formData.append('csrf_token', token);
+
+                const res  = await fetch('technician_login_process.php', { method: 'POST', body: formData, credentials: 'same-origin' });
+                const data = await res.json();
+                showMsg(data.success ? 'info' : 'error', data.message || 'Failed to send reset link.');
+            } catch {
+                showMsg('error', 'Connection error. Please try again.');
+            } finally {
+                setLoading(false);
+            }
+        }
+    </script>
+</body>
+</html>
