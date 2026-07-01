@@ -11,36 +11,41 @@
 #chatFab {
   position: fixed; left: 1.35rem; bottom: 1.35rem; z-index: 9997;
   display: flex; align-items: center; gap: .6rem;
-  padding: .55rem .95rem .55rem .6rem;
-  background: linear-gradient(135deg, var(--maroon-d), var(--maroon));
-  border: 1.5px solid rgba(201,150,12,.5);
+  padding: .5rem .95rem .5rem .5rem;
+  background: linear-gradient(135deg, rgba(74,14,14,.82), rgba(45,5,5,.82));
+  -webkit-backdrop-filter: blur(12px) saturate(1.2); backdrop-filter: blur(12px) saturate(1.2);
+  border: 1.5px solid rgba(201,150,12,.55);
   border-radius: 50px; cursor: pointer;
-  box-shadow: 0 8px 26px rgba(44,10,10,.34), 0 2px 8px rgba(44,10,10,.2);
-  transition: transform .22s cubic-bezier(.22,1,.36,1), box-shadow .22s ease;
-  animation: fabRise .5s cubic-bezier(.22,1,.36,1) both;
+  box-shadow: 0 10px 30px rgba(44,10,10,.4), inset 0 0 0 1px rgba(255,255,255,.05), 0 0 20px rgba(201,150,12,.22);
+  transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .3s ease;
+  animation: fabFloat 6s ease-in-out infinite, fabGlow 4.5s ease-in-out infinite;
 }
-#chatFab:hover { transform: translateY(-3px) scale(1.03); box-shadow: 0 12px 32px rgba(44,10,10,.42); }
-#chatFab:active { transform: translateY(-1px) scale(.99); }
+#chatFab:hover { animation: none; transform: translateY(-4px) scale(1.05); box-shadow: 0 16px 40px rgba(44,10,10,.5), 0 0 32px rgba(201,150,12,.48); }
+#chatFab:active { transform: translateY(-1px) scale(1); }
 #chatFab .fab-ic {
-  width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
-  background: rgba(255,255,255,.13); border: 1.5px solid rgba(255,255,255,.22);
+  width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+  background: rgba(255,255,255,.14); border: 1.5px solid rgba(201,150,12,.5);
   display: flex; align-items: center; justify-content: center; position: relative;
+  box-shadow: 0 0 14px rgba(201,150,12,.35);
 }
+#chatFab .fab-ic img { width: 100%; height: 100%; object-fit: cover; display: block; }
 #chatFab .fab-ic i { color: #fff; font-size: 1.05rem; }
 #chatFab .fab-ic::after {
-  content: ''; position: absolute; top: 2px; right: 2px;
-  width: 9px; height: 9px; border-radius: 50%;
-  background: #4ade80; border: 2px solid var(--maroon-d);
-  box-shadow: 0 0 0 0 rgba(74,222,128,.6); animation: fabPulse 2.2s infinite;
+  content: ''; position: absolute; top: 1px; right: 1px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #F0C040; border: 2px solid rgba(45,5,5,.9);
+  box-shadow: 0 0 0 0 rgba(240,192,64,.7); animation: fabPulse 2.2s infinite;
 }
 #chatFab .fab-txt { display: flex; flex-direction: column; line-height: 1.1; padding-right: .3rem; }
-#chatFab .fab-txt b { color: #fff; font-size: .82rem; font-weight: 600; letter-spacing: -.01em; }
-#chatFab .fab-txt span { color: rgba(255,255,255,.6); font-size: .6rem; }
-@keyframes fabPulse { 0% { box-shadow: 0 0 0 0 rgba(74,222,128,.5); } 70% { box-shadow: 0 0 0 7px rgba(74,222,128,0); } 100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); } }
-@keyframes fabRise { from { opacity: 0; transform: translateY(16px) scale(.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
+#chatFab .fab-txt b { color: #fff; font-size: .82rem; font-weight: 700; letter-spacing: -.01em; }
+#chatFab .fab-txt span { color: rgba(240,192,64,.85); font-size: .6rem; font-weight: 600; letter-spacing: .3px; }
+@keyframes fabPulse { 0% { box-shadow: 0 0 0 0 rgba(240,192,64,.6); } 70% { box-shadow: 0 0 0 8px rgba(240,192,64,0); } 100% { box-shadow: 0 0 0 0 rgba(240,192,64,0); } }
+@keyframes fabFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes fabGlow { 0%,100% { box-shadow: 0 10px 30px rgba(44,10,10,.4), 0 0 16px rgba(201,150,12,.2); } 50% { box-shadow: 0 12px 34px rgba(44,10,10,.46), 0 0 30px rgba(201,150,12,.45); } }
+@media (prefers-reduced-motion: reduce) { #chatFab, #chatFab .fab-ic::after { animation: none; } }
 @media (max-width: 560px) {
   #chatFab .fab-txt { display: none; }
-  #chatFab { padding: .5rem; left: 1rem; bottom: 1rem; }
+  #chatFab { padding: .4rem; left: 1rem; bottom: 1rem; }
 }
 
 /* ══ CHATBOT MODAL ══ */
@@ -59,9 +64,11 @@
 #chatModal {
   width: 100%; max-width: 385px;
   height: 570px; max-height: calc(100vh - 2.5rem);
-  background: var(--surface); border-radius: 20px;
-  border: 1px solid var(--border);
-  box-shadow: 0 10px 50px rgba(44,10,10,.25), 0 2px 10px rgba(44,10,10,.1);
+  background: rgba(255,255,255,.85);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2); backdrop-filter: blur(22px) saturate(1.2);
+  border-radius: 22px;
+  border: 1px solid rgba(255,255,255,.6);
+  box-shadow: 0 20px 60px rgba(44,10,10,.32), 0 4px 14px rgba(44,10,10,.14), inset 0 0 0 1px rgba(255,255,255,.3);
   display: flex; flex-direction: column; overflow: hidden;
   transform: translateY(22px) scale(.97); opacity: 0;
   transition: transform .28s cubic-bezier(.22,1,.36,1), opacity .22s ease;
@@ -73,12 +80,13 @@
   background: linear-gradient(90deg, var(--maroon-dd), var(--maroon), var(--gold)); z-index: 2;
 }
 .ch {
-  background: var(--maroon-d); padding: .9rem 1rem .88rem;
+  background: linear-gradient(135deg, var(--maroon-dd), var(--maroon)); padding: .95rem 1rem .9rem;
   display: flex; align-items: center; gap: .7rem; flex-shrink: 0;
 }
 .ch-av {
-  width: 37px; height: 37px; border-radius: 50%;
-  background: rgba(255,255,255,.14); border: 1.5px solid rgba(255,255,255,.18);
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(255,255,255,.14); border: 1.5px solid rgba(201,150,12,.6);
+  box-shadow: 0 0 14px rgba(201,150,12,.4);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0; position: relative;
 }
@@ -131,6 +139,8 @@
 }
 .mrow.b .mav { background: var(--maroon); color: #fff; }
 .mrow.u .mav { background: var(--maroon-d); color: rgba(255,255,255,.7); }
+.mav-ai { overflow: hidden; background: #fff; border: 1px solid rgba(201,150,12,.45); box-shadow: 0 0 8px rgba(201,150,12,.3); }
+.mav-ai img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .mcol { display: flex; flex-direction: column; max-width: 100%; }
 .mbub {
   padding: .58rem .82rem; border-radius: 14px;
@@ -143,7 +153,7 @@
 .trow { align-self: flex-start; display: flex; gap: .48rem; align-items: flex-end; }
 .tbub { padding: .52rem .82rem; background: #f4ede4; border: 1px solid var(--border); border-radius: 14px; border-bottom-left-radius: 4px; }
 .tdots { display: flex; gap: 3px; align-items: center; }
-.tdots span { width: 5px; height: 5px; border-radius: 50%; background: var(--ink3); animation: db 1.3s infinite; }
+.tdots span { width: 5px; height: 5px; border-radius: 50%; background: var(--maroon); animation: db 1.3s infinite; }
 .tdots span:nth-child(2) { animation-delay: .2s; }
 .tdots span:nth-child(3) { animation-delay: .4s; }
 @keyframes db { 0%,80%,100%{opacity:.2;transform:scale(.85)} 40%{opacity:1;transform:scale(1)} }
@@ -215,7 +225,7 @@
 
 <!-- ══ FLOATING CHAT LAUNCHER (left) ══ -->
 <button id="chatFab" type="button" onclick="openChat()" aria-label="Open BEC Support assistant">
-  <span class="fab-ic"><i class="fas fa-headset"></i></span>
+  <span class="fab-ic"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="Becca AI" onerror="this.style.display='none';this.insertAdjacentHTML('afterend','<i class=\'fas fa-robot\'></i>')"></span>
   <span class="fab-txt"><b>Ask Becca</b><span>BEC Support AI</span></span>
 </button>
 
@@ -475,9 +485,11 @@ function addMsg(role, text, chips, suggest, actions = []) {
     </div>`;
   }
 
-  const icon = role === 'u' ? 'fas fa-user' : 'fas fa-robot';
+  const avatar = role === 'u'
+    ? '<div class="mav"><i class="fas fa-user"></i></div>'
+    : '<div class="mav mav-ai"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="Becca"></div>';
   row.innerHTML = `
-    <div class="mav"><i class="${icon}"></i></div>
+    ${avatar}
     <div class="mcol">
       <div class="mbub">${safe}${extra}</div>
       <div class="mtime">${now()}</div>
@@ -492,8 +504,8 @@ function showTyping() {
   const row = document.createElement('div');
   row.className = 'trow'; row.id = 'typing';
   row.innerHTML = `
-    <div class="mav" style="background:var(--maroon);color:#fff;width:25px;height:25px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.6rem;flex-shrink:0">
-      <i class="fas fa-robot"></i>
+    <div class="mav mav-ai" style="width:25px;height:25px;border-radius:50%;overflow:hidden;flex-shrink:0">
+      <img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="Becca" style="width:100%;height:100%;object-fit:cover;display:block">
     </div>
     <div class="tbub"><div class="tdots"><span></span><span></span><span></span></div></div>`;
   box.appendChild(row);

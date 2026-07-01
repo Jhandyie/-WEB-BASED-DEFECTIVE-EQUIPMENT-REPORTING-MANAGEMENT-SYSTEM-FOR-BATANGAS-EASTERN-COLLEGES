@@ -417,6 +417,7 @@ html{scroll-behavior:smooth}
 </head>
 <body>
 <?php $nav_active = 'track'; require __DIR__ . '/includes/site_nav.php'; ?>
+<?php $hero_title = 'Track Your Report'; $hero_sub = 'Enter your report ticket, equipment ID, or asset tag to see the latest status and progress.'; require __DIR__ . '/includes/site_hero.php'; ?>
   <div class="page">
 
     <div class="card">
@@ -618,6 +619,8 @@ html{scroll-behavior:smooth}
     </div>
   </div>
 <?php require __DIR__ . '/includes/site_footer.php'; ?>
+<?php require __DIR__ . '/includes/site_reveal.php'; ?>
+<?php require __DIR__ . '/includes/site_transitions.php'; ?>
 <script>
 const trackInput = document.getElementById('track-search');
 const trackDropdown = document.getElementById('track-dropdown');

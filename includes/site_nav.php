@@ -9,8 +9,11 @@
 if (!isset($nav_active)) { $nav_active = ''; }
 ?>
 <style>
-.bsnav{position:sticky;top:0;z-index:300;background:rgba(248,243,234,.9);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid #E8DDD0;font-family:'DM Sans',sans-serif;}
-.bsnav-in{max-width:1140px;margin:0 auto;padding:0 1.5rem;height:62px;display:flex;align-items:center;justify-content:space-between;gap:1rem;}
+.bsnav{position:sticky;top:0;z-index:300;background:rgba(248,243,234,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid #E8DDD0;font-family:'DM Sans',sans-serif;transition:background .28s ease,box-shadow .28s ease,border-color .28s ease;}
+.bsnav.scrolled{background:rgba(248,243,234,.7);backdrop-filter:blur(16px) saturate(1.3);-webkit-backdrop-filter:blur(16px) saturate(1.3);border-bottom-color:rgba(232,221,208,.55);box-shadow:0 6px 26px rgba(44,10,10,.1);}
+.bsnav-in{max-width:100%;margin:0 auto;padding:0 2rem;height:62px;display:flex;align-items:center;justify-content:space-between;gap:1rem;transition:height .28s ease;}
+@media(max-width:640px){.bsnav-in{padding:0 1.1rem;}}
+.bsnav.scrolled .bsnav-in{height:56px;}
 .bsnav-brand{display:flex;align-items:center;gap:.6rem;text-decoration:none;}
 .bsnav-seal{width:38px;height:38px;border-radius:50%;background:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:0 0 0 3px rgba(201,150,12,.28);}
 .bsnav-seal img{width:100%;height:100%;object-fit:cover;}
@@ -37,3 +40,4 @@ if (!isset($nav_active)) { $nav_active = ''; }
     </div>
   </div>
 </nav>
+<script>(function(){var n=document.querySelector('.bsnav');if(!n)return;var f=function(){n.classList.toggle('scrolled',window.scrollY>12);};f();window.addEventListener('scroll',f,{passive:true});})();</script>

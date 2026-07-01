@@ -433,6 +433,7 @@ td:last-child{padding-right:1.25rem;}
 <div class="bg-grid"></div>
 
 <?php $nav_active = 'public'; require __DIR__ . '/site_nav.php'; ?>
+<?php $hero_title = 'Public Equipment Reports'; $hero_sub = 'Browse publicly visible equipment reports across the campus. Personal and sensitive details are intentionally hidden.'; require __DIR__ . '/site_hero.php'; ?>
 
 <div class="page">
 
@@ -799,5 +800,7 @@ function closeModalDirect() {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModalDirect(); });
 </script>
 <?php require __DIR__ . '/site_footer.php'; ?>
+<?php require __DIR__ . '/site_reveal.php'; ?>
+<?php require __DIR__ . '/site_transitions.php'; ?>
 </body>
 </html>

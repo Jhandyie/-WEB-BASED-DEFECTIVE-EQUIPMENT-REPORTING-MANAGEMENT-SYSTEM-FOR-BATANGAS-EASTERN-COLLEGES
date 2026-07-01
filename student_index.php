@@ -106,8 +106,10 @@ body::after {
   position: relative; overflow: hidden; color: #fff;
   padding: 2.75rem 2.4rem 2.4rem;
   background:
-    radial-gradient(120% 80% at 0% 0%, rgba(201,150,12,.22) 0%, transparent 42%),
-    linear-gradient(155deg, var(--maroon-dd) 0%, var(--maroon-d) 50%, var(--maroon) 100%);
+    radial-gradient(120% 80% at 0% 0%, rgba(201,150,12,.20) 0%, transparent 42%),
+    linear-gradient(155deg, rgba(45,5,5,.90) 0%, rgba(74,14,14,.80) 55%, rgba(123,29,29,.72) 100%),
+    url('assets/Landing Page Background.png') center / cover no-repeat,
+    url('assets/bec background (2).png') center / cover no-repeat;
   display: flex; flex-direction: column;
 }
 .brand::after {
@@ -1181,5 +1183,7 @@ function escAttr(s) { return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39
 
 </script>
 
+<?php require __DIR__ . '/includes/site_reveal.php'; ?>
+<?php require __DIR__ . '/includes/site_transitions.php'; ?>
 </body>
 </html>
