@@ -1761,5 +1761,6 @@ reportForm?.addEventListener('submit', () => {
   }
 })();
 </script>
+<?php require __DIR__ . '/includes/site_transitions.php'; ?>
 </body>
 </html>

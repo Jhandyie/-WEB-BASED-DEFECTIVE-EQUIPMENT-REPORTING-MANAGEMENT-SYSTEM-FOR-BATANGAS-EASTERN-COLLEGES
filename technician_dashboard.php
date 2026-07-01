@@ -2367,5 +2367,6 @@ document.addEventListener('change', function (e) {
 });
 </script>
 <script src="assets/sidebar_autohide.js" defer></script>
+<?php require __DIR__ . '/includes/site_transitions.php'; ?>
 </body>
 </html>

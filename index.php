@@ -142,7 +142,7 @@ a { text-decoration: none; color: inherit; }
   background:
     linear-gradient(100deg, rgba(44, 2, 2, 0.9) 0%, rgba(38, 2, 2, 0.82) 32%, rgba(55,9,9,.56) 55%, rgba(74,14,14,.22) 76%, rgba(74,14,14,0) 100%),
     linear-gradient(0deg, rgba(26,4,4,.55) 0%, rgba(26,4,4,0) 28%),
-    url('assets/Landing Page Background.png') center 42% / cover no-repeat,
+    url('assets/Landing Page Background.jpg') center 42% / cover no-repeat,
     url('assets/bec background (2).png') center / cover no-repeat;
   transform: scale(1.1) translate3d(0, var(--hero-par, 0px), 0); will-change: transform; }
 .hero .container { position: relative; z-index: 1; }
@@ -414,7 +414,7 @@ a { text-decoration: none; color: inherit; }
   .hero { min-height: auto; padding: 3.2rem 0 2.8rem; }
   .hero::before { background:
     linear-gradient(180deg, rgba(38,4,4,.86) 0%, rgba(45,5,5,.78) 45%, rgba(74,14,14,.9) 100%),
-    url('assets/Landing Page Background.png') center 40% / cover no-repeat,
+    url('assets/Landing Page Background.jpg') center 40% / cover no-repeat,
     url('assets/bec background (2).png') center / cover no-repeat; }
   .hero-content { max-width: 100%; }
   .hero h1 { font-size: 2.15rem; }

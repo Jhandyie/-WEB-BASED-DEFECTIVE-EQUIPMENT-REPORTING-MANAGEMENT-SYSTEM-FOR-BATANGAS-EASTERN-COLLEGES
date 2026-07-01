@@ -1284,5 +1284,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
 <?php require_once __DIR__ . '/includes/csrf_inject.php'; ?>
 <script src="assets/sidebar_autohide.js" defer></script>
 <?php require_once __DIR__ . '/includes/admin_assistant.php'; ?>
+<?php require __DIR__ . '/includes/site_transitions.php'; ?>
 </body>
 </html>
