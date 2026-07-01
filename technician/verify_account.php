@@ -142,5 +142,6 @@ function vh($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
       <?php endif; ?>
     </div>
   </div>
+<script src="../assets/page_loader.js"></script>
 </body>
 </html>
