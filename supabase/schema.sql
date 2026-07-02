@@ -403,6 +403,14 @@ create table if not exists public.budget_request_items (
 
 create index if not exists idx_budget_request_items_request on public.budget_request_items (request_id);
 
+-- Finance-notification fields for budget requests (email → tokenized acknowledgment).
+alter table public.budget_requests add column if not exists finance_email varchar(200);
+alter table public.budget_requests add column if not exists finance_status varchar(20);
+alter table public.budget_requests add column if not exists finance_notified_at timestamptz;
+alter table public.budget_requests add column if not exists finance_ack_at timestamptz;
+alter table public.budget_requests add column if not exists finance_token varchar(64);
+alter table public.budget_requests add column if not exists finance_note text;
+
 -- =========================================================
 -- Idempotent guards: ensure columns exist even if the core
 -- tables were created by an earlier version of this schema.

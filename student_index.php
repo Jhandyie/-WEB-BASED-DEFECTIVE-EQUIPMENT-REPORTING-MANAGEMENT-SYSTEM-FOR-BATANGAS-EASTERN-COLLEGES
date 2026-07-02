@@ -262,37 +262,40 @@ body::after {
 /* ══ FLOATING CHAT LAUNCHER (left side) ══ */
 #chatFab {
   position: fixed; left: 1.35rem; bottom: 1.35rem; z-index: 9997;
-  display: flex; align-items: center; gap: .6rem;
-  padding: .55rem .95rem .55rem .6rem;
-  background: linear-gradient(135deg, var(--maroon-d), var(--maroon));
-  border: 1.5px solid rgba(201,150,12,.5);
-  border-radius: 50px; cursor: pointer;
-  box-shadow: 0 8px 26px rgba(44,10,10,.34), 0 2px 8px rgba(44,10,10,.2);
-  transition: transform .22s cubic-bezier(.22,1,.36,1), box-shadow .22s ease;
-  animation: fabRise .5s cubic-bezier(.22,1,.36,1) both;
+  display: flex; align-items: center; justify-content: center;
+  width: 62px; height: 62px; padding: 0;
+  background: linear-gradient(135deg, rgba(74,14,14,.9), rgba(45,5,5,.9));
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  border: 2px solid rgba(201,150,12,.6);
+  border-radius: 50%; cursor: pointer;
+  box-shadow: 0 10px 30px rgba(44,10,10,.4), 0 0 20px rgba(201,150,12,.25);
+  transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .3s ease;
+  animation: fabFloat 6s ease-in-out infinite, fabGlow 4.5s ease-in-out infinite;
 }
-#chatFab:hover { transform: translateY(-3px) scale(1.03); box-shadow: 0 12px 32px rgba(44,10,10,.42); }
-#chatFab:active { transform: translateY(-1px) scale(.99); }
+#chatFab:hover { animation: none; transform: translateY(-4px) scale(1.06); box-shadow: 0 16px 40px rgba(44,10,10,.5), 0 0 32px rgba(201,150,12,.5); }
+#chatFab:active { transform: translateY(-1px) scale(1); }
 #chatFab .fab-ic {
-  width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
-  background: rgba(255,255,255,.13); border: 1.5px solid rgba(255,255,255,.22);
+  width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+  background: rgba(255,255,255,.14); border: 1.5px solid rgba(255,255,255,.25);
   display: flex; align-items: center; justify-content: center; position: relative;
+  box-shadow: 0 0 14px rgba(201,150,12,.35);
 }
+#chatFab .fab-ic img { width: 100%; height: 100%; object-fit: cover; display: block; }
 #chatFab .fab-ic i { color: #fff; font-size: 1.05rem; }
 #chatFab .fab-ic::after {
-  content: ''; position: absolute; top: 2px; right: 2px;
-  width: 9px; height: 9px; border-radius: 50%;
-  background: #4ade80; border: 2px solid var(--maroon-d);
-  box-shadow: 0 0 0 0 rgba(74,222,128,.6); animation: fabPulse 2.2s infinite;
+  content: ''; position: absolute; top: 1px; right: 1px;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #F0C040; border: 2px solid rgba(45,5,5,.9);
+  box-shadow: 0 0 0 0 rgba(240,192,64,.7); animation: fabPulse 2.2s infinite;
 }
-#chatFab .fab-txt { display: flex; flex-direction: column; line-height: 1.1; padding-right: .3rem; }
-#chatFab .fab-txt b { color: #fff; font-size: .82rem; font-weight: 600; letter-spacing: -.01em; }
-#chatFab .fab-txt span { color: rgba(255,255,255,.6); font-size: .6rem; }
-@keyframes fabPulse { 0% { box-shadow: 0 0 0 0 rgba(74,222,128,.5); } 70% { box-shadow: 0 0 0 7px rgba(74,222,128,0); } 100% { box-shadow: 0 0 0 0 rgba(74,222,128,0); } }
-@keyframes fabRise { from { opacity: 0; transform: translateY(16px) scale(.9); } to { opacity: 1; transform: translateY(0) scale(1); } }
+#chatFab .fab-txt { display: none; }
+@keyframes fabPulse { 0% { box-shadow: 0 0 0 0 rgba(240,192,64,.6); } 70% { box-shadow: 0 0 0 8px rgba(240,192,64,0); } 100% { box-shadow: 0 0 0 0 rgba(240,192,64,0); } }
+@keyframes fabFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes fabGlow { 0%,100% { box-shadow: 0 10px 30px rgba(44,10,10,.4), 0 0 16px rgba(201,150,12,.2); } 50% { box-shadow: 0 12px 34px rgba(44,10,10,.46), 0 0 30px rgba(201,150,12,.45); } }
+@media (prefers-reduced-motion: reduce) { #chatFab, #chatFab .fab-ic::after { animation: none; } }
 @media (max-width: 560px) {
-  #chatFab .fab-txt { display: none; }
-  #chatFab { padding: .5rem; left: 1rem; bottom: 1rem; }
+  #chatFab { width: 56px; height: 56px; left: 1rem; bottom: 1rem; }
+  #chatFab .fab-ic { width: 42px; height: 42px; }
 }
 
 /* ══ CHATBOT MODAL ══ */
@@ -652,7 +655,7 @@ body::after {
 
 <!-- ══ FLOATING CHAT LAUNCHER (left) ══ -->
 <button id="chatFab" type="button" onclick="openChat()" aria-label="Open BEC Support assistant">
-  <span class="fab-ic"><i class="fas fa-headset"></i></span>
+  <span class="fab-ic"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="Becca" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'fas fa-robot\'></i>'"></span>
   <span class="fab-txt"><b>Ask Becca</b><span>BEC Support AI</span></span>
 </button>
 

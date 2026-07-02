@@ -443,7 +443,7 @@
               <div class="otp-progress-bar"><div class="otp-progress-fill" id="otpProgressFill"></div></div>
 
               <div class="otp-timer-line" id="otpTimerLine">
-                <i class="fas fa-clock"></i> Code expires in <span id="timerDisplay">1:00</span>
+                <i class="fas fa-clock"></i> Code expires in <span id="timerDisplay">3:00</span>
               </div>
 
               <button type="submit" class="otp-verify-btn" id="otpVerifyBtn">
@@ -480,7 +480,7 @@
         const loginBtn = document.getElementById("login");
         let otpTimer = null;
         let otpExpiryTime = null;
-        let otpTotalDuration = 1 * 60 * 1000;
+        let otpTotalDuration = 3 * 60 * 1000;
         let resendTimer = null;
         let resendCountdown = 30;
 
@@ -654,7 +654,7 @@
             });
             if (otpTimer) clearInterval(otpTimer);
             if (resendTimer) clearInterval(resendTimer);
-            document.getElementById('timerDisplay').textContent = '1:00';
+            document.getElementById('timerDisplay').textContent = '3:00';
             document.getElementById('otpTimerLine')?.classList.remove('warning');
             document.getElementById('otpMessage').innerHTML = '';
             document.getElementById('otpVerifyBtn').classList.remove('complete');

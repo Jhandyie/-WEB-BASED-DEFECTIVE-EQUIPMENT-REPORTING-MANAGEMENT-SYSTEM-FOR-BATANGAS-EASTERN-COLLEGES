@@ -458,7 +458,7 @@ if (isset($_GET['view_id'])) {
         $vr['asset_tag']       = $eq['asset_tag']       ?? '—';
         $vr['location']        = $eq['location']        ?? '—';
         $vr['reporter_name']   = $vr['reporter_name']   ?? 'N/A';
-        $vr['technician_name'] = $vr['assigned_to']     ?? 'Unassigned';
+        $vr['technician_name'] = !empty($vr['technician_name']) ? $vr['technician_name'] : 'Unassigned';
     }
 }
 
@@ -1669,9 +1669,12 @@ textarea.fc{resize:vertical;min-height:70px;}
 
     <div class="mfoot">
       <button class="btn btn-ghost btn-sm" onclick="closeDet()">Close</button>
-      <?php if(!in_array($vr['status'],['completed','verified','closed','rejected'])): ?>
-      <a href="admin_assign_technicians.php?report=<?php echo $vr['report_id'];?>" class="btn btn-maroon btn-sm">
-        <i class="fas fa-user-plus"></i> Assign Technician
+      <?php
+        $vrAssigned = !empty($vr['technician_name']) && strtolower(trim((string)$vr['technician_name'])) !== 'unassigned';
+        if (!in_array($vr['status'], ['completed','verified','closed','rejected'], true)):
+      ?>
+      <a href="admin_assign_technicians.php?report=<?php echo $vr['report_id'];?>" class="btn <?php echo $vrAssigned ? 'btn-ghost' : 'btn-maroon'; ?> btn-sm">
+        <i class="fas fa-user-<?php echo $vrAssigned ? 'pen' : 'plus'; ?>"></i> <?php echo $vrAssigned ? 'Reassign Technician' : 'Assign Technician'; ?>
       </a>
       <?php endif; ?>
     </div>

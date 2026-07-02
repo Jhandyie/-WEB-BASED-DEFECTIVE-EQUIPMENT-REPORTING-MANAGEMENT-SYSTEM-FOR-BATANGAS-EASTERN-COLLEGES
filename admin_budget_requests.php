@@ -5,6 +5,7 @@ require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/audit.php';
+require_once __DIR__ . '/includes/budget_finance.php';
 
 requireRole('admin');
 
@@ -23,7 +24,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $reqId = trim((string)($_POST['request_id'] ?? ''));
     $notes = trim((string)($_POST['admin_notes'] ?? ''));
 
-    if ($reqId !== '' && in_array($act, ['approve', 'reject'], true)) {
+    if ($act === 'notify_finance' && $reqId !== '') {
+        [$fsent, $fmsg] = bfNotifyFinance($conn, $reqId, $admin_name, trim((string)($_POST['finance_note'] ?? '')));
+        if (function_exists('logActivity')) { try { logActivity($admin_id, 'budget.finance_notify', "Notified Finance for {$reqId}"); } catch (\Throwable $e) {} }
+        $_SESSION['flash'] = [$fsent ? 'ok' : 'err', $fmsg];
+    } elseif ($reqId !== '' && in_array($act, ['approve', 'reject'], true)) {
         $newStatus = $act === 'approve' ? 'approved' : 'rejected';
 
         // Fetch the request (for technician notification).
@@ -63,6 +68,7 @@ if (!in_array($filter, ['pending', 'approved', 'rejected', 'all'], true)) $filte
 $where = $filter === 'all' ? '' : "WHERE b.status = '" . $filter . "'";
 $sql = "SELECT b.request_id, b.report_id, b.technician_id, b.justification, b.total_cost,
                b.status, b.admin_notes, b.created_at, b.reviewed_at,
+               b.finance_status, b.finance_notified_at, b.finance_ack_at, b.finance_email,
                COALESCE(u.fullname, b.technician_id) AS technician_name
         FROM budget_requests b
         LEFT JOIN users u ON u.user_id = b.technician_id
@@ -134,6 +140,12 @@ unset($_SESSION['flash']);
   table.items tfoot td{font-weight:700;border-top:2px solid var(--border);}
   .just{font-size:.84rem;color:var(--ink2);background:var(--field);border-left:3px solid var(--gold);border-radius:8px;padding:10px 12px;margin:10px 0;}
   .anotes{font-size:.8rem;color:var(--ink3);margin-top:8px;}
+  .finance{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px dashed var(--border);}
+  .fbadge{font-size:.76rem;font-weight:600;color:var(--ink2);display:inline-flex;align-items:center;gap:6px;}
+  .fbadge i{color:var(--gold);}
+  .fbadge.received{color:#1F6F8B;} .fbadge.accepted{color:var(--success);}
+  .btn.fin{background:var(--maroon);color:#fff;padding:9px 15px;}
+  .btn.fin:hover{filter:brightness(1.08);}
   .review{display:flex;gap:10px;align-items:flex-start;margin-top:14px;flex-wrap:wrap;}
   .review textarea{flex:1;min-width:220px;min-height:42px;padding:9px 11px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:.84rem;resize:vertical;}
   .btn{border:none;border-radius:8px;padding:10px 16px;font-weight:600;font-size:.84rem;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:7px;}
@@ -194,7 +206,7 @@ unset($_SESSION['flash']);
   <div class="wrap">
     <div class="head">
       <h2>Budget Requests</h2>
-      <p>Review and decide on materials/budget requests submitted by technicians.</p>
+      <p>Review and decide on materials/budget requests submitted by technicians. Finance notifications are emailed to <strong><?php echo be(BEC_FINANCE_EMAIL); ?></strong>.</p>
     </div>
 
     <?php if ($flash): ?><div class="flash <?php echo $flash[0] === 'ok' ? 'ok' : 'err'; ?>"><?php echo be($flash[1]); ?></div><?php endif; ?>
@@ -253,6 +265,16 @@ unset($_SESSION['flash']);
         <?php elseif (trim((string)$r['admin_notes']) !== ''): ?>
           <div class="anotes"><i class="fas fa-comment-dots"></i> Admin remarks: <?php echo be($r['admin_notes']); ?> <span style="color:var(--ink3)">(<?php echo bdt($r['reviewed_at']); ?>)</span></div>
         <?php endif; ?>
+
+        <?php $fstat = (string)($r['finance_status'] ?? ''); ?>
+        <div class="finance">
+          <span class="fbadge <?php echo be($fstat ?: 'none'); ?>"><i class="fas fa-building-columns"></i> <?php echo be(bfFinanceStatusLabel($fstat)); ?><?php if (!empty($r['finance_notified_at']) && $fstat === 'awaiting'): ?> · sent <?php echo bdt($r['finance_notified_at']); ?><?php elseif (!empty($r['finance_ack_at']) && in_array($fstat, ['received','accepted'], true)): ?> · <?php echo bdt($r['finance_ack_at']); ?><?php endif; ?></span>
+          <form method="post" action="?filter=<?php echo be($filter); ?>" style="margin-left:auto;">
+            <?php echo csrf_field(); ?>
+            <input type="hidden" name="request_id" value="<?php echo be($r['request_id']); ?>">
+            <button class="btn fin" type="submit" name="action" value="notify_finance"><i class="fas fa-paper-plane"></i> <?php echo $fstat === '' ? 'Notify Finance' : 'Re-send to Finance'; ?></button>
+          </form>
+        </div>
       </div>
     <?php endforeach; endif; ?>
   </div>

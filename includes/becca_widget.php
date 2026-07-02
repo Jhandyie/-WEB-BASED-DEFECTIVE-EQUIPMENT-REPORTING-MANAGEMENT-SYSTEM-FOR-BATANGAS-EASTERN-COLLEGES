@@ -10,21 +10,21 @@
 /* ══ FLOATING CHAT LAUNCHER (left side) ══ */
 #chatFab {
   position: fixed; left: 1.35rem; bottom: 1.35rem; z-index: 9997;
-  display: flex; align-items: center; gap: .6rem;
-  padding: .5rem .95rem .5rem .5rem;
-  background: linear-gradient(135deg, rgba(74,14,14,.82), rgba(45,5,5,.82));
-  -webkit-backdrop-filter: blur(12px) saturate(1.2); backdrop-filter: blur(12px) saturate(1.2);
-  border: 1.5px solid rgba(201,150,12,.55);
-  border-radius: 50px; cursor: pointer;
-  box-shadow: 0 10px 30px rgba(44,10,10,.4), inset 0 0 0 1px rgba(255,255,255,.05), 0 0 20px rgba(201,150,12,.22);
+  display: flex; align-items: center; justify-content: center;
+  width: 62px; height: 62px; padding: 0;
+  background: linear-gradient(135deg, rgba(74,14,14,.9), rgba(45,5,5,.9));
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  border: 2px solid rgba(201,150,12,.6);
+  border-radius: 50%; cursor: pointer;
+  box-shadow: 0 10px 30px rgba(44,10,10,.4), 0 0 20px rgba(201,150,12,.25);
   transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .3s ease;
   animation: fabFloat 6s ease-in-out infinite, fabGlow 4.5s ease-in-out infinite;
 }
-#chatFab:hover { animation: none; transform: translateY(-4px) scale(1.05); box-shadow: 0 16px 40px rgba(44,10,10,.5), 0 0 32px rgba(201,150,12,.48); }
+#chatFab:hover { animation: none; transform: translateY(-4px) scale(1.06); box-shadow: 0 16px 40px rgba(44,10,10,.5), 0 0 32px rgba(201,150,12,.5); }
 #chatFab:active { transform: translateY(-1px) scale(1); }
 #chatFab .fab-ic {
-  width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
-  background: rgba(255,255,255,.14); border: 1.5px solid rgba(201,150,12,.5);
+  width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
+  background: rgba(255,255,255,.14); border: 1.5px solid rgba(255,255,255,.25);
   display: flex; align-items: center; justify-content: center; position: relative;
   box-shadow: 0 0 14px rgba(201,150,12,.35);
 }
@@ -36,16 +36,14 @@
   background: #F0C040; border: 2px solid rgba(45,5,5,.9);
   box-shadow: 0 0 0 0 rgba(240,192,64,.7); animation: fabPulse 2.2s infinite;
 }
-#chatFab .fab-txt { display: flex; flex-direction: column; line-height: 1.1; padding-right: .3rem; }
-#chatFab .fab-txt b { color: #fff; font-size: .82rem; font-weight: 700; letter-spacing: -.01em; }
-#chatFab .fab-txt span { color: rgba(240,192,64,.85); font-size: .6rem; font-weight: 600; letter-spacing: .3px; }
+#chatFab .fab-txt { display: none; }
 @keyframes fabPulse { 0% { box-shadow: 0 0 0 0 rgba(240,192,64,.6); } 70% { box-shadow: 0 0 0 8px rgba(240,192,64,0); } 100% { box-shadow: 0 0 0 0 rgba(240,192,64,0); } }
 @keyframes fabFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 @keyframes fabGlow { 0%,100% { box-shadow: 0 10px 30px rgba(44,10,10,.4), 0 0 16px rgba(201,150,12,.2); } 50% { box-shadow: 0 12px 34px rgba(44,10,10,.46), 0 0 30px rgba(201,150,12,.45); } }
 @media (prefers-reduced-motion: reduce) { #chatFab, #chatFab .fab-ic::after { animation: none; } }
 @media (max-width: 560px) {
-  #chatFab .fab-txt { display: none; }
-  #chatFab { padding: .4rem; left: 1rem; bottom: 1rem; }
+  #chatFab { width: 56px; height: 56px; left: 1rem; bottom: 1rem; }
+  #chatFab .fab-ic { width: 42px; height: 42px; }
 }
 
 /* ══ CHATBOT MODAL ══ */

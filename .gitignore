@@ -32,6 +32,9 @@ config/chat_secrets.php
 # Mail credentials (Gmail app password lives here) — keep out of git
 data/system_settings.json
 
+# Automated database backups (large, contain user data)
+/backups/
+
 # Uploads - Don't upload user files
 /uploads/*
 !/uploads/.gitkeep

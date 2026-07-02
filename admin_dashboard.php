@@ -212,10 +212,11 @@ try {
     $ares = $aconn->query("
         SELECT COALESCE(NULLIF(e.equipment_name,''),'Unknown') AS name,
                COALESCE(NULLIF(e.location,''),'—') AS location,
+               COALESCE(NULLIF(e.status,''),'') AS status,
                COUNT(dr.report_id) AS reports
         FROM defect_reports dr
         JOIN equipment e ON e.equipment_id = dr.equipment_id
-        GROUP BY e.equipment_id, e.equipment_name, e.location
+        GROUP BY e.equipment_id, e.equipment_name, e.location, e.status
         ORDER BY reports DESC
         LIMIT 5
     ");
@@ -223,8 +224,15 @@ try {
 } catch (\Throwable $e) { /* equipment table empty / not ready */ }
 $maxAssetReports = 1;
 foreach ($topDefectiveAssets as $a) { $maxAssetReports = max($maxAssetReports, (int)$a['reports']); }
-// Simple health score: more repair reports → lower score.
-function assetHealthScore(int $reports): int { return max(5, 100 - $reports * 14); }
+// Health score: starts from the asset's current status, then eases down per defect report.
+// Operational=100 base, Under maintenance=70, Defective=45; −8 pts per report; clamped 5–100.
+function assetHealthScore(int $reports, string $status = ''): int {
+    $s = strtolower(trim($status));
+    $base = 100;
+    if (in_array($s, ['defective', 'faulty', 'damaged'], true)) { $base = 45; }
+    elseif (in_array($s, ['maintenance', 'under_maintenance'], true)) { $base = 70; }
+    return max(5, min(100, $base - $reports * 8));
+}
 
 // -- PRIORITY ALERTS ---------------------------
 $priorityAlerts = array_values(array_filter($allReports, fn($r) =>
@@ -1124,7 +1132,7 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .nav-item:focus-visib
             No equipment defect history yet — the fleet looks healthy.
           </div>
         <?php else: $rk = 1; foreach ($topDefectiveAssets as $a):
-            $rep = (int)$a['reports']; $score = assetHealthScore($rep);
+            $rep = (int)$a['reports']; $score = assetHealthScore($rep, (string)($a['status'] ?? ''));
             $sc = $score >= 70 ? '#16A34A' : ($score >= 40 ? '#D97706' : '#DC2626');
             $dot = $score >= 70 ? '🟢' : ($score >= 40 ? '🟠' : '🔴');
         ?>

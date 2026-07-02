@@ -115,9 +115,18 @@ try {
     $conn->commit();
     logActivity($technician_id, 'budget.request', 'Submitted budget request ' . $request_id . ' total ₱' . $totalStr);
 
+    // Optional: also notify the Finance office by email (technician's choice).
+    $financeMsg = '';
+    if (!empty($_POST['notify_finance'])) {
+        require_once __DIR__ . '/includes/budget_finance.php';
+        $techName = (string)($_SESSION['fullname'] ?? 'Technician');
+        [$fsent, $fmsg] = bfNotifyFinance($conn, $request_id, $techName, '');
+        $financeMsg = ' ' . $fmsg;
+    }
+
     echo json_encode([
         'success'    => true,
-        'message'    => 'Budget request submitted for approval.',
+        'message'    => 'Budget request submitted for approval.' . $financeMsg,
         'request_id' => $request_id,
         'total_cost' => $totalStr,
     ]);

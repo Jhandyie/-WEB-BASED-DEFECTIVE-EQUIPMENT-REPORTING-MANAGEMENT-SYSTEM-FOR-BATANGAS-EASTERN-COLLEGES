@@ -56,6 +56,34 @@ function sicon(string $s): string {
         'closed' => 'fa-circle-check',
     ][strtolower(trim($s))] ?? 'fa-circle';
 }
+function sprogress(string $s): int {
+    return [
+        'assigned' => 12, 'accepted' => 32, 'in_progress' => 55,
+        'waiting_for_materials' => 55, 'for_replacement' => 60,
+        'completed' => 85, 'verified' => 100, 'closed' => 100,
+    ][strtolower(trim($s))] ?? 12;
+}
+function sstep(string $s): int {
+    return [
+        'assigned' => 1, 'accepted' => 1, 'in_progress' => 2,
+        'waiting_for_materials' => 3, 'for_replacement' => 3,
+        'completed' => 4, 'verified' => 5, 'closed' => 5,
+    ][strtolower(trim($s))] ?? 1;
+}
+function eqicon(string $name): string {
+    $n = strtolower($name);
+    if (preg_match('/projector/', $n)) return 'fa-video';
+    if (preg_match('/(computer|\bpc\b|desktop|laptop|cpu)/', $n)) return 'fa-desktop';
+    if (preg_match('/(aircon|air.?con|\bac\b|hvac|cooling)/', $n)) return 'fa-snowflake';
+    if (preg_match('/(printer|copier|xerox|scanner)/', $n)) return 'fa-print';
+    if (preg_match('/(tv|television|monitor|screen|display)/', $n)) return 'fa-tv';
+    if (preg_match('/(fan|ventil)/', $n)) return 'fa-fan';
+    if (preg_match('/(speaker|audio|sound|amplifier|\bmic\b)/', $n)) return 'fa-volume-high';
+    if (preg_match('/(light|lamp|bulb)/', $n)) return 'fa-lightbulb';
+    if (preg_match('/(router|network|wifi|switch)/', $n)) return 'fa-wifi';
+    if (preg_match('/(board|whiteboard)/', $n)) return 'fa-chalkboard';
+    return 'fa-screwdriver-wrench';
+}
 function ptone(string $p): string {
     return [
         'critical' => 'crit',
@@ -128,6 +156,8 @@ $priorityExpr = isset($drCols['priority']) ? 'r.priority' : "'medium'";
 $statusExpr = isset($drCols['status']) ? 'r.status' : "'assigned'";
 $reportDateExpr = isset($drCols['report_date']) ? 'r.report_date' : 'NOW()';
 $completionExpr = isset($drCols['completion_date']) ? 'r.completion_date' : 'NULL';
+$startedExpr = isset($drCols['started_at']) ? 'r.started_at' : (isset($drCols['date_started']) ? 'r.date_started' : 'NULL');
+$equipmentIdExpr = isset($drCols['equipment_id']) ? 'r.equipment_id' : "''";
 $notesField = isset($drCols['technician_notes']) ? 'technician_notes' : (isset($drCols['resolution_notes']) ? 'resolution_notes' : (isset($drCols['notes']) ? 'notes' : ''));
 $notesExpr = $notesField !== '' ? 'r.' . $notesField : "''";
 $instExpr = isset($drCols['handler_instructions']) ? 'r.handler_instructions' : (isset($drCols['instructions']) ? 'r.instructions' : "''");
@@ -158,6 +188,8 @@ if (isset($drCols['equipment_id']) && (isset($eqCols['equipment_id']) || isset($
 
 $tab = trim((string)($_GET['tab'] ?? 'my_tasks'));
 if (!in_array($tab, ['my_tasks', 'history'], true)) $tab = 'my_tasks';
+// Queue-oriented views (list rendering, filters, workspace) share the "my_tasks" data shape.
+$listTab = $tab === 'history' ? 'history' : 'my_tasks';
 $search = trim((string)($_GET['search'] ?? ''));
 $queueFilter = trim((string)($_GET['queue'] ?? 'all'));
 $selectedId = trim((string)($_GET['report'] ?? ''));
@@ -165,6 +197,29 @@ $flash = ['type' => trim((string)($_GET['flash_type'] ?? '')), 'message' => trim
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = trim((string)($_POST['action'] ?? ''));
+
+    // Notification center: mark one / all as read (not tied to a defect report).
+    if ($action === 'mark_read' || $action === 'mark_all_read') {
+        try {
+            if ($action === 'mark_all_read') {
+                $st = $conn->prepare('UPDATE notifications SET is_read = true, read_at = NOW() WHERE user_id = ? AND is_read = false');
+                $st->bind_param('s', $techId);
+                $st->execute();
+                $st->close();
+            } else {
+                $nid = trim((string)($_POST['notification_id'] ?? ''));
+                if ($nid !== '') {
+                    $st = $conn->prepare('UPDATE notifications SET is_read = true, read_at = NOW() WHERE user_id = ? AND notification_id = ?');
+                    $st->bind_param('ss', $techId, $nid);
+                    $st->execute();
+                    $st->close();
+                }
+            }
+        } catch (Exception $e) { /* notifications table optional — ignore */ }
+        header('Location: technician_dashboard.php?tab=my_tasks&notif=1');
+        exit;
+    }
+
     $reportId = trim((string)($_POST['report_id'] ?? ''));
     $tab = 'my_tasks';
     $selectedId = $reportId;
@@ -256,8 +311,8 @@ if ($search !== '') {
 }
 $activeStatuses = ['assigned','accepted','in_progress','waiting_for_materials','for_replacement','completed'];
 $historyStatuses = ['verified','closed'];
-$activeSql = "SELECT r.report_id,r.assigned_date assigned_date,$equipmentExpr equipment_name,$issueExpr issue_description,$priorityExpr priority,$statusExpr status,$locationExpr location,$reportDateExpr report_date,$completionExpr completion_date,$notesExpr technician_notes,$instExpr handler_instructions,$assetExpr asset_tag,$categoryExpr category_name FROM defect_reports r $join WHERE $assigneeWhere AND $statusExpr IN ('assigned','accepted','in_progress','waiting_for_materials','for_replacement','completed') $searchSql ORDER BY FIELD($statusExpr,'assigned','accepted','in_progress','waiting_for_materials','for_replacement','completed'), FIELD($priorityExpr,'critical','high','medium','low'), $reportDateExpr DESC";
-$historySql = "SELECT r.report_id,$equipmentExpr equipment_name,$issueExpr issue_description,$priorityExpr priority,$statusExpr status,$locationExpr location,$reportDateExpr report_date,$completionExpr completion_date,$notesExpr technician_notes,$instExpr handler_instructions,$assetExpr asset_tag,$categoryExpr category_name FROM defect_reports r $join WHERE $assigneeWhere AND $statusExpr IN ('verified','closed') $searchSql ORDER BY COALESCE($completionExpr,$reportDateExpr) DESC";
+$activeSql = "SELECT r.report_id,$equipmentIdExpr equipment_id,r.assigned_date assigned_date,$startedExpr started_at,$equipmentExpr equipment_name,$issueExpr issue_description,$priorityExpr priority,$statusExpr status,$locationExpr location,$reportDateExpr report_date,$completionExpr completion_date,$notesExpr technician_notes,$instExpr handler_instructions,$assetExpr asset_tag,$categoryExpr category_name FROM defect_reports r $join WHERE $assigneeWhere AND $statusExpr IN ('assigned','accepted','in_progress','waiting_for_materials','for_replacement','completed') $searchSql ORDER BY FIELD($statusExpr,'assigned','accepted','in_progress','waiting_for_materials','for_replacement','completed'), FIELD($priorityExpr,'critical','high','medium','low'), $reportDateExpr DESC";
+$historySql = "SELECT r.report_id,$equipmentIdExpr equipment_id,$equipmentExpr equipment_name,$issueExpr issue_description,$priorityExpr priority,$statusExpr status,$locationExpr location,$reportDateExpr report_date,$completionExpr completion_date,$notesExpr technician_notes,$instExpr handler_instructions,$assetExpr asset_tag,$categoryExpr category_name FROM defect_reports r $join WHERE $assigneeWhere AND $statusExpr IN ('verified','closed') $searchSql ORDER BY COALESCE($completionExpr,$reportDateExpr) DESC";
 $activeStmt = $conn->prepare($activeSql);
 $activeStmt->bind_param($assigneeTypes . $searchTypes, ...array_merge($assigneeVals, $searchVals));
 $activeStmt->execute();
@@ -302,13 +357,21 @@ $list = $tab === 'history' ? $historyViewTasks : $activeViewTasks;
 foreach ($list as $row) if ($selectedId !== '' && (string)$row['report_id'] === $selectedId) $selected = $row;
 if (!$selected && $list) { $selected = $list[0]; $selectedId = (string)$selected['report_id']; }
 
-$perPage = 6;
-$currentPage = max(1, (int)($_GET['page'] ?? 1));
 $totalItems = count($list);
-$totalPages = max(1, (int)ceil($totalItems / $perPage));
-if ($currentPage > $totalPages) $currentPage = $totalPages;
-$pageOffset = ($currentPage - 1) * $perPage;
-$pagedSource = array_slice($list, $pageOffset, $perPage);
+
+/* ── Previous Repairs: maintenance_history for the equipment shown in the workspace ── */
+$maintByEquip = [];
+$eqIds = array_values(array_unique(array_filter(array_map(fn($r) => trim((string)($r['equipment_id'] ?? '')), $list))));
+if ($eqIds) {
+    try {
+        $ph = implode(',', array_fill(0, count($eqIds), '?'));
+        $ms = $conn->prepare("SELECT equipment_id, report_id, maintenance_type, work_description, parts_used, cost, maintenance_date FROM maintenance_history WHERE equipment_id IN ($ph) ORDER BY maintenance_date DESC");
+        $ms->bind_param(str_repeat('s', count($eqIds)), ...$eqIds);
+        $ms->execute();
+        foreach ($ms->get_result()->fetch_all(MYSQLI_ASSOC) as $mr) { $maintByEquip[(string)$mr['equipment_id']][] = $mr; }
+        $ms->close();
+    } catch (Exception $e) { $maintByEquip = []; }
+}
 
 $cAssigned = count(array_filter($activeTasks, fn($r) => in_array(($r['status'] ?? ''), ['assigned','accepted'], true)));
 $cProg = count(array_filter($activeTasks, fn($r) => in_array(($r['status'] ?? ''), ['in_progress','waiting_for_materials'], true)));
@@ -324,1962 +387,954 @@ $cToday = count(array_filter($activeTasks, function ($r) {
 $selectedStatus = strtolower((string)($selected['status'] ?? 'assigned'));
 $selectedStatusLabel = slabel($selectedStatus);
 $selectedPriority = ucfirst((string)($selected['priority'] ?? 'medium'));
+
+/* ── SLA windows per priority — configurable in config/sla.php ── */
+require_once __DIR__ . '/config/sla.php';
+function slaWindowSeconds(string $p): int {
+    return becSlaSeconds($p);
+}
+/* SLA due epoch for a task, measured from assignment (falls back to report date). */
+function slaDueTs(array $row): ?int {
+    $base = strtotime((string)($row['assigned_date'] ?? $row['report_date'] ?? ''));
+    if (!$base) return null;
+    return $base + slaWindowSeconds((string)($row['priority'] ?? 'medium'));
+}
+$openStatuses = ['assigned','accepted','in_progress','waiting_for_materials','for_replacement'];
+$cUrgent  = count(array_filter($activeTasks, fn($r) => in_array(strtolower((string)($r['priority'] ?? '')), ['critical','high'], true) && in_array(strtolower((string)($r['status'] ?? '')), $openStatuses, true)));
+$cOverdue = count(array_filter($activeTasks, function ($r) use ($openStatuses) {
+    if (!in_array(strtolower((string)($r['status'] ?? '')), $openStatuses, true)) return false;
+    $due = slaDueTs($r); return $due !== null && $due < time();
+}));
+
+/* ── Current Task Panel: the technician's live active repair (pinned until completed) ── */
+$currentRepair = null;
+foreach (['in_progress','waiting_for_materials','for_replacement','accepted'] as $wantStatus) {
+    foreach ($activeTasks as $r) { if (strtolower((string)($r['status'] ?? '')) === $wantStatus) { $currentRepair = $r; break 2; } }
+}
+/* Quick action: next task awaiting acceptance. */
+$nextToAccept = null;
+foreach ($activeTasks as $r) { if (strtolower((string)($r['status'] ?? '')) === 'assigned') { $nextToAccept = $r; break; } }
+
+/* ── Notification Center feed (table is optional; degrade gracefully) ── */
+$notifications = [];
+$unreadCount = 0;
+try {
+    $ns = $conn->prepare("SELECT notification_id, message, type, link, related_id, is_read, created_date FROM notifications WHERE user_id = ? ORDER BY created_date DESC LIMIT 60");
+    $ns->bind_param('s', $techId);
+    $ns->execute();
+    $notifications = $ns->get_result()->fetch_all(MYSQLI_ASSOC);
+    $ns->close();
+    foreach ($notifications as $n) { if (!notifIsRead($n['is_read'] ?? false)) $unreadCount++; }
+} catch (Exception $e) { $notifications = []; $unreadCount = 0; }
+
+/* Robust truthy check — the Postgres adapter may return booleans as 't'/'f' strings. */
+function notifIsRead($v): bool { return in_array(strtolower(trim((string)$v)), ['1','t','true','yes','on'], true); }
+/* Notification presentation helpers. */
+function notifIcon(string $type): string {
+    $t = strtolower($type);
+    if (strpos($t, 'assign') !== false) return 'fa-clipboard-list';
+    if (strpos($t, 'budget') !== false || strpos($t, 'finance') !== false) return 'fa-coins';
+    if (strpos($t, 'workflow') !== false || strpos($t, 'status') !== false) return 'fa-diagram-project';
+    if (strpos($t, 'reminder') !== false) return 'fa-bell';
+    if (strpos($t, 'claim') !== false) return 'fa-hand';
+    return 'fa-circle-info';
+}
+function notifBucket(string $created): string {
+    $t = strtotime($created); if (!$t) return 'Earlier';
+    $d = date('Y-m-d', $t);
+    if ($d === date('Y-m-d')) return 'Today';
+    if ($d === date('Y-m-d', strtotime('-1 day'))) return 'Yesterday';
+    return 'Earlier';
+}
+$notifGroups = ['Today' => [], 'Yesterday' => [], 'Earlier' => []];
+foreach ($notifications as $n) { $notifGroups[notifBucket((string)($n['created_date'] ?? ''))][] = $n; }
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Technician Dashboard</title>
+<meta name="theme-color" content="#4A0E0E">
+<title>Technician Portal — BEC PMO</title>
 <link rel="icon" type="image/png" href="assets/logs.png">
+<link rel="apple-touch-icon" href="assets/pwa-icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Outfit:wght@600;700;800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Outfit:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-<link rel="stylesheet" href="css/typography.css">
 <style>
-:root {
-  --bg: #f6efe6;
-  --bg-soft: #fffaf4;
-  --surface: #ffffff;
-  --surface-alt: #fbf6ef;
-  --line: #eadbc7;
-  --line-strong: #d9c1a0;
-  --text: #261515;
-  --muted: #725b5b;
-  --maroon: #7b1d1d;
-  --maroon-dark: #511010;
-  --gold: #c89b2d;
-  --gold-soft: #f5e7bb;
-  --blue: #1d4ed8;
-  --blue-soft: #e8efff;
-  --green: #0f7a4f;
-  --green-soft: #e5f7ef;
-  --amber: #a16207;
-  --amber-soft: #fff4d8;
-  --shadow-sm: 0 10px 30px rgba(91, 42, 21, 0.08);
-  --shadow-md: 0 18px 48px rgba(91, 42, 21, 0.14);
-  --radius-lg: 28px;
-  --radius-md: 20px;
-  --radius-sm: 14px;
+/* ============================================================================
+   BEC PMO — TECHNICIAN PORTAL
+   Rebuilt from scratch on the admin design system (deep-maroon sidebar,
+   gold seal, icon-tile nav) with the landing page's editorial polish
+   (Fraunces headings, gold eyebrows, 3D buttons, soft card lifts).
+   Layout: single scroll-down flow — queue → repair workspace → context.
+   ============================================================================ */
+:root{
+  --maroon:#7B1D1D; --maroon-d:#4A0E0E; --maroon-dd:#2D0505;
+  --maroon-soft:rgba(123,29,29,.07);
+  --gold:#C9960C; --gold-2:#D4A017; --gold-bright:#F0C040;
+  --ink:#1C1008; --ink2:#5C3838; --ink3:#8A7466;
+  --paper:#F4F1EC; --surface:#FFFFFF; --field:#FBF9F6; --bdr:#E2D9CC;
+  --blue:#1D4ED8; --blue-soft:#E8EFFF; --green:#1A7A33; --green-soft:#EEF7F0;
+  --amber:#9A6A00; --amber-soft:#FFF7E6; --danger:#B42318; --danger-soft:#FDECEC;
+  --sb:262px;
+  --r1:10px; --r2:14px; --r3:18px;
+  --sh1:0 2px 10px rgba(44,10,10,.06); --sh2:0 14px 34px rgba(44,10,10,.13);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto;}}
+body{
+  font-family:'DM Sans',system-ui,sans-serif; font-size:15px; color:var(--ink); min-height:100vh;
+  background:radial-gradient(110% 70% at 100% 0%,rgba(201,150,12,.08),transparent 46%),var(--paper);
+}
+img{display:block;max-width:100%;}
+a{color:inherit;text-decoration:none;}
+button,input,textarea,select{font:inherit;}
+h1,h2,h3{font-family:'Fraunces',Georgia,serif;letter-spacing:-.01em;}
+
+/* ═══════════════ SIDEBAR — admin pattern ═══════════════ */
+.sb{position:fixed;left:0;top:0;width:var(--sb);height:100vh;z-index:400;display:flex;flex-direction:column;overflow:hidden;
+  background:linear-gradient(168deg,#1E0202 0%,#350808 38%,#4A0E0E 68%,#3A0808 100%);box-shadow:5px 0 30px rgba(45,5,5,.38);}
+.sb::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 110% 45% at 50% -5%,rgba(212,160,23,.12),transparent);pointer-events:none;}
+.sb-top{padding:1.35rem 1.2rem .95rem;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:.75rem;position:relative;z-index:1;}
+.seal-ring{position:relative;width:46px;height:46px;flex-shrink:0;}
+.seal-spin{position:absolute;inset:-3px;border-radius:50%;background:conic-gradient(var(--gold-2) 0%,var(--gold-bright) 30%,var(--gold-2) 60%,var(--gold-bright) 80%,var(--gold-2) 100%);animation:sealSpin 7s linear infinite;opacity:.72;}
+@keyframes sealSpin{to{transform:rotate(360deg)}}
+.seal-core{position:absolute;inset:2px;border-radius:50%;overflow:hidden;background:var(--maroon-dd);}
+.seal-core img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.sb-brand strong{display:block;font-family:'Outfit',sans-serif;font-weight:800;font-size:.82rem;color:#fff;line-height:1.25;}
+.sb-brand em{font-size:.57rem;font-style:normal;color:rgba(255,255,255,.32);text-transform:uppercase;letter-spacing:1.8px;}
+.sb-user{margin:.55rem 1rem .25rem;padding:.65rem .875rem;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.07);border-radius:var(--r2);display:flex;align-items:center;gap:.65rem;position:relative;z-index:1;}
+.sb-user .uav{width:34px;height:34px;flex-shrink:0;border-radius:50%;background:linear-gradient(135deg,var(--gold-2),#B45309);display:flex;align-items:center;justify-content:center;font-family:'Outfit',sans-serif;font-weight:900;font-size:.78rem;color:#fff;box-shadow:0 3px 0 rgba(0,0,0,.28);}
+.sb-user .un{min-width:0;}
+.sb-user .un b{display:block;font-size:.8rem;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sb-user .un span{display:block;font-size:.58rem;color:rgba(255,255,255,.34);text-transform:uppercase;letter-spacing:1px;}
+.sb-nav{flex:1;padding:.4rem 0;overflow-y:auto;position:relative;z-index:1;scrollbar-width:thin;scrollbar-color:rgba(212,160,23,.45) transparent;}
+.sb-nav::-webkit-scrollbar{width:6px;}
+.sb-nav::-webkit-scrollbar-thumb{background:rgba(212,160,23,.4);border-radius:3px;}
+.nav-sec{font-size:.54rem;text-transform:uppercase;letter-spacing:2.5px;color:rgba(255,255,255,.2);padding:.6rem 1.25rem .25rem;font-weight:700;}
+.ni{display:flex;align-items:center;gap:.65rem;padding:.58rem 1.25rem;color:rgba(255,255,255,.45);width:100%;text-align:left;background:none;border:none;font-family:'DM Sans',sans-serif;font-size:.84rem;font-weight:500;cursor:pointer;transition:all .16s;position:relative;}
+.ni-ic{width:30px;height:30px;border-radius:var(--r1);display:flex;align-items:center;justify-content:center;font-size:.78rem;background:rgba(255,255,255,.05);flex-shrink:0;transition:all .22s;}
+.ni:hover{color:rgba(255,255,255,.85);}
+.ni:hover .ni-ic{background:rgba(255,255,255,.1);transform:scale(1.08);}
+.ni.on{color:#fff;font-weight:600;}
+.ni.on .ni-ic{background:linear-gradient(135deg,var(--gold-2),var(--gold-bright));color:var(--maroon-dd);box-shadow:0 3px 0 rgba(0,0,0,.18),0 4px 12px rgba(212,160,23,.25);}
+.ni.on::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(to bottom,var(--gold-2),var(--gold-bright));border-radius:0 3px 3px 0;}
+.ni .nbadge{margin-left:auto;background:rgba(255,255,255,.12);color:rgba(255,255,255,.85);font-size:.62rem;font-weight:800;min-width:22px;height:20px;padding:0 6px;border-radius:10px;display:flex;align-items:center;justify-content:center;}
+.ni.on .nbadge{background:rgba(0,0,0,.22);color:#fff;}
+.ni .nbadge.hot{background:linear-gradient(135deg,#DC2626,#B91C1C);color:#fff;box-shadow:0 2px 8px rgba(220,38,38,.4);}
+.sb-foot{padding:.6rem 1rem 1rem;border-top:1px solid rgba(255,255,255,.06);position:relative;z-index:1;}
+.lout{width:100%;display:flex;align-items:center;justify-content:center;gap:.65rem;padding:.55rem .78rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);color:rgba(255,255,255,.42);border-radius:var(--r1);cursor:pointer;font-size:.8rem;font-weight:500;transition:all .18s;}
+.lout:hover{background:rgba(220,38,38,.14);color:#fca5a5;border-color:rgba(220,38,38,.22);}
+.sb-scrim{position:fixed;inset:0;z-index:390;background:rgba(26,10,10,.42);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:opacity .2s;}
+body.sb-open .sb-scrim{opacity:1;pointer-events:auto;}
+
+/* ═══════════════ MAIN SHELL ═══════════════ */
+.main{margin-left:var(--sb);min-height:100vh;}
+.wrap{max-width:1680px;margin:0 auto;padding:26px 30px 70px;}
+
+/* ── Desktop: auto-hiding icon rail ──
+   The sidebar rests as a slim icon rail and expands to full width on hover
+   as an OVERLAY (content never reflows — no jumping, no stretching). */
+@media(min-width:961px){
+  .sb{width:78px;transition:width .22s cubic-bezier(.4,0,.2,1),box-shadow .22s ease;}
+  .sb:hover{width:262px;box-shadow:10px 0 44px rgba(20,5,5,.45);}
+  .main{margin-left:78px;}
+  .ni,.lout{white-space:nowrap;}
+  .sb:not(:hover) .sb-top{justify-content:center;padding-left:.5rem;padding-right:.5rem;}
+  .sb:not(:hover) .sb-brand{display:none;}
+  .sb:not(:hover) .sb-user{justify-content:center;margin-left:.5rem;margin-right:.5rem;padding:.5rem;}
+  .sb:not(:hover) .sb-user .un{display:none;}
+  .sb:not(:hover) .nav-sec{visibility:hidden;height:12px;padding:0;}
+  .sb:not(:hover) .ni{font-size:0;justify-content:center;gap:0;padding-left:0;padding-right:0;}
+  .sb:not(:hover) .ni-ic i{font-size:.82rem;}
+  .sb:not(:hover) .nbadge{display:none;}
+  .sb:not(:hover) .ni.on::after{display:none;}
+  .sb:not(:hover) .lout{font-size:0;gap:0;}
+  .sb:not(:hover) .lout i{font-size:1rem;}
+}
+/* Wide desktop: two-column workspace body (forms keep the full width) */
+@media(min-width:1280px){
+  .ws-body{grid-template-columns:1fr 1fr;align-items:start;}
+  .ws-body .sec-form{grid-column:1 / -1;}
+}
+
+/* Mobile top bar */
+.topbar{display:none;align-items:center;gap:12px;position:sticky;top:0;z-index:320;margin:-10px -10px 16px;padding:10px 12px;
+  background:rgba(244,241,236,.92);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-bottom:1px solid var(--bdr);}
+.tb-btn{position:relative;width:42px;height:42px;border-radius:12px;border:1px solid var(--bdr);background:var(--surface);color:var(--maroon);display:flex;align-items:center;justify-content:center;font-size:1.02rem;cursor:pointer;}
+.tb-title{flex:1;font-family:'Fraunces',serif;font-weight:700;font-size:1.08rem;color:var(--ink);}
+.tb-dot{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 4px;border-radius:9px;background:#C0392B;color:#fff;font-size:.6rem;font-weight:800;display:flex;align-items:center;justify-content:center;}
+
+/* Page head — landing editorial style */
+.page-head{margin-bottom:18px;}
+.eyebrow{display:inline-flex;align-items:center;gap:.5rem;font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:1.7px;color:var(--maroon);}
+.eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 3px var(--maroon-soft);}
+.page-head h1{font-size:clamp(1.45rem,3vw,1.9rem);color:var(--ink);margin:.2rem 0 .25rem;}
+.page-head p{font-size:.88rem;color:var(--ink3);max-width:60ch;}
+
+/* Flash */
+.flash{display:flex;align-items:flex-start;gap:.6rem;padding:12px 15px;border-radius:var(--r2);font-size:.86rem;font-weight:500;margin-bottom:16px;line-height:1.5;}
+.flash.ok{background:var(--green-soft);color:var(--green);border:1px solid #CFE9D6;}
+.flash.err{background:var(--danger-soft);color:var(--danger);border:1px solid #F3B9B9;}
+.flash i{margin-top:.14rem;}
+
+/* Cards */
+.card{background:var(--surface);border:1px solid var(--bdr);border-radius:var(--r3);box-shadow:var(--sh1);}
+
+/* ═══════════════ QUEUE (top of the scroll flow) ═══════════════ */
+.queue-shell{padding:18px;margin-bottom:18px;}
+.queue-top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+.qcount{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:22px;padding:0 8px;margin-left:6px;border-radius:11px;background:var(--maroon-soft);color:var(--maroon);font-family:'Outfit',sans-serif;font-size:.72rem;font-weight:800;vertical-align:middle;}
+.search{position:relative;flex:0 1 320px;min-width:220px;}
+.search i{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:.8rem;pointer-events:none;}
+.search input{width:100%;padding:.65rem 2.2rem .65rem 2.3rem;border:1.5px solid var(--bdr);border-radius:11px;background:var(--field);font-size:.86rem;color:var(--ink);transition:border-color .15s,box-shadow .15s;}
+.search input:focus{outline:none;border-color:var(--maroon);background:#fff;box-shadow:0 0 0 3px rgba(123,29,29,.08);}
+.search .clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:.75rem;}
+.search .clear:hover{background:var(--maroon-soft);color:var(--maroon);}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:.42rem .8rem;border-radius:20px;border:1.5px solid var(--bdr);background:#fff;color:var(--ink2);font-size:.76rem;font-weight:700;transition:all .15s;}
+.chip strong{font-family:'Outfit',sans-serif;font-weight:800;font-size:.72rem;color:var(--ink3);}
+.chip:hover{border-color:var(--maroon);color:var(--maroon);}
+.chip.on{background:linear-gradient(135deg,var(--maroon-d),var(--maroon));color:#fff;border-color:transparent;box-shadow:0 5px 14px rgba(74,14,14,.24);}
+.chip.on strong{color:rgba(255,255,255,.85);}
+.qgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;}
+.qcard{position:relative;display:flex;gap:12px;align-items:flex-start;text-align:left;padding:14px 14px 14px 18px;border:1px solid var(--bdr);border-radius:var(--r2);background:var(--field);cursor:pointer;transition:transform .16s,box-shadow .16s,border-color .16s,background .16s;overflow:hidden;}
+.qcard::before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--bdr);}
+.qcard.pri-crit::before{background:linear-gradient(180deg,#DC2626,#991B1B);}
+.qcard.pri-hi::before{background:linear-gradient(180deg,#EA580C,#B45309);}
+.qcard.pri-med::before{background:linear-gradient(180deg,var(--gold),#9A6B00);}
+.qcard.pri-lo::before{background:linear-gradient(180deg,#94A3B8,#64748B);}
+.qcard:hover{background:#fff;border-color:rgba(123,29,29,.28);transform:translateY(-3px);box-shadow:var(--sh2);}
+.qcard.active{background:#fff;border-color:var(--maroon);box-shadow:0 0 0 3px rgba(123,29,29,.1),var(--sh2);}
+.q-ic{width:44px;height:44px;flex-shrink:0;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;color:var(--maroon);background:linear-gradient(135deg,var(--maroon-soft),rgba(201,150,12,.14));border:1px solid rgba(123,29,29,.12);}
+.q-body{min-width:0;flex:1;}
+.q-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
+.q-top strong{font-family:'Fraunces',serif;font-size:.98rem;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.q-id{font-size:.66rem;font-weight:800;color:var(--ink3);flex-shrink:0;}
+.q-loc{display:flex;align-items:center;gap:.35rem;font-size:.76rem;color:var(--ink3);margin:.25rem 0 .5rem;}
+.q-loc i{color:var(--gold);font-size:.68rem;}
+.q-badges{display:flex;flex-wrap:wrap;gap:5px;}
+
+/* Badges (shared) */
+.badge{display:inline-flex;align-items:center;gap:5px;padding:.28rem .6rem;border-radius:20px;font-size:.64rem;font-weight:700;border:1px solid transparent;}
+.badge i{font-size:.62rem;}
+.badge.pend{background:var(--amber-soft);color:var(--amber);border-color:#F0D79A;}
+.badge.prog{background:var(--blue-soft);color:var(--blue);border-color:#C7D8FB;}
+.badge.repl{background:#FDF2E4;color:#B45309;border-color:#F3D8B4;}
+.badge.await{background:#F3EDFB;color:#6D28D9;border-color:#DDD0F2;}
+.badge.done{background:var(--green-soft);color:var(--green);border-color:#CFE9D6;}
+.badge.crit{background:var(--danger-soft);color:var(--danger);border-color:#F3B9B9;}
+.badge.hi{background:#FDF2E4;color:#B45309;border-color:#F3D8B4;}
+.badge.med{background:var(--amber-soft);color:var(--amber);border-color:#F0D79A;}
+.badge.lo{background:#F1F5F9;color:#64748B;border-color:#DDE5EC;}
+.badge.timer{background:#EFE7DD;color:#5B4636;border-color:#DBC7A6;}
+.badge.sla{background:var(--blue-soft);color:var(--blue);border-color:#C7D8FB;}
+.badge.sla.soon{background:var(--amber-soft);color:var(--amber);border-color:#F0D79A;}
+.badge.sla.overdue{background:var(--danger-soft);color:var(--danger);border-color:#F3B9B9;animation:slaPulse 2.4s ease-in-out infinite;}
+@keyframes slaPulse{0%,100%{box-shadow:0 0 0 0 rgba(180,35,24,0);}50%{box-shadow:0 0 0 4px rgba(180,35,24,.12);}}
+
+/* Empty state */
+.empty{text-align:center;padding:44px 20px;color:var(--ink3);}
+.empty i{font-size:2rem;color:var(--bdr);display:block;margin-bottom:10px;}
+.empty strong{display:block;color:var(--ink2);margin-bottom:4px;font-size:.95rem;}
+.empty .empty-actions{margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+.empty .empty-action{display:inline-flex;align-items:center;gap:6px;padding:.5rem .95rem;border-radius:10px;border:1.5px solid var(--bdr);background:#fff;font-size:.78rem;font-weight:700;color:var(--ink2);}
+.empty .empty-action:hover{border-color:var(--maroon);color:var(--maroon);}
+
+/* ═══════════════ REPAIR WORKSPACE (revealed below the queue) ═══════════════ */
+.ws-zone{scroll-margin-top:76px;}
+.ws-panel{display:none;}
+.ws-panel.active{display:block;animation:wsIn .32s cubic-bezier(.22,1,.36,1);}
+@keyframes wsIn{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:none;}}
+.ws-card{background:var(--surface);border:1px solid var(--bdr);border-radius:var(--r3);box-shadow:var(--sh2);overflow:hidden;margin-bottom:16px;}
+.ws-head{display:flex;align-items:center;gap:14px;padding:18px 20px;background:linear-gradient(135deg,var(--maroon-dd),var(--maroon));color:#fff;}
+.ws-back{display:none;width:38px;height:38px;flex-shrink:0;border-radius:11px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.1);color:#fff;cursor:pointer;font-size:.9rem;}
+.ws-head-copy{flex:1;min-width:0;}
+.ws-head-copy small{display:block;font-size:.6rem;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold-bright);margin-bottom:3px;}
+.ws-title{font-size:1.22rem;color:#fff;}
+.ws-head-tags{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
+.ws-head-tags .badge{background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.2);}
+.ws-head-tags .badge.sla.overdue{background:rgba(220,38,38,.35);border-color:rgba(255,255,255,.3);}
+
+/* Workflow stepper */
+.steps{display:flex;align-items:flex-start;justify-content:space-between;gap:4px;padding:18px 22px 12px;background:linear-gradient(180deg,rgba(74,14,14,.05),transparent);}
+.step{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;text-align:center;}
+.step::before{content:'';position:absolute;top:17px;left:-50%;width:100%;height:3px;background:var(--bdr);z-index:0;}
+.step:first-child::before{display:none;}
+.step.done::before,.step.now::before{background:linear-gradient(90deg,var(--gold),var(--maroon));}
+.step .nd{position:relative;z-index:1;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff;border:2px solid var(--bdr);color:var(--ink3);font-size:.8rem;}
+.step.done .nd{background:linear-gradient(135deg,var(--maroon),var(--gold));border-color:transparent;color:#fff;}
+.step.now .nd{border-color:var(--maroon);color:var(--maroon);box-shadow:0 0 0 4px rgba(123,29,29,.1);}
+.step .lb{font-size:.62rem;font-weight:700;color:var(--ink3);}
+.step.done .lb,.step.now .lb{color:var(--maroon-d);}
+
+/* Workspace inner sections */
+.ws-body{padding:18px 20px 22px;display:grid;gap:16px;}
+.sec{border:1px solid var(--bdr);border-radius:var(--r2);padding:16px;background:var(--field);}
+.sec-h{margin-bottom:10px;}
+.sec-h small{display:block;font-size:.6rem;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--gold);margin-bottom:2px;}
+.sec-h h3{font-size:1.02rem;color:var(--ink);}
+.copy{font-size:.87rem;line-height:1.7;color:var(--ink2);}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;}
+.facts>div{padding:10px 12px;border-radius:11px;border:1px solid var(--bdr);background:#fff;}
+.facts small{display:block;font-size:.58rem;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--ink3);margin-bottom:3px;}
+.facts strong{font-size:.84rem;color:var(--ink);font-weight:600;}
+.photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;}
+.photos img{width:100%;height:110px;object-fit:cover;border-radius:10px;border:1px solid var(--bdr);}
+
+/* Forms — landing-style fields + 3D buttons */
+.form label{display:block;font-size:.7rem;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--ink2);margin:.85rem 0 .3rem;}
+.form input,.form textarea{width:100%;padding:.68rem .85rem;border:1.5px solid var(--bdr);border-radius:11px;background:#fff;font-size:16px;color:var(--ink);transition:border-color .15s,box-shadow .15s;}
+.form textarea{min-height:92px;resize:vertical;line-height:1.55;}
+.form input:focus,.form textarea:focus{outline:none;border-color:var(--maroon);box-shadow:0 0 0 3px rgba(123,29,29,.08);}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;}
+.fgrid label{margin-top:0;}
+.frow{display:grid;grid-template-columns:2fr .7fr 1fr 1.2fr;gap:8px;margin-bottom:8px;}
+.fs{display:flex;align-items:center;gap:10px;margin:1.2rem 0 .5rem;padding-top:1rem;border-top:1px dashed var(--bdr);}
+.fs:first-of-type{margin-top:.4rem;padding-top:0;border-top:none;}
+.fs-num{width:26px;height:26px;flex-shrink:0;border-radius:50%;background:linear-gradient(135deg,var(--maroon-d),var(--maroon));color:#fff;font-family:'Outfit',sans-serif;font-weight:800;font-size:.74rem;display:flex;align-items:center;justify-content:center;}
+.fs-tx strong{display:block;font-size:.86rem;color:var(--ink);}
+.fs-tx span{font-size:.72rem;color:var(--ink3);}
+.check{display:flex;align-items:center;gap:.55rem;font-size:.84rem;font-weight:500;margin-top:.8rem;cursor:pointer;color:var(--ink2);}
+.check input{width:16px;height:16px;flex-shrink:0;accent-color:var(--maroon);}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px;}
+.actions button{display:inline-flex;align-items:center;gap:.5rem;border:none;border-radius:11px;padding:.78rem 1.25rem;font-weight:700;font-size:.84rem;color:#fff;cursor:pointer;transition:transform .15s,box-shadow .15s,filter .15s;}
+.actions button:hover{transform:translateY(-2px);filter:brightness(1.06);}
+.actions button:active{transform:translateY(1px);}
+.actions .b1{background:linear-gradient(135deg,var(--maroon-d),var(--maroon));box-shadow:0 4px 0 var(--maroon-dd),0 8px 18px rgba(74,14,14,.22);}
+.actions .b2{background:linear-gradient(135deg,var(--maroon),#9D3535);box-shadow:0 4px 0 var(--maroon-dd),0 8px 18px rgba(74,14,14,.2);}
+.actions .b3{background:linear-gradient(135deg,#B45309,#D97706);box-shadow:0 4px 0 #7C3A05,0 8px 18px rgba(180,83,9,.22);}
+.actions .b4{background:linear-gradient(135deg,var(--green),#169F66);box-shadow:0 4px 0 #0C5527,0 8px 18px rgba(26,122,51,.24);}
+.actions button:disabled{opacity:.55;cursor:not-allowed;transform:none;}
+
+/* Photo capture drops */
+.photo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;}
+.photo-field{display:flex;flex-direction:column;}
+.photo-drop{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:18px 12px;border:2px dashed var(--bdr);border-radius:var(--r2);background:#fff;cursor:pointer;text-align:center;transition:border-color .15s,background .15s;min-height:104px;}
+.photo-drop:hover,.photo-drop:focus-within{border-color:var(--maroon);background:var(--field);}
+.photo-drop i{font-size:1.4rem;color:var(--maroon);}
+.photo-drop-label{font-weight:700;font-size:.82rem;color:var(--ink);}
+.photo-hint{font-size:.68rem;color:var(--ink3);}
+.photo-input{position:absolute;width:1px;height:1px;opacity:0;}
+.photo-preview{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.photo-preview .pchip{width:54px;height:54px;border-radius:10px;overflow:hidden;border:1px solid var(--bdr);}
+.photo-preview .pchip img{width:100%;height:100%;object-fit:cover;}
+.photo-drop.has-files{border-style:solid;border-color:var(--green);background:var(--green-soft);}
+.photo-drop.has-files i{color:var(--green);}
+
+/* ═══════════════ CONTEXT (below the workspace) ═══════════════ */
+.ctx{display:none;}
+.ctx.active{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
+.ctx .card{padding:16px;}
+.tl{display:grid;gap:12px;}
+.tl-step{display:flex;gap:10px;align-items:flex-start;}
+.tl-dot{width:26px;height:26px;flex-shrink:0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.66rem;font-weight:800;background:#fff;border:2px solid var(--bdr);color:var(--ink3);}
+.tl-dot.done{background:linear-gradient(135deg,var(--maroon),var(--gold));border-color:transparent;color:#fff;}
+.tl-dot.act{border-color:var(--maroon);color:var(--maroon);box-shadow:0 0 0 3px rgba(123,29,29,.1);}
+.tl-step strong{display:block;font-size:.84rem;color:var(--ink);}
+.tl-step p{font-size:.74rem;color:var(--ink3);line-height:1.5;margin-top:2px;}
+.hist{display:grid;gap:10px;}
+.hrow{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--bdr);border-radius:11px;background:var(--field);}
+.hrow .hic{width:30px;height:30px;flex-shrink:0;border-radius:9px;background:var(--maroon-soft);color:var(--maroon);display:flex;align-items:center;justify-content:center;font-size:.72rem;}
+.hrow strong{display:block;font-size:.8rem;color:var(--ink);}
+.hrow .hw{display:block;font-size:.68rem;color:var(--ink3);margin-top:2px;}
+.hrow .hd{display:block;font-size:.74rem;color:var(--ink2);margin-top:4px;line-height:1.5;}
+
+/* ═══════════════ NOTIFICATION MODAL ═══════════════ */
+.modal{position:fixed;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;padding:22px;
+  background:rgba(37,17,17,.6);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);}
+.modal.open{display:flex;}
+body.modal-open{overflow:hidden;}
+.modal-dialog{width:min(620px,100%);max-height:calc(100vh - 44px);overflow:auto;background:#fff;border-radius:var(--r3);box-shadow:0 40px 90px rgba(45,5,5,.4);animation:mIn .28s cubic-bezier(.22,1,.36,1);}
+@keyframes mIn{from{opacity:0;transform:translateY(18px) scale(.98);}to{opacity:1;transform:none;}}
+.m-top{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:center;gap:14px;padding:16px 18px;background:linear-gradient(135deg,var(--maroon-dd),var(--maroon));color:#fff;}
+.m-top small{display:block;font-size:.6rem;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold-bright);margin-bottom:2px;}
+.m-top h2{font-size:1.15rem;color:#fff;}
+.m-x{flex-shrink:0;width:38px;height:38px;border-radius:11px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.12);color:#fff;cursor:pointer;font-size:.9rem;}
+.m-x:hover{background:rgba(255,255,255,.22);}
+.m-body{padding:16px 18px 20px;}
+.m-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;}
+.m-tools span{font-size:.76rem;font-weight:700;color:var(--ink3);}
+.m-tools button{display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--bdr);background:#fff;border-radius:9px;padding:.42rem .8rem;font-size:.74rem;font-weight:700;color:var(--ink2);cursor:pointer;}
+.m-tools button:hover{border-color:var(--maroon);color:var(--maroon);}
+.ngroup{font-size:.62rem;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--ink3);margin:14px 0 8px;}
+.nitem{display:flex;gap:10px;align-items:flex-start;padding:11px 12px;border:1px solid var(--bdr);border-radius:var(--r2);background:var(--field);margin-bottom:8px;}
+.nitem.unread{background:#FFFDF5;border-color:#EAD9A8;}
+.nitem .nic{width:32px;height:32px;flex-shrink:0;border-radius:10px;background:var(--maroon-soft);color:var(--maroon);display:flex;align-items:center;justify-content:center;font-size:.76rem;}
+.nitem .nmsg{font-size:.84rem;color:var(--ink);line-height:1.5;}
+.nitem .nmeta{display:flex;flex-wrap:wrap;gap:12px;font-size:.68rem;color:var(--ink3);margin-top:4px;}
+.nitem .nmeta a{color:var(--maroon);font-weight:700;}
+.nread{margin-left:auto;flex-shrink:0;}
+.nread button{width:28px;height:28px;border-radius:9px;border:1.5px solid var(--bdr);background:#fff;color:var(--green);cursor:pointer;font-size:.7rem;}
+.nread button:hover{border-color:var(--green);background:var(--green-soft);}
+
+/* ═══════════════ MOBILE BOTTOM NAV ═══════════════ */
+.bnav{display:none;}
+@media(max-width:960px){
+  .sb{transform:translateX(calc(-100% - 10px));transition:transform .26s cubic-bezier(.4,0,.2,1);}
+  body.sb-open .sb{transform:none;box-shadow:0 0 60px rgba(0,0,0,.5);}
+  .main{margin-left:0;}
+  .wrap{padding:12px 12px 90px;}
+  .topbar{display:flex;}
+  .ws-back{display:flex;align-items:center;justify-content:center;}
+  .bnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:300;background:linear-gradient(180deg,#3A0808,#2D0505);
+    border-top:1px solid rgba(201,150,12,.25);padding:4px 4px calc(4px + env(safe-area-inset-bottom));box-shadow:0 -6px 20px rgba(45,5,5,.35);}
+  .bn{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:8px 4px;
+    background:none;border:none;color:rgba(255,248,238,.72);font-size:.6rem;font-weight:700;cursor:pointer;}
+  .bn i{font-size:1.12rem;}
+  .bn.on{color:var(--gold-bright);}
+  .bn.on::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:26px;height:3px;border-radius:3px;background:var(--gold-bright);}
+  .bn .tb-dot{top:2px;right:calc(50% - 22px);}
+}
+@media(max-width:640px){
+  .qgrid{grid-template-columns:1fr;}
+  .frow{grid-template-columns:1fr 1fr;}
+  .steps .lb{display:none;}
+  .steps{padding:14px 12px 10px;}
+  .step .nd{width:30px;height:30px;font-size:.72rem;}
+  .step::before{top:14px;}
+  .modal{padding:0;}
+  .modal-dialog{width:100%;height:100dvh;max-height:100dvh;border-radius:0;}
+  .ws-head{flex-wrap:wrap;}
+  .ws-head-tags{justify-content:flex-start;}
+  .actions button{flex:1 1 100%;justify-content:center;min-height:48px;}
+  .facts{grid-template-columns:1fr 1fr;}
+}
+@media(max-width:420px){
+  .frow{grid-template-columns:1fr;}
+  .facts{grid-template-columns:1fr;}
 }
-
-* { box-sizing: border-box; }
-
-html { scroll-behavior: smooth; }
-
-body {
-  margin: 0;
-  min-height: 100vh;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 15px;
-  color: var(--text);
-  background:
-    radial-gradient(circle at top right, rgba(200, 155, 45, 0.18), transparent 22rem),
-    linear-gradient(180deg, #fffaf5 0%, #f7ecdf 45%, #f1e4d6 100%);
-}
-
-img { display: block; max-width: 100%; }
-a { color: inherit; text-decoration: none; }
-button, input, textarea { font: inherit; }
-html { scroll-behavior: smooth; }
-@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
-
-.shell {
-  display: grid;
-  grid-template-columns: 290px minmax(0, 1fr);
-  min-height: 100vh;
-}
-
-.sidebar-scrim {
-  position: fixed;
-  inset: 0;
-  background: rgba(26, 10, 10, 0.38);
-  backdrop-filter: blur(3px);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
-  z-index: 250;
-}
-
-.sidebar {
-  position: sticky;
-  top: 0;
-  align-self: start;
-  min-height: 100vh;
-  padding: 22px 16px;
-  background: linear-gradient(168deg, #1e0202 0%, #350808 38%, #4a0e0e 68%, #3a0808 100%);
-  color: #fff8ee;
-  border-right: 1px solid rgba(255, 232, 205, 0.12);
-  box-shadow: 4px 0 24px rgba(45, 5, 5, 0.4);
-  overflow: hidden;
-}
-
-.sidebar::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(ellipse 100% 50% at 50% 0%, rgba(212, 160, 23, 0.1), transparent);
-  pointer-events: none;
-}
-
-.sidebar::after {
-  content: '';
-  position: absolute;
-  bottom: -60px;
-  left: -40px;
-  width: 200px;
-  height: 200px;
-  border-radius: 50%;
-  background: rgba(212, 160, 23, 0.04);
-  pointer-events: none;
-}
-
-.side-inner {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: calc(100vh - 44px);
-  gap: 18px;
-}
-
-.side-brand,
-.profile,
-.side-link,
-.logout,
-.card,
-.flash,
-.item,
-.modal-card {
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.side-brand,
-.profile {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  padding: 14px 14px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(8px);
-}
-
-.side-brand {
-  gap: 10px;
-}
-
-.side-logo {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  background: #fff;
-  border: 1px solid rgba(123, 29, 29, 0.14);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 0 0 3px rgba(201, 150, 12, 0.45), 0 4px 14px rgba(0, 0, 0, 0.25);
-  overflow: hidden;
-  flex-shrink: 0;
-}
-
-.side-logo img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.side-brand small,
-.profile span,
-.subtle,
-.timeline-copy,
-.copy,
-.meta-card small,
-.panel-head small,
-.detail-hero small,
-.flash,
-.empty {
-  color: var(--muted);
-}
-
-.sidebar small {
-  display: block;
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 0.57rem;
-  letter-spacing: 1.8px;
-  text-transform: uppercase;
-}
-
-.side-brand strong,
-.profile strong {
-  font-family: 'Outfit', sans-serif;
-  letter-spacing: 0;
-}
-
-.side-brand strong {
-  display: block;
-  margin-top: 1px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  line-height: 1.25;
-  color: #fff;
-}
-
-.side-brand .brand-copy {
-  min-width: 0;
-}
-
-.profile {
-  align-items: center;
-  transition: background 0.18s ease;
-}
-
-.profile:hover {
-  background: rgba(255, 255, 255, 0.09);
-}
-
-.avatar {
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
-  display: grid;
-  place-items: center;
-  font-family: 'Outfit', sans-serif;
-  font-size: 0.8rem;
-  font-weight: 800;
-  color: #fff;
-  background: linear-gradient(135deg, #d4a017, #9b2c2c);
-  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.18);
-}
-
-.profile strong {
-  display: block;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: #fff;
-}
-
-.profile span {
-  display: block;
-  margin-top: 2px;
-  font-size: 0.6rem;
-  color: rgba(255, 255, 255, 0.35);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.side-nav {
-  display: grid;
-  gap: 6px;
-}
-
-.side-nav-label {
-  padding: 0.5rem 1rem 0.2rem;
-  font-size: 0.54rem;
-  text-transform: uppercase;
-  letter-spacing: 2.5px;
-  color: rgba(255, 255, 255, 0.18);
-  font-weight: 700;
-}
-
-.side-link,
-.logout {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0.75rem 1rem;
-  border-radius: 14px;
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.58);
-  font-size: 0.82rem;
-  font-weight: 500;
-  transition: color 0.18s ease, transform 0.18s ease;
-  position: relative;
-}
-
-.side-link i,
-.logout i {
-  width: 32px;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  font-size: 0.78rem;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.05);
-  transition: background 0.18s ease, transform 0.18s ease, color 0.18s ease;
-}
-
-.side-link .side-count {
-  margin-left: auto;
-  min-width: 24px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  text-align: center;
-  font-size: 0.58rem;
-  font-weight: 900;
-  color: #2d0505;
-  background: #d4a017;
-}
-
-.side-link:hover,
-.logout:hover,
-.side-link.active {
-  transform: none;
-  color: rgba(255, 255, 255, 0.82);
-}
-
-.side-link:hover i,
-.logout:hover i {
-  background: rgba(255, 255, 255, 0.1);
-  transform: scale(1.08);
-}
-
-.side-link.active {
-  color: #fff;
-  font-weight: 600;
-}
-
-.side-link.active i {
-  background: linear-gradient(135deg, #d4a017, #f0c040);
-  color: #2d0505;
-  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.2);
-}
-
-.side-link.active::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: linear-gradient(to bottom, #d4a017, #f0c040);
-  border-radius: 0 3px 3px 0;
-}
-
-.side-footer {
-  margin-top: auto;
-}
-
-.logout {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  font-size: 0.81rem;
-}
-
-.logout:hover {
-  color: #fca5a5;
-  background: rgba(220, 38, 38, 0.15);
-  border-color: rgba(220, 38, 38, 0.25);
-}
-
-.logout:hover i {
-  background: rgba(255, 255, 255, 0.08);
-  transform: rotate(180deg);
-}
-
-.main {
-  min-width: 0;
-}
-
-.wrap {
-  width: min(1380px, calc(100% - 40px));
-  margin: 0 auto;
-  padding: 28px 0 40px;
-}
-
-.card,
-.flash,
-.item,
-.modal-card {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 249, 242, 0.98));
-  box-shadow: var(--shadow-sm);
-}
-
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 16px;
-  margin-bottom: 18px;
-}
-
-.card {
-  border-radius: var(--radius-lg);
-}
-
-.card.stat {
-  position: relative;
-  overflow: hidden;
-  padding: 20px 20px 18px;
-  min-height: 142px;
-}
-
-.card.stat::before {
-  content: '';
-  position: absolute;
-  inset: 0 auto auto 0;
-  width: 100%;
-  height: 5px;
-  background: linear-gradient(90deg, var(--maroon), var(--gold));
-}
-
-.card.stat small {
-  display: inline-flex;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: var(--surface-alt);
-  color: var(--maroon);
-  font-weight: 700;
-  font-size: 0.68rem;
-  letter-spacing: 0.02em;
-}
-
-.card.stat strong {
-  display: block;
-  margin-top: 16px;
-  font-family: 'Fraunces', serif;
-  font-size: clamp(1.55rem, 2.2vw, 1.95rem);
-  color: var(--maroon-dark);
-}
-
-.card.stat span {
-  display: block;
-  margin-top: 8px;
-  font-size: 0.82rem;
-  line-height: 1.55;
-  color: var(--muted);
-}
-
-.toolbar {
-  padding: 16px 18px;
-  margin-bottom: 18px;
-}
-
-.toolbar-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.toolbar-copy strong {
-  display: block;
-  font-family: 'Outfit', sans-serif;
-  font-size: 0.92rem;
-  color: var(--maroon-dark);
-}
-
-.toolbar-copy span {
-  display: block;
-  margin-top: 3px;
-  font-size: 0.76rem;
-  color: var(--muted);
-}
-
-.sidebar-toggle {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 1px solid var(--line);
-  background: #fff8ef;
-  color: var(--maroon);
-  border-radius: 999px;
-  padding: 10px 14px;
-  font-size: 0.76rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.tabs {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.tab,
-.search button,
-.search a,
-.ghost-btn,
-.actions button {
-  border-radius: 999px;
-  font-weight: 700;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease;
-}
-
-.tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  border: 1px solid var(--line);
-  color: var(--muted);
-  background: var(--bg-soft);
-  font-size: 0.84rem;
-}
-
-.tab:hover,
-.tab.active {
-  color: #fffaf2;
-  border-color: transparent;
-  background: linear-gradient(135deg, var(--maroon), #9d3535 70%, var(--gold));
-  box-shadow: 0 12px 24px rgba(123, 29, 29, 0.18);
-}
-
-.search {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1 1 380px;
-  justify-content: flex-end;
-}
-
-.search input {
-  width: min(420px, 100%);
-  padding: 14px 16px;
-  border-radius: 16px;
-  border: 1px solid var(--line);
-  background: #fffdfa;
-  color: var(--text);
-  font-size: 0.86rem;
-  outline: none;
-}
-
-.search input:focus {
-  border-color: rgba(123, 29, 29, 0.4);
-  box-shadow: 0 0 0 4px rgba(123, 29, 29, 0.08);
-}
-
-.search button,
-.search a,
-.ghost-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  border: 1px solid var(--line);
-  background: #fff8ef;
-  color: var(--maroon);
-  font-size: 0.82rem;
-}
-
-.search button {
-  cursor: pointer;
-}
-
-.search button:hover,
-.search a:hover,
-.ghost-btn:hover,
-.actions button:hover {
-  transform: translateY(-1px);
-}
-
-.queue-filters {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-}
-
-.filter-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: #fffaf4;
-  color: var(--muted);
-  font-size: 0.74rem;
-  font-weight: 700;
-}
-
-.filter-chip strong {
-  color: inherit;
-  font-size: 0.68rem;
-}
-
-.filter-chip.active {
-  color: #fff7ee;
-  border-color: transparent;
-  background: linear-gradient(135deg, var(--maroon), #9d3535 70%, var(--gold));
-  box-shadow: 0 10px 22px rgba(123, 29, 29, 0.16);
-}
-
-.flash {
-  margin-bottom: 18px;
-  padding: 16px 18px;
-  border-radius: 18px;
-  font-weight: 700;
-}
-
-.flash.ok {
-  border-color: rgba(15, 122, 79, 0.18);
-  background: linear-gradient(180deg, #f4fff9, #ecfbf2);
-  color: var(--green);
-}
-
-.flash.err {
-  border-color: rgba(123, 29, 29, 0.18);
-  background: linear-gradient(180deg, #fff8f6, #fff0ed);
-  color: var(--maroon);
-}
-
-.workspace,
-.list-shell,
-.list-stack,
-.list-grid {
-  min-width: 0;
-}
-
-.list-shell {
-  padding: 20px;
-}
-
-.panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 18px;
-}
-
-.panel-head small,
-.detail-hero small {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 0.68rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.section-title {
-  margin: 0;
-  font-size: clamp(0.98rem, 1.5vw, 1.1rem);
-  color: var(--maroon-dark);
-}
-
-.ghost-btn {
-  white-space: nowrap;
-}
-
-.list-head {
-  margin-bottom: 16px;
-}
-
-.list-head strong {
-  display: block;
-  font-size: 0.9rem;
-  color: var(--text);
-}
-
-.subtle {
-  font-size: 0.8rem;
-  line-height: 1.5;
-}
-
-.list-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
-  gap: 16px;
-}
-
-.item-trigger {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-}
-
-.item {
-  height: 100%;
-  padding: 15px;
-  border-radius: 20px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-.item-topline {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-
-.report-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: #fff7ea;
-  border: 1px solid var(--line);
-  color: var(--maroon);
-  font-size: 0.66rem;
-  font-weight: 700;
-}
-
-.quick-note {
-  font-size: 0.68rem;
-  color: var(--muted);
-}
-
-.item:hover,
-.item-trigger:focus-visible .item {
-  transform: translateY(-3px);
-  border-color: rgba(123, 29, 29, 0.16);
-  box-shadow: var(--shadow-md);
-}
-
-.item-trigger:focus-visible {
-  outline: none;
-}
-
-.row,
-.badges,
-.item-meta,
-.grid,
-.actions,
-.step,
-.photos {
-  display: flex;
-  gap: 10px;
-}
-
-.row {
-  align-items: flex-start;
-  justify-content: space-between;
-}
-
-.item-title {
-  margin: 0;
-  font-size: 0.92rem;
-  color: var(--maroon-dark);
-}
-
-.item-issue,
-.copy,
-.timeline-copy {
-  font-size: 0.84rem;
-  line-height: 1.65;
-}
-
-.item-issue {
-  margin: 10px 0 12px;
-  font-size: 0.76rem;
-  line-height: 1.55;
-  color: var(--text);
-}
-
-.item-meta {
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.meta-card {
-  flex: 1 1 150px;
-  min-width: 0;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid var(--line);
-  background: var(--surface-alt);
-}
-
-.meta-card strong,
-.grid strong {
-  display: block;
-  margin-top: 4px;
-  font-size: 0.8rem;
-  color: var(--text);
-}
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 7px 10px;
-  border-radius: 999px;
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  border: 1px solid transparent;
-  white-space: nowrap;
-}
-
-.badge.pend,
-.badge.await {
-  background: var(--amber-soft);
-  color: var(--amber);
-  border-color: rgba(161, 98, 7, 0.15);
-}
-
-.badge.prog {
-  background: var(--blue-soft);
-  color: var(--blue);
-  border-color: rgba(29, 78, 216, 0.15);
-}
-
-.badge.repl,
-.badge.high {
-  background: #fff1e6;
-  color: #b45309;
-  border-color: rgba(180, 83, 9, 0.12);
-}
-
-.badge.done {
-  background: var(--green-soft);
-  color: var(--green);
-  border-color: rgba(15, 122, 79, 0.15);
-}
-
-.badge.crit {
-  background: #fff0f0;
-  color: #b91c1c;
-  border-color: rgba(185, 28, 28, 0.12);
-}
-
-.badge.med,
-.badge.low {
-  background: #f4ecff;
-  color: #6d28d9;
-  border-color: rgba(109, 40, 217, 0.12);
-}
-
-.empty {
-  padding: 34px 20px;
-  border: 1px dashed var(--line-strong);
-  border-radius: 24px;
-  background: linear-gradient(180deg, #fffdfa, #fbf5ed);
-  text-align: center;
-}
-
-.empty strong {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 0.92rem;
-  color: var(--maroon-dark);
-}
-
-.empty-actions {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 16px;
-}
-
-.empty-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 11px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: #fff7ea;
-  color: var(--maroon);
-  font-weight: 700;
-}
-
-.empty i {
-  display: block;
-  margin-bottom: 12px;
-  font-size: 1.5rem;
-  color: var(--gold);
-}
-
-.modal {
-  position: fixed;
-  inset: 0;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  padding: 22px;
-  background: rgba(37, 17, 17, 0.64);
-  backdrop-filter: blur(6px);
-  z-index: 1000;
-}
-
-.modal.open {
-  display: flex;
-}
-
-body.modal-open {
-  overflow: hidden;
-}
-
-.modal-dialog {
-  width: min(980px, 100%);
-  max-height: calc(100vh - 44px);
-  overflow: auto;
-  padding: 22px;
-  border-radius: 30px;
-  background: linear-gradient(180deg, #fffdfa, #f8efe6);
-  box-shadow: 0 28px 70px rgba(33, 15, 15, 0.28);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-}
-
-.modal-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 18px;
-  margin-bottom: 18px;
-  position: sticky;
-  top: -22px;
-  z-index: 3;
-  padding: 0 0 12px;
-  background: linear-gradient(180deg, rgba(255, 253, 250, 0.98), rgba(248, 239, 230, 0.96));
-  backdrop-filter: blur(8px);
-}
-
-.modal-head small {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.modal-title {
-  margin: 0;
-  font-size: clamp(1.2rem, 2vw, 1.45rem);
-  color: var(--maroon-dark);
-}
-
-.modal-close {
-  flex-shrink: 0;
-  width: 46px;
-  height: 46px;
-  border-radius: 16px;
-  border: 1px solid var(--line);
-  background: #fff8ef;
-  color: var(--maroon);
-  cursor: pointer;
-}
-
-.modal-stack {
-  display: grid;
-  gap: 16px;
-}
-
-.modal-card {
-  padding: 18px;
-  border-radius: 24px;
-}
-
-.detail-hero {
-  background:
-    linear-gradient(135deg, rgba(123, 29, 29, 0.06), rgba(200, 155, 45, 0.18)),
-    linear-gradient(180deg, #fffdfb, #fbf3e7);
-}
-
-.grid {
-  flex-wrap: wrap;
-}
-
-.grid > div {
-  flex: 1 1 180px;
-  min-width: 0;
-  padding: 12px 14px;
-  border-radius: 16px;
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.72);
-}
-
-.timeline {
-  display: grid;
-  gap: 14px;
-}
-
-.step {
-  align-items: flex-start;
-}
-
-.dot {
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  font-weight: 700;
-  color: var(--muted);
-  background: #f6eadf;
-  border: 1px solid var(--line);
-}
-
-.dot.act {
-  color: var(--amber);
-  background: var(--amber-soft);
-}
-
-.dot.done {
-  color: var(--green);
-  background: var(--green-soft);
-}
-
-.photos {
-  flex-wrap: wrap;
-}
-
-.photos img {
-  width: min(100%, 220px);
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-  border-radius: 18px;
-  border: 1px solid var(--line);
-  box-shadow: 0 10px 24px rgba(91, 42, 21, 0.12);
-}
-
-.form label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--maroon-dark);
-}
-
-.form textarea {
-  width: 100%;
-  min-height: 170px;
-  resize: vertical;
-  padding: 16px;
-  border-radius: 20px;
-  border: 1px solid var(--line);
-  background: #fffefb;
-  outline: none;
-}
-
-.form textarea:focus {
-  border-color: rgba(123, 29, 29, 0.38);
-  box-shadow: 0 0 0 4px rgba(123, 29, 29, 0.08);
-}
-
-.actions {
-  flex-wrap: wrap;
-  margin-top: 16px;
-}
-
-.modal-action-bar {
-  position: relative;
-}
-
-.actions button {
-  border: 0;
-  padding: 12px 18px;
-  cursor: pointer;
-  color: #fff;
-  font-size: 0.82rem;
-}
-
-.actions .b1,
-.actions .b2 {
-  background: linear-gradient(135deg, var(--maroon), #9d3535);
-}
-
-.actions .b3 {
-  background: linear-gradient(135deg, #b45309, #d97706);
-}
-
-.actions .b4 {
-  background: linear-gradient(135deg, var(--green), #169f66);
-}
-
-@media (max-width: 1200px) {
-  .stat-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 960px) {
-  .shell {
-    grid-template-columns: 1fr;
-  }
-
-  .sidebar-scrim {
-    display: block;
-  }
-
-  .sidebar {
-    position: fixed;
-    left: 0;
-    top: 0;
-    width: min(320px, calc(100vw - 24px));
-    height: 100vh;
-    min-height: 100vh;
-    padding: 14px;
-    transform: translateX(calc(-100% - 18px));
-    transition: transform 0.24s ease;
-    border-right: 0;
-    border-radius: 0 24px 24px 0;
-    z-index: 300;
-  }
-
-  body.sidebar-open .sidebar {
-    transform: translateX(0);
-  }
-
-  body.sidebar-open .sidebar-scrim {
-    opacity: 1;
-    pointer-events: auto;
-  }
-
-  .side-inner {
-    min-height: calc(100vh - 28px);
-    gap: 12px;
-  }
-
-  .side-brand,
-  .profile {
-    border-radius: 16px;
-    padding: 12px;
-  }
-
-  .side-nav {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-  }
-
-  .side-nav-label {
-    grid-column: 1 / -1;
-    padding: 0 .2rem;
-  }
-
-  .side-link {
-    min-width: 0;
-    padding: 0.78rem 0.85rem;
-    border-radius: 16px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.06);
-  }
-
-  .side-link.active {
-    background: rgba(255, 255, 255, 0.08);
-  }
-
-  .logout {
-    justify-content: center;
-  }
-
-  .wrap {
-    width: min(100% - 28px, 1380px);
-    padding-top: 18px;
-  }
-
-  .stat-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .toolbar {
-    padding: 14px;
-  }
-
-  .sidebar-toggle {
-    display: inline-flex;
-  }
-
-  .tabs {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: stretch;
-  }
-
-  .tab {
-    justify-content: center;
-    min-width: 0;
-  }
-
-  .search {
-    grid-column: 1 / -1;
-    margin-left: 0;
-    justify-content: stretch;
-    padding: 10px;
-    border-radius: 18px;
-    background: var(--surface-alt);
-    border: 1px solid var(--line);
-  }
-
-  .search input {
-    width: 100%;
-  }
-
-  .queue-filters {
-    gap: 8px;
-  }
-
-  .list-shell {
-    padding: 16px;
-  }
-
-  .list-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
-  }
-
-  .modal {
-    padding: 14px;
-  }
-
-  .modal-dialog {
-    width: min(100%, 900px);
-    max-height: calc(100vh - 28px);
-    padding: 18px;
-    border-radius: 24px;
-  }
-
-  .photos img {
-    width: calc(50% - 5px);
-  }
-}
-
-@media (max-width: 820px) {
-  .wrap {
-    width: min(100% - 22px, 1380px);
-    padding-top: 14px;
-  }
-
-  .stat-grid {
-    gap: 12px;
-  }
-
-  .card.stat {
-    min-height: 124px;
-    padding: 16px;
-  }
-
-  .panel-head {
-    align-items: flex-start;
-  }
-
-  .ghost-btn {
-    align-self: flex-start;
-  }
-
-  .list-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .item {
-    padding: 14px;
-  }
-
-  .item-meta {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 640px) {
-  .sidebar,
-  .wrap,
-  .modal,
-  .modal-dialog,
-  .list-shell,
-  .toolbar,
-  .card.stat,
-  .modal-card {
-    border-radius: 0;
-  }
-
-  .sidebar {
-    padding: 12px;
-    border-radius: 0 0 18px 18px;
-  }
-
-  .wrap {
-    width: 100%;
-    padding: 10px 10px 24px;
-  }
-
-  .stat-grid,
-  .list-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .side-brand,
-  .profile {
-    padding: 10px 12px;
-  }
-
-  .side-logo {
-    width: 34px;
-    height: 34px;
-  }
-
-  .avatar {
-    width: 38px;
-    height: 38px;
-    border-radius: 12px;
-  }
-
-  .side-nav {
-    grid-template-columns: 1fr;
-  }
-
-  .side-link,
-  .logout {
-    padding: 0.78rem 0.9rem;
-    font-size: 0.78rem;
-  }
-
-  .side-link i,
-  .logout i {
-    width: 30px;
-    height: 30px;
-  }
-
-  .card.stat {
-    min-height: 112px;
-    padding: 14px;
-  }
-
-  .toolbar,
-  .list-shell {
-    padding: 14px;
-  }
-
-  .toolbar-top {
-    align-items: flex-start;
-  }
-
-  .tabs {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-  .tab {
-    justify-content: flex-start;
-    padding: 11px 14px;
-  }
-
-  .modal {
-    padding: 10px;
-  }
-
-  .modal-dialog {
-    max-height: calc(100vh - 20px);
-    padding: 14px;
-    border-radius: 22px;
-  }
-
-  .modal-top,
-  .panel-head,
-  .row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .badges,
-  .actions {
-    flex-wrap: wrap;
-  }
-
-  .item-topline {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-  }
-
-  .item-meta {
-    grid-template-columns: 1fr;
-  }
-
-  .grid > div {
-    flex-basis: 100%;
-  }
-
-  .photos {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-  }
-
-  .photos img {
-    width: 100%;
-  }
-
-  .search {
-    flex-direction: column;
-    align-items: stretch;
-    padding: 8px;
-  }
-
-  .queue-filters {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .filter-chip {
-    justify-content: space-between;
-    min-width: 0;
-  }
-
-  .modal-action-bar {
-    position: sticky;
-    bottom: -14px;
-    margin: 16px -14px -14px;
-    padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
-    background: linear-gradient(180deg, rgba(248, 239, 230, 0.7), rgba(255, 252, 248, 0.98));
-    backdrop-filter: blur(10px);
-    border-top: 1px solid var(--line);
-  }
-
-  .actions button,
-  .empty-action {
-    width: 100%;
-    justify-content: center;
-  }
-}
-
-@media (max-width: 430px) {
-  body {
-    font-size: 14px;
-  }
-
-  .wrap {
-    padding: 8px 8px 18px;
-  }
-
-  .side-brand strong,
-  .profile strong {
-    font-size: 0.76rem;
-  }
-
-  .sidebar small,
-  .profile span,
-  .side-nav-label {
-    letter-spacing: 1.2px;
-  }
-
-  .card.stat strong {
-    font-size: clamp(1.32rem, 7vw, 1.65rem);
-  }
-
-  .card.stat span,
-  .subtle,
-  .item-issue,
-  .copy,
-  .timeline-copy {
-    font-size: 0.74rem;
-  }
-
-  .item-title,
-  .modal-title {
-    font-size: 0.92rem;
-  }
-
-  .badge,
-  .report-chip,
-  .search button,
-  .search a,
-  .ghost-btn,
-  .actions button {
-    font-size: 0.64rem;
-  }
-
-  .modal-close {
-    width: 40px;
-    height: 40px;
-    border-radius: 14px;
-  }
-
-  .queue-filters {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (min-width: 900px) and (max-width: 1280px) and (max-height: 900px) {
-  .stat-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .list-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-.repair-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; margin: 6px 0 4px; }
-.repair-grid > div { display: flex; flex-direction: column; }
-.repair-row { display: grid; grid-template-columns: 2fr .7fr 1fr 1.4fr; gap: 8px; margin-bottom: 8px; }
-.form input[type="text"], .form input[type="number"], .form input[type="datetime-local"], .form input[type="file"] {
-  width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px;
-  font-family: inherit; font-size: .86rem; background: var(--bg-soft); color: var(--ink); outline: none;
-}
-.form input:focus { border-color: rgba(123, 29, 29, 0.38); background: #fff; box-shadow: 0 0 0 4px rgba(123, 29, 29, 0.08); }
-@media (max-width: 640px){ .repair-grid, .repair-row { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
-<div class="sidebar-scrim" data-close-sidebar></div>
-<div class="shell">
-  <aside class="sidebar" id="technicianSidebar">
-    <div class="side-inner">
-      <div class="side-brand">
-        <div class="side-logo"><img src="assets/logs.png" alt="BEC logo"></div>
-        <div class="brand-copy">
-          <small>BEC Equipment</small>
-          <strong>Technician Console</strong>
-        </div>
-      </div>
 
-      <div class="profile">
-        <div class="avatar"><?php echo e(initials($techName)); ?></div>
-        <div>
-          <strong><?php echo e($techName); ?></strong>
-          <span><?php echo e($techEmail !== '' ? $techEmail : 'Technician account'); ?></span>
-        </div>
-      </div>
+<div class="sb-scrim" data-sb-close></div>
 
-      <nav class="side-nav">
-        <div class="side-nav-label">Workspace</div>
-        <a class="side-link <?php echo $tab === 'my_tasks' ? 'active' : ''; ?>" href="?tab=my_tasks<?php echo $search !== '' ? '&search=' . urlencode($search) : ''; ?>"><i class="fas fa-list-check"></i> My Tasks <span class="side-count"><?php echo $taskCount; ?></span></a>
-        <a class="side-link <?php echo $tab === 'history' ? 'active' : ''; ?>" href="?tab=history<?php echo $search !== '' ? '&search=' . urlencode($search) : ''; ?>"><i class="fas fa-clock-rotate-left"></i> Work History <span class="side-count"><?php echo $cHist; ?></span></a>
-      </nav>
-      <div class="side-footer">
-        <a class="logout" href="technician/logout.php"><i class="fas fa-right-from-bracket"></i> Log Out</a>
-      </div>
+<!-- ═══════════ SIDEBAR ═══════════ -->
+<aside class="sb" id="sb">
+  <div class="sb-top">
+    <div class="seal-ring">
+      <span class="seal-spin"></span>
+      <span class="seal-core"><img src="assets/logs.png" alt="BEC seal" onerror="this.style.display='none'"></span>
     </div>
-  </aside>
+    <div class="sb-brand">
+      <strong>BEC PMO</strong>
+      <em>Technician Portal</em>
+    </div>
+  </div>
 
-  <main class="main">
-    <div class="wrap">
-      <section class="stat-grid">
-        <a class="card stat" href="?tab=my_tasks&queue=all"><small>Assigned Today</small><strong><?php echo $cToday; ?></strong><span>New tasks handed to you today.</span></a>
-        <a class="card stat" href="?tab=my_tasks&queue=assigned"><small>To Accept / Start</small><strong><?php echo $cAssigned; ?></strong><span>Tasks waiting for you to receive or begin.</span></a>
-        <a class="card stat" href="?tab=my_tasks&queue=in_progress"><small>In Progress</small><strong><?php echo $cProg; ?></strong><span>Active repair or diagnostic work underway.</span></a>
-        <a class="card stat" href="?tab=my_tasks&queue=completed"><small>Awaiting PMO</small><strong><?php echo $cAwait; ?></strong><span>Completed work pending formal verification.</span></a>
-        <a class="card stat" href="?tab=history"><small>Work History</small><strong><?php echo $cHist; ?></strong><span>Verified or closed technician records.</span></a>
-      </section>
+  <div class="sb-user">
+    <span class="uav"><?php echo e(initials($techName)); ?></span>
+    <span class="un"><b><?php echo e($techName); ?></b><span>Maintenance Technician</span></span>
+  </div>
 
-      <section class="card toolbar">
-        <div class="toolbar-top">
-          <div class="toolbar-copy">
-            <strong><?php echo $tab === 'history' ? 'Resolved Records' : 'Technician Work Queue'; ?></strong>
-            <span><?php echo $tab === 'history' ? 'Review verified and closed records quickly.' : 'Use quick filters to jump to the next best task.'; ?></span>
-          </div>
-          <button type="button" class="sidebar-toggle" id="sidebarToggle" aria-expanded="false" aria-controls="technicianSidebar"><i class="fas fa-bars"></i> Menu</button>
-        </div>
-        <div class="tabs">
-          <a class="tab <?php echo $tab === 'my_tasks' ? 'active' : ''; ?>" href="?tab=my_tasks<?php echo $search !== '' ? '&search=' . urlencode($search) : ''; ?>"><i class="fas fa-list-check"></i> My Tasks</a>
-          <a class="tab <?php echo $tab === 'history' ? 'active' : ''; ?>" href="?tab=history<?php echo $search !== '' ? '&search=' . urlencode($search) : ''; ?>"><i class="fas fa-clock-rotate-left"></i> Work History</a>
-          <form class="search" method="get">
+  <nav class="sb-nav">
+    <div class="nav-sec">Workspace</div>
+    <a class="ni <?php echo $tab === 'my_tasks' ? 'on' : ''; ?>" href="?tab=my_tasks">
+      <span class="ni-ic"><i class="fas fa-list-check"></i></span> My Tasks
+      <span class="nbadge"><?php echo (int)$taskCount; ?></span>
+    </a>
+    <a class="ni <?php echo $tab === 'history' ? 'on' : ''; ?>" href="?tab=history">
+      <span class="ni-ic"><i class="fas fa-clock-rotate-left"></i></span> Work History
+      <span class="nbadge"><?php echo (int)$cHist; ?></span>
+    </a>
+    <div class="nav-sec">Updates</div>
+    <button class="ni" type="button" data-modal-target="notifModal">
+      <span class="ni-ic"><i class="fas fa-bell"></i></span> Notifications
+      <?php if ($unreadCount > 0): ?><span class="nbadge hot"><?php echo $unreadCount > 9 ? '9+' : (int)$unreadCount; ?></span><?php endif; ?>
+    </button>
+  </nav>
+
+  <div class="sb-foot">
+    <a class="lout" href="technician/logout.php"><i class="fas fa-right-from-bracket"></i> Log Out</a>
+  </div>
+</aside>
+
+<!-- ═══════════ MAIN ═══════════ -->
+<main class="main">
+  <div class="wrap">
+
+    <!-- Mobile top bar -->
+    <div class="topbar">
+      <button class="tb-btn" type="button" data-sb-toggle aria-label="Open menu"><i class="fas fa-bars"></i></button>
+      <div class="tb-title"><?php echo $tab === 'history' ? 'Work History' : 'My Tasks'; ?></div>
+      <button class="tb-btn" type="button" data-modal-target="notifModal" aria-label="Notifications">
+        <i class="fas fa-bell"></i>
+        <?php if ($unreadCount > 0): ?><span class="tb-dot"><?php echo $unreadCount > 9 ? '9+' : (int)$unreadCount; ?></span><?php endif; ?>
+      </button>
+    </div>
+
+    <?php if ($flash['message'] !== ''): ?>
+    <div class="flash <?php echo $flash['type'] === 'ok' ? 'ok' : 'err'; ?>">
+      <i class="fas <?php echo $flash['type'] === 'ok' ? 'fa-circle-check' : 'fa-circle-exclamation'; ?>"></i>
+      <?php echo e($flash['message']); ?>
+    </div>
+    <?php endif; ?>
+
+    <!-- Page head -->
+    <header class="page-head">
+      <span class="eyebrow"><span class="dot"></span> Property Management Office · Technician</span>
+      <h1><?php echo $tab === 'history' ? 'Work History' : 'My Tasks'; ?><span class="qcount"><?php echo (int)$totalItems; ?></span></h1>
+      <p><?php echo $tab === 'history'
+          ? 'Your verified and closed repair records, kept for accountability and reference.'
+          : 'Select a task below to open its repair workspace. Work through each stage and submit your completion report when done.'; ?></p>
+    </header>
+
+    <!-- ═══ QUEUE ═══ -->
+    <section class="card queue-shell" id="queue">
+      <div class="queue-top">
+        <span class="eyebrow"><span class="dot"></span> <?php echo $tab === 'history' ? 'Completed records' : 'Assigned to you'; ?></span>
+        <form class="search" method="get">
           <input type="hidden" name="tab" value="<?php echo e($tab); ?>">
           <input type="hidden" name="queue" value="<?php echo e($queueFilter); ?>">
-          <input type="text" name="search" value="<?php echo e($search); ?>" placeholder="Search report, equipment, location, or issue">
-          <button type="submit"><i class="fas fa-magnifying-glass"></i> Search</button>
-          <?php if ($search !== ''): ?><a href="?tab=<?php echo e($tab); ?>&queue=<?php echo e($queueFilter); ?>"><i class="fas fa-xmark"></i> Clear</a><?php endif; ?>
-          </form>
-        </div>
-      </section>
+          <i class="fas fa-magnifying-glass"></i>
+          <input type="text" name="search" value="<?php echo e($search); ?>" placeholder="Search report, equipment, location…">
+          <?php if ($search !== ''): ?><a class="clear" href="?tab=<?php echo e($tab); ?>&queue=<?php echo e($queueFilter); ?>" aria-label="Clear search"><i class="fas fa-xmark"></i></a><?php endif; ?>
+        </form>
+      </div>
 
-  <?php if ($flash['message'] !== ''): ?>
-  <div class="flash <?php echo $flash['type'] === 'ok' ? 'ok' : 'err'; ?>"><?php echo e($flash['message']); ?></div>
-  <?php endif; ?>
+      <div class="chips">
+        <?php
+          $chipSet = $tab === 'history'
+            ? [['all','All','fa-layer-group'],['verified','Verified','fa-certificate'],['closed','Closed','fa-circle-check']]
+            : [['all','All','fa-layer-group'],['urgent','Urgent','fa-bolt'],['assigned','New','fa-clipboard-list'],['in_progress','Active','fa-screwdriver-wrench'],['completed','Awaiting PMO','fa-user-check']];
+          foreach ($chipSet as [$fk,$fl,$fi]):
+        ?>
+        <a class="chip <?php echo $queueFilter === $fk ? 'on' : ''; ?>" href="?tab=<?php echo e($tab); ?>&queue=<?php echo e($fk); ?><?php echo $search !== '' ? '&search=' . urlencode($search) : ''; ?>">
+          <i class="fas <?php echo e($fi); ?>"></i> <?php echo e($fl); ?> <strong><?php echo (int)($queueCounts[$fk] ?? 0); ?></strong>
+        </a>
+        <?php endforeach; ?>
+      </div>
 
-  <section class="workspace">
-    <div class="card list-shell">
-      <div class="panel-head">
-        <div>
-          <small><?php echo $tab === 'history' ? 'Completed Records' : 'Active Task Queue'; ?></small>
-          <h2 class="section-title"><?php echo $tab === 'history' ? 'Work History' : 'My Tasks'; ?></h2>
-        </div>
-        <div class="ghost-btn"><?php echo $totalItems; ?> items</div>
-      </div>
-      <?php $source = $list; ?>
-      <div class="list-stack">
-      <div class="list-head">
-        <div>
-          <strong><?php echo $tab === 'history' ? 'Resolved technician records' : 'Assigned repair workload'; ?></strong>
-          <div class="subtle"><?php echo $search !== '' ? 'Filtered by your current search.' : 'Showing the current queue for this view.'; ?></div>
-        </div>
-      </div>
-      <div class="queue-filters">
-        <?php if ($tab === 'history'): ?>
-          <?php foreach ([['all','All Records','fa-layer-group'],['verified','Verified','fa-badge-check'],['closed','Closed','fa-circle-check']] as [$filterKey,$filterLabel,$filterIcon]): ?>
-            <a class="filter-chip <?php echo $queueFilter === $filterKey ? 'active' : ''; ?>" href="?tab=<?php echo e($tab); ?>&queue=<?php echo e($filterKey); ?><?php echo $search !== '' ? '&search=' . urlencode($search) : ''; ?>">
-              <i class="fas <?php echo e($filterIcon); ?>"></i> <?php echo e($filterLabel); ?> <strong><?php echo (int)($queueCounts[$filterKey] ?? 0); ?></strong>
-            </a>
-          <?php endforeach; ?>
-        <?php else: ?>
-          <?php foreach ([['all','All Tasks','fa-layer-group'],['urgent','Urgent','fa-bolt'],['assigned','Assigned','fa-clipboard-list'],['in_progress','In Progress','fa-screwdriver-wrench'],['completed','Awaiting PMO','fa-user-check']] as [$filterKey,$filterLabel,$filterIcon]): ?>
-            <a class="filter-chip <?php echo $queueFilter === $filterKey ? 'active' : ''; ?>" href="?tab=<?php echo e($tab); ?>&queue=<?php echo e($filterKey); ?><?php echo $search !== '' ? '&search=' . urlencode($search) : ''; ?>">
-              <i class="fas <?php echo e($filterIcon); ?>"></i> <?php echo e($filterLabel); ?> <strong><?php echo (int)($queueCounts[$filterKey] ?? 0); ?></strong>
-            </a>
-          <?php endforeach; ?>
-        <?php endif; ?>
-      </div>
-      <?php if (!$source): ?>
+      <?php if (!$list): ?>
       <div class="empty">
         <i class="fas fa-clipboard-check"></i>
-        <strong>No records match the current view.</strong>
-        <div><?php echo $search !== '' ? 'Try clearing the current search or switch to another queue.' : 'There are no technician records in this section right now.'; ?></div>
+        <strong>Nothing in this view.</strong>
+        <div><?php echo $search !== '' ? 'Try clearing your search or switching queues.' : 'No records in this queue right now.'; ?></div>
         <div class="empty-actions">
           <?php if ($search !== ''): ?><a class="empty-action" href="?tab=<?php echo e($tab); ?>"><i class="fas fa-xmark"></i> Clear Search</a><?php endif; ?>
-          <a class="empty-action" href="?tab=my_tasks"><i class="fas fa-list-check"></i> Go to My Tasks</a>
+          <a class="empty-action" href="?tab=my_tasks"><i class="fas fa-list-check"></i> My Tasks</a>
         </div>
       </div>
       <?php else: ?>
-      <div class="list-grid">
-      <?php foreach ($source as $row):
-        $__rd = strtotime((string)($row['report_date'] ?? ''));
-        $__age = $__rd ? (int)floor((time() - $__rd) / 86400) : null;
-        $__st = strtolower((string)($row['status'] ?? ''));
-        $__thr = ['critical'=>1,'urgent'=>1,'high'=>2,'medium'=>5,'low'=>7][strtolower((string)($row['priority'] ?? 'medium'))] ?? 5;
-        $__overdue = ($tab !== 'history') && $__rd && ((time() - $__rd) / 86400 > $__thr) && !in_array($__st, ['completed','verified','closed','rejected'], true);
-      ?>
-      <button class="item-trigger" type="button" data-modal-target="modal-<?php echo e((string)$row['report_id']); ?>">
-        <div class="item">
-          <div class="item-topline">
-            <div class="report-chip"><i class="fas fa-hashtag"></i> Report <?php echo e((string)$row['report_id']); ?></div>
-            <div class="quick-note"><?php echo e(nextActionLabel((string)($row['status'] ?? 'assigned'))); ?></div>
-          </div>
-          <div class="row">
-            <div>
-              <h3 class="item-title"><?php echo e((string)($row['equipment_name'] ?? 'Equipment')); ?></h3>
-              <div class="subtle" style="margin-top:6px"><?php echo e((string)($row['location'] ?? 'Unspecified')); ?></div>
-            </div>
-            <div class="badges">
-              <span class="badge <?php echo e(stone((string)($row['status'] ?? 'assigned'))); ?>"><i class="fas <?php echo e(sicon((string)($row['status'] ?? 'assigned'))); ?>"></i><?php echo e(slabel((string)($row['status'] ?? 'assigned'))); ?></span>
-              <span class="badge <?php echo e(ptone((string)($row['priority'] ?? 'medium'))); ?>"><i class="fas <?php echo e(picon((string)($row['priority'] ?? 'medium'))); ?>"></i><?php echo e(ucfirst((string)($row['priority'] ?? 'medium'))); ?></span>
-              <?php if ($tab !== 'history'): ?>
-              <span class="badge age <?php echo $__overdue ? 'overdue' : ''; ?>"><i class="fas fa-<?php echo $__overdue ? 'triangle-exclamation' : 'clock-rotate-left'; ?>"></i><?php echo $__overdue ? ('Overdue · ' . $__age . 'd') : ($__age === null ? 'New' : ($__age === 0 ? 'Today' : $__age . 'd open')); ?></span>
-              <?php endif; ?>
-            </div>
-          </div>
-          <div class="item-issue"><?php echo e((string)($row['issue_description'] ?? 'No issue description recorded.')); ?></div>
-          <div class="item-meta">
-            <div class="meta-card"><small>Status Focus</small><strong><?php echo e(slabel((string)($row['status'] ?? 'assigned'))); ?></strong></div>
-            <div class="meta-card"><small><?php echo $tab === 'history' ? 'Completed' : 'Reported'; ?></small><strong><?php echo e(fdate((string)($tab === 'history' ? ($row['completion_date'] ?? $row['report_date'] ?? '') : ($row['report_date'] ?? '')))); ?></strong></div>
-          </div>
-        </div>
-      </button>
-      <?php endforeach; ?>
+      <div class="qgrid">
+        <?php foreach ($list as $row):
+          $st = strtolower((string)($row['status'] ?? 'assigned'));
+          $pr = strtolower((string)($row['priority'] ?? 'medium'));
+          $due = $tab !== 'history' ? slaDueTs($row) : null;
+          $started = strtotime((string)($row['started_at'] ?? ''));
+          $isSel = ((string)$row['report_id'] === (string)$selectedId);
+        ?>
+        <button class="qcard pri-<?php echo e(ptone($pr)); ?> <?php echo $isSel ? 'active' : ''; ?>" type="button" data-ws-target="ws-<?php echo e((string)$row['report_id']); ?>">
+          <span class="q-ic"><i class="fas <?php echo e(eqicon((string)($row['equipment_name'] ?? ''))); ?>"></i></span>
+          <span class="q-body">
+            <span class="q-top"><strong><?php echo e((string)($row['equipment_name'] ?? 'Equipment')); ?></strong><span class="q-id">#<?php echo e((string)$row['report_id']); ?></span></span>
+            <span class="q-loc"><i class="fas fa-location-dot"></i> <?php echo e((string)($row['location'] ?? 'Unspecified')); ?></span>
+            <span class="q-badges">
+              <span class="badge <?php echo e(stone($st)); ?>"><i class="fas <?php echo e(sicon($st)); ?>"></i><?php echo e(slabel($st)); ?></span>
+              <span class="badge <?php echo e(ptone($pr)); ?>"><i class="fas <?php echo e(picon($pr)); ?>"></i><?php echo e(ucfirst($pr)); ?></span>
+              <?php if ($due !== null): ?><span class="badge sla sla-chip" data-due="<?php echo $due; ?>"><i class="fas fa-gauge-high"></i> —</span><?php endif; ?>
+              <?php if ($started && in_array($st, ['in_progress','waiting_for_materials','for_replacement'], true)): ?><span class="badge timer rep-timer" data-started="<?php echo $started; ?>"><i class="fas fa-stopwatch"></i> —</span><?php endif; ?>
+            </span>
+          </span>
+        </button>
+        <?php endforeach; ?>
       </div>
       <?php endif; ?>
+    </section>
+
+    <!-- ═══ REPAIR WORKSPACE (scrolls into view when a task is selected) ═══ -->
+    <div class="ws-zone" id="wsZone">
+      <?php foreach ($list as $row):
+        $st = strtolower((string)($row['status'] ?? 'assigned'));
+        $rid_e = e((string)$row['report_id']);
+        $isSel = ((string)$row['report_id'] === (string)$selectedId);
+        $due = $tab !== 'history' ? slaDueTs($row) : null;
+        $started = strtotime((string)($row['started_at'] ?? ''));
+        $photos = taskPhotos($row);
+        $curStep = sstep($st);
+      ?>
+      <article class="ws-panel <?php echo $isSel ? 'active' : ''; ?>" id="ws-<?php echo $rid_e; ?>">
+        <div class="ws-card">
+          <div class="ws-head">
+            <button class="ws-back" type="button" data-ws-back aria-label="Back to task list"><i class="fas fa-arrow-left"></i></button>
+            <div class="ws-head-copy">
+              <small>Repair Workspace · Report <?php echo $rid_e; ?></small>
+              <h2 class="ws-title"><?php echo e((string)($row['equipment_name'] ?? 'Equipment')); ?></h2>
+            </div>
+            <div class="ws-head-tags">
+              <?php if ($started && in_array($st, ['in_progress','waiting_for_materials','for_replacement'], true)): ?><span class="badge timer rep-timer" data-started="<?php echo $started; ?>"><i class="fas fa-stopwatch"></i> —</span><?php endif; ?>
+              <?php if ($due !== null): ?><span class="badge sla sla-chip" data-due="<?php echo $due; ?>"><i class="fas fa-gauge-high"></i> —</span><?php endif; ?>
+            </div>
+          </div>
+
+          <div class="steps">
+            <?php foreach ([[1,'Received','fa-hand'],[2,'In Progress','fa-screwdriver-wrench'],[3,'Materials','fa-hourglass-half'],[4,'Completed','fa-user-check'],[5,'Verified','fa-certificate']] as [$si,$sl,$sic2]):
+              $cls = $si < $curStep ? 'done' : ($si === $curStep ? 'now' : ''); ?>
+            <div class="step <?php echo $cls; ?>">
+              <div class="nd"><i class="fas <?php echo $si < $curStep ? 'fa-check' : $sic2; ?>"></i></div>
+              <div class="lb"><?php echo $sl; ?></div>
+            </div>
+            <?php endforeach; ?>
+          </div>
+
+          <div class="ws-body">
+            <div class="sec">
+              <div class="sec-h"><small>At a glance</small><h3>Task Overview</h3></div>
+              <div class="q-badges" style="margin-bottom:12px">
+                <span class="badge <?php echo e(stone($st)); ?>"><i class="fas <?php echo e(sicon($st)); ?>"></i><?php echo e(slabel($st)); ?></span>
+                <span class="badge <?php echo e(ptone((string)($row['priority'] ?? 'medium'))); ?>"><i class="fas <?php echo e(picon((string)($row['priority'] ?? 'medium'))); ?>"></i><?php echo e(ucfirst((string)($row['priority'] ?? 'medium'))); ?> priority</span>
+              </div>
+              <div class="facts">
+                <div><small>Asset Tag</small><strong><?php echo e((string)($row['asset_tag'] ?? 'Not specified')); ?></strong></div>
+                <div><small>Location</small><strong><?php echo e((string)($row['location'] ?? 'Unspecified')); ?></strong></div>
+                <div><small>Category</small><strong><?php echo e((string)($row['category_name'] ?? 'Not specified')); ?></strong></div>
+                <div><small>Reported</small><strong><?php echo e(fdt((string)($row['report_date'] ?? ''))); ?></strong></div>
+              </div>
+            </div>
+
+            <div class="sec">
+              <div class="sec-h"><small>Issue summary</small><h3>Issue Description</h3></div>
+              <div class="copy"><?php echo nl2br(e((string)($row['issue_description'] ?? 'No issue description recorded.'))); ?></div>
+            </div>
+
+            <?php if (trim((string)($row['handler_instructions'] ?? '')) !== ''): ?>
+            <div class="sec">
+              <div class="sec-h"><small>PMO guidance</small><h3>Assignment Instructions</h3></div>
+              <div class="copy"><?php echo nl2br(e((string)$row['handler_instructions'])); ?></div>
+            </div>
+            <?php endif; ?>
+
+            <?php if (trim((string)($row['technician_notes'] ?? '')) !== ''): ?>
+            <div class="sec">
+              <div class="sec-h"><small>Recorded work</small><h3>Latest Technician Notes</h3></div>
+              <div class="copy"><?php echo nl2br(e((string)$row['technician_notes'])); ?></div>
+            </div>
+            <?php endif; ?>
+
+            <?php if ($photos): ?>
+            <div class="sec">
+              <div class="sec-h"><small>Evidence</small><h3>Photo Evidence</h3></div>
+              <div class="photos">
+                <?php foreach ($photos as $photo): ?><img src="<?php echo e($photo); ?>" alt="Defect photo" loading="lazy"><?php endforeach; ?>
+              </div>
+            </div>
+            <?php endif; ?>
+
+            <?php if ($tab === 'my_tasks'): ?>
+            <div class="sec sec-form">
+              <div class="sec-h"><small>Update case</small><h3>Repair Progress</h3></div>
+              <form class="form" method="post">
+                <input type="hidden" name="report_id" value="<?php echo $rid_e; ?>">
+                <label for="notes_<?php echo $rid_e; ?>">Progress note</label>
+                <textarea id="notes_<?php echo $rid_e; ?>" name="technician_notes" placeholder="Record inspection findings, progress, or the reason for waiting / replacement."><?php echo e((string)($row['technician_notes'] ?? '')); ?></textarea>
+                <div class="actions">
+                  <?php if ($st === 'assigned'): ?><button class="b1" type="submit" name="action" value="accept"><i class="fas fa-hand"></i> Receive Task</button><?php endif; ?>
+                  <?php if ($st === 'accepted'): ?><button class="b1" type="submit" name="action" value="start"><i class="fas fa-play"></i> Start Repair</button><?php endif; ?>
+                  <?php if (in_array($st, ['assigned','accepted','in_progress','waiting_for_materials','for_replacement','completed'], true)): ?><button class="b2" type="submit" name="action" value="save"><i class="fas fa-floppy-disk"></i> Save Note</button><?php endif; ?>
+                  <?php if (in_array($st, ['accepted','in_progress'], true)): ?><button class="b3" type="submit" name="action" value="waiting"><i class="fas fa-hourglass-half"></i> Waiting for Materials</button><?php endif; ?>
+                  <?php if ($st === 'waiting_for_materials'): ?><button class="b1" type="submit" name="action" value="resume_materials"><i class="fas fa-box-open"></i> Materials Received — Resume</button><?php endif; ?>
+                  <?php if (in_array($st, ['accepted','in_progress','waiting_for_materials'], true)): ?><button class="b3" type="submit" name="action" value="replace"><i class="fas fa-rotate"></i> Recommend Replacement</button><?php endif; ?>
+                  <?php if ($st === 'for_replacement'): ?><button class="b2" type="submit" name="action" value="resume"><i class="fas fa-play"></i> Resume Repair</button><?php endif; ?>
+                </div>
+              </form>
+            </div>
+
+            <?php if (in_array($st, ['in_progress','waiting_for_materials','for_replacement'], true)): ?>
+            <div class="sec sec-form">
+              <div class="sec-h"><small>Materials / budget (optional)</small><h3>Request Budget</h3></div>
+              <form class="form tech-ajax" method="post" action="technician_budget_request.php" data-reload="1">
+                <input type="hidden" name="report_id" value="<?php echo $rid_e; ?>">
+                <?php for ($bi = 0; $bi < 3; $bi++): ?>
+                <div class="frow">
+                  <input type="text" name="part_needed[]" placeholder="Part / material<?php echo $bi === 0 ? ' (e.g. RAM Module)' : ''; ?>">
+                  <input type="number" name="quantity[]" min="1" placeholder="Qty">
+                  <input type="number" step="0.01" name="estimated_cost[]" placeholder="Est. cost (₱)">
+                  <input type="text" name="supplier[]" placeholder="Supplier">
+                </div>
+                <?php endfor; ?>
+                <label for="just_<?php echo $rid_e; ?>">Justification</label>
+                <textarea id="just_<?php echo $rid_e; ?>" name="justification" placeholder="Why are these parts/materials needed?"></textarea>
+                <label class="check"><input type="checkbox" name="notify_finance" value="1"> Also notify the Finance office by email</label>
+                <div class="actions">
+                  <button class="b2" type="submit"><i class="fas fa-coins"></i> Submit Budget Request</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="sec sec-form">
+              <div class="sec-h"><small>Finish the job</small><h3>Completion Report</h3></div>
+              <form class="form tech-ajax" method="post" action="technician_complete_task.php" enctype="multipart/form-data" data-reload="1">
+                <input type="hidden" name="report_id" value="<?php echo $rid_e; ?>">
+                <input type="hidden" name="action" value="complete">
+                <div class="fs"><span class="fs-num">1</span><span class="fs-tx"><strong>Timing &amp; Cost</strong><span>When the work started and what it cost</span></span></div>
+                <div class="fgrid">
+                  <div><label>Date started</label><input type="datetime-local" name="date_started"></div>
+                  <div><label>Repair duration</label><input type="text" name="repair_duration" placeholder="e.g. 1h 30m"></div>
+                  <div><label>Repair cost (₱)</label><input type="number" step="0.01" name="repair_cost" placeholder="0.00"></div>
+                </div>
+                <div class="fs"><span class="fs-num">2</span><span class="fs-tx"><strong>Diagnosis &amp; Work Done</strong><span>What was wrong and how you fixed it</span></span></div>
+                <label>Diagnosis</label>
+                <textarea name="diagnosis" placeholder="What was found to be wrong?"></textarea>
+                <label>Actions performed</label>
+                <textarea name="actions_performed" placeholder="What did you do?"></textarea>
+                <label>Repair procedures</label>
+                <textarea name="repair_procedures" placeholder="Steps / procedures followed."></textarea>
+                <label>Repair summary</label>
+                <textarea name="work_performed" placeholder="Overall summary of the repair."></textarea>
+                <div class="fs"><span class="fs-num">3</span><span class="fs-tx"><strong>Parts, Tools &amp; Materials</strong><span>What you used during the repair</span></span></div>
+                <div class="fgrid">
+                  <div><label>Parts replaced</label><input type="text" name="parts_replaced" placeholder="e.g. capacitor"></div>
+                  <div><label>Tools used</label><input type="text" name="tools_used" placeholder="e.g. multimeter"></div>
+                  <div><label>Materials used</label><input type="text" name="materials_used" placeholder="e.g. thermal paste"></div>
+                </div>
+                <div class="fs"><span class="fs-num">4</span><span class="fs-tx"><strong>Outcome</strong><span>Final condition and any follow-up needed</span></span></div>
+                <label>Final findings</label>
+                <textarea name="findings" placeholder="Condition after repair / test results."></textarea>
+                <label>Recommendations</label>
+                <textarea name="recommendations" placeholder="Any follow-up or preventive recommendation."></textarea>
+                <div class="fs"><span class="fs-num">5</span><span class="fs-tx"><strong>Photo Documentation</strong><span>Before, during &amp; after evidence of the repair</span></span></div>
+                <div class="photo-grid">
+                  <div class="photo-field">
+                    <label class="photo-drop">
+                      <input type="file" class="photo-input" name="before_photos[]" accept="image/*" multiple>
+                      <i class="fas fa-camera"></i>
+                      <span class="photo-drop-label">Before photos</span>
+                      <span class="photo-hint">Tap to capture or choose</span>
+                    </label>
+                    <div class="photo-preview"></div>
+                  </div>
+                  <div class="photo-field">
+                    <label class="photo-drop">
+                      <input type="file" class="photo-input" name="during_photos[]" accept="image/*" multiple>
+                      <i class="fas fa-camera"></i>
+                      <span class="photo-drop-label">During photos</span>
+                      <span class="photo-hint">Tap to capture or choose</span>
+                    </label>
+                    <div class="photo-preview"></div>
+                  </div>
+                  <div class="photo-field">
+                    <label class="photo-drop">
+                      <input type="file" class="photo-input" name="after_photos[]" accept="image/*" multiple>
+                      <i class="fas fa-camera"></i>
+                      <span class="photo-drop-label">After photos</span>
+                      <span class="photo-hint">Tap to capture or choose</span>
+                    </label>
+                    <div class="photo-preview"></div>
+                  </div>
+                </div>
+                <div class="actions">
+                  <button class="b4" type="submit"><i class="fas fa-clipboard-check"></i> Submit Completion Report</button>
+                </div>
+              </form>
+            </div>
+            <?php endif; ?>
+            <?php endif; ?>
+          </div>
+        </div>
+      </article>
+      <?php endforeach; ?>
+
+      <!-- ═══ CONTEXT (per selected task) ═══ -->
+      <?php foreach ($list as $row):
+        $st = strtolower((string)($row['status'] ?? 'assigned'));
+        $isSel = ((string)$row['report_id'] === (string)$selectedId);
+        $histRows = $maintByEquip[trim((string)($row['equipment_id'] ?? ''))] ?? [];
+      ?>
+      <div class="ctx <?php echo $isSel ? 'active' : ''; ?>" id="rail-<?php echo e((string)$row['report_id']); ?>">
+        <section class="card">
+          <div class="sec-h"><small>Workflow</small><h3>Maintenance Flow</h3></div>
+          <div class="tl">
+            <?php foreach (workflowSteps($st) as $stepRow): ?>
+            <div class="tl-step">
+              <span class="tl-dot <?php echo $stepRow['done'] ? 'done' : ($stepRow['active'] ? 'act' : ''); ?>"><?php echo $stepRow['done'] ? '✓' : ($stepRow['active'] ? '!' : '•'); ?></span>
+              <div><strong><?php echo e($stepRow['label']); ?></strong><p><?php echo e($stepRow['desc']); ?></p></div>
+            </div>
+            <?php endforeach; ?>
+          </div>
+        </section>
+        <section class="card">
+          <div class="sec-h"><small>Asset history</small><h3>Previous Repairs</h3></div>
+          <?php if (!$histRows): ?>
+          <div class="empty" style="padding:22px 12px"><i class="fas fa-clock-rotate-left"></i><div>No earlier maintenance records for this equipment.</div></div>
+          <?php else: ?>
+          <div class="hist">
+            <?php foreach (array_slice($histRows, 0, 6) as $h): ?>
+            <div class="hrow">
+              <span class="hic"><i class="fas fa-screwdriver-wrench"></i></span>
+              <div>
+                <strong><?php echo e(ucwords(str_replace('_', ' ', (string)($h['maintenance_type'] ?? 'Maintenance')))); ?></strong>
+                <span class="hw"><?php echo e(fdate((string)($h['maintenance_date'] ?? ''))); ?><?php if (trim((string)($h['cost'] ?? '')) !== '' && (float)$h['cost'] > 0): ?> · ₱<?php echo e(number_format((float)$h['cost'], 2)); ?><?php endif; ?></span>
+                <?php if (trim((string)($h['work_description'] ?? '')) !== ''): ?><span class="hd"><?php echo e((string)$h['work_description']); ?></span><?php endif; ?>
+              </div>
+            </div>
+            <?php endforeach; ?>
+          </div>
+          <?php endif; ?>
+        </section>
       </div>
+      <?php endforeach; ?>
+    </div><!-- /ws-zone -->
+
+  </div>
+</main>
+
+<!-- ═══════════ NOTIFICATION MODAL ═══════════ -->
+<div class="modal" id="notifModal" aria-hidden="true">
+  <div class="modal-dialog" role="dialog" aria-label="Notifications">
+    <div class="m-top">
+      <div><small>Technician Portal</small><h2>Notifications</h2></div>
+      <button class="m-x" type="button" data-modal-close aria-label="Close"><i class="fas fa-xmark"></i></button>
     </div>
-  </section>
-
-  <?php foreach ($source as $row): ?>
-  <?php $modalStatus = strtolower((string)($row['status'] ?? 'assigned')); ?>
-  <div class="modal" id="modal-<?php echo e((string)$row['report_id']); ?>" aria-hidden="true">
-    <div class="modal-dialog">
-      <div class="modal-top">
-        <div class="modal-head">
-          <small>Task Details</small>
-          <h2 class="modal-title"><?php echo e((string)($row['equipment_name'] ?? 'Equipment')); ?></h2>
-          <div class="subtle" style="margin-top:6px">Report <?php echo e((string)$row['report_id']); ?> is currently <?php echo e(slabel($modalStatus)); ?>.</div>
-        </div>
-        <button class="modal-close" type="button" data-modal-close aria-label="Close modal"><i class="fas fa-xmark"></i></button>
-      </div>
-
-      <div class="modal-stack">
-        <div class="modal-card detail-hero">
-          <div class="row">
-            <div class="badges">
-              <span class="badge <?php echo e(stone($modalStatus)); ?>"><i class="fas <?php echo e(sicon($modalStatus)); ?>"></i><?php echo e(slabel($modalStatus)); ?></span>
-              <span class="badge <?php echo e(ptone((string)($row['priority'] ?? 'medium'))); ?>"><i class="fas <?php echo e(picon((string)($row['priority'] ?? 'medium'))); ?>"></i><?php echo e(ucfirst((string)($row['priority'] ?? 'medium'))); ?></span>
-            </div>
-          </div>
-          <?php
-            $__sIdx = ['reported'=>0,'pmo_review'=>1,'dean_review'=>2,'finance_review'=>2,'on_hold_budget'=>2,'ready_for_assignment'=>2,'assigned'=>3,'accepted'=>4,'in_progress'=>5,'waiting_for_materials'=>5,'for_replacement'=>5,'completed'=>6,'verified'=>7,'closed'=>7];
-            $__cur = $__sIdx[$modalStatus] ?? 0;
-            $__rej = $modalStatus === 'rejected';
-            $__steps = $__rej ? ['Submitted','Received by PMO','Rejected'] : ['Submitted','Received by PMO','Approved','Assigned','Received','In Progress','Completed','Closed'];
-          ?>
-          <div style="margin-top:14px;display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding:.25rem .1rem;">
-            <?php foreach($__steps as $__i=>$__lbl):
-              $__rejStep=$__rej&&$__i===2; $__done=$__rej?($__i<2):($__i<$__cur); $__active=$__rej?($__i===2):($__i===$__cur); $__reached=$__done||$__active;
-              $__dot=$__rejStep?'#DC2626':($__done?'#16A34A':($__active?'#7B1D1D':'#D8CCBD'));
-              $__txt=$__rejStep?'#DC2626':($__reached?'#1C1008':'#9E8070');
-              $__line=$__reached?($__rejStep?'#DC2626':'#16A34A'):'#E8DDD0';
-            ?>
-            <div style="flex:1;min-width:66px;text-align:center;position:relative;">
-              <?php if($__i>0): ?><div style="position:absolute;top:11px;left:-50%;width:100%;height:3px;background:<?php echo $__line; ?>;z-index:0;"></div><?php endif; ?>
-              <div style="position:relative;z-index:1;width:24px;height:24px;margin:0 auto;border-radius:50%;background:<?php echo $__dot; ?>;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:800;<?php echo $__active?'box-shadow:0 0 0 4px rgba(123,29,29,.16);':''; ?>"><?php echo $__done?'<i class="fas fa-check"></i>':($__rejStep?'<i class="fas fa-xmark"></i>':($__i+1)); ?></div>
-              <div style="font-size:.56rem;margin-top:.3rem;color:<?php echo $__txt; ?>;font-weight:<?php echo $__active?'700':'500'; ?>;line-height:1.15;"><?php echo $__lbl; ?></div>
-            </div>
-            <?php endforeach; ?>
-          </div>
-          <div class="grid" style="margin-top:14px">
-            <div><small>Asset Tag</small><strong><?php echo e((string)($row['asset_tag'] ?? 'Not specified')); ?></strong></div>
-            <div><small>Location</small><strong><?php echo e((string)($row['location'] ?? 'Unspecified')); ?></strong></div>
-            <div><small>Category</small><strong><?php echo e((string)($row['category_name'] ?? 'Not specified')); ?></strong></div>
-            <div><small>Reported</small><strong><?php echo e(fdt((string)($row['report_date'] ?? ''))); ?></strong></div>
-          </div>
-        </div>
-
-        <div class="modal-card">
-          <div class="panel-head" style="margin:0">
-            <div>
-              <small>Issue Summary</small>
-              <h2 class="section-title">Issue Description</h2>
-            </div>
-          </div>
-          <div class="copy"><?php echo nl2br(e((string)($row['issue_description'] ?? 'No issue description recorded.'))); ?></div>
-        </div>
-
-        <?php if (trim((string)($row['handler_instructions'] ?? '')) !== ''): ?>
-        <div class="modal-card">
-          <div class="panel-head" style="margin:0">
-            <div>
-              <small>PMO Guidance</small>
-              <h2 class="section-title">Assignment Instructions</h2>
-            </div>
-          </div>
-          <div class="copy"><?php echo nl2br(e((string)$row['handler_instructions'])); ?></div>
-        </div>
-        <?php endif; ?>
-
-        <?php if (trim((string)($row['technician_notes'] ?? '')) !== ''): ?>
-        <div class="modal-card">
-          <div class="panel-head" style="margin:0">
-            <div>
-              <small>Recorded Work</small>
-              <h2 class="section-title">Latest Technician Notes</h2>
-            </div>
-          </div>
-          <div class="copy"><?php echo nl2br(e((string)$row['technician_notes'])); ?></div>
-        </div>
-        <?php endif; ?>
-
-        <div class="modal-card">
-          <div class="panel-head" style="margin:0">
-            <div>
-              <small>Workflow</small>
-              <h2 class="section-title">Maintenance Flow</h2>
-            </div>
-          </div>
-          <div class="timeline">
-            <?php foreach (workflowSteps((string)($row['status'] ?? 'assigned')) as $step): ?>
-            <div class="step">
-              <div class="dot <?php echo $step['done'] ? 'done' : ($step['active'] ? 'act' : ''); ?>"><?php echo $step['done'] ? '✓' : ($step['active'] ? '!' : '•'); ?></div>
-              <div><strong><?php echo e($step['label']); ?></strong><div class="timeline-copy" style="margin-top:4px"><?php echo e($step['desc']); ?></div></div>
-            </div>
-            <?php endforeach; ?>
-          </div>
-        </div>
-
-        <?php if (!empty($row['photos'])): ?>
-        <div class="modal-card">
-          <div class="panel-head" style="margin:0">
-            <div>
-              <small>Evidence</small>
-              <h2 class="section-title">Photo Evidence</h2>
-            </div>
-          </div>
-          <div class="photos">
-            <?php foreach ($row['photos'] as $photo): ?><img src="<?php echo e($photo); ?>" alt="Defect photo"><?php endforeach; ?>
-          </div>
-        </div>
-        <?php endif; ?>
-
-        <?php if ($tab === 'my_tasks'): ?>
-        <?php $rid_e = e((string)$row['report_id']); ?>
-        <div class="modal-card">
-          <div class="panel-head" style="margin:0">
-            <div>
-              <small>Update Case</small>
-              <h2 class="section-title">Repair Progress</h2>
-            </div>
-          </div>
-          <form class="form" method="post">
-            <input type="hidden" name="report_id" value="<?php echo $rid_e; ?>">
-            <label for="technician_notes_<?php echo $rid_e; ?>">Progress note</label>
-            <textarea id="technician_notes_<?php echo $rid_e; ?>" name="technician_notes" placeholder="Record inspection findings, progress, or the reason for waiting / replacement."><?php echo e((string)($row['technician_notes'] ?? '')); ?></textarea>
-            <div class="actions modal-action-bar">
-              <?php if ($modalStatus === 'assigned'): ?><button class="b1" type="submit" name="action" value="accept">Receive Task</button><?php endif; ?>
-              <?php if ($modalStatus === 'accepted'): ?><button class="b1" type="submit" name="action" value="start">Start Repair</button><?php endif; ?>
-              <?php if (in_array($modalStatus, ['assigned','accepted','in_progress','waiting_for_materials','for_replacement','completed'], true)): ?><button class="b2" type="submit" name="action" value="save">Save Note</button><?php endif; ?>
-              <?php if (in_array($modalStatus, ['accepted','in_progress'], true)): ?><button class="b3" type="submit" name="action" value="waiting">Waiting for Materials</button><?php endif; ?>
-              <?php if ($modalStatus === 'waiting_for_materials'): ?><button class="b1" type="submit" name="action" value="resume_materials">Materials Received — Resume</button><?php endif; ?>
-              <?php if (in_array($modalStatus, ['accepted','in_progress','waiting_for_materials'], true)): ?><button class="b3" type="submit" name="action" value="replace">Recommend Replacement</button><?php endif; ?>
-              <?php if ($modalStatus === 'for_replacement'): ?><button class="b2" type="submit" name="action" value="resume">Resume Repair</button><?php endif; ?>
-            </div>
-          </form>
-        </div>
-
-        <?php if (in_array($modalStatus, ['in_progress','waiting_for_materials','for_replacement'], true)): ?>
-        <div class="modal-card">
-          <div class="panel-head" style="margin:0">
-            <div>
-              <small>Materials / Budget (optional)</small>
-              <h2 class="section-title">Request Budget</h2>
-            </div>
-          </div>
-          <form class="form tech-ajax" method="post" action="technician_budget_request.php" data-reload="1">
-            <input type="hidden" name="report_id" value="<?php echo $rid_e; ?>">
-            <div class="repair-grid">
-              <?php for ($bi = 0; $bi < 3; $bi++): ?>
-              <div class="repair-row">
-                <input type="text" name="part_needed[]" placeholder="Part / material<?php echo $bi === 0 ? ' (e.g. RAM Module)' : ''; ?>">
-                <input type="number" name="quantity[]" min="1" placeholder="Qty">
-                <input type="number" step="0.01" name="estimated_cost[]" placeholder="Est. cost (₱)">
-                <input type="text" name="supplier[]" placeholder="Supplier">
-              </div>
-              <?php endfor; ?>
-            </div>
-            <label for="bud_just_<?php echo $rid_e; ?>">Justification</label>
-            <textarea id="bud_just_<?php echo $rid_e; ?>" name="justification" placeholder="Why are these parts/materials needed?"></textarea>
-            <div class="actions modal-action-bar">
-              <button class="b2" type="submit"><i class="fas fa-coins"></i> Submit Budget Request</button>
-            </div>
-          </form>
-        </div>
-
-        <div class="modal-card">
-          <div class="panel-head" style="margin:0">
-            <div>
-              <small>Finish the job</small>
-              <h2 class="section-title">Completion Report</h2>
-            </div>
-          </div>
-          <form class="form tech-ajax" method="post" action="technician_complete_task.php" enctype="multipart/form-data" data-reload="1">
-            <input type="hidden" name="report_id" value="<?php echo $rid_e; ?>">
-            <input type="hidden" name="action" value="complete">
-            <div class="form-section"><span class="fs-num">1</span><span class="fs-text"><strong>Timing &amp; Cost</strong><span>When the work started and what it cost</span></span></div>
-            <div class="repair-grid">
-              <div><label>Date started</label><input type="datetime-local" name="date_started"></div>
-              <div><label>Repair duration</label><input type="text" name="repair_duration" placeholder="e.g. 1h 30m"></div>
-              <div><label>Repair cost (₱)</label><input type="number" step="0.01" name="repair_cost" placeholder="0.00"></div>
-            </div>
-            <div class="form-section"><span class="fs-num">2</span><span class="fs-text"><strong>Diagnosis &amp; Work Done</strong><span>What was wrong and how you fixed it</span></span></div>
-            <label>Diagnosis</label>
-            <textarea name="diagnosis" placeholder="What was found to be wrong?"></textarea>
-            <label>Actions performed</label>
-            <textarea name="actions_performed" placeholder="What did you do?"></textarea>
-            <label>Repair procedures</label>
-            <textarea name="repair_procedures" placeholder="Steps / procedures followed."></textarea>
-            <label>Repair summary</label>
-            <textarea name="work_performed" placeholder="Overall summary of the repair."></textarea>
-            <div class="form-section"><span class="fs-num">3</span><span class="fs-text"><strong>Parts, Tools &amp; Materials</strong><span>What you used during the repair</span></span></div>
-            <div class="repair-grid">
-              <div><label>Parts replaced</label><input type="text" name="parts_replaced" placeholder="e.g. capacitor"></div>
-              <div><label>Tools used</label><input type="text" name="tools_used" placeholder="e.g. multimeter"></div>
-              <div><label>Materials used</label><input type="text" name="materials_used" placeholder="e.g. thermal paste"></div>
-            </div>
-            <div class="form-section"><span class="fs-num">4</span><span class="fs-text"><strong>Outcome</strong><span>Final condition and any follow-up needed</span></span></div>
-            <label>Final findings</label>
-            <textarea name="findings" placeholder="Condition after repair / test results."></textarea>
-            <label>Recommendations</label>
-            <textarea name="recommendations" placeholder="Any follow-up or preventive recommendation."></textarea>
-            <div class="form-section"><span class="fs-num">5</span><span class="fs-text"><strong>Photo Documentation</strong><span>Before, during &amp; after evidence of the repair</span></span></div>
-            <div class="repair-grid photo-grid">
-              <div class="photo-field">
-                <label class="photo-drop">
-                  <input type="file" class="photo-input" name="before_photos[]" accept="image/*" multiple>
-                  <i class="fas fa-camera"></i>
-                  <span class="photo-drop-label">Before photos</span>
-                  <span class="photo-hint">Tap to capture or choose</span>
-                </label>
-                <div class="photo-preview"></div>
-              </div>
-              <div class="photo-field">
-                <label class="photo-drop">
-                  <input type="file" class="photo-input" name="during_photos[]" accept="image/*" multiple>
-                  <i class="fas fa-camera"></i>
-                  <span class="photo-drop-label">During photos</span>
-                  <span class="photo-hint">Tap to capture or choose</span>
-                </label>
-                <div class="photo-preview"></div>
-              </div>
-              <div class="photo-field">
-                <label class="photo-drop">
-                  <input type="file" class="photo-input" name="after_photos[]" accept="image/*" multiple>
-                  <i class="fas fa-camera"></i>
-                  <span class="photo-drop-label">After photos</span>
-                  <span class="photo-hint">Tap to capture or choose</span>
-                </label>
-                <div class="photo-preview"></div>
-              </div>
-            </div>
-            <div class="actions modal-action-bar">
-              <button class="b4" type="submit"><i class="fas fa-clipboard-check"></i> Submit Completion Report</button>
-            </div>
-          </form>
-        </div>
-        <?php endif; ?>
+    <div class="m-body">
+      <div class="m-tools">
+        <span><?php echo $unreadCount > 0 ? ((int)$unreadCount . ' unread') : 'All caught up'; ?></span>
+        <?php if ($unreadCount > 0): ?>
+        <form method="post" style="margin:0"><input type="hidden" name="action" value="mark_all_read"><button type="submit"><i class="fas fa-check-double"></i> Mark all read</button></form>
         <?php endif; ?>
       </div>
+      <?php $anyNotif = false; foreach ($notifGroups as $g) { if ($g) { $anyNotif = true; break; } } ?>
+      <?php if (!$anyNotif): ?>
+      <div class="empty"><i class="fas fa-bell-slash"></i><strong>No notifications</strong><div>New assignments, budget updates and reminders will appear here.</div></div>
+      <?php else: ?>
+        <?php foreach ($notifGroups as $groupLabel => $items): if (!$items) continue; ?>
+        <div class="ngroup"><?php echo e($groupLabel); ?></div>
+        <?php foreach ($items as $n): $unread = !notifIsRead($n['is_read'] ?? false); ?>
+        <div class="nitem <?php echo $unread ? 'unread' : ''; ?>">
+          <span class="nic"><i class="fas <?php echo e(notifIcon((string)($n['type'] ?? ''))); ?>"></i></span>
+          <div style="min-width:0;flex:1">
+            <div class="nmsg"><?php echo e((string)($n['message'] ?? '')); ?></div>
+            <div class="nmeta">
+              <span><i class="fas fa-clock"></i> <?php echo e(fdt((string)($n['created_date'] ?? ''))); ?></span>
+              <?php if (trim((string)($n['related_id'] ?? '')) !== ''): ?><a href="?tab=my_tasks&report=<?php echo urlencode((string)$n['related_id']); ?>"><i class="fas fa-up-right-from-square"></i> Open task</a><?php endif; ?>
+            </div>
+          </div>
+          <?php if ($unread): ?>
+          <form method="post" class="nread"><input type="hidden" name="action" value="mark_read"><input type="hidden" name="notification_id" value="<?php echo e((string)($n['notification_id'] ?? '')); ?>"><button type="submit" aria-label="Mark as read" title="Mark as read"><i class="fas fa-check"></i></button></form>
+          <?php endif; ?>
+        </div>
+        <?php endforeach; ?>
+        <?php endforeach; ?>
+      <?php endif; ?>
     </div>
   </div>
-  <?php endforeach; ?>
-    </div>
-  </main>
 </div>
+
+<!-- ═══════════ MOBILE BOTTOM NAV ═══════════ -->
+<nav class="bnav" aria-label="Primary">
+  <a class="bn <?php echo $tab === 'my_tasks' ? 'on' : ''; ?>" href="?tab=my_tasks"><i class="fas fa-list-check"></i><span>Tasks</span><?php if ($taskCount > 0): ?><em class="tb-dot" style="font-style:normal"><?php echo $taskCount > 9 ? '9+' : (int)$taskCount; ?></em><?php endif; ?></a>
+  <button class="bn" type="button" data-modal-target="notifModal"><i class="fas fa-bell"></i><span>Alerts</span><?php if ($unreadCount > 0): ?><em class="tb-dot" style="font-style:normal"><?php echo $unreadCount > 9 ? '9+' : (int)$unreadCount; ?></em><?php endif; ?></button>
+  <a class="bn <?php echo $tab === 'history' ? 'on' : ''; ?>" href="?tab=history"><i class="fas fa-clock-rotate-left"></i><span>History</span></a>
+</nav>
+
 <script>
+/* ══════════ Technician Portal behaviour (rebuilt) ══════════ */
 const body = document.body;
-const sidebar = document.getElementById('technicianSidebar');
-const sidebarToggle = document.getElementById('sidebarToggle');
-const sidebarClosers = document.querySelectorAll('[data-close-sidebar]');
 
-function setSidebarOpen(open) {
-  body.classList.toggle('sidebar-open', open);
-  if (sidebarToggle) sidebarToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
-}
+/* Sidebar (mobile drawer) */
+document.querySelectorAll('[data-sb-toggle]').forEach(function (b) {
+  b.addEventListener('click', function () { body.classList.toggle('sb-open'); });
+});
+document.querySelectorAll('[data-sb-close]').forEach(function (b) {
+  b.addEventListener('click', function () { body.classList.remove('sb-open'); });
+});
+window.addEventListener('resize', function () { if (window.innerWidth > 960) body.classList.remove('sb-open'); });
 
-if (sidebarToggle) {
-  sidebarToggle.addEventListener('click', () => {
-    setSidebarOpen(!body.classList.contains('sidebar-open'));
-  });
-}
-
-sidebarClosers.forEach((node) => {
-  node.addEventListener('click', () => setSidebarOpen(false));
-});
-
-window.addEventListener('resize', () => {
-  if (window.innerWidth > 960) setSidebarOpen(false);
-});
-
-document.querySelectorAll('[data-modal-target]').forEach((trigger) => {
-  trigger.addEventListener('click', () => {
-    const modal = document.getElementById(trigger.getAttribute('data-modal-target'));
-    if (!modal) return;
-    modal.classList.add('open');
-    modal.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('modal-open');
-  });
-});
-document.querySelectorAll('[data-modal-close]').forEach((button) => {
-  button.addEventListener('click', () => {
-    const modal = button.closest('.modal');
-    if (!modal) return;
-    modal.classList.remove('open');
-    modal.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('modal-open');
-  });
-});
-document.querySelectorAll('.modal').forEach((modal) => {
-  modal.addEventListener('click', (event) => {
-    if (event.target !== modal) return;
-    modal.classList.remove('open');
-    modal.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('modal-open');
-  });
-});
-document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && body.classList.contains('sidebar-open')) {
-    setSidebarOpen(false);
+/* Task selection → reveal its repair workspace below and scroll to it */
+const wsPanels = document.querySelectorAll('.ws-panel');
+const qcards   = document.querySelectorAll('.qcard[data-ws-target]');
+const ctxRails = document.querySelectorAll('.ctx');
+function selectWorkspace(id, scroll) {
+  let found = false;
+  wsPanels.forEach(function (p) { const on = p.id === id; p.classList.toggle('active', on); if (on) found = true; });
+  qcards.forEach(function (c) { c.classList.toggle('active', c.getAttribute('data-ws-target') === id); });
+  const railId = id.replace(/^ws-/, 'rail-');
+  ctxRails.forEach(function (r) { r.classList.toggle('active', r.id === railId); });
+  if (found && scroll) {
+    const z = document.getElementById('wsZone');
+    if (z) z.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
-  if (event.key !== 'Escape') return;
-  document.querySelectorAll('.modal.open').forEach((modal) => {
-    modal.classList.remove('open');
-    modal.setAttribute('aria-hidden', 'true');
-  });
-  document.body.classList.remove('modal-open');
+}
+qcards.forEach(function (card) {
+  card.addEventListener('click', function () { selectWorkspace(card.getAttribute('data-ws-target'), true); });
 });
+document.querySelectorAll('[data-ws-back]').forEach(function (b) {
+  b.addEventListener('click', function () {
+    const q = document.getElementById('queue');
+    if (q) q.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+/* Deep link (?report=...) — scroll to the preselected panel */
+(function () {
+  const pre = document.querySelector('.ws-panel.active');
+  if (pre) setTimeout(function () { pre.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 250);
+})();
 
-// AJAX submit for completion report + budget request (keeps file uploads working)
+/* Notification modal */
+function closeAnyModal(m) { m.classList.remove('open'); m.setAttribute('aria-hidden', 'true'); body.classList.remove('modal-open'); }
+document.querySelectorAll('[data-modal-target]').forEach(function (t) {
+  t.addEventListener('click', function () {
+    const m = document.getElementById(t.getAttribute('data-modal-target'));
+    if (!m) return;
+    m.classList.add('open'); m.setAttribute('aria-hidden', 'false'); body.classList.add('modal-open');
+  });
+});
+document.querySelectorAll('[data-modal-close]').forEach(function (b) {
+  b.addEventListener('click', function () { const m = b.closest('.modal'); if (m) closeAnyModal(m); });
+});
+document.querySelectorAll('.modal').forEach(function (m) {
+  m.addEventListener('click', function (e) { if (e.target === m) closeAnyModal(m); });
+});
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Escape') return;
+  const open = document.querySelector('.modal.open');
+  if (open) { closeAnyModal(open); return; }
+  body.classList.remove('sb-open');
+});
+/* Re-open notifications after a mark-as-read round trip */
+if (new URLSearchParams(location.search).get('notif') === '1') {
+  const nm = document.getElementById('notifModal');
+  if (nm) { nm.classList.add('open'); nm.setAttribute('aria-hidden', 'false'); body.classList.add('modal-open'); }
+}
+
+/* Live repair timer + SLA countdown */
+function fmtDur(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600), m = Math.floor((sec % 3600) / 60);
+  if (d > 0) return d + 'd ' + h + 'h';
+  if (h > 0) return h + 'h ' + m + 'm';
+  return m + 'm';
+}
+function tickTimers() {
+  const now = Date.now() / 1000;
+  document.querySelectorAll('.rep-timer').forEach(function (el) {
+    const s = parseInt(el.getAttribute('data-started'), 10);
+    if (!s) return;
+    el.innerHTML = '<i class="fas fa-stopwatch"></i> ' + fmtDur(now - s);
+  });
+  document.querySelectorAll('.sla-chip').forEach(function (el) {
+    const due = parseInt(el.getAttribute('data-due'), 10);
+    if (!due) return;
+    const diff = due - now;
+    if (diff <= 0) {
+      el.classList.add('overdue');
+      el.innerHTML = '<i class="fas fa-triangle-exclamation"></i> Overdue ' + fmtDur(-diff);
+    } else {
+      el.classList.toggle('soon', diff < 86400);
+      el.innerHTML = '<i class="fas fa-gauge-high"></i> Due in ' + fmtDur(diff);
+    }
+  });
+}
+tickTimers();
+setInterval(tickTimers, 30000);
+
+/* AJAX submit for budget request + completion report (keeps file uploads working) */
 document.querySelectorAll('form.tech-ajax').forEach(function (f) {
   f.addEventListener('submit', async function (e) {
     e.preventDefault();
@@ -2288,7 +1343,7 @@ document.querySelectorAll('form.tech-ajax').forEach(function (f) {
     if (btn) { btn.disabled = true; btn.innerHTML = 'Submitting…'; }
     try {
       const res = await fetch(f.action, { method: 'POST', body: new FormData(f) });
-      const data = await res.json().catch(() => ({ success: false, message: 'Unexpected server response.' }));
+      const data = await res.json().catch(function () { return { success: false, message: 'Unexpected server response.' }; });
       if (data.success) {
         if (f.dataset.reload) { window.location.reload(); return; }
       } else {
@@ -2300,73 +1355,38 @@ document.querySelectorAll('form.tech-ajax').forEach(function (f) {
     if (btn) { btn.disabled = false; btn.innerHTML = orig; }
   });
 });
-</script>
-<?php require_once __DIR__ . '/includes/csrf_inject.php'; ?>
-<style>
-/* ── Task card: age / SLA indicator ── */
-.badge.age{background:var(--surface-alt);color:var(--muted);border:1px solid var(--line);}
-.badge.age.overdue{background:#fdecec;color:#b42318;border-color:#f3b9b9;animation:slaPulse 2.4s ease-in-out infinite;}
-@keyframes slaPulse{0%,100%{box-shadow:0 0 0 0 rgba(180,35,24,.0);}50%{box-shadow:0 0 0 4px rgba(180,35,24,.12);}}
 
-/* ── Completion form: grouped sections for a clearer repair workflow ── */
-.form-section{display:flex;align-items:center;gap:9px;margin:20px 0 10px;padding-bottom:8px;border-bottom:1px solid var(--line);}
-.form-section:first-of-type{margin-top:4px;}
-.form-section .fs-num{width:24px;height:24px;flex:0 0 24px;border-radius:50%;background:var(--maroon);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;}
-.form-section .fs-text{display:flex;flex-direction:column;line-height:1.15;}
-.form-section .fs-text strong{font-size:.92rem;color:var(--text);font-weight:700;}
-.form-section .fs-text span{font-size:.7rem;color:var(--muted);}
-
-/* ── Field / mobile UX: camera photo capture + touch ergonomics ── */
-.photo-grid{gap:12px;}
-.photo-field{display:flex;flex-direction:column;}
-.photo-drop{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:18px 12px;border:2px dashed var(--line-strong);border-radius:14px;background:var(--surface-alt);cursor:pointer;text-align:center;transition:border-color .15s,background .15s;min-height:104px;}
-.photo-drop:hover,.photo-drop:focus-within{border-color:var(--maroon);background:#fff;}
-.photo-drop i{font-size:1.5rem;color:var(--maroon);}
-.photo-drop-label{font-weight:600;font-size:.85rem;color:var(--text);}
-.photo-hint{font-size:.7rem;color:var(--muted);}
-.photo-input{position:absolute;width:1px;height:1px;opacity:0;}
-.photo-preview{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
-.photo-preview .pchip{width:56px;height:56px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:var(--surface-alt);}
-.photo-preview .pchip img{width:100%;height:100%;object-fit:cover;}
-.photo-drop.has-files{border-style:solid;border-color:var(--green);background:var(--green-soft);}
-.photo-drop.has-files i{color:var(--green);}
-
-@media(max-width:640px){
-  /* full-height, scrollable modals so long repair forms are usable on phones */
-  .modal-dialog{max-height:100dvh;height:100dvh;border-radius:0;overflow:auto;-webkit-overflow-scrolling:touch;}
-  /* sticky submit bar — never hunt for the button on a long form */
-  .modal-action-bar{position:sticky;bottom:0;background:var(--surface);margin:14px -14px -14px;padding:12px 14px;border-top:1px solid var(--line);box-shadow:0 -8px 20px rgba(45,5,5,.1);display:flex;flex-wrap:wrap;gap:8px;z-index:6;}
-  .modal-action-bar button{flex:1 1 100%;min-height:50px;justify-content:center;font-size:.92rem;}
-  /* larger, zoom-safe touch inputs (16px stops iOS auto-zoom) */
-  .form input,.form textarea,.form select{min-height:48px;font-size:16px;}
-  .form textarea{min-height:96px;}
-  .photo-grid{grid-template-columns:1fr;}
-  .filter-chip,.tab,.side-link,.search button,.item-trigger{min-height:44px;}
-}
-</style>
-<script>
-/* Live thumbnail previews for the field photo-capture controls. */
+/* Photo capture previews */
 document.addEventListener('change', function (e) {
-  var inp = e.target;
+  const inp = e.target;
   if (!inp || !inp.classList || !inp.classList.contains('photo-input')) return;
-  var field = inp.closest('.photo-field'); if (!field) return;
-  var prev = field.querySelector('.photo-preview');
-  var drop = field.querySelector('.photo-drop');
-  var hint = drop ? drop.querySelector('.photo-hint') : null;
+  const field = inp.closest('.photo-field');
+  const drop = inp.closest('.photo-drop');
+  const prev = field ? field.querySelector('.photo-preview') : null;
+  if (!prev) return;
   prev.innerHTML = '';
-  var files = Array.prototype.slice.call(inp.files || []);
+  const files = Array.from(inp.files || []);
   if (drop) drop.classList.toggle('has-files', files.length > 0);
-  if (hint) hint.textContent = files.length ? (files.length + ' photo' + (files.length > 1 ? 's' : '') + ' selected') : 'Tap to capture or choose';
-  files.slice(0, 12).forEach(function (f) {
-    if (!/^image\//.test(f.type)) return;
-    var url = URL.createObjectURL(f);
-    var chip = document.createElement('div'); chip.className = 'pchip';
-    var img = document.createElement('img'); img.src = url; img.onload = function () { URL.revokeObjectURL(url); };
+  files.slice(0, 8).forEach(function (file) {
+    if (!file.type || file.type.indexOf('image/') !== 0) return;
+    const chip = document.createElement('span'); chip.className = 'pchip';
+    const img = document.createElement('img'); img.alt = '';
+    img.src = URL.createObjectURL(file);
+    img.onload = function () { URL.revokeObjectURL(img.src); };
     chip.appendChild(img); prev.appendChild(chip);
   });
 });
 </script>
-<script src="assets/sidebar_autohide.js" defer></script>
+<script>
+/* PWA: register the service worker (installable technician app) */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () {/* non-fatal */});
+  });
+}
+</script>
+<?php require_once __DIR__ . '/includes/csrf_inject.php'; ?>
+<?php require __DIR__ . '/includes/technician_assistant.php'; ?>
 <?php require __DIR__ . '/includes/site_transitions.php'; ?>
 </body>
 </html>

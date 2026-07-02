@@ -9,7 +9,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="../css/typography.css" />
     <link rel="icon" type="image/png" href="../assets/logs.png" />
+    <link rel="manifest" href="../manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="../assets/pwa-icon-192.png" />
     <meta name="theme-color" content="#4A0E0E" />
+    <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('../sw.js').catch(function(){});});}</script>
     <title>BEC PMO — Technician Sign In</title>
     <style>
       :root {

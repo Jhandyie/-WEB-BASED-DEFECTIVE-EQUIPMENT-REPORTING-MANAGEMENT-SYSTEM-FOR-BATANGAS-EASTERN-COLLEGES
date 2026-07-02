@@ -8,6 +8,9 @@
 # No directory listings
 Options -Indexes
 
+# PWA: correct MIME type for the web-app manifest
+AddType application/manifest+json .webmanifest
+
 # Block dotfiles (.env, .git, etc.)
 <FilesMatch "^\.">
     Require all denied
@@ -25,11 +28,11 @@ Options -Indexes
 
 # Block direct web access to server-only directories
 # (data store, logs, config, server includes, MVC layers)
-RedirectMatch 403 (?i)/(data|logs|config|includes|models|controllers)/
+RedirectMatch 403 (?i)/(data|logs|config|includes|models|controllers|backups|scripts)/
 
 # Defense-in-depth: also deny via rewrite if mod_rewrite is on
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteRule (?i)(^|/)\.env$ - [F,L]
-    RewriteRule (?i)/(data|logs|config|includes|models|controllers)/ - [F,L]
+    RewriteRule (?i)/(data|logs|config|includes|models|controllers|backups|scripts)/ - [F,L]
 </IfModule>

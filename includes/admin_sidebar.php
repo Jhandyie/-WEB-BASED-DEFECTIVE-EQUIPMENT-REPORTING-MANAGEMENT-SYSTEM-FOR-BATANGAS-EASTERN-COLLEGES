@@ -30,6 +30,7 @@ $__sections = [
         ['users',         'admin_users.php',              'fa-users',               'User Management'],
         ['directory',     'admin_bec_directory.php',      'fa-id-card',             'BEC Directory'],
         ['notifications', 'admin_notifications.php',       'fa-bell',                'Notifications'],
+        ['audit',         'admin_audit_log.php',           'fa-shield-halved',       'Audit Log'],
     ],
 ];
 ?>

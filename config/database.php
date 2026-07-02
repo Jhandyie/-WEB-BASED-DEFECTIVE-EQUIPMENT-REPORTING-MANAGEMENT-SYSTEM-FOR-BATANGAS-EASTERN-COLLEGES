@@ -1334,11 +1334,14 @@ function getDefectReportById($report_id) {
         $pdo = getPgsqlPdoConnection();
         $sql = "SELECT dr.*, e.equipment_name, e.asset_tag as asset_tag,
                             COALESCE(c.category_name, CAST(e.category_id AS TEXT)) as category_name,
+                            COALESCE(tu.fullname, tu.username, mt.fullname) as technician_name,
                             COALESCE(u.fullname, u.username, dr.reported_by) as reporter_name
                             FROM public.defect_reports dr
                             JOIN public.equipment e ON dr.equipment_id = e.equipment_id
                             LEFT JOIN public.categories c ON e.category_id = c.category_id
                             LEFT JOIN public.users u ON dr.reported_by = u.user_id
+                            LEFT JOIN public.users tu ON dr.assigned_to = tu.user_id
+                            LEFT JOIN public.maintenance_technicians mt ON dr.assigned_to = mt.technician_id
                             WHERE dr.report_id = :report_id";
         $stmt = $pdo->prepare($sql);
         $stmt->execute(['report_id' => $report_id]);
@@ -1349,11 +1352,14 @@ function getDefectReportById($report_id) {
     $conn = getDBConnection();
     $stmt = $conn->prepare("SELECT dr.*, e.equipment_name, e.asset_tag as asset_tag,
                             COALESCE(c.category_name, CAST(e.category_id AS CHAR)) as category_name,
+                            COALESCE(tu.fullname, tu.username, mt.fullname) as technician_name,
                             COALESCE(u.fullname, u.username, dr.reported_by) as reporter_name
                             FROM defect_reports dr
                             JOIN equipment e ON dr.equipment_id = e.equipment_id
                             LEFT JOIN categories c ON e.category_id = c.category_id
                             LEFT JOIN users u ON dr.reported_by = u.user_id
+                            LEFT JOIN users tu ON dr.assigned_to = tu.user_id
+                            LEFT JOIN maintenance_technicians mt ON dr.assigned_to = mt.technician_id
                             WHERE dr.report_id = ?");
     $stmt->bind_param("s", $report_id);
     $stmt->execute();
@@ -1474,11 +1480,12 @@ function getDefectReportsWithFilters($status = 'all', $priority = 'all', $search
         $pdo = getPgsqlPdoConnection();
         $sql = "SELECT dr.*, e.equipment_name, e.asset_tag as asset_tag,
             COALESCE(c.category_name, CAST(e.category_id AS TEXT)) as category_name,
-            mt.fullname as technician_name,
+            COALESCE(tu.fullname, tu.username, mt.fullname) as technician_name,
             COALESCE(u.fullname, u.username, dr.reported_by) as reporter_name
             FROM public.defect_reports dr
             JOIN public.equipment e ON dr.equipment_id = e.equipment_id
             LEFT JOIN public.categories c ON e.category_id = c.category_id
+            LEFT JOIN public.users tu ON dr.assigned_to = tu.user_id
             LEFT JOIN public.maintenance_technicians mt ON dr.assigned_to = mt.technician_id
             LEFT JOIN public.users u ON dr.reported_by = u.user_id
             WHERE 1=1";
@@ -1507,11 +1514,12 @@ function getDefectReportsWithFilters($status = 'all', $priority = 'all', $search
 
     $sql = "SELECT dr.*, e.equipment_name, e.asset_tag as asset_tag,
             COALESCE(c.category_name, CAST(e.category_id AS CHAR)) as category_name,
-            mt.fullname as technician_name,
+            COALESCE(tu.fullname, tu.username, mt.fullname) as technician_name,
             COALESCE(u.fullname, u.username, dr.reported_by) as reporter_name
             FROM defect_reports dr
             JOIN equipment e ON dr.equipment_id = e.equipment_id
             LEFT JOIN categories c ON e.category_id = c.category_id
+            LEFT JOIN users tu ON dr.assigned_to = tu.user_id
             LEFT JOIN maintenance_technicians mt ON dr.assigned_to = mt.technician_id
             LEFT JOIN users u ON dr.reported_by = u.user_id
             WHERE 1=1";
@@ -2105,6 +2113,11 @@ function assignDefectReportToTechnician(string $reportId, string $technicianId, 
         addNotification($technicianId, "New maintenance task assigned - Report #{$reportId}", 'task_assigned', $reportId);
         $conn->commit();
 
+        // Email the technician so they know about the assignment even when logged out (non-fatal).
+        try { notifyTechnicianAssignment($conn, $technicianId, $reportId, $report, $priority, $instructions); } catch (\Throwable $e) {
+            error_log('assign email failed: ' . $e->getMessage());
+        }
+
         return ['ok' => true, 'message' => "Report #{$reportId} assigned successfully."];
     } catch (Throwable $e) {
         if ($conn->errno === 0 || $conn->errno >= 0) {
@@ -2115,6 +2128,65 @@ function assignDefectReportToTechnician(string $reportId, string $technicianId, 
         }
         return ['ok' => false, 'message' => 'Assignment failed: ' . $e->getMessage()];
     }
+}
+
+/**
+ * Branded "new task assigned" email to the technician, with a deep link that
+ * opens the exact repair workspace (technician_dashboard.php?report=...).
+ * Never throws into the assignment flow — callers wrap it in try/catch.
+ */
+function notifyTechnicianAssignment($conn, string $technicianId, string $reportId, array $report, string $priority, string $instructions): bool {
+    // Resolve the technician's mailbox (users first, legacy maintenance_technicians as fallback).
+    $email = ''; $name = 'Technician';
+    $st = $conn->prepare("SELECT email, fullname FROM users WHERE user_id = ? LIMIT 1");
+    if ($st) { $st->bind_param('s', $technicianId); $st->execute(); if ($r = $st->get_result()->fetch_assoc()) { $email = trim((string)($r['email'] ?? '')); $name = trim((string)($r['fullname'] ?? '')) ?: $name; } $st->close(); }
+    if ($email === '') {
+        $st = $conn->prepare("SELECT email, fullname FROM maintenance_technicians WHERE technician_id = ? LIMIT 1");
+        if ($st) { $st->bind_param('s', $technicianId); $st->execute(); if ($r = $st->get_result()->fetch_assoc()) { $email = trim((string)($r['email'] ?? '')); $name = trim((string)($r['fullname'] ?? '')) ?: $name; } $st->close(); }
+    }
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) { return false; }
+
+    require_once __DIR__ . '/../includes/mail_helper.php';
+
+    $scheme = (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off') ? 'https' : 'http';
+    $host   = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $dir    = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
+    $link   = $scheme . '://' . $host . $dir . '/technician_dashboard.php?tab=my_tasks&report=' . urlencode($reportId);
+
+    $eq   = htmlspecialchars((string)($report['equipment_name'] ?? 'Equipment'), ENT_QUOTES, 'UTF-8');
+    $loc  = htmlspecialchars((string)($report['location'] ?? 'Unspecified'), ENT_QUOTES, 'UTF-8');
+    $iss  = htmlspecialchars(mb_strimwidth((string)($report['issue_description'] ?? ''), 0, 220, '…'), ENT_QUOTES, 'UTF-8');
+    $prio = htmlspecialchars(ucfirst($priority ?: 'medium'), ENT_QUOTES, 'UTF-8');
+    $instrBlock = trim($instructions) !== ''
+        ? '<div style="margin:14px 0 0;padding:10px 12px;background:#FFFBEF;border-left:3px solid #C9960C;border-radius:6px;font-size:13px;color:#5C3838;"><strong>PMO instructions:</strong> ' . htmlspecialchars($instructions, ENT_QUOTES, 'UTF-8') . '</div>'
+        : '';
+
+    $subject = 'New Task Assigned — Report ' . $reportId . ' · BEC PMO';
+    $html = '<div style="font-family:Segoe UI,Arial,sans-serif;background:#F4F1EC;padding:24px;">'
+      . '<div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #E8DDD0;border-radius:14px;overflow:hidden;">'
+        . '<div style="background:linear-gradient(135deg,#2D0505,#7B1D1D);color:#fff;padding:20px 24px;">'
+          . '<div style="font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#F0C040;">Batangas Eastern Colleges · Property Management Office</div>'
+          . '<div style="font-size:19px;font-weight:700;margin-top:4px;">New Maintenance Task Assigned</div>'
+        . '</div>'
+        . '<div style="padding:22px 24px;color:#1C1008;">'
+          . '<p style="font-size:14px;line-height:1.6;margin:0 0 14px;">Hello ' . htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . ', the PMO has assigned a repair task to you.</p>'
+          . '<table style="width:100%;font-size:13px;color:#5C3838;">'
+            . '<tr><td style="padding:3px 0;width:110px;color:#9E8070;">Report</td><td style="font-weight:700;color:#7B1D1D;">' . htmlspecialchars($reportId, ENT_QUOTES, 'UTF-8') . '</td></tr>'
+            . '<tr><td style="padding:3px 0;color:#9E8070;">Equipment</td><td>' . $eq . '</td></tr>'
+            . '<tr><td style="padding:3px 0;color:#9E8070;">Location</td><td>' . $loc . '</td></tr>'
+            . '<tr><td style="padding:3px 0;color:#9E8070;">Priority</td><td>' . $prio . '</td></tr>'
+            . ($iss !== '' ? '<tr><td style="padding:3px 0;color:#9E8070;vertical-align:top;">Issue</td><td>' . $iss . '</td></tr>' : '')
+          . '</table>'
+          . $instrBlock
+          . '<div style="text-align:center;margin:22px 0 6px;">'
+            . '<a href="' . htmlspecialchars($link, ENT_QUOTES, 'UTF-8') . '" style="display:inline-block;background:linear-gradient(135deg,#4A0E0E,#7B1D1D);color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:13px 28px;border-radius:10px;">Open Repair Workspace</a>'
+          . '</div>'
+          . '<p style="font-size:12px;color:#9E8070;text-align:center;margin:6px 0 0;">Sign in with your technician account to receive and start the task.</p>'
+        . '</div>'
+        . '<div style="background:#F8F3EA;padding:14px 24px;font-size:11px;color:#9E8070;text-align:center;border-top:1px solid #E8DDD0;">Batangas Eastern Colleges · Property Management Office · Automated message</div>'
+      . '</div></div>';
+
+    return (bool) sendEmail($email, $subject, $html, null, 'technician');
 }
 
 function getTechnicianStatistics($technician_id) {
