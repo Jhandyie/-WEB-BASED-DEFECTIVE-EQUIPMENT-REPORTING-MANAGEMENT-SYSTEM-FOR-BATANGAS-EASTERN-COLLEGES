@@ -3,7 +3,9 @@ session_start();
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../controllers/studentDashboardController.php';
-require_once __DIR__ . '/../inventory_functions.php';
+/* NOTE: inventory_functions.php must NOT be included here — it is the admin
+   inventory PAGE (enforces an admin session and emits HTML), which broke every
+   student API call with a 302. Nothing in this API uses its PHP helpers. */
 require_once __DIR__ . '/../file_storage_helpers.php';
 
 // Check if this is an API request
