@@ -85,6 +85,9 @@ budget notifications, PMO alerts).
 
 > **Production note:** serve over **HTTPS** for PWA installation and secure cookies, and point
 > `config/finance.php` + SMTP at institutional accounts.
+> See **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** for the full hosting guide — including a
+> 10-minute public HTTPS demo via Cloudflare Tunnel, shared-hosting requirements
+> (`pdo_pgsql`, SMTP), cron backups, and a post-launch verification checklist.
 
 ## Project structure (key paths)
 
