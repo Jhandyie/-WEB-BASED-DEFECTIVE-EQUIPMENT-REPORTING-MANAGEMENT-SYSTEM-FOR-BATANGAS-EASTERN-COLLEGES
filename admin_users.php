@@ -1512,40 +1512,75 @@ function getRows(){
   });
   return{h,r};
 }
+/* ── Official BEC PMO USER LIST export (matches the PMO form: letterhead +
+      Full Name / Email / Employee ID / Student ID / Department / Program-Role) ── */
+const USER_HEADERS = ['FULL NAME','EMAIL ADDRESS','EMPLOYEE ID','STUDENT ID','DEPARTMENT','PROGRAM / USER ROLE'];
+const USER_EXPORT = <?php
+  $exp = [];
+  foreach ($users as $u2) {
+      $roleLbl = ucwords(str_replace('_', ' ', (string)($u2['role'] ?? '')));
+      $program = trim((string)($u2['course'] ?? ''));
+      $exp[] = [
+          (string)($u2['fullname'] ?? ''),
+          (string)($u2['email'] ?? ''),
+          (string)($u2['employee_id'] ?? ''),
+          (string)($u2['school_id'] ?? ''),
+          (string)($u2['department'] ?? ''),
+          $program !== '' ? ($program . ' / ' . $roleLbl) : $roleLbl,
+      ];
+  }
+  echo json_encode($exp, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_INVALID_UTF8_SUBSTITUTE);
+?>;
 function exportCSV(){
-  const{h,r}=getRows();
-  let c='BEC User Management\nExported: '+new Date().toLocaleString()+'\n\n';
-  c+=h.join(',')+'\n';
-  r.forEach(row=>c+=row.map(v=>'"'+v.replace(/"/g,'""')+'"').join(',')+'\n');
+  let c='BATANGAS EASTERN COLLEGES\nProperty Management Office\nUSER LIST\nGenerated: '+new Date().toLocaleString()+'\n\n';
+  c+=USER_HEADERS.join(',')+'\n';
+  USER_EXPORT.forEach(row=>c+=row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')+'\n');
   const b=new Blob([c],{type:'text/csv'});const a=document.createElement('a');
-  a.href=URL.createObjectURL(b);a.download='users_'+new Date().toISOString().split('T')[0]+'.csv';a.click();
-  toast('ok',r.length+' users exported.','CSV Export');
+  a.href=URL.createObjectURL(b);a.download='BEC_PMO_User_List_'+new Date().toISOString().split('T')[0]+'.csv';a.click();
+  toast('ok',USER_EXPORT.length+' users exported.','CSV Export');
 }
 function exportExcel(){
-  const{h,r}=getRows();
-  const ws=XLSX.utils.aoa_to_sheet([['BEC User Management'],['Exported: '+new Date().toLocaleString()],[],h,...r]);
-  ws['!cols']=h.map(()=>({wch:18}));
-  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Users');
-  XLSX.writeFile(wb,'users_'+new Date().toISOString().split('T')[0]+'.xlsx');
-  toast('ok',r.length+' users exported.','Excel Export');
+  const ws=XLSX.utils.aoa_to_sheet([
+    ['BATANGAS EASTERN COLLEGES'],['Property Management Office'],['USER LIST'],
+    ['Generated: '+new Date().toLocaleString()],[],
+    USER_HEADERS,...USER_EXPORT
+  ]);
+  ws['!cols']=[{wch:28},{wch:32},{wch:16},{wch:16},{wch:22},{wch:26}];
+  ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:5}},{s:{r:1,c:0},e:{r:1,c:5}},{s:{r:2,c:0},e:{r:2,c:5}},{s:{r:3,c:0},e:{r:3,c:5}}];
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'User List');
+  XLSX.writeFile(wb,'BEC_PMO_User_List_'+new Date().toISOString().split('T')[0]+'.xlsx');
+  toast('ok',USER_EXPORT.length+' users exported.','Excel Export');
 }
 function exportPDF(){
-  const{h,r}=getRows();const dt=new Date().toLocaleString();
+  const dt=new Date().toLocaleString();
+  const logo=new URL('assets/logs.png',location.href).href;
   const win=window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><title>BEC Users</title>
-  <style>body{font-family:'Segoe UI',sans-serif;margin:2cm;color:#1a0808;font-size:11px;}
-  h1{font-size:18px;color:#7B1D1D;margin-bottom:4px;}.sub{font-size:10px;color:#9a7a7a;margin-bottom:18px;}
-  table{width:100%;border-collapse:collapse;}th{background:#7B1D1D;color:#fff;padding:6px 8px;font-size:9px;text-transform:uppercase;letter-spacing:.5px;text-align:left;}
-  td{padding:5px 8px;border-bottom:1px solid #e5d9c6;font-size:10px;}tr:nth-child(even)td{background:#faf7f0;}
-  .foot{margin-top:18px;font-size:9px;color:#9a7a7a;border-top:1px solid #e5d9c6;padding-top:7px;}
-  @media print{@page{margin:1.5cm;size:A4 landscape;}}</style></head><body>
-  <h1>BEC Equipment Management — Users</h1>
-  <div class="sub">Generated: ${dt} &nbsp;|&nbsp; ${r.length} users</div>
-<table><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead>
-<tbody>${r.map(row=>'<tr>'+row.map(v=>`<td>${v}</td>`).join('')+'</tr>').join('')}</tbody></table>
-  <div class="foot">Batangas Eastern Colleges &nbsp;·&nbsp; Equipment Management System &nbsp;·&nbsp; ${dt}</div>
+  win.document.write(`<!DOCTYPE html><html><head><title>BEC PMO — User List</title>
+  <style>
+  *{box-sizing:border-box;}body{font-family:'Segoe UI',Calibri,Arial,sans-serif;margin:1.4cm 1.2cm 1.8cm;color:#111;font-size:11px;}
+  .lh{text-align:center;margin-bottom:14px;}
+  .lh img{width:64px;height:64px;border-radius:50%;object-fit:cover;margin-bottom:6px;}
+  .lh .school{font-size:15px;font-weight:800;letter-spacing:.4px;color:#111;}
+  .lh .office{font-size:11.5px;font-style:italic;color:#222;margin-top:1px;}
+  .lh .doc{font-size:11px;letter-spacing:2px;color:#333;margin-top:3px;text-transform:uppercase;}
+  table{width:100%;border-collapse:collapse;}
+  thead th{background:#BDD7EE;color:#111;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;padding:7px 8px;text-align:left;border:1px solid #9DBBD9;}
+  td{padding:6px 8px;border:1px solid #D9E4F0;font-size:10px;vertical-align:top;}
+  tr:nth-child(even) td{background:#F5F9FD;}
+  .pfoot{position:fixed;bottom:.4cm;left:0;right:0;text-align:center;font-size:9px;color:#666;}
+  @media print{@page{margin:1.2cm;size:A4 landscape;} thead{display:table-header-group;}}
+  </style></head><body>
+  <div class="lh">
+    <img src="${logo}" onerror="this.style.display='none'">
+    <div class="school">BATANGAS EASTERN COLLEGES</div>
+    <div class="office">Property Management Office</div>
+    <div class="doc">User List</div>
+  </div>
+  <table><thead><tr>${USER_HEADERS.map(x=>`<th>${x}</th>`).join('')}</tr></thead>
+  <tbody>${USER_EXPORT.map(row=>'<tr>'+row.map(v=>`<td>${String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;')||'—'}</td>`).join('')+'</tr>').join('')}</tbody></table>
+  <div class="pfoot">Batangas Eastern Colleges · Property Management Office · Generated ${dt} · ${USER_EXPORT.length} user(s)</div>
   </body></html>`);
-  win.document.close();setTimeout(()=>{win.print();win.close();},400);
+  win.document.close();setTimeout(()=>{win.print();win.close();},450);
   toast('ok','Print dialog opened.','PDF Export');
 }
 /* Keep admin UI colors stable across visited links */
