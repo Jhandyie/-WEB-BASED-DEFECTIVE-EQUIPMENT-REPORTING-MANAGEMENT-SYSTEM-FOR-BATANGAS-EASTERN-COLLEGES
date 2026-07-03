@@ -872,6 +872,13 @@ body.modal-open{overflow:hidden;}
 .chip-item button{width:18px;height:18px;border-radius:50%;border:none;background:rgba(123,29,29,.15);color:var(--maroon);cursor:pointer;font-size:.58rem;display:flex;align-items:center;justify-content:center;}
 .chip-item button:hover{background:var(--danger);color:#fff;}
 
+/* ── Inline field validation (missing required info) ── */
+.req{color:#DC2626;font-style:normal;font-weight:800;}
+.f-err{border-color:#DC2626 !important;background:#FFF8F8 !important;box-shadow:0 0 0 3px rgba(220,38,38,.12) !important;animation:fShake .3s ease;}
+@keyframes fShake{0%,100%{transform:translateX(0);}25%{transform:translateX(-4px);}75%{transform:translateX(4px);}}
+.f-msg{display:flex;align-items:center;gap:.4rem;margin-top:.35rem;font-size:.74rem;font-weight:700;color:#DC2626;}
+.f-msg i{font-size:.72rem;}
+
 /* ── Contextual ACTION loader — each action gets its own animation ── */
 .axl{position:fixed;inset:0;z-index:3000;display:flex;align-items:center;justify-content:center;
   background:rgba(37,17,17,.66);-webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px);
@@ -1197,8 +1204,8 @@ body.modal-open{overflow:hidden;}
                   <?php endfor; ?>
                 </div>
                 <button type="button" class="add-row" data-add-part><i class="fas fa-plus"></i> Add another part / material</button>
-                <label for="just_<?php echo $rid_e; ?>">Justification</label>
-                <textarea id="just_<?php echo $rid_e; ?>" name="justification" placeholder="Why are these parts/materials needed?"></textarea>
+                <label for="just_<?php echo $rid_e; ?>">Justification <em class="req">*</em></label>
+                <textarea id="just_<?php echo $rid_e; ?>" name="justification" placeholder="Why are these parts/materials needed?" data-req="Justification"></textarea>
                 <div class="fin-note"><i class="fas fa-building-columns"></i> The <strong>Finance office is automatically notified by email</strong> for every budget request — they handle campus budgeting.</div>
                 <div class="actions">
                   <button class="b2" type="submit"><i class="fas fa-coins"></i> Submit Budget Request</button>
@@ -1213,19 +1220,19 @@ body.modal-open{overflow:hidden;}
                 <input type="hidden" name="action" value="complete">
                 <div class="fs"><span class="fs-num">1</span><span class="fs-tx"><strong>Timing &amp; Cost</strong><span>When the work started and what it cost</span></span></div>
                 <div class="fgrid">
-                  <div><label>Date started</label><input type="datetime-local" name="date_started"></div>
-                  <div><label>Repair duration</label><input type="text" name="repair_duration" placeholder="e.g. 1h 30m"></div>
+                  <div><label>Date started <em class="req">*</em></label><input type="datetime-local" name="date_started" data-req="Date started"></div>
+                  <div><label>Repair duration <em class="req">*</em></label><input type="text" name="repair_duration" placeholder="e.g. 1h 30m" data-req="Repair duration"></div>
                   <div><label>Repair cost (₱)</label><input type="number" step="0.01" name="repair_cost" placeholder="0.00"></div>
                 </div>
                 <div class="fs"><span class="fs-num">2</span><span class="fs-tx"><strong>Diagnosis &amp; Work Done</strong><span>What was wrong and how you fixed it</span></span></div>
-                <label>Diagnosis</label>
-                <textarea name="diagnosis" placeholder="What was found to be wrong?"></textarea>
-                <label>Actions performed</label>
-                <textarea name="actions_performed" placeholder="What did you do?"></textarea>
+                <label>Diagnosis <em class="req">*</em></label>
+                <textarea name="diagnosis" placeholder="What was found to be wrong?" data-req="Diagnosis"></textarea>
+                <label>Actions performed <em class="req">*</em></label>
+                <textarea name="actions_performed" placeholder="What did you do?" data-req="Actions performed"></textarea>
                 <label>Repair procedures</label>
                 <textarea name="repair_procedures" placeholder="Steps / procedures followed."></textarea>
-                <label>Repair summary</label>
-                <textarea name="work_performed" placeholder="Overall summary of the repair."></textarea>
+                <label>Repair summary <em class="req">*</em></label>
+                <textarea name="work_performed" placeholder="Overall summary of the repair." data-req="Repair summary"></textarea>
                 <div class="fs"><span class="fs-num">3</span><span class="fs-tx"><strong>Parts, Tools &amp; Materials</strong><span>Add each item one by one — press Enter or “+” after each</span></span></div>
                 <div class="fgrid">
                   <div class="chipfield" data-chipfield>
@@ -1538,10 +1545,59 @@ function actionLoader(show, kind) {
     l.className = 'axl';
   }
 }
+/* ── Inline red warnings for missing required info ── */
+function fieldError(el, msg) {
+  el.classList.add('f-err');
+  let m = el.nextElementSibling;
+  if (!(m && m.classList && m.classList.contains('f-msg'))) {
+    m = document.createElement('div'); m.className = 'f-msg';
+    el.insertAdjacentElement('afterend', m);
+  }
+  m.innerHTML = '<i class="fas fa-circle-exclamation"></i> ' + msg;
+}
+function fieldOk(el) {
+  el.classList.remove('f-err');
+  const m = el.nextElementSibling;
+  if (m && m.classList && m.classList.contains('f-msg')) m.remove();
+}
+function validateForm(f, submitterVal) {
+  const bad = [];
+  f.querySelectorAll('[data-req]').forEach(function (el) {
+    if (!el.value.trim()) { fieldError(el, (el.dataset.req || 'This field') + ' is required.'); bad.push(el); }
+    else fieldOk(el);
+  });
+  /* budget: at least one part / material must be listed */
+  if ((f.action || '').indexOf('budget') !== -1) {
+    const parts = Array.from(f.querySelectorAll('input[name="part_needed[]"]'));
+    if (parts.length && !parts.some(function (p) { return p.value.trim(); })) {
+      fieldError(parts[0], 'Add at least one part / material.'); bad.push(parts[0]);
+    } else if (parts.length) { fieldOk(parts[0]); }
+  }
+  /* waiting / replacement need a reason in the note */
+  if (submitterVal === 'waiting' || submitterVal === 'replace') {
+    const t = f.querySelector('textarea[name="technician_notes"]');
+    if (t && !t.value.trim()) {
+      fieldError(t, 'Please add a note explaining the ' + (submitterVal === 'waiting' ? 'material hold.' : 'replacement recommendation.'));
+      bad.push(t);
+    }
+  }
+  if (bad.length) {
+    bad[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(function () { bad[0].focus({ preventScroll: true }); }, 300);
+  }
+  return bad.length === 0;
+}
+/* red state clears live as the technician types */
+document.addEventListener('input', function (e) {
+  const el = e.target;
+  if (el.classList && el.classList.contains('f-err') && el.value.trim()) fieldOk(el);
+});
+
 /* Normal POST forms (repair progress, notifications): contextual loader + locked button */
 document.querySelectorAll('form:not(.tech-ajax):not(.search)').forEach(function (f) {
   f.addEventListener('submit', function (e) {
     const kind = (e.submitter && e.submitter.value) || (f.querySelector('input[name=action]') || {}).value || 'default';
+    if (!validateForm(f, kind)) { e.preventDefault(); return; }
     actionLoader(true, kind);
     f.querySelectorAll('button[type=submit]').forEach(function (b) {
       b.disabled = true;
@@ -1554,6 +1610,9 @@ document.querySelectorAll('form:not(.tech-ajax):not(.search)').forEach(function 
 document.querySelectorAll('form.tech-ajax').forEach(function (f) {
   f.addEventListener('submit', async function (e) {
     e.preventDefault();
+
+    /* Missing required info → red field warnings, no submit */
+    if (!validateForm(f)) return;
 
     /* Pre-flight photo size check — catch oversized uploads BEFORE sending
        (per-file 10 MB, ~38 MB total: matches the server's limits). */
