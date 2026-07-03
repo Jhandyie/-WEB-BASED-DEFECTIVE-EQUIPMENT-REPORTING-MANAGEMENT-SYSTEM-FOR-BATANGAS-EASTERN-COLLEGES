@@ -115,13 +115,16 @@ try {
     $conn->commit();
     logActivity($technician_id, 'budget.request', 'Submitted budget request ' . $request_id . ' total ₱' . $totalStr);
 
-    // Optional: also notify the Finance office by email (technician's choice).
+    // Finance handles all campus budgeting — every budget request notifies the
+    // Finance office by email (mandatory, not optional).
     $financeMsg = '';
-    if (!empty($_POST['notify_finance'])) {
+    try {
         require_once __DIR__ . '/includes/budget_finance.php';
         $techName = (string)($_SESSION['fullname'] ?? 'Technician');
         [$fsent, $fmsg] = bfNotifyFinance($conn, $request_id, $techName, '');
         $financeMsg = ' ' . $fmsg;
+    } catch (\Throwable $e) {
+        error_log('budget finance notify failed: ' . $e->getMessage());
     }
 
     echo json_encode([

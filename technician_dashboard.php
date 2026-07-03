@@ -427,6 +427,24 @@ try {
     foreach ($notifications as $n) { if (!notifIsRead($n['is_read'] ?? false)) $unreadCount++; }
 } catch (Exception $e) { $notifications = []; $unreadCount = 0; }
 
+/* ── This technician's budget requests, grouped per report (so the workspace
+      shows "you already requested budget" with its live status) ── */
+$budgetByReport = [];
+try {
+    $bs = $conn->prepare("SELECT request_id, report_id, total_cost, status,
+                                 COALESCE(finance_status,'') AS finance_status, created_at
+                          FROM budget_requests WHERE technician_id = ?
+                          ORDER BY created_at DESC LIMIT 100");
+    $bs->bind_param('s', $techId);
+    $bs->execute();
+    $bres = $bs->get_result();
+    while ($b = $bres->fetch_assoc()) {
+        $rid = trim((string)($b['report_id'] ?? ''));
+        if ($rid !== '') { $budgetByReport[$rid][] = $b; }
+    }
+    $bs->close();
+} catch (Exception $e) { $budgetByReport = []; }
+
 /* Robust truthy check — the Postgres adapter may return booleans as 't'/'f' strings. */
 function notifIsRead($v): bool { return in_array(strtolower(trim((string)$v)), ['1','t','true','yes','on'], true); }
 /* Notification presentation helpers. */
@@ -822,6 +840,51 @@ body.modal-open{overflow:hidden;}
   .frow{grid-template-columns:1fr;}
   .facts{grid-template-columns:1fr;}
 }
+
+/* ── Budget: existing-request status ── */
+.br-existing{background:#fff;border:1px solid var(--bdr);border-left:4px solid var(--gold);border-radius:var(--r2);padding:12px 14px;margin-bottom:14px;}
+.br-existing-title{display:flex;align-items:center;gap:.5rem;font-size:.8rem;font-weight:700;color:var(--ink2);margin-bottom:8px;}
+.br-existing-title i{color:var(--green);}
+.br-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:7px 0;border-top:1px dashed var(--bdr);font-size:.76rem;}
+.br-row:first-of-type{border-top:none;}
+.br-id{font-weight:800;color:var(--maroon);}
+.br-id i{color:var(--gold);margin-right:3px;}
+.br-amt{font-family:'Outfit',sans-serif;font-weight:800;color:var(--ink);}
+.br-st{padding:.2rem .55rem;border-radius:14px;font-weight:700;font-size:.64rem;}
+.br-st.wait{background:var(--amber-soft);color:var(--amber);}
+.br-st.ok{background:var(--green-soft);color:var(--green);}
+.br-st.bad{background:var(--danger-soft);color:var(--danger);}
+.br-fin{color:#1D4ED8;font-weight:600;font-size:.7rem;}
+.br-when{margin-left:auto;color:var(--ink3);font-size:.68rem;}
+.fin-note{display:flex;align-items:flex-start;gap:.55rem;margin-top:.9rem;padding:10px 12px;border-radius:11px;background:var(--amber-soft);border:1px solid #F0D79A;font-size:.78rem;color:var(--ink2);line-height:1.5;}
+.fin-note i{color:var(--amber);margin-top:.15rem;}
+.add-row{display:inline-flex;align-items:center;gap:.45rem;margin-top:2px;padding:.5rem .9rem;border-radius:10px;border:1.5px dashed var(--bdr);background:#fff;color:var(--maroon);font-size:.78rem;font-weight:700;cursor:pointer;transition:all .15s;}
+.add-row:hover{border-color:var(--maroon);background:var(--maroon-soft);}
+
+/* ── Chip fields (parts / tools / materials) ── */
+.chipfield label{margin-top:0;}
+.chip-entry{display:flex;gap:6px;}
+.chip-entry .chip-in{flex:1;}
+.chip-add{width:42px;flex-shrink:0;border-radius:11px;border:1.5px solid var(--bdr);background:#fff;color:var(--maroon);cursor:pointer;font-size:.85rem;transition:all .15s;}
+.chip-add:hover{background:linear-gradient(135deg,var(--maroon-d),var(--maroon));color:#fff;border-color:transparent;}
+.chip-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.chip-item{display:inline-flex;align-items:center;gap:6px;padding:.32rem .4rem .32rem .7rem;border-radius:16px;background:var(--maroon-soft);border:1px solid rgba(123,29,29,.16);color:var(--maroon);font-size:.74rem;font-weight:700;}
+.chip-item button{width:18px;height:18px;border-radius:50%;border:none;background:rgba(123,29,29,.15);color:var(--maroon);cursor:pointer;font-size:.58rem;display:flex;align-items:center;justify-content:center;}
+.chip-item button:hover{background:var(--danger);color:#fff;}
+
+/* ── Compact task cards on phones (dense list, less vertical space) ── */
+@media(max-width:640px){
+  .qgrid{gap:7px;}
+  .qcard{padding:10px 10px 10px 14px;gap:9px;align-items:center;border-radius:12px;}
+  .q-ic{width:34px;height:34px;border-radius:9px;font-size:.85rem;}
+  .q-top strong{font-size:.88rem;}
+  .q-id{font-size:.6rem;}
+  .q-loc{margin:.1rem 0 .3rem;font-size:.68rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;}
+  .q-loc i{display:none;}
+  .q-badges{gap:4px;}
+  .q-badges .badge{padding:.16rem .45rem;font-size:.56rem;gap:3px;}
+  .q-badges .badge i{font-size:.54rem;}
+}
 </style>
 </head>
 <body>
@@ -1061,20 +1124,46 @@ body.modal-open{overflow:hidden;}
 
             <?php if (in_array($st, ['in_progress','waiting_for_materials','for_replacement'], true)): ?>
             <div class="sec sec-form">
-              <div class="sec-h"><small>Materials / budget (optional)</small><h3>Request Budget</h3></div>
+              <div class="sec-h"><small>Materials / budget</small><h3>Request Budget</h3></div>
+
+              <?php $myReqs = $budgetByReport[(string)$row['report_id']] ?? []; ?>
+              <?php if ($myReqs): ?>
+              <div class="br-existing">
+                <div class="br-existing-title"><i class="fas fa-circle-check"></i> You already submitted <?php echo count($myReqs); ?> budget request<?php echo count($myReqs) === 1 ? '' : 's'; ?> for this task:</div>
+                <?php foreach ($myReqs as $b):
+                  $bst = strtolower((string)$b['status']);
+                  $bTone = $bst === 'approved' ? 'ok' : ($bst === 'rejected' ? 'bad' : 'wait');
+                  $fin = strtolower((string)$b['finance_status']);
+                  $finLbl = $fin === 'accepted' ? 'Accepted by Finance' : ($fin === 'received' ? 'Received by Finance' : ($fin === 'awaiting' ? 'Finance notified' : ''));
+                ?>
+                <div class="br-row">
+                  <span class="br-id"><i class="fas fa-coins"></i> <?php echo e((string)$b['request_id']); ?></span>
+                  <span class="br-amt">₱<?php echo number_format((float)$b['total_cost'], 2); ?></span>
+                  <span class="br-st <?php echo $bTone; ?>"><?php echo $bst === 'pending' ? 'Pending PMO review' : ucfirst($bst); ?></span>
+                  <?php if ($finLbl !== ''): ?><span class="br-fin"><i class="fas fa-building-columns"></i> <?php echo $finLbl; ?></span><?php endif; ?>
+                  <span class="br-when"><?php echo e(fdate((string)$b['created_at'])); ?></span>
+                </div>
+                <?php endforeach; ?>
+              </div>
+              <?php endif; ?>
+
               <form class="form tech-ajax" method="post" action="technician_budget_request.php" data-reload="1">
                 <input type="hidden" name="report_id" value="<?php echo $rid_e; ?>">
-                <?php for ($bi = 0; $bi < 3; $bi++): ?>
-                <div class="frow">
-                  <input type="text" name="part_needed[]" placeholder="Part / material<?php echo $bi === 0 ? ' (e.g. RAM Module)' : ''; ?>">
-                  <input type="number" name="quantity[]" min="1" placeholder="Qty">
-                  <input type="number" step="0.01" name="estimated_cost[]" placeholder="Est. cost (₱)">
-                  <input type="text" name="supplier[]" placeholder="Supplier">
+                <input type="hidden" name="notify_finance" value="1">
+                <div class="br-rows">
+                  <?php for ($bi = 0; $bi < 2; $bi++): ?>
+                  <div class="frow">
+                    <input type="text" name="part_needed[]" placeholder="Part / material<?php echo $bi === 0 ? ' (e.g. RAM Module)' : ''; ?>">
+                    <input type="number" name="quantity[]" min="1" placeholder="Qty">
+                    <input type="number" step="0.01" name="estimated_cost[]" placeholder="Est. cost (₱)">
+                    <input type="text" name="supplier[]" placeholder="Supplier">
+                  </div>
+                  <?php endfor; ?>
                 </div>
-                <?php endfor; ?>
+                <button type="button" class="add-row" data-add-part><i class="fas fa-plus"></i> Add another part / material</button>
                 <label for="just_<?php echo $rid_e; ?>">Justification</label>
                 <textarea id="just_<?php echo $rid_e; ?>" name="justification" placeholder="Why are these parts/materials needed?"></textarea>
-                <label class="check"><input type="checkbox" name="notify_finance" value="1"> Also notify the Finance office by email</label>
+                <div class="fin-note"><i class="fas fa-building-columns"></i> The <strong>Finance office is automatically notified by email</strong> for every budget request — they handle campus budgeting.</div>
                 <div class="actions">
                   <button class="b2" type="submit"><i class="fas fa-coins"></i> Submit Budget Request</button>
                 </div>
@@ -1101,11 +1190,35 @@ body.modal-open{overflow:hidden;}
                 <textarea name="repair_procedures" placeholder="Steps / procedures followed."></textarea>
                 <label>Repair summary</label>
                 <textarea name="work_performed" placeholder="Overall summary of the repair."></textarea>
-                <div class="fs"><span class="fs-num">3</span><span class="fs-tx"><strong>Parts, Tools &amp; Materials</strong><span>What you used during the repair</span></span></div>
+                <div class="fs"><span class="fs-num">3</span><span class="fs-tx"><strong>Parts, Tools &amp; Materials</strong><span>Add each item one by one — press Enter or “+” after each</span></span></div>
                 <div class="fgrid">
-                  <div><label>Parts replaced</label><input type="text" name="parts_replaced" placeholder="e.g. capacitor"></div>
-                  <div><label>Tools used</label><input type="text" name="tools_used" placeholder="e.g. multimeter"></div>
-                  <div><label>Materials used</label><input type="text" name="materials_used" placeholder="e.g. thermal paste"></div>
+                  <div class="chipfield" data-chipfield>
+                    <label>Parts replaced</label>
+                    <input type="hidden" name="parts_replaced" value="">
+                    <div class="chip-entry">
+                      <input type="text" class="chip-in" placeholder="e.g. capacitor">
+                      <button type="button" class="chip-add" aria-label="Add item"><i class="fas fa-plus"></i></button>
+                    </div>
+                    <div class="chip-list"></div>
+                  </div>
+                  <div class="chipfield" data-chipfield>
+                    <label>Tools used</label>
+                    <input type="hidden" name="tools_used" value="">
+                    <div class="chip-entry">
+                      <input type="text" class="chip-in" placeholder="e.g. multimeter">
+                      <button type="button" class="chip-add" aria-label="Add item"><i class="fas fa-plus"></i></button>
+                    </div>
+                    <div class="chip-list"></div>
+                  </div>
+                  <div class="chipfield" data-chipfield>
+                    <label>Materials used</label>
+                    <input type="hidden" name="materials_used" value="">
+                    <div class="chip-entry">
+                      <input type="text" class="chip-in" placeholder="e.g. thermal paste">
+                      <button type="button" class="chip-add" aria-label="Add item"><i class="fas fa-plus"></i></button>
+                    </div>
+                    <div class="chip-list"></div>
+                  </div>
                 </div>
                 <div class="fs"><span class="fs-num">4</span><span class="fs-tx"><strong>Outcome</strong><span>Final condition and any follow-up needed</span></span></div>
                 <label>Final findings</label>
@@ -1347,13 +1460,31 @@ function tickTimers() {
 tickTimers();
 setInterval(tickTimers, 30000);
 
+/* ── Loading feedback for EVERY action (receive / start / save / submit …) ── */
+function actionLoader(show) {
+  const l = document.getElementById('pageLoader');
+  if (l) l.classList.toggle('show', !!show);
+}
+/* Normal POST forms (repair progress, notifications): branded loader + locked button until the page returns */
+document.querySelectorAll('form:not(.tech-ajax):not(.search)').forEach(function (f) {
+  f.addEventListener('submit', function () {
+    actionLoader(true);
+    f.querySelectorAll('button[type=submit]').forEach(function (b) {
+      b.dataset.orig = b.innerHTML;
+      b.disabled = true;
+      b.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Working…';
+    });
+  });
+});
+
 /* AJAX submit for budget request + completion report (keeps file uploads working) */
 document.querySelectorAll('form.tech-ajax').forEach(function (f) {
   f.addEventListener('submit', async function (e) {
     e.preventDefault();
     const btn = f.querySelector('button[type=submit]');
     const orig = btn ? btn.innerHTML : '';
-    if (btn) { btn.disabled = true; btn.innerHTML = 'Submitting…'; }
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Submitting…'; }
+    actionLoader(true);
     try {
       const res = await fetch(f.action, { method: 'POST', body: new FormData(f) });
       const data = await res.json().catch(function () { return { success: false, message: 'Unexpected server response.' }; });
@@ -1365,8 +1496,55 @@ document.querySelectorAll('form.tech-ajax').forEach(function (f) {
     } catch (err) {
       alert('Connection error. Please try again.');
     }
+    actionLoader(false);
     if (btn) { btn.disabled = false; btn.innerHTML = orig; }
   });
+});
+
+/* ── Budget: add more part/material rows on demand ── */
+document.querySelectorAll('[data-add-part]').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    const rows = btn.closest('form').querySelector('.br-rows');
+    if (!rows || !rows.firstElementChild) return;
+    const row = rows.firstElementChild.cloneNode(true);
+    row.querySelectorAll('input').forEach(function (i) { i.value = ''; i.placeholder = i.placeholder.replace(' (e.g. RAM Module)', ''); });
+    rows.appendChild(row);
+    row.querySelector('input') && row.querySelector('input').focus();
+  });
+});
+
+/* ── Chip fields: unlimited parts / tools / materials, joined into one value ── */
+document.querySelectorAll('[data-chipfield]').forEach(function (cf) {
+  const hidden = cf.querySelector('input[type=hidden]');
+  const entry = cf.querySelector('.chip-in');
+  const list = cf.querySelector('.chip-list');
+  const items = [];
+  function sync() { hidden.value = items.join(', '); }
+  function render() {
+    list.innerHTML = '';
+    items.forEach(function (t, i) {
+      const chip = document.createElement('span'); chip.className = 'chip-item';
+      const label = document.createElement('span'); label.textContent = t;
+      const x = document.createElement('button'); x.type = 'button'; x.innerHTML = '<i class="fas fa-xmark"></i>'; x.setAttribute('aria-label', 'Remove');
+      x.addEventListener('click', function () { items.splice(i, 1); render(); sync(); });
+      chip.appendChild(label); chip.appendChild(x); list.appendChild(chip);
+    });
+  }
+  function add() {
+    const v = entry.value.trim().replace(/,+$/, '');
+    if (!v) return;
+    items.push(v); entry.value = ''; render(); sync(); entry.focus();
+  }
+  cf.querySelector('.chip-add').addEventListener('click', add);
+  entry.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(); }
+  });
+  /* absorb any leftover typed text on submit so nothing is lost */
+  const form = cf.closest('form');
+  if (form) form.addEventListener('submit', function () {
+    const v = entry.value.trim();
+    if (v) { items.push(v); entry.value = ''; sync(); }
+  }, true);
 });
 
 /* Photo capture previews */
