@@ -534,6 +534,18 @@ h1,h2,h3{font-family:'Fraunces',Georgia,serif;letter-spacing:-.01em;}
 .sb-scrim{position:fixed;inset:0;z-index:390;background:rgba(26,10,10,.42);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:opacity .2s;}
 body.sb-open .sb-scrim{opacity:1;pointer-events:auto;}
 
+/* ── Floating notification bell (desktop, top-right — icon only) ── */
+.bell-fab{position:fixed;top:1.1rem;right:1.4rem;z-index:350;width:46px;height:46px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1.05rem;color:var(--maroon);
+  background:var(--surface);border:1.5px solid var(--bdr);box-shadow:var(--sh1);transition:all .18s;}
+.bell-fab:hover{color:#fff;background:linear-gradient(135deg,var(--maroon-d),var(--maroon));border-color:transparent;
+  transform:translateY(-2px);box-shadow:0 10px 24px rgba(74,14,14,.28);}
+.bell-dot{position:absolute;top:-4px;right:-4px;min-width:19px;height:19px;padding:0 5px;border-radius:10px;
+  background:linear-gradient(135deg,#DC2626,#B91C1C);color:#fff;font-size:.62rem;font-weight:800;
+  display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(220,38,38,.4);}
+body.modal-open .bell-fab{display:none;}
+@media(max-width:960px){.bell-fab{display:none;}} /* mobile already has the top-bar bell */
+
 /* ═══════════════ MAIN SHELL ═══════════════ */
 .main{margin-left:var(--sb);min-height:100vh;}
 .wrap{max-width:1680px;margin:0 auto;padding:26px 30px 70px;}
@@ -816,6 +828,12 @@ body.modal-open{overflow:hidden;}
 
 <div class="sb-scrim" data-sb-close></div>
 
+<!-- Floating notification bell (desktop, right side — icon only) -->
+<button class="bell-fab" type="button" data-modal-target="notifModal" aria-label="Notifications" title="Notifications">
+  <i class="fas fa-bell"></i>
+  <?php if ($unreadCount > 0): ?><span class="bell-dot"><?php echo $unreadCount > 9 ? '9+' : (int)$unreadCount; ?></span><?php endif; ?>
+</button>
+
 <!-- ═══════════ SIDEBAR ═══════════ -->
 <aside class="sb" id="sb">
   <div class="sb-top">
@@ -844,11 +862,6 @@ body.modal-open{overflow:hidden;}
       <span class="ni-ic"><i class="fas fa-clock-rotate-left"></i></span> Work History
       <span class="nbadge"><?php echo (int)$cHist; ?></span>
     </a>
-    <div class="nav-sec">Updates</div>
-    <button class="ni" type="button" data-modal-target="notifModal">
-      <span class="ni-ic"><i class="fas fa-bell"></i></span> Notifications
-      <?php if ($unreadCount > 0): ?><span class="nbadge hot"><?php echo $unreadCount > 9 ? '9+' : (int)$unreadCount; ?></span><?php endif; ?>
-    </button>
   </nav>
 
   <div class="sb-foot">
