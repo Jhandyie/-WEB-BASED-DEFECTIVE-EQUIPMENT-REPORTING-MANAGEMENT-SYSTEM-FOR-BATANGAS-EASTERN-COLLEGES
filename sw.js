@@ -6,7 +6,7 @@
  *   - Static assets (css/js/img/fonts): cache-first with background refill.
  *   - POSTs / API calls are never intercepted.
  */
-const VERSION = 'bec-pmo-v1';
+const VERSION = 'bec-pmo-v2';
 const STATIC_CACHE = VERSION + '-static';
 const PAGE_CACHE = VERSION + '-pages';
 
