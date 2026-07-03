@@ -1554,6 +1554,25 @@ document.querySelectorAll('form:not(.tech-ajax):not(.search)').forEach(function 
 document.querySelectorAll('form.tech-ajax').forEach(function (f) {
   f.addEventListener('submit', async function (e) {
     e.preventDefault();
+
+    /* Pre-flight photo size check — catch oversized uploads BEFORE sending
+       (per-file 10 MB, ~38 MB total: matches the server's limits). */
+    let totalBytes = 0; const tooBig = [];
+    f.querySelectorAll('input[type=file]').forEach(function (inp) {
+      Array.from(inp.files || []).forEach(function (file) {
+        totalBytes += file.size;
+        if (file.size > 10 * 1024 * 1024) tooBig.push(file.name + ' (' + (file.size / 1048576).toFixed(1) + ' MB)');
+      });
+    });
+    if (tooBig.length) {
+      alert('These photos are over the 10 MB per-photo limit:\n\n• ' + tooBig.join('\n• ') + '\n\nPlease retake or resize them and try again.');
+      return;
+    }
+    if (totalBytes > 38 * 1024 * 1024) {
+      alert('Your photos total ' + (totalBytes / 1048576).toFixed(1) + ' MB — over the 40 MB upload limit. Please use fewer or smaller photos.');
+      return;
+    }
+
     const btn = f.querySelector('button[type=submit]');
     const orig = btn ? btn.innerHTML : '';
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Submitting…'; }
@@ -1561,7 +1580,9 @@ document.querySelectorAll('form.tech-ajax').forEach(function (f) {
     actionLoader(true, kind);
     try {
       const res = await fetch(f.action, { method: 'POST', body: new FormData(f) });
-      const data = await res.json().catch(function () { return { success: false, message: 'Unexpected server response.' }; });
+      const data = await res.json().catch(function () {
+        return { success: false, message: 'The server sent an unreadable response (HTTP ' + res.status + '). If you attached photos, try smaller ones; otherwise contact the PMO.' };
+      });
       if (data.success) {
         if (f.dataset.reload) { window.location.reload(); return; }
       } else {

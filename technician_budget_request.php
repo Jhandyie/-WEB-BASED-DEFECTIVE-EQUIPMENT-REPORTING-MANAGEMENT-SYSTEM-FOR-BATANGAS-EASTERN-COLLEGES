@@ -16,6 +16,8 @@ require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/audit.php';
 
 header('Content-Type: application/json');
+// JSON endpoint: never let warnings/notices corrupt the response body.
+ini_set('display_errors', '0');
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'technician') {
     http_response_code(403);

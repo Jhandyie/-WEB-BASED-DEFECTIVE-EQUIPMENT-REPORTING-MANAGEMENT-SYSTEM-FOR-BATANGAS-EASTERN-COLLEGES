@@ -6,10 +6,22 @@ require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/audit.php';
 
 header('Content-Type: application/json');
+// JSON endpoint: warnings/notices must never leak into the response body
+// (a printed warning corrupts the JSON and the client sees "Unexpected server response").
+ini_set('display_errors', '0');
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'technician') {
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Unauthorized.']);
+    exit();
+}
+
+// Oversized upload: PHP drops the whole POST body when it exceeds post_max_size,
+// leaving $_POST/$_FILES empty. Detect it and answer with a helpful message.
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST'
+    && (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 0
+    && empty($_POST) && empty($_FILES)) {
+    echo json_encode(['success' => false, 'message' => 'Your photos are too large — the total upload exceeds the 40 MB server limit. Please use fewer or smaller photos and try again.']);
     exit();
 }
 
