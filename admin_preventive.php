@@ -110,7 +110,7 @@ $presets   = pmFrequencyPresets();
   .top .top-ic{width:44px;height:44px;border-radius:13px;background:rgba(255,255,255,.12);border:1px solid rgba(212,160,23,.45);display:flex;align-items:center;justify-content:center;font-size:1.15rem;color:var(--g3);flex-shrink:0;}
   .top h1{font-size:1.18rem;margin:0;font-weight:800;letter-spacing:-.01em;}
   .top .sub{font-size:.74rem;color:rgba(255,255,255,.72);margin-top:3px;}
-  .wrap{max-width:1150px;margin:0 auto;padding:24px 24px 64px;}
+  .wrap{max-width:none;margin:0;padding:24px 28px 64px;} /* full-width desktop view */
   .flash{display:flex;align-items:center;gap:.55rem;padding:.85rem 1rem;border-radius:11px;margin-bottom:1.1rem;font-size:.86rem;font-weight:600;}
   .flash.ok{background:#E9F9EF;border:1px solid #b6e6c6;color:var(--success);}
   .flash.err{background:#FEF2F2;border:1px solid #FECACA;color:var(--danger);}
