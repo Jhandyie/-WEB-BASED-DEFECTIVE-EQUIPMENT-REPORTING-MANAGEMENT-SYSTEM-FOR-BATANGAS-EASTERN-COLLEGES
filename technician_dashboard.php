@@ -872,6 +872,42 @@ body.modal-open{overflow:hidden;}
 .chip-item button{width:18px;height:18px;border-radius:50%;border:none;background:rgba(123,29,29,.15);color:var(--maroon);cursor:pointer;font-size:.58rem;display:flex;align-items:center;justify-content:center;}
 .chip-item button:hover{background:var(--danger);color:#fff;}
 
+/* ── Contextual ACTION loader — each action gets its own animation ── */
+.axl{position:fixed;inset:0;z-index:3000;display:flex;align-items:center;justify-content:center;
+  background:rgba(37,17,17,.66);-webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px);
+  opacity:0;visibility:hidden;transition:opacity .18s ease,visibility .18s ease;}
+.axl.show{opacity:1;visibility:visible;}
+.axl-box{display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;}
+.axl-stage{position:relative;width:104px;height:104px;display:flex;align-items:center;justify-content:center;}
+.axl-ring{position:absolute;inset:0;border-radius:50%;border:3px solid rgba(201,150,12,.25);border-top-color:#F0C040;animation:axlSpin .9s linear infinite;}
+.axl-core{width:76px;height:76px;border-radius:50%;background:linear-gradient(135deg,#4A0E0E,#7B1D1D);
+  border:1.5px solid rgba(240,192,64,.55);display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 30px rgba(201,150,12,.35),inset 0 0 14px rgba(0,0,0,.3);}
+.axl-core i{font-size:1.8rem;color:#F0C040;}
+.axl-label{font-family:'Fraunces',serif;font-weight:700;font-size:1.02rem;color:#fff;letter-spacing:.01em;}
+.axl-sub{font-size:.72rem;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:rgba(240,192,64,.85);}
+@keyframes axlSpin{to{transform:rotate(360deg);}}
+/* per-action icon animations */
+.axl.ax-receive .axl-core i{animation:axGrab 1s ease-in-out infinite;}
+@keyframes axGrab{0%,100%{transform:translateY(0) rotate(0);}35%{transform:translateY(-7px) rotate(-14deg);}65%{transform:translateY(2px) rotate(6deg);}}
+.axl.ax-start .axl-core i{transform-origin:80% 80%;animation:axWrench 1s ease-in-out infinite;}
+@keyframes axWrench{0%,100%{transform:rotate(-22deg);}50%{transform:rotate(28deg);}}
+.axl.ax-save .axl-core i{animation:axSave 1s ease-in-out infinite;}
+@keyframes axSave{0%,100%{transform:scale(1);}40%{transform:scale(.82) translateY(3px);}70%{transform:scale(1.08);}}
+.axl.ax-wait .axl-core i{animation:axFlip 1.4s ease-in-out infinite;}
+@keyframes axFlip{0%,15%{transform:rotate(0);}50%,65%{transform:rotate(180deg);}100%{transform:rotate(360deg);}}
+.axl.ax-resume .axl-core i{animation:axSlide 1s ease-in-out infinite;}
+@keyframes axSlide{0%,100%{transform:translateX(-5px);opacity:.75;}50%{transform:translateX(6px);opacity:1;}}
+.axl.ax-replace .axl-core i{animation:axSpin2 1.1s linear infinite;}
+@keyframes axSpin2{to{transform:rotate(360deg);}}
+.axl.ax-budget .axl-core i{animation:axCoin 1s ease-in-out infinite;}
+@keyframes axCoin{0%,100%{transform:translateY(0) scale(1);}30%{transform:translateY(-9px) scale(1.06);}55%{transform:translateY(2px) scale(.95);}}
+.axl.ax-complete .axl-core i{animation:axStamp 1.2s ease-in-out infinite;}
+@keyframes axStamp{0%,100%{transform:scale(1);}30%{transform:scale(1.28);}45%{transform:scale(.94);}60%{transform:scale(1.06);}}
+.axl.ax-notif .axl-core i{transform-origin:50% 0;animation:axBell 1s ease-in-out infinite;}
+@keyframes axBell{0%,100%{transform:rotate(0);}20%{transform:rotate(18deg);}40%{transform:rotate(-14deg);}60%{transform:rotate(8deg);}80%{transform:rotate(-4deg);}}
+@media(prefers-reduced-motion:reduce){.axl .axl-core i,.axl-ring{animation:none !important;}}
+
 /* ── Compact task cards on phones (dense list, less vertical space) ── */
 @media(max-width:640px){
   .qgrid{gap:7px;}
@@ -1352,6 +1388,20 @@ body.modal-open{overflow:hidden;}
   </div>
 </div>
 
+<!-- ═══════════ CONTEXTUAL ACTION LOADER ═══════════ -->
+<div class="axl" id="axl" role="status" aria-live="polite">
+  <div class="axl-box">
+    <div class="axl-stage">
+      <div class="axl-ring"></div>
+      <div class="axl-core"><i class="fas fa-gear" id="axlIcon"></i></div>
+    </div>
+    <div>
+      <div class="axl-label" id="axlLabel">Working…</div>
+      <div class="axl-sub" id="axlSub">Please wait</div>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════ MOBILE BOTTOM NAV ═══════════ -->
 <nav class="bnav" aria-label="Primary">
   <a class="bn <?php echo $tab === 'my_tasks' ? 'on' : ''; ?>" href="?tab=my_tasks"><i class="fas fa-list-check"></i><span>Tasks</span><?php if ($taskCount > 0): ?><em class="tb-dot" style="font-style:normal"><?php echo $taskCount > 9 ? '9+' : (int)$taskCount; ?></em><?php endif; ?></a>
@@ -1460,17 +1510,40 @@ function tickTimers() {
 tickTimers();
 setInterval(tickTimers, 30000);
 
-/* ── Loading feedback for EVERY action (receive / start / save / submit …) ── */
-function actionLoader(show) {
-  const l = document.getElementById('pageLoader');
-  if (l) l.classList.toggle('show', !!show);
+/* ── Contextual loading — every action shows ITS OWN animation ── */
+const AXL_KINDS = {
+  accept:           { cls: 'ax-receive',  icon: 'fa-hand',             label: 'Receiving task…',              sub: 'Confirming the assignment' },
+  start:            { cls: 'ax-start',    icon: 'fa-screwdriver-wrench', label: 'Starting repair…',           sub: 'Your repair timer begins' },
+  save:             { cls: 'ax-save',     icon: 'fa-floppy-disk',      label: 'Saving your note…',            sub: 'Recording progress' },
+  waiting:          { cls: 'ax-wait',     icon: 'fa-hourglass-half',   label: 'Marking as waiting…',          sub: 'The PMO will see the hold' },
+  resume_materials: { cls: 'ax-resume',   icon: 'fa-box-open',         label: 'Materials received…',          sub: 'Resuming the repair' },
+  resume:           { cls: 'ax-resume',   icon: 'fa-play',             label: 'Resuming repair…',             sub: 'Back in progress' },
+  replace:          { cls: 'ax-replace',  icon: 'fa-rotate',           label: 'Recommending replacement…',    sub: 'Forwarding to the PMO' },
+  budget:           { cls: 'ax-budget',   icon: 'fa-coins',            label: 'Sending budget request…',      sub: 'Notifying PMO & Finance' },
+  complete:         { cls: 'ax-complete', icon: 'fa-clipboard-check',  label: 'Submitting completion report…', sub: 'Uploading photos & details' },
+  mark_read:        { cls: 'ax-notif',    icon: 'fa-bell',             label: 'Updating notifications…',      sub: 'Marking as read' },
+  mark_all_read:    { cls: 'ax-notif',    icon: 'fa-bell',             label: 'Updating notifications…',      sub: 'Marking everything read' },
+  default:          { cls: 'ax-replace',  icon: 'fa-gear',             label: 'Working…',                     sub: 'Please wait' }
+};
+function actionLoader(show, kind) {
+  const l = document.getElementById('axl');
+  if (!l) return;
+  if (show) {
+    const k = AXL_KINDS[kind] || AXL_KINDS.default;
+    l.className = 'axl show ' + k.cls;
+    document.getElementById('axlIcon').className = 'fas ' + k.icon;
+    document.getElementById('axlLabel').textContent = k.label;
+    document.getElementById('axlSub').textContent = k.sub;
+  } else {
+    l.className = 'axl';
+  }
 }
-/* Normal POST forms (repair progress, notifications): branded loader + locked button until the page returns */
+/* Normal POST forms (repair progress, notifications): contextual loader + locked button */
 document.querySelectorAll('form:not(.tech-ajax):not(.search)').forEach(function (f) {
-  f.addEventListener('submit', function () {
-    actionLoader(true);
+  f.addEventListener('submit', function (e) {
+    const kind = (e.submitter && e.submitter.value) || (f.querySelector('input[name=action]') || {}).value || 'default';
+    actionLoader(true, kind);
     f.querySelectorAll('button[type=submit]').forEach(function (b) {
-      b.dataset.orig = b.innerHTML;
       b.disabled = true;
       b.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Working…';
     });
@@ -1484,7 +1557,8 @@ document.querySelectorAll('form.tech-ajax').forEach(function (f) {
     const btn = f.querySelector('button[type=submit]');
     const orig = btn ? btn.innerHTML : '';
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Submitting…'; }
-    actionLoader(true);
+    const kind = (f.action || '').indexOf('budget') !== -1 ? 'budget' : 'complete';
+    actionLoader(true, kind);
     try {
       const res = await fetch(f.action, { method: 'POST', body: new FormData(f) });
       const data = await res.json().catch(function () { return { success: false, message: 'Unexpected server response.' }; });
