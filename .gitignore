@@ -61,3 +61,6 @@ cache/
 system_backup_*.tar.gz
 system_folder_for_desktop.zip
 /-WEB-BASED-DEFECTIVE-EQUIPMENT-REPORTING-MANAGEMENT-SYSTEM-FOR-BATANGAS-EASTERN-COLLEGES/
+
+# Runtime rate-limiter state
+data/rate_limits/
