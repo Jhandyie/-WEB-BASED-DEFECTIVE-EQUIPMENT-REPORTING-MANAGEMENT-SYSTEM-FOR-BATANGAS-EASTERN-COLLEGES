@@ -106,7 +106,7 @@ try {
   body.becSbHide .main{margin-left:0 !important;}
   .top{background:var(--md);color:#fff;padding:16px 28px;display:flex;align-items:center;gap:14px;}
   .top h1{font-size:1.05rem;margin:0;}.top .sub{font-size:.72rem;color:rgba(255,255,255,.7);}
-  .wrap{max-width:1100px;margin:0 auto;padding:22px 24px 60px;}
+  .wrap{max-width:none;margin:0;padding:22px 28px 60px;} /* full-width desktop view */
   .flash{padding:.8rem 1rem;border-radius:10px;margin-bottom:1rem;font-size:.86rem;}
   .flash.ok{background:#E9F9EF;border:1px solid #b6e6c6;color:var(--success);}
   .flash.err{background:#FEF2F2;border:1px solid #FECACA;color:var(--danger);}
