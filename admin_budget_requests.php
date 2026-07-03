@@ -115,9 +115,29 @@ unset($_SESSION['flash']);
   .top a.back{margin-left:auto;color:#fff;text-decoration:none;font-size:.82rem;border:1px solid rgba(255,255,255,.3);padding:7px 14px;border-radius:8px;}
   .top a.back:hover{background:rgba(255,255,255,.1);}
   .wrap{max-width:none;margin:0 auto;padding:24px 28px 60px;}
-  .req-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(560px,1fr));gap:14px;align-items:start;}
+  .req-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(560px,1fr));gap:10px;align-items:start;}
   .req-grid .card{margin-bottom:0;}
   @media(max-width:1240px){.req-grid{grid-template-columns:1fr;}}
+  /* ── Collapsed request rows (accordion): compact queue, details on demand ── */
+  .req-tools{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:2px 0 12px;font-size:.78rem;color:var(--ink3);font-weight:600;}
+  .rt-btn{display:inline-flex;align-items:center;gap:6px;padding:.42rem .8rem;border-radius:9px;border:1.5px solid var(--border);background:#fff;color:var(--ink2);font-size:.74rem;font-weight:700;cursor:pointer;margin-left:6px;}
+  .rt-btn:hover{border-color:var(--maroon);color:var(--maroon);}
+  .req-card{padding:0;overflow:hidden;}
+  .req-card .card-top{cursor:pointer;user-select:none;padding:13px 16px;margin:0;transition:background .15s;}
+  .req-card .card-top:hover{background:#FBF8F3;}
+  .rt-main{min-width:0;}
+  .rt-side{display:flex;align-items:center;gap:9px;flex-shrink:0;}
+  .rt-total{font-family:'Outfit',sans-serif;font-weight:800;font-size:.95rem;color:var(--ink);}
+  .rt-count{font-size:.68rem;color:var(--ink3);font-weight:700;white-space:nowrap;}
+  .fmini{width:24px;height:24px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.66rem;}
+  .fmini.awaiting{background:#FFF7E6;color:#9A6A00;}
+  .fmini.received{background:#EAF4F7;color:#1F6F8B;}
+  .fmini.accepted{background:#EEF7F0;color:var(--success);}
+  .rt-ch{color:var(--ink3);font-size:.78rem;transition:transform .2s;}
+  .req-card.open .rt-ch{transform:rotate(180deg);}
+  .req-body{display:none;padding:0 16px 16px;border-top:1px solid var(--border);}
+  .req-card.open .req-body{display:block;animation:reqIn .22s ease;}
+  @keyframes reqIn{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:none;}}
   .head{margin-bottom:18px;}
   .head h2{font-family:'Fraunces',serif;font-size:1.5rem;color:var(--ink);}
   .head p{font-size:.86rem;color:var(--ink3);margin-top:3px;}
@@ -223,11 +243,18 @@ unset($_SESSION['flash']);
     <?php if (!$requests): ?>
       <div class="empty"><i class="fas fa-coins"></i><div>No <?php echo $filter==='all'?'':be($filter).' '; ?>budget requests.</div></div>
     <?php else: ?>
+    <div class="req-tools">
+      <span><i class="fas fa-layer-group"></i> <?php echo count($requests); ?> request<?php echo count($requests) === 1 ? '' : 's'; ?> — click a row to review</span>
+      <div>
+        <button type="button" class="rt-btn" data-exp-all><i class="fas fa-angles-down"></i> Expand all</button>
+        <button type="button" class="rt-btn" data-col-all><i class="fas fa-angles-up"></i> Collapse all</button>
+      </div>
+    </div>
     <div class="req-grid">
-    <?php foreach ($requests as $r): $items = $itemsByReq[$r['request_id']] ?? []; ?>
-      <div class="card">
-        <div class="card-top">
-          <div>
+    <?php foreach ($requests as $r): $items = $itemsByReq[$r['request_id']] ?? []; $fstat = (string)($r['finance_status'] ?? ''); ?>
+      <div class="card req-card" data-req-card>
+        <div class="card-top" data-req-toggle role="button" tabindex="0" aria-expanded="false">
+          <div class="rt-main">
             <div class="rid"><i class="fas fa-coins"></i> <?php echo be($r['request_id']); ?></div>
             <div class="meta">
               By <strong><?php echo be($r['technician_name']); ?></strong>
@@ -235,9 +262,16 @@ unset($_SESSION['flash']);
               · <?php echo bdt($r['created_at']); ?>
             </div>
           </div>
-          <span class="st <?php echo be($r['status']); ?>"><?php echo be($r['status']); ?></span>
+          <div class="rt-side">
+            <span class="rt-total"><?php echo peso($r['total_cost']); ?></span>
+            <span class="rt-count"><?php echo count($items); ?> item<?php echo count($items) === 1 ? '' : 's'; ?></span>
+            <span class="st <?php echo be($r['status']); ?>"><?php echo be($r['status']); ?></span>
+            <?php if ($fstat !== ''): ?><span class="fmini <?php echo be($fstat); ?>" title="<?php echo be(bfFinanceStatusLabel($fstat)); ?>"><i class="fas fa-building-columns"></i></span><?php endif; ?>
+            <i class="fas fa-chevron-down rt-ch"></i>
+          </div>
         </div>
 
+        <div class="req-body">
         <table class="items">
           <thead><tr><th>Part / Material</th><th>Qty</th><th>Est. Cost</th><th>Supplier</th><th>Subtotal</th></tr></thead>
           <tbody>
@@ -280,11 +314,34 @@ unset($_SESSION['flash']);
             <button class="btn fin" type="submit" name="action" value="notify_finance"><i class="fas fa-paper-plane"></i> <?php echo $fstat === '' ? 'Notify Finance' : 'Re-send to Finance'; ?></button>
           </form>
         </div>
+        </div><!-- /req-body -->
       </div>
     <?php endforeach; ?>
     </div><!-- /req-grid -->
     <?php endif; ?>
   </div>
+<script>
+/* Accordion queue: compact rows, details on demand */
+(function(){
+  const cards = document.querySelectorAll('[data-req-card]');
+  function setOpen(card, on){
+    card.classList.toggle('open', on);
+    const t = card.querySelector('[data-req-toggle]');
+    if (t) t.setAttribute('aria-expanded', on ? 'true' : 'false');
+  }
+  cards.forEach(function(card){
+    const t = card.querySelector('[data-req-toggle]');
+    if (!t) return;
+    t.addEventListener('click', function(){ setOpen(card, !card.classList.contains('open')); });
+    t.addEventListener('keydown', function(e){ if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(card, !card.classList.contains('open')); } });
+  });
+  const ea = document.querySelector('[data-exp-all]'), ca = document.querySelector('[data-col-all]');
+  if (ea) ea.addEventListener('click', function(){ cards.forEach(function(c){ setOpen(c, true); }); });
+  if (ca) ca.addEventListener('click', function(){ cards.forEach(function(c){ setOpen(c, false); }); });
+  /* few results → open them automatically */
+  if (cards.length > 0 && cards.length <= 2) cards.forEach(function(c){ setOpen(c, true); });
+})();
+</script>
 <script src="assets/sidebar_autohide.js" defer></script>
 <?php require_once __DIR__ . '/includes/admin_assistant.php'; ?>
 <?php require __DIR__ . '/includes/site_transitions.php'; ?>
