@@ -220,7 +220,9 @@ body::after {
 }
 .fi:focus { border-color: var(--maroon); box-shadow: 0 0 0 3.5px rgba(123,29,29,.09); }
 .fi::placeholder { color: #C4AFA8; font-size: .95rem; }
-.fi-hint { font-size: .68rem; color: var(--ink3); margin-top: .28rem; display: flex; align-items: center; gap: .3rem; }
+.fi-hint { font-size: .68rem; color: var(--ink3); margin-top: .28rem; display: block; line-height: 1.55; }
+.fi-hint i { margin-right: .3rem; }
+.fi-hint strong { color: var(--ink2); white-space: nowrap; }
 .alert {
   padding: .7rem .9rem; border-radius: 10px; font-size: .78rem; line-height: 1.5;
   margin-bottom: 1.1rem; display: flex; align-items: flex-start; gap: .5rem;
