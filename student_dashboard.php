@@ -1246,7 +1246,19 @@ html { scroll-behavior: smooth; }
     </div>
 
     <!-- ── SECTION 2: EQUIPMENT INFO ── -->
-    <div class="section-card">
+    <div class="section-card" id="equipSection">
+      <?php if ($prefillEq): ?>
+      <div class="qr-banner" style="display:flex;align-items:flex-start;gap:.7rem;margin-bottom:1rem;padding:.85rem 1rem;border-radius:12px;background:#FFFBEF;border:1px solid rgba(201,150,12,.35);border-left:4px solid #C9960C;">
+        <i class="fas fa-qrcode" style="color:#C9960C;font-size:1.1rem;margin-top:.15rem;"></i>
+        <div style="font-size:.86rem;line-height:1.55;color:#5C3838;">
+          <strong style="color:#1C1008;">Scanned from an equipment QR code</strong><br>
+          Reporting: <strong style="color:#7B1D1D;"><?php echo htmlspecialchars($prefillEq['name'] ?: $prefillEq['id']); ?></strong>
+          <?php if ($prefillEq['asset_tag'] !== ''): ?> · Tag <?php echo htmlspecialchars($prefillEq['asset_tag']); ?><?php endif; ?>
+          <?php if ($prefillEq['location'] !== ''): ?> · <?php echo htmlspecialchars($prefillEq['location']); ?><?php endif; ?>
+          — just describe the issue below and submit.
+        </div>
+      </div>
+      <?php endif; ?>
       <div class="section-head">
         <div class="section-icon"><i class="fas fa-desktop"></i></div>
         <div>
@@ -1761,6 +1773,18 @@ reportForm?.addEventListener('submit', () => {
   }
 })();
 </script>
+<?php if ($prefillEq): ?>
+<script>
+/* Arrived via equipment QR scan: bring the pre-filled report form into view
+   and drop the cursor straight into the issue description. */
+window.addEventListener('load', function () {
+  var sec = document.getElementById('equipSection');
+  if (sec) setTimeout(function () { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 350);
+  var desc = document.querySelector('textarea[name="defect_description"]');
+  if (desc) setTimeout(function () { desc.focus({ preventScroll: true }); }, 900);
+});
+</script>
+<?php endif; ?>
 <?php require __DIR__ . '/includes/site_transitions.php'; ?>
 </body>
 </html>
