@@ -117,6 +117,13 @@ The full lifecycle is covered by an end-to-end exercise against the running syst
 complete with photos → verify → satisfaction), with every status transition asserted
 in the database and all notification emails delivered.
 
+## Documentation
+
+- **[docs/USER_MANUAL.md](docs/USER_MANUAL.md)** — role-by-role instructions (reporters, PMO admins, technicians, Finance)
+- **[docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)** — 15-minute defense/demo walkthrough with pre-flight checklist, Q&A prep, and fallbacks
+- **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** — hosting guide (instant HTTPS demo tunnel, shared hosting, VPS)
+- **[docs/EMAIL_DELIVERABILITY.md](docs/EMAIL_DELIVERABILITY.md)** — SPF/DKIM/DMARC setup for institutional mail
+
 ## Academic context
 
 Developed as a capstone project for **Batangas Eastern Colleges** —
