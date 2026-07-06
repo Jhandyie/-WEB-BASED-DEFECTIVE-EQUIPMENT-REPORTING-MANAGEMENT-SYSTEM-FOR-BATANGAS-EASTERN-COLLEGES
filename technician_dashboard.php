@@ -872,6 +872,20 @@ body.modal-open{overflow:hidden;}
 .chip-item button{width:18px;height:18px;border-radius:50%;border:none;background:rgba(123,29,29,.15);color:var(--maroon);cursor:pointer;font-size:.58rem;display:flex;align-items:center;justify-content:center;}
 .chip-item button:hover{background:var(--danger);color:#fff;}
 
+/* ── Branded toasts (replace browser alert popups) ── */
+.toasts{position:fixed;top:1rem;right:1rem;z-index:4000;display:flex;flex-direction:column;gap:8px;max-width:min(380px,calc(100vw - 2rem));}
+.toast{display:flex;gap:.6rem;align-items:flex-start;background:#fff;border:1px solid var(--bdr);border-left:4px solid var(--maroon);
+  border-radius:12px;padding:.8rem .95rem;box-shadow:0 14px 34px rgba(44,10,10,.22);font-size:.83rem;color:var(--ink);line-height:1.5;
+  white-space:pre-line;animation:toastIn .28s cubic-bezier(.22,1,.36,1);}
+.toast.err{border-left-color:#DC2626;}
+.toast.ok{border-left-color:#1A7A33;}
+.toast i{margin-top:.15rem;flex-shrink:0;}
+.toast.err i{color:#DC2626;}
+.toast.ok i{color:#1A7A33;}
+.toast .tx-close{margin-left:auto;flex-shrink:0;background:none;border:none;color:var(--ink3);cursor:pointer;font-size:.8rem;padding:.1rem;}
+@keyframes toastIn{from{opacity:0;transform:translateX(16px);}to{opacity:1;transform:none;}}
+@media(max-width:960px){.toasts{top:64px;}}
+
 /* ── Inline field validation (missing required info) ── */
 .req{color:#DC2626;font-style:normal;font-weight:800;}
 .f-err{border-color:#DC2626 !important;background:#FFF8F8 !important;box-shadow:0 0 0 3px rgba(220,38,38,.12) !important;animation:fShake .3s ease;}
@@ -1416,9 +1430,26 @@ body.modal-open{overflow:hidden;}
   <a class="bn <?php echo $tab === 'history' ? 'on' : ''; ?>" href="?tab=history"><i class="fas fa-clock-rotate-left"></i><span>History</span></a>
 </nav>
 
+<div class="toasts" id="toasts" aria-live="polite"></div>
 <script>
 /* ══════════ Technician Portal behaviour (rebuilt) ══════════ */
 const body = document.body;
+
+/* Branded toast (replaces browser alert popups) */
+function techToast(type, msg) {
+  const host = document.getElementById('toasts');
+  if (!host) { alert(msg); return; }
+  const t = document.createElement('div');
+  t.className = 'toast ' + (type === 'ok' ? 'ok' : 'err');
+  const ic = document.createElement('i');
+  ic.className = 'fas ' + (type === 'ok' ? 'fa-circle-check' : 'fa-circle-exclamation');
+  const tx = document.createElement('div'); tx.textContent = msg;
+  const x = document.createElement('button'); x.className = 'tx-close'; x.innerHTML = '<i class="fas fa-xmark"></i>';
+  x.addEventListener('click', function () { t.remove(); });
+  t.appendChild(ic); t.appendChild(tx); t.appendChild(x);
+  host.appendChild(t);
+  setTimeout(function () { t.remove(); }, 6500);
+}
 
 /* Sidebar (mobile drawer) */
 document.querySelectorAll('[data-sb-toggle]').forEach(function (b) {
@@ -1624,11 +1655,11 @@ document.querySelectorAll('form.tech-ajax').forEach(function (f) {
       });
     });
     if (tooBig.length) {
-      alert('These photos are over the 10 MB per-photo limit:\n\n• ' + tooBig.join('\n• ') + '\n\nPlease retake or resize them and try again.');
+      techToast('err', 'These photos are over the 10 MB per-photo limit:\n• ' + tooBig.join('\n• ') + '\nPlease retake or resize them and try again.');
       return;
     }
     if (totalBytes > 38 * 1024 * 1024) {
-      alert('Your photos total ' + (totalBytes / 1048576).toFixed(1) + ' MB — over the 40 MB upload limit. Please use fewer or smaller photos.');
+      techToast('err', 'Your photos total ' + (totalBytes / 1048576).toFixed(1) + ' MB — over the 40 MB upload limit. Please use fewer or smaller photos.');
       return;
     }
 
@@ -1645,10 +1676,10 @@ document.querySelectorAll('form.tech-ajax').forEach(function (f) {
       if (data.success) {
         if (f.dataset.reload) { window.location.reload(); return; }
       } else {
-        alert(data.message || 'Action failed. Please check the form and try again.');
+        techToast('err', data.message || 'Action failed. Please check the form and try again.');
       }
     } catch (err) {
-      alert('Connection error. Please try again.');
+      techToast('err', 'Connection error. Please try again.');
     }
     actionLoader(false);
     if (btn) { btn.disabled = false; btn.innerHTML = orig; }

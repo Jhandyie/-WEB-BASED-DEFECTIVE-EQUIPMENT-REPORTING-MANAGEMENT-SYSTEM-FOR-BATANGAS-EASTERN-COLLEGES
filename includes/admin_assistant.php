@@ -125,4 +125,33 @@ define('ADMIN_ASSISTANT_RENDERED', true);
   input.addEventListener('input',()=>{ input.style.height='auto'; input.style.height=Math.min(input.scrollHeight,90)+'px'; });
   document.querySelectorAll('#aiaChips .aia-chip').forEach(c=>c.addEventListener('click',()=>{ open(); ask(c.textContent); }));
 })();
+
+/* ── Admin action feedback: every POST action (Approve / Reject / Receive / Verify …)
+      instantly locks its button with a spinner and shows the branded loader — and
+      double-submits become impossible. Included on every admin page via this file. ── */
+(function () {
+  document.addEventListener('submit', function (e) {
+    var f = e.target;
+    if (!f || f.tagName !== 'FORM') return;
+    if (e.defaultPrevented) return;                                   // e.g. a confirm() was cancelled
+    if ((f.method || '').toLowerCase() !== 'post') return;            // searches/filters stay instant
+    if (f.classList.contains('no-action-feedback')) return;           // opt-out hook
+    if (f.hasAttribute('data-af-done')) return;
+    f.setAttribute('data-af-done', '1');
+    var loader = document.getElementById('pageLoader');
+    if (loader) loader.classList.add('show');
+    f.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function (b) {
+      b.disabled = true;
+      if (b.tagName === 'BUTTON') b.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Working…';
+      else b.value = 'Working…';
+    });
+  }, false); /* bubble phase: runs AFTER inline confirm() handlers, so a cancelled
+                confirm (defaultPrevented) never locks the page */
+  /* restore state if the page is shown again from bfcache */
+  window.addEventListener('pageshow', function (ev) {
+    if (!ev.persisted) return;
+    var loader = document.getElementById('pageLoader');
+    if (loader) loader.classList.remove('show');
+  });
+})();
 </script>

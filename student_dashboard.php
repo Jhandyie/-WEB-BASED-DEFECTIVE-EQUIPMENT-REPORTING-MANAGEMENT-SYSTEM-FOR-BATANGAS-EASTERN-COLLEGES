@@ -870,6 +870,12 @@ body::after {
 .btn-cancel { padding:.9rem 1.25rem;border:1.5px solid var(--border);border-radius:11px;color:var(--ink3);font-size:.85rem;font-weight:500;background:none;cursor:pointer;transition:all .18s; text-decoration:none;display:inline-flex;align-items:center; }
 .btn-cancel:hover { border-color:var(--maroon);color:var(--maroon); }
 
+/* inline required-field warnings */
+.f-err{border-color:#DC2626 !important;background:#FFF8F8 !important;box-shadow:0 0 0 3px rgba(220,38,38,.12) !important;animation:fShake .3s ease;}
+@keyframes fShake{0%,100%{transform:translateX(0);}25%{transform:translateX(-4px);}75%{transform:translateX(4px);}}
+.f-msg{display:flex;align-items:center;gap:.4rem;margin-top:.35rem;font-size:.76rem;font-weight:700;color:#DC2626;}
+.f-msg i{font-size:.72rem;}
+
 .loading-overlay {
   position:fixed;inset:0;z-index:800;
   background:rgba(248,243,234,.88);
@@ -1233,7 +1239,7 @@ html { scroll-behavior: smooth; }
   </div>
   <?php endif; ?>
 
-  <form method="POST" enctype="multipart/form-data" id="report-form">
+  <form method="POST" enctype="multipart/form-data" id="report-form" novalidate>
 
     <!-- ── SECTION 1: REPORTER INFO ── -->
     <div class="section-card">
@@ -1754,12 +1760,58 @@ photoZone.addEventListener('drop', e => {
   if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files);
 });
 
-reportForm?.addEventListener('submit', () => {
+/* ── Inline required-field warnings (red outline + message under the field) ── */
+function rfFieldError(el, msg) {
+  el.classList.add('f-err');
+  const anchor = el.closest('.fi-wrap') || el;          // message goes under the wrapper, not inside it
+  let m = anchor.nextElementSibling;
+  if (!(m && m.classList && m.classList.contains('f-msg'))) {
+    m = document.createElement('div'); m.className = 'f-msg';
+    anchor.insertAdjacentElement('afterend', m);
+  }
+  m.innerHTML = '<i class="fas fa-circle-exclamation"></i> ' + msg;
+}
+function rfFieldOk(el) {
+  el.classList.remove('f-err');
+  const anchor = el.closest('.fi-wrap') || el;
+  const m = anchor.nextElementSibling;
+  if (m && m.classList && m.classList.contains('f-msg')) m.remove();
+}
+function rfValidate() {
+  const bad = [];
+  reportForm.querySelectorAll('input[required], textarea[required], select[required]').forEach((el) => {
+    if (el.type === 'hidden') return;
+    const empty = el.type === 'checkbox' ? !el.checked : !String(el.value || '').trim();
+    if (empty) {
+      const label = el.closest('.fg')?.querySelector('.fl')?.childNodes[0]?.textContent?.trim()
+        || el.getAttribute('placeholder') || 'This field';
+      rfFieldError(el, (el.type === 'checkbox' ? 'Please tick this confirmation.' : label.replace(/\s*\*$/, '') + ' is required.'));
+      bad.push(el);
+    } else {
+      rfFieldOk(el);
+    }
+  });
+  if (bad.length) {
+    bad[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => bad[0].focus({ preventScroll: true }), 300);
+  }
+  return bad.length === 0;
+}
+document.addEventListener('input', (e) => {
+  const el = e.target;
+  if (!el.classList || !el.classList.contains('f-err')) return;
+  const filled = el.type === 'checkbox' ? el.checked : String(el.value || '').trim();
+  if (filled) rfFieldOk(el);
+});
+
+reportForm?.addEventListener('submit', (e) => {
   hiddenEl.value = searchEl.value.trim();
   locationHiddenEl.value = locationSearchEl.value.trim();
   catHidden.value = catDisplay.value;
 
-  if (!reportForm.checkValidity()) {
+  if (!rfValidate()) {
+    e.preventDefault();
+    loadingOverlay?.classList.remove('show');
     return;
   }
 
