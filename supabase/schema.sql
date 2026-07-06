@@ -403,6 +403,25 @@ create table if not exists public.budget_request_items (
 
 create index if not exists idx_budget_request_items_request on public.budget_request_items (request_id);
 
+-- Dean / Finance email-approval workflow on defect reports (tokenized, no login).
+alter table public.defect_reports add column if not exists approval_token varchar(64);
+alter table public.defect_reports add column if not exists approval_stage varchar(20);
+alter table public.defect_reports add column if not exists approval_notified_at timestamptz;
+alter table public.defect_reports add column if not exists dean_approval_status varchar(20);
+alter table public.defect_reports add column if not exists dean_approved_by varchar(64);
+alter table public.defect_reports add column if not exists dean_approved_at timestamptz;
+alter table public.defect_reports add column if not exists dean_notes text;
+alter table public.defect_reports add column if not exists finance_approval_status varchar(20);
+alter table public.defect_reports add column if not exists finance_approved_by varchar(64);
+alter table public.defect_reports add column if not exists finance_approved_at timestamptz;
+alter table public.defect_reports add column if not exists finance_notes text;
+alter table public.defect_reports add column if not exists budget_status varchar(20);
+alter table public.defect_reports add column if not exists pmo_review_status varchar(20);
+alter table public.defect_reports add column if not exists pmo_reviewed_by varchar(64);
+alter table public.defect_reports add column if not exists pmo_reviewed_at timestamptz;
+alter table public.defect_reports add column if not exists pmo_notes text;
+alter table public.defect_reports add column if not exists admin_notes text;
+
 -- Finance-notification fields for budget requests (email → tokenized acknowledgment).
 alter table public.budget_requests add column if not exists finance_email varchar(200);
 alter table public.budget_requests add column if not exists finance_status varchar(20);

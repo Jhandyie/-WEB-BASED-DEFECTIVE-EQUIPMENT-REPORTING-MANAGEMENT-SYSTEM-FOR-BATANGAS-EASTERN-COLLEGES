@@ -8,6 +8,7 @@ require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/audit.php';
 require_once __DIR__ . '/file_storage_helpers.php';
 require_once __DIR__ . '/includes/sla_helper.php';
+require_once __DIR__ . '/includes/workflow_approvals.php';
 
 requireRole('admin');
 @runSlaEscalationSweep(); // auto-escalate overdue reports (idempotent)
@@ -142,7 +143,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'requested_action' => 'Please evaluate the defect report and record the official approval or rejection in the admin workflow.',
                 ]
             );
-            $_SESSION['flash'] = ['ok', 'Report forwarded to Dean approval.' . (($emailResult['sent'] ?? 0) > 0 ? ' Formal email notice sent.' : '')];
+            // Email the Dean's office a secure one-click decision link (they decide themselves).
+            $deanLinkSent = false;
+            try { $deanLinkSent = wfaRequestDecision($conn, $reportId, 'dean'); } catch (\Throwable $e) { error_log('dean decision email failed: ' . $e->getMessage()); }
+            $_SESSION['flash'] = ['ok', 'Report forwarded to Dean approval.'
+                . ($deanLinkSent ? ' A decision link was emailed to ' . BEC_DEAN_EMAIL . '.' : (($emailResult['sent'] ?? 0) > 0 ? ' Formal email notice sent.' : ''))];
         } else {
             $_SESSION['flash'] = ['err', 'Unable to forward the report to Dean approval.'];
         }
@@ -174,7 +179,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'requested_action' => 'Finance should review the budget requirement, while PMO may continue monitoring the report progress.',
                 ]
             );
-            $_SESSION['flash'] = ['ok', 'Dean approval recorded. Sent to Finance review.' . (($emailResult['sent'] ?? 0) > 0 ? ' Formal email notice sent.' : '')];
+            // Email the Finance office its own decision link for the clearance stage.
+            $finLinkSent = false;
+            try { $finLinkSent = wfaRequestDecision($conn, $reportId, 'finance'); } catch (\Throwable $e) { error_log('finance decision email failed: ' . $e->getMessage()); }
+            $_SESSION['flash'] = ['ok', 'Dean approval recorded. Sent to Finance review.'
+                . ($finLinkSent ? ' A decision link was emailed to ' . BEC_FINANCE_EMAIL . '.' : (($emailResult['sent'] ?? 0) > 0 ? ' Formal email notice sent.' : ''))];
         } else {
             $_SESSION['flash'] = ['err', 'Unable to save the Dean approval.'];
         }
