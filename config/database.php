@@ -1373,6 +1373,29 @@ function getReportByIdPublic($report_id) {
     return getDefectReportById($report_id);
 }
 
+/**
+ * Duplicate guard: the newest OPEN report for a piece of equipment, or null.
+ * Used at submission time to warn reporters before filing a second ticket
+ * for the same unit.
+ */
+function findOpenReportForEquipment(string $equipmentId): ?array {
+    $equipmentId = trim($equipmentId);
+    if ($equipmentId === '') { return null; }
+    $conn = getDBConnection();
+    $st = $conn->prepare("SELECT report_id, status, report_date FROM defect_reports
+                          WHERE equipment_id = ?
+                            AND status IN ('reported','pmo_review','dean_review','finance_review','on_hold_budget',
+                                           'ready_for_assignment','assigned','accepted','in_progress',
+                                           'waiting_for_materials','for_replacement')
+                          ORDER BY report_date DESC LIMIT 1");
+    if (!$st) { return null; }
+    $st->bind_param('s', $equipmentId);
+    $st->execute();
+    $row = $st->get_result()->fetch_assoc();
+    $st->close();
+    return $row ?: null;
+}
+
 function getUserDefectReports($user_id) {
     if (isPgSqlDriver()) {
         $pdo = getPgsqlPdoConnection();

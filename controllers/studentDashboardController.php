@@ -218,6 +218,21 @@ class StudentDashboardController
             return ['success' => false, 'message' => 'Equipment and issue description are required.'];
         }
 
+        // Duplicate guard: the same unit may already have an open report.
+        if (empty($post['duplicate_override']) && function_exists('findOpenReportForEquipment')) {
+            $dup = findOpenReportForEquipment($equipmentId);
+            if ($dup) {
+                $dupStatus = ucwords(str_replace('_', ' ', (string)$dup['status']));
+                return [
+                    'success' => false,
+                    'duplicate' => true,
+                    'existing_report_id' => (string)$dup['report_id'],
+                    'message' => 'This equipment already has an open report (' . $dup['report_id'] . ' — ' . $dupStatus
+                        . '). You can track that ticket instead; if this is a different issue, resubmit with the "separate issue" confirmation.',
+                ];
+            }
+        }
+
         require_once __DIR__ . '/../includes/ticket.php';
         $reportId = generateTicketNumber();
         $savedPhotos = $this->saveUploadedPhotos($reportId, $files);

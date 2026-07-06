@@ -377,7 +377,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Please fill in all required fields.';
     }
 
-    if (!$error) {
+    // Duplicate guard: this equipment may already have an open report.
+    $duplicateFound = null;
+    if (!$error && empty($_POST['duplicate_override']) && function_exists('findOpenReportForEquipment')) {
+        $duplicateFound = findOpenReportForEquipment((string)($_POST['equipment_id'] ?? ''));
+    }
+
+    if (!$error && !$duplicateFound) {
         // Generate ticket number
         require_once __DIR__ . '/includes/ticket.php';
         $ticket = generateTicketNumber();
@@ -1214,6 +1220,19 @@ html { scroll-behavior: smooth; }
   </div>
   <?php endif; ?>
 
+  <?php if (!empty($duplicateFound)): ?>
+  <div class="alert" id="dupAlert" style="background:#FFF7E6;border:1px solid #F0D79A;border-left:4px solid #C9960C;color:#5C3838;display:flex;gap:.6rem;align-items:flex-start;">
+    <i class="fas fa-clone" style="color:#9A6A00;margin-top:.15rem;"></i>
+    <div style="line-height:1.6;">
+      <strong style="color:#1C1008;">This equipment already has an open report:</strong>
+      <strong style="color:#7B1D1D;"><?php echo htmlspecialchars((string)$duplicateFound['report_id']); ?></strong>
+      (<?php echo htmlspecialchars(ucwords(str_replace('_', ' ', (string)$duplicateFound['status']))); ?>)
+      — <a href="track_report.php?q=<?php echo urlencode((string)$duplicateFound['report_id']); ?>" target="_blank" style="color:#7B1D1D;font-weight:700;text-decoration:underline;">track it here</a> instead of filing again.<br>
+      If yours is a <em>different problem on the same unit</em>, tick the confirmation at the bottom of the form and submit again — your details are still filled in below.
+    </div>
+  </div>
+  <?php endif; ?>
+
   <form method="POST" enctype="multipart/form-data" id="report-form">
 
     <!-- ── SECTION 1: REPORTER INFO ── -->
@@ -1411,6 +1430,13 @@ html { scroll-behavior: smooth; }
     <!-- ── SUBMIT ── -->
     <div class="submit-row">
       <a href="student_index.php" class="btn-cancel"><i class="fas fa-arrow-left" style="margin-right:.4rem;font-size:.8rem"></i>Back</a>
+      <?php if (!empty($duplicateFound)): ?>
+      <label style="display:flex;align-items:flex-start;gap:.6rem;margin:0 0 .9rem;padding:.8rem 1rem;border-radius:12px;background:#FFF7E6;border:1.5px solid #F0D79A;font-size:.86rem;color:#5C3838;cursor:pointer;line-height:1.5;">
+        <input type="checkbox" name="duplicate_override" value="1" required style="width:17px;height:17px;flex-shrink:0;margin-top:.15rem;accent-color:#7B1D1D;">
+        <span><strong style="color:#1C1008;">This is a separate issue</strong> on the same equipment — not the one already reported in
+        <strong><?php echo htmlspecialchars((string)$duplicateFound['report_id']); ?></strong>. Submit as a new report.</span>
+      </label>
+      <?php endif; ?>
       <button type="submit" class="btn-submit">
         Submit Report
         <span class="btn-arrow"><i class="fas fa-paper-plane"></i></span>

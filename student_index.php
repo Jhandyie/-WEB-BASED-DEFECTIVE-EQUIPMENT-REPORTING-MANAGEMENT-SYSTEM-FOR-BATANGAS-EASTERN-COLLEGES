@@ -26,6 +26,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Only official BEC accounts are allowed. Please use your Batangas Eastern Colleges email ending in @bec.edu.ph.';
     } elseif (strlen($name) < 2) {
         $error = 'Please enter your full name.';
+    } elseif (empty($_POST['privacy_consent'])) {
+        $error = 'Please read and accept the Data Privacy notice to continue.';
     } else {
         $_SESSION['guest_name']  = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
         $_SESSION['guest_email'] = strtolower($email);
@@ -632,6 +634,10 @@ body::after {
         </div>
         <div class="fi-hint"><i class="fas fa-id-badge"></i> Use your official BEC account (<strong>@bec.edu.ph</strong>). Your ticket confirmation will be sent here.</div>
       </div>
+      <label class="privacy-consent" style="display:flex;align-items:flex-start;gap:.6rem;margin:.9rem 0 1rem;padding:.75rem .9rem;border-radius:12px;background:#FBF8F1;border:1px solid var(--border);font-size:.74rem;color:var(--ink2);line-height:1.6;cursor:pointer;">
+        <input type="checkbox" name="privacy_consent" value="1" required <?php echo !empty($_POST['privacy_consent']) ? 'checked' : ''; ?> style="width:16px;height:16px;flex-shrink:0;margin-top:.15rem;accent-color:#7B1D1D;">
+        <span><strong style="color:var(--ink);">Data Privacy Notice.</strong> I agree that Batangas Eastern Colleges — Property Management Office may collect and process my <strong>name, email address, and report details</strong> solely for equipment maintenance, repair follow-ups, and record-keeping, in accordance with the <strong>Data Privacy Act of 2012 (RA 10173)</strong>. Information is kept confidential and is not shared outside the institution.</span>
+      </label>
       <button type="submit" class="btn-submit">
         Continue to Report Submission
         <span class="btn-arrow"><i class="fas fa-arrow-right"></i></span>
