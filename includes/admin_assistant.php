@@ -6,6 +6,23 @@
  */
 if (defined('ADMIN_ASSISTANT_RENDERED')) { return; }
 define('ADMIN_ASSISTANT_RENDERED', true);
+
+/* Unread-notification count for the uniform floating bell (best-effort). */
+$__aiaUnread = 0;
+try {
+    if (function_exists('getDBConnection') && !empty($_SESSION['user_id'])) {
+        $__c = getDBConnection();
+        $__s = $__c->prepare("SELECT COUNT(*) AS n FROM notifications WHERE user_id = ? AND is_read = false");
+        if ($__s) {
+            $__uid = (string)$_SESSION['user_id'];
+            $__s->bind_param('s', $__uid);
+            $__s->execute();
+            $__r = $__s->get_result()->fetch_assoc();
+            $__aiaUnread = (int)($__r['n'] ?? 0);
+            $__s->close();
+        }
+    }
+} catch (\Throwable $e) { $__aiaUnread = 0; }
 ?>
 <style>
   .aia-fab{position:fixed;right:1.4rem;bottom:6rem;z-index:9990;display:flex;align-items:center;justify-content:center;width:62px;height:62px;padding:0;background:linear-gradient(135deg,rgba(74,14,14,.9),rgba(45,5,5,.9));-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:#fff;border:2px solid rgba(201,150,12,.6);border-radius:50%;cursor:pointer;box-shadow:0 10px 30px rgba(44,10,10,.4),0 0 20px rgba(201,150,12,.25);transition:transform .25s cubic-bezier(.22,1,.36,1),box-shadow .3s;animation:aiaFloat 6s ease-in-out infinite,aiaGlow 4.5s ease-in-out infinite;}
@@ -53,6 +70,22 @@ define('ADMIN_ASSISTANT_RENDERED', true);
   @media(prefers-reduced-motion:reduce){.aia-fab,.aia-fab .aia-ic::after{animation:none;}}
 </style>
 
+<style>
+  /* Uniform notification bell — same spot on every admin page (stacked above Becca). */
+  .aia-bell{position:fixed;right:1.4rem;bottom:11rem;z-index:1490;width:52px;height:52px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:1.05rem;color:#7B1D1D;
+    background:#fff;border:1.5px solid #E2D9CC;box-shadow:0 8px 22px rgba(44,10,10,.18);transition:all .18s;}
+  .aia-bell:hover{color:#fff;background:linear-gradient(135deg,#4A0E0E,#7B1D1D);border-color:transparent;
+    transform:translateY(-2px);box-shadow:0 12px 28px rgba(74,14,14,.3);}
+  .aia-bell .ab-dot{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;
+    background:linear-gradient(135deg,#DC2626,#B91C1C);color:#fff;font-size:.64rem;font-weight:800;
+    display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(220,38,38,.4);}
+  @media(max-width:560px){.aia-bell{right:1rem;bottom:10.4rem;width:46px;height:46px;}}
+</style>
+<a class="aia-bell" href="admin_notifications.php" aria-label="Notifications<?php echo $__aiaUnread > 0 ? ' (' . $__aiaUnread . ' unread)' : ''; ?>" title="Notifications">
+  <i class="fas fa-bell"></i>
+  <?php if ($__aiaUnread > 0): ?><span class="ab-dot"><?php echo $__aiaUnread > 9 ? '9+' : $__aiaUnread; ?></span><?php endif; ?>
+</a>
 <button class="aia-fab" id="aiaFab" type="button" aria-label="Open BECCA AI admin assistant" title="BECCA AI">
   <span class="aia-ic"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="AI"></span>
 </button>

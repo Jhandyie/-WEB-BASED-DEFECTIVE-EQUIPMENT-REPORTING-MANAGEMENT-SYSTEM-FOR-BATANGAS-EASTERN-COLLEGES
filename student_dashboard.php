@@ -870,6 +870,22 @@ body::after {
 .btn-cancel { padding:.9rem 1.25rem;border:1.5px solid var(--border);border-radius:11px;color:var(--ink3);font-size:.85rem;font-weight:500;background:none;cursor:pointer;transition:all .18s; text-decoration:none;display:inline-flex;align-items:center; }
 .btn-cancel:hover { border-color:var(--maroon);color:var(--maroon); }
 
+/* ── Form progress stepper (sticky, scrollspy) ── */
+.fsteps{position:sticky;top:.6rem;z-index:60;display:flex;gap:6px;margin:0 0 1.1rem;padding:8px;border-radius:14px;
+  background:rgba(255,255,255,.88);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  border:1px solid var(--border,#E8DDD0);box-shadow:0 6px 18px rgba(44,10,10,.08);overflow-x:auto;scrollbar-width:none;}
+.fsteps::-webkit-scrollbar{display:none;}
+.fstep{flex:1;min-width:max-content;display:flex;align-items:center;gap:7px;padding:.5rem .8rem;border-radius:10px;
+  border:none;background:none;font:inherit;font-size:.74rem;font-weight:700;color:#9E8070;cursor:pointer;white-space:nowrap;transition:all .18s;}
+.fstep .fs-n{width:22px;height:22px;flex-shrink:0;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:.66rem;font-weight:800;background:#F1E9DC;color:#9E8070;transition:all .18s;}
+.fstep:hover{color:#7B1D1D;background:rgba(123,29,29,.06);}
+.fstep.on{color:#7B1D1D;background:rgba(123,29,29,.08);}
+.fstep.on .fs-n{background:linear-gradient(135deg,#4A0E0E,#7B1D1D);color:#fff;box-shadow:0 3px 8px rgba(74,14,14,.3);}
+.fstep.done .fs-n{background:linear-gradient(135deg,#1A7A33,#2FA455);color:#fff;}
+.fstep.done{color:#1A7A33;}
+@media(max-width:640px){.fsteps{top:.4rem;}.fstep{font-size:.68rem;padding:.45rem .6rem;}.fstep .fs-lbl{display:none;}.fstep.on .fs-lbl{display:inline;}}
+
 /* inline required-field warnings */
 .f-err{border-color:#DC2626 !important;background:#FFF8F8 !important;box-shadow:0 0 0 3px rgba(220,38,38,.12) !important;animation:fShake .3s ease;}
 @keyframes fShake{0%,100%{transform:translateX(0);}25%{transform:translateX(-4px);}75%{transform:translateX(4px);}}
@@ -1238,6 +1254,8 @@ html { scroll-behavior: smooth; }
     </div>
   </div>
   <?php endif; ?>
+
+  <nav class="fsteps" id="fsteps" aria-label="Report form progress"></nav>
 
   <form method="POST" enctype="multipart/form-data" id="report-form" novalidate>
 
@@ -1759,6 +1777,43 @@ photoZone.addEventListener('drop', e => {
   e.preventDefault(); photoZone.classList.remove('drag');
   if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files);
 });
+
+/* ── Form progress stepper: built from the section cards, scrollspy-highlighted ── */
+(function () {
+  const bar = document.getElementById('fsteps');
+  const form = document.getElementById('report-form');
+  if (!bar || !form) return;
+  const sections = Array.from(form.querySelectorAll('.section-card')).filter(s => s.querySelector('.section-title'));
+  if (sections.length < 2) { bar.remove(); return; }
+  const shortNames = { 'Reporter Information': 'Reporter', 'Equipment Information': 'Equipment', 'Location Details': 'Location', 'Problem Details': 'Problem', 'Photo Evidence': 'Photos' };
+  const chips = sections.map((sec, i) => {
+    sec.id = sec.id || ('fsec-' + (i + 1));
+    const title = sec.querySelector('.section-title').textContent.trim();
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'fstep';
+    chip.innerHTML = '<span class="fs-n">' + (i + 1) + '</span><span class="fs-lbl">' + (shortNames[title] || title) + '</span>';
+    chip.addEventListener('click', () => sec.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    bar.appendChild(chip);
+    return chip;
+  });
+  function markActive(idx) {
+    chips.forEach((c, i) => {
+      c.classList.toggle('on', i === idx);
+      c.classList.toggle('done', i < idx);
+      if (i === idx) c.querySelector('.fs-n').textContent = i + 1;
+      else c.querySelector('.fs-n').innerHTML = i < idx ? '<i class="fas fa-check" style="font-size:.56rem"></i>' : (i + 1);
+    });
+  }
+  function spy() {
+    const probe = window.innerHeight * 0.32;
+    let idx = 0;
+    sections.forEach((sec, i) => { if (sec.getBoundingClientRect().top <= probe) idx = i; });
+    markActive(idx);
+  }
+  window.addEventListener('scroll', spy, { passive: true });
+  spy();
+})();
 
 /* ── Inline required-field warnings (red outline + message under the field) ── */
 function rfFieldError(el, msg) {
