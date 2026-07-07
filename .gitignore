@@ -67,3 +67,6 @@ data/rate_limits/
 
 # Mail retry outbox (undelivered notifications awaiting resend)
 data/mail_outbox/
+
+# Heavy PNG master of the landing background (the optimized .jpg derived from it is committed)
+assets/Landing Page Background.png
