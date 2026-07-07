@@ -64,3 +64,6 @@ system_folder_for_desktop.zip
 
 # Runtime rate-limiter state
 data/rate_limits/
+
+# Mail retry outbox (undelivered notifications awaiting resend)
+data/mail_outbox/

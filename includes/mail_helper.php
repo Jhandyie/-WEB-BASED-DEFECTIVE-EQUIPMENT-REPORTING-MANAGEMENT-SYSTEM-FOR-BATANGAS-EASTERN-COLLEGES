@@ -30,33 +30,101 @@ function applyMailRedirect($to) {
     return $map[$key] ?? $to;
 }
 
-function sendEmail($to, $subject, $message, $settings = null, $role = 'admin') {
+/** Append a structured line to logs/mail_failures.log so delivery problems are diagnosable. */
+function becMailFailLog(string $to, string $subject, string $detail): void {
+    $dir = __DIR__ . '/../logs';
+    if (!is_dir($dir)) { @mkdir($dir, 0755, true); }
+    @file_put_contents($dir . '/mail_failures.log',
+        json_encode(['time' => date('c'), 'to' => $to, 'subject' => $subject, 'detail' => $detail]) . PHP_EOL,
+        FILE_APPEND);
+}
+
+/**
+ * Queue an undeliverable notification for a later retry (self-healing outbox).
+ * Time-sensitive mail (OTP codes) must NOT be queued — pass ['queue' => false].
+ */
+function becMailQueue(string $to, string $subject, string $message, string $role): void {
+    $dir = __DIR__ . '/../data/mail_outbox';
+    if (!is_dir($dir)) { @mkdir($dir, 0755, true); }
+    @file_put_contents($dir . '/' . date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.json', json_encode([
+        'to' => $to, 'subject' => $subject, 'message' => $message, 'role' => $role,
+        'created' => time(), 'attempts' => 0,
+    ]));
+}
+
+/**
+ * Retry queued notifications (called opportunistically on later sends and by the
+ * nightly job). Entries older than 48h or with 5 failed attempts are dropped
+ * (and logged) so the queue can never grow unbounded.
+ */
+function flushMailOutbox(int $max = 3): int {
+    static $busy = false;                 // never recurse via sendEmail paths
+    if ($busy) { return 0; }
+    $busy = true;
+    $sent = 0;
+    try {
+        $files = glob(__DIR__ . '/../data/mail_outbox/*.json') ?: [];
+        sort($files);
+        foreach (array_slice($files, 0, $max) as $f) {
+            $m = json_decode((string) @file_get_contents($f), true);
+            if (!is_array($m) || empty($m['to'])) { @unlink($f); continue; }
+            if ((time() - (int)($m['created'] ?? 0)) > 48 * 3600 || (int)($m['attempts'] ?? 0) >= 5) {
+                becMailFailLog((string)$m['to'], (string)($m['subject'] ?? ''), 'dropped from outbox (expired/max attempts)');
+                @unlink($f);
+                continue;
+            }
+            $ok = false;
+            foreach (getEmailSettingsCandidatesByRole((string)($m['role'] ?? 'admin')) as $cand) {
+                if (sendEmailSMTP((string)$m['to'], (string)$m['subject'], (string)$m['message'], $cand)) { $ok = true; break; }
+            }
+            if ($ok) { @unlink($f); $sent++; }
+            else { $m['attempts'] = (int)($m['attempts'] ?? 0) + 1; @file_put_contents($f, json_encode($m)); }
+        }
+    } catch (\Throwable $e) { error_log('flushMailOutbox: ' . $e->getMessage()); }
+    $busy = false;
+    return $sent;
+}
+
+/**
+ * Send an email with retries and recovery.
+ *  - Each SMTP account is tried twice (short pause between) so transient DNS /
+ *    network blips don't lose mail.
+ *  - On total failure: the message is queued for automatic retry (outbox),
+ *    unless $opts['queue'] === false (OTP codes — stale codes must never arrive late).
+ *  - Every total failure is recorded in logs/mail_failures.log.
+ */
+function sendEmail($to, $subject, $message, $settings = null, $role = 'admin', array $opts = []) {
     // Deliver to a redirected address when one is configured (login identity != reachable inbox).
     $to = applyMailRedirect($to);
-    // If explicit settings are provided, use them directly.
-    if ($settings) {
-        $smtp_result = sendEmailSMTP($to, $subject, $message, $settings);
-        if ($smtp_result) {
-            return true;
-        }
 
-        error_log("SMTP failed, falling back to PHP mail() function");
-        return sendEmailPHP($to, $subject, $message, $settings);
+    // Opportunistically deliver anything stuck in the outbox (non-recursive).
+    flushMailOutbox(2);
+
+    $attemptsPerAccount = 2;
+    $candidates = $settings ? [$settings] : getEmailSettingsCandidatesByRole($role);
+
+    foreach ($candidates as $index => $email_settings) {
+        for ($try = 1; $try <= $attemptsPerAccount; $try++) {
+            if (sendEmailSMTP($to, $subject, $message, $email_settings)) {
+                return true;
+            }
+            error_log("SMTP failed (role {$role}, account {$index}, attempt {$try}/{$attemptsPerAccount})");
+            if ($try < $attemptsPerAccount) { usleep(1500000); } // 1.5s before the retry
+        }
     }
 
-    // Try all configured SMTP accounts for the role (primary + additional accounts).
-    $email_candidates = getEmailSettingsCandidatesByRole($role);
-    foreach ($email_candidates as $index => $email_settings) {
-        if (sendEmailSMTP($to, $subject, $message, $email_settings)) {
-            return true;
-        }
-        error_log("SMTP failed for role {$role} account index {$index}");
+    // Last resort: PHP mail() (works only where a local mailer is configured).
+    $fallback_settings = $settings ?: ($candidates[0] ?? getEmailSettingsByRole($role));
+    if (sendEmailPHP($to, $subject, $message, $fallback_settings)) {
+        return true;
     }
 
-    // Final fallback to PHP mail() using the first candidate.
-    $fallback_settings = $email_candidates[0] ?? getEmailSettingsByRole($role);
-    error_log("All SMTP accounts failed, falling back to PHP mail() function");
-    return sendEmailPHP($to, $subject, $message, $fallback_settings);
+    becMailFailLog((string)$to, (string)$subject, 'all SMTP attempts + mail() failed');
+    if (($opts['queue'] ?? true) === true) {
+        becMailQueue((string)$to, (string)$subject, (string)$message, (string)$role);
+        error_log("Mail queued for retry: {$to} — {$subject}");
+    }
+    return false;
 }
 
 function getEmailSettingsCandidatesByRole($role = 'admin') {
@@ -140,13 +208,15 @@ function sendEmailSMTP($to, $subject, $message, $settings = null) {
     $email_content .= $message . "\r\n\r\n";
     $email_content .= "--$boundary--";
 
-    $socket = fsockopen("tcp://" . $smtp_host, $smtp_port, $errno, $errstr, 30);
+    $socket = fsockopen("tcp://" . $smtp_host, $smtp_port, $errno, $errstr, 15);
     if (!$socket) {
         error_log("SMTP connection failed: $errstr ($errno)");
         return false;
     }
 
     stream_set_blocking($socket, true);
+    // Never let a stalled server hang the request: cap every read/write at 20s.
+    stream_set_timeout($socket, 20);
 
     $response = fgets($socket, 515);
     if (!smtp_check_response($response, 220)) {

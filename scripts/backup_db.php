@@ -76,7 +76,15 @@ try {
     fwrite(STDERR, "log prune warning: " . $e->getMessage() . "\n");
 }
 
+// Flush any notifications stuck in the retry outbox (failed sends self-heal nightly).
+$flushed = 0;
+try {
+    require_once __DIR__ . '/../includes/mail_helper.php';
+    $flushed = flushMailOutbox(50);
+} catch (Throwable $e) { fwrite(STDERR, "outbox flush warning: " . $e->getMessage() . "\n"); }
+
 echo "backup ok: " . basename($out) . " — " . count($manifest['tables']) . " tables, {$totalRows} rows, "
    . round(strlen($zipBytes) / 1024) . " KB (keeping newest {$keep})\n"
    . "log rotation: {$rotated} file(s) rolled; pruned {$pruned['activity_log']} audit rows (>1y), "
-   . "{$pruned['notifications']} read notifications (>180d)\n";
+   . "{$pruned['notifications']} read notifications (>180d)\n"
+   . "mail outbox: {$flushed} queued notification(s) delivered\n";

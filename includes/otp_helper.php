@@ -6,7 +6,8 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/mail_helper.php';
 
 function generateOTP() {
-    return str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
+    // Cryptographically secure 6-digit code (uniform, leading zeros allowed).
+    return str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 }
 
 function sendOTPEmail($email, $otp, $role = 'admin') {
@@ -287,7 +288,9 @@ function sendOTPEmail($email, $otp, $role = 'admin') {
 
       . '</table></td></tr></table></body></html>';
 
-    $result = sendEmail($email, $subject, $message, null, $role);
+    // queue=false: a login code must arrive NOW or not at all — a code delivered
+    // later from the retry outbox would already be expired and only confuse users.
+    $result = sendEmail($email, $subject, $message, null, $role, ['queue' => false]);
     error_log("OTP Email sent to {$email}: " . ($result ? 'SUCCESS' : 'FAILED'));
     return $result;
 }
