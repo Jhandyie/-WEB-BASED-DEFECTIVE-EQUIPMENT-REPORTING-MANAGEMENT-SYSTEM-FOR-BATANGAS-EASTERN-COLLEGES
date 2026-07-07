@@ -10,11 +10,11 @@
  * admin page loads. It is idempotent (escalates each report at most once).
  */
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../config/sla.php';
 
-/** Resolution target in days, by priority. */
-function slaThresholdDays(string $priority): int {
-    $t = ['critical' => 1, 'urgent' => 1, 'high' => 2, 'medium' => 5, 'low' => 7];
-    return $t[strtolower(trim($priority))] ?? 5;
+/** Resolution target in days, by priority — single source: config/sla.php. */
+function slaThresholdDays(string $priority): float {
+    return becSlaDays($priority);
 }
 
 /** Days a report has been open since it was filed (or null if unknown). */

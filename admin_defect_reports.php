@@ -58,8 +58,8 @@ function autoCreateWorkOrderFromReport($reportId, $adminId, $department, $priori
     }
 
     $priority = in_array($priority, ['critical', 'high', 'medium', 'low'], true) ? $priority : 'medium';
-    $dueMap = ['critical' => 1, 'high' => 3, 'medium' => 7, 'low' => 14];
-    $dueDate = date('Y-m-d', strtotime('+' . $dueMap[$priority] . ' days'));
+    // Work-order due date follows the configured SLA window (config/sla.php).
+    $dueDate = date('Y-m-d', time() + becSlaSeconds($priority));
 
     $equipmentName = trim((string)($report['equipment_name'] ?? 'Equipment'));
     $issue = trim((string)($report['issue_description'] ?? 'Reported issue'));

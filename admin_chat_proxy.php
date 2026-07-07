@@ -13,6 +13,7 @@
 require_once __DIR__ . '/includes/session_bootstrap.php';
 startRoleSession('admin');
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/config/sla.php';
 
 header('Content-Type: application/json');
 
@@ -81,7 +82,7 @@ function adminBuildData(): array
     $d['today']            = $scalar("SELECT COUNT(*) FROM public.defect_reports WHERE CAST(report_date AS DATE)=CURRENT_DATE");
     $d['week']             = $scalar("SELECT COUNT(*) FROM public.defect_reports WHERE report_date >= CURRENT_DATE - 7");
     $d['unassigned']       = $scalar("SELECT COUNT(*) FROM public.defect_reports WHERE status IN ('pmo_review','ready_for_assignment','assigned') AND (assigned_to IS NULL OR assigned_to='')");
-    $d['overdue']          = $scalar("SELECT COUNT(*) FROM public.defect_reports WHERE $open AND report_date < NOW() - (CASE LOWER(COALESCE(priority,'medium')) WHEN 'critical' THEN INTERVAL '1 day' WHEN 'urgent' THEN INTERVAL '1 day' WHEN 'high' THEN INTERVAL '2 days' WHEN 'medium' THEN INTERVAL '5 days' ELSE INTERVAL '7 days' END)");
+    $d['overdue']          = $scalar("SELECT COUNT(*) FROM public.defect_reports WHERE $open AND report_date < NOW() - " . becSlaSqlCase('priority'));
 
     $d['technicians']      = $scalar("SELECT COUNT(*) FROM public.users WHERE role='technician' AND COALESCE(status,'active')='active'");
     $d['busiest']          = $rows("SELECT COALESCE(u.fullname, dr.assigned_to) AS name, COUNT(*) AS n FROM public.defect_reports dr LEFT JOIN public.users u ON u.user_id=dr.assigned_to WHERE dr.assigned_to IS NOT NULL AND dr.assigned_to<>'' AND dr.status IN ('assigned','accepted','in_progress','waiting_for_materials','for_replacement') GROUP BY 1 ORDER BY n DESC LIMIT 3");

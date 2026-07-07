@@ -140,7 +140,9 @@ $completionRate = $totalReports ? (int)round($completedRep / $totalReports * 100
 $activeRepairs  = $approvedReports + $inProgReports; // assigned + in progress
 
 // SLA breaches: still-open reports older than a priority-based threshold (in days).
-$slaThresholds = ['critical'=>1, 'urgent'=>1, 'high'=>2, 'medium'=>5, 'low'=>7];
+// Single source of truth: config/sla.php (same windows the technician portal shows).
+require_once __DIR__ . '/config/sla.php';
+$slaThresholds = becSlaDaysMap();
 $nowTs = time();
 $overdueReports = 0;
 foreach ($allReports as $r) {

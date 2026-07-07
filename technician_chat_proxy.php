@@ -12,6 +12,7 @@
 require_once __DIR__ . '/includes/session_bootstrap.php';
 startRoleSession('technician');
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/config/sla.php';
 
 header('Content-Type: application/json');
 
@@ -132,7 +133,7 @@ function techLocalReply(string $text, array $d): string
         return "You have {$d['unread']} unread notification(s). Open them from the bell icon in the sidebar or the Alerts tab on mobile.";
     }
     if ($has('/\b(sla|deadline|due|overdue)\b/')) {
-        return "Each task shows a live \"Due in / Overdue\" chip based on its priority (critical ≈ 1 day, high ≈ 2, medium ≈ 5, low ≈ 7). Start with anything marked Overdue or due soonest.";
+        return "Each task shows a live \"Due in / Overdue\" chip based on its priority (" . becSlaSummaryText() . "). Start with anything marked Overdue or due soonest.";
     }
     if ($has('/\b(what can you|help|who are you|capabilities)\b/')) {
         return "I can: report your live queue and what to do next; explain each workspace action (Receive, Start, Waiting for Materials, Recommend Replacement, Resume); and guide you through Budget Requests and the Completion Report. Try \"what's next?\" or \"how do I request budget?\".";
@@ -171,6 +172,7 @@ for ($i = count($messages) - 1; $i >= 0; $i--) {
 $data     = techBuildData($techId);
 $dataText = techDataText($data);
 $fallback = techLocalReply($lastUser, $data);
+$slaSummary = becSlaSummaryText();
 
 $system_prompt = <<<SYS
 You are BECCA AI, the field assistant for maintenance technicians of the Batangas Eastern Colleges (BEC) Defective Equipment Reporting Management System.
@@ -190,7 +192,7 @@ SECURITY & HONESTY
 
 {$dataText}
 
-SLA reference: critical/urgent ≈ 1 day, high ≈ 2 days, medium ≈ 5 days, low ≈ 7 days from the report date.
+SLA reference: {$slaSummary}.
 Language: reply in the language the technician uses (English or Filipino).
 SYS;
 

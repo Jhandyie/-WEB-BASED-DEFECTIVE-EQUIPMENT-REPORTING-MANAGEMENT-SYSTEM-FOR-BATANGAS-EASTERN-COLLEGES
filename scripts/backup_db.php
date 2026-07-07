@@ -57,5 +57,26 @@ $archives = glob($dir . '/bec_db_backup_*.zip') ?: [];
 rsort($archives);
 foreach (array_slice($archives, $keep) as $old) { @unlink($old); }
 
+// ── Log rotation (runs with the nightly backup) ─────────────────────────────
+// Files: any logs/*.log over 2 MB is rolled to *.log.1 (previous roll replaced).
+// Database: audit rows older than 1 year and READ notifications older than 180
+// days are pruned. Conservative, idempotent, best-effort.
+$rotated = 0; $pruned = ['activity_log' => 0, 'notifications' => 0];
+foreach (glob(__DIR__ . '/../logs/*.log') ?: [] as $lf) {
+    if (filesize($lf) > 2 * 1024 * 1024) {
+        @unlink($lf . '.1');
+        @rename($lf, $lf . '.1');
+        $rotated++;
+    }
+}
+try {
+    $pruned['activity_log']  = (int) $pdo->exec("DELETE FROM activity_log  WHERE created_at   < NOW() - INTERVAL '365 days'");
+    $pruned['notifications'] = (int) $pdo->exec("DELETE FROM notifications WHERE is_read = true AND created_date < NOW() - INTERVAL '180 days'");
+} catch (Throwable $e) {
+    fwrite(STDERR, "log prune warning: " . $e->getMessage() . "\n");
+}
+
 echo "backup ok: " . basename($out) . " — " . count($manifest['tables']) . " tables, {$totalRows} rows, "
-   . round(strlen($zipBytes) / 1024) . " KB (keeping newest {$keep})\n";
+   . round(strlen($zipBytes) / 1024) . " KB (keeping newest {$keep})\n"
+   . "log rotation: {$rotated} file(s) rolled; pruned {$pruned['activity_log']} audit rows (>1y), "
+   . "{$pruned['notifications']} read notifications (>180d)\n";
