@@ -16,7 +16,9 @@ function becdir_canon_header(string $h): ?string {
         'student number' => 'student_number', 'student no' => 'student_number', 'student id' => 'student_number', 'sr code' => 'student_number',
         'department' => 'department', 'dept' => 'department', 'office' => 'department',
         'program' => 'program', 'course' => 'program', 'strand' => 'program',
-        'user type' => 'user_type', 'type' => 'user_type', 'role' => 'user_type', 'category' => 'user_type',
+        'user type' => 'user_type', 'type' => 'user_type', 'role' => 'user_type', 'category' => 'user_type', 'user role' => 'user_type',
+        // official letterhead export combines these into one column ("BSIT / Student")
+        'program / user role' => 'program_role', 'program / role' => 'program_role', 'course / role' => 'program_role',
     ];
     return $map[$k] ?? null;
 }
@@ -56,15 +58,21 @@ function becdir_parse_file(string $tmpPath, string $origName): array {
 
     if (!$records) return ['rows' => [], 'error' => 'The file appears to be empty.'];
 
-    // First non-empty row = header
-    $header = array_shift($records);
+    // Find the header row. Official letterhead exports have title rows above it
+    // ("BATANGAS EASTERN COLLEGES", "Property Management Office", …), so scan the
+    // first rows for the one that actually contains an Email column.
     $colMap = [];
-    foreach ($header as $i => $label) {
-        $canon = becdir_canon_header((string)$label);
-        if ($canon) $colMap[$canon] = $i;
+    $scan = min(count($records), 15);
+    for ($i = 0; $i < $scan; $i++) {
+        $probe = [];
+        foreach ($records[$i] as $j => $label) {
+            $canon = becdir_canon_header((string)$label);
+            if ($canon) $probe[$canon] = $j;
+        }
+        if (isset($probe['email'])) { $colMap = $probe; $records = array_slice($records, $i + 1); break; }
     }
     if (!isset($colMap['email'])) {
-        return ['rows' => [], 'error' => 'No "Email" column was found. Required headers include: Full Name, Email, Employee Number, Student Number, Department, Program, User Type.'];
+        return ['rows' => [], 'error' => 'No "Email" column was found. Required headers include: Full Name, Email, Employee Number, Student Number, Department, Program, User Type (letterhead rows above the header are fine).'];
     }
 
     $rows = [];
@@ -72,14 +80,27 @@ function becdir_parse_file(string $tmpPath, string $origName): array {
         $get = static fn($key) => isset($colMap[$key]) ? trim((string)($r[$colMap[$key]] ?? '')) : '';
         $email = strtolower($get('email'));
         if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) continue;
+        $program = $get('program');
+        $type    = becdir_canon_type($get('user_type'));
+        // combined "PROGRAM / USER ROLE" column, e.g. "BSIT / Student"
+        if (isset($colMap['program_role']) && ($pr = $get('program_role')) !== '') {
+            $bits = array_map('trim', explode('/', $pr, 2));
+            if ($program === '') $program = $bits[0];
+            if ($type === '' && isset($bits[1])) $type = becdir_canon_type($bits[1]);
+        }
+        // no explicit type → infer from which ID number the row carries
+        if ($type === '') {
+            $type = $get('student_number') !== '' ? 'student'
+                  : ($get('employee_number') !== '' ? 'staff' : '');
+        }
         $rows[] = [
             'full_name'       => $get('full_name'),
             'email'           => $email,
             'employee_number' => $get('employee_number'),
             'student_number'  => $get('student_number'),
             'department'      => $get('department'),
-            'program'         => $get('program'),
-            'user_type'       => becdir_canon_type($get('user_type')),
+            'program'         => $program,
+            'user_type'       => $type,
         ];
     }
     if (!$rows) return ['rows' => [], 'error' => 'No valid rows with email addresses were found.'];
@@ -143,11 +164,21 @@ function becdir_read_xlsx(string $path): ?array {
             $idx = 0; $len = strlen($col);
             for ($i = 0; $i < $len; $i++) { $idx = $idx * 26 + (ord($col[$i]) - 64); }
             $idx--;
-            $v = (string)$c->v;
-            if ((string)$c['t'] === 's') { $v = $shared[(int)$v] ?? ''; }
+            $t = (string)$c['t'];
+            if ($t === 'inlineStr') { $v = (string)($c->is->t ?? ''); }
+            else {
+                $v = (string)$c->v;
+                if ($t === 's') { $v = $shared[(int)$v] ?? ''; }
+            }
             $cells[$idx] = $v;
         }
-        if ($cells) { ksort($cells); $rows[] = array_values($cells + array_fill(0, max(array_keys($cells)) + 1, '')); }
+        if ($cells) {
+            // rebuild by real column index — Excel omits empty cells, and a
+            // union+array_values would shift later columns into the gaps
+            $out = array_fill(0, max(array_keys($cells)) + 1, '');
+            foreach ($cells as $k => $v) { $out[$k] = $v; }
+            $rows[] = $out;
+        }
     }
     return $rows;
 }
