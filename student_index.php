@@ -301,7 +301,8 @@ body::after {
 @keyframes fabGlow { 0%,100% { box-shadow: 0 10px 30px rgba(44,10,10,.4), 0 0 16px rgba(201,150,12,.2); } 50% { box-shadow: 0 12px 34px rgba(44,10,10,.46), 0 0 30px rgba(201,150,12,.45); } }
 @media (prefers-reduced-motion: reduce) { #chatFab, #chatFab .fab-ic::after { animation: none; } }
 @media (max-width: 560px) {
-  #chatFab { width: 56px; height: 56px; left: 1rem; bottom: 1rem; }
+  #chatFab { width: 56px; height: 56px; left: 1rem;
+    bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); }
   #chatFab .fab-ic { width: 42px; height: 42px; }
 }
 
@@ -320,7 +321,7 @@ body::after {
 #chatOverlay.open { opacity: 1; pointer-events: all; }
 #chatModal {
   width: 100%; max-width: 385px;
-  height: 570px; max-height: calc(100vh - 2.5rem);
+  height: 570px; max-height: calc(100vh - 2.5rem); max-height: calc(100dvh - 2.5rem);
   background: var(--surface); border-radius: 20px;
   border: 1px solid var(--border);
   box-shadow: 0 10px 50px rgba(44,10,10,.25), 0 2px 10px rgba(44,10,10,.1);
@@ -484,13 +485,25 @@ body::after {
 }
 @media (max-width: 767px) {
   #chatOverlay { align-items: flex-end; justify-content: center; padding: 0; }
-  #chatModal { max-width: 100%; width: 100%; border-radius: 20px 20px 0 0; height: 88vh; max-height: 88vh; }
+  /* dvh = the *visible* viewport on phones (88vh overflows behind the browser
+     URL bar, clipping the header and hiding the input row) */
+  #chatModal { max-width: 100%; width: 100%; border-radius: 20px 20px 0 0;
+    height: 88vh; height: 88dvh; max-height: 88vh; max-height: 88dvh; }
+}
+@media (max-width: 560px) {
+  /* clearance so the floating Becca orb never covers the footer links */
+  body { padding-bottom: 5.6rem; }
 }
 @media (max-width: 520px) {
-  body { padding: 1rem; align-items: flex-start; padding-top: 1.25rem; }
+  body { padding: 1rem; align-items: flex-start; padding-top: 1rem; padding-bottom: 5.6rem; }
   .shell { border-radius: 20px; }
-  .brand { padding: 1.7rem 1.4rem 1.4rem; }
-  .panel { padding: 1.8rem 1.4rem 1.4rem; }
+  /* compact brand header so the form is reachable without a full-screen scroll */
+  .brand { padding: 1.4rem 1.3rem 1.3rem; }
+  .brand-hero { margin-top: 1rem; }
+  .brand-tag { font-size: .58rem; padding: .28rem .6rem; margin-bottom: .7rem; }
+  .brand-hero h2 { font-size: 1.35rem; }
+  .brand-hero p { font-size: .78rem; max-width: none; }
+  .panel { padding: 1.7rem 1.4rem 1.4rem; }
   .panel-title { font-size: 1.4rem; }
   .action-row { grid-template-columns: 1fr; }
 }
