@@ -1262,8 +1262,11 @@ textarea.fc{resize:vertical;min-height:70px;}
                     <button type="submit" class="btn bico" title="Mark as Received" style="background:#C9960C;color:#fff;"><i class="fas fa-inbox"></i></button>
                   </form>
                   <?php endif; ?>
+                  <?php /* only statuses assignDefectReportToTechnician() accepts */
+                    if (in_array($r['status'] ?? '', ['pmo_review','ready_for_assignment','assigned'], true)): ?>
                   <a href="admin_assign_technicians.php?report=<?php echo $r['report_id']; ?>"
                     class="btn bico bi-a" title="Assign Technician"><i class="fas fa-user-plus"></i></a>
+                  <?php endif; ?>
                   <button class="btn bico bi-d" title="Delete"
                     onclick="delRep('<?php echo $r['report_id']; ?>')"><i class="fas fa-trash"></i></button>
                 </div>
@@ -1682,7 +1685,9 @@ textarea.fc{resize:vertical;min-height:70px;}
       <button class="btn btn-ghost btn-sm" onclick="closeDet()">Close</button>
       <?php
         $vrAssigned = !empty($vr['technician_name']) && strtolower(trim((string)$vr['technician_name'])) !== 'unassigned';
-        if (!in_array($vr['status'], ['completed','verified','closed','rejected'], true)):
+        /* only statuses assignDefectReportToTechnician() accepts — once work starts
+           (or the report is done) assignment is locked */
+        if (in_array($vr['status'], ['pmo_review','ready_for_assignment','assigned'], true)):
       ?>
       <a href="admin_assign_technicians.php?report=<?php echo $vr['report_id'];?>" class="btn <?php echo $vrAssigned ? 'btn-ghost' : 'btn-maroon'; ?> btn-sm">
         <i class="fas fa-user-<?php echo $vrAssigned ? 'pen' : 'plus'; ?>"></i> <?php echo $vrAssigned ? 'Reassign Technician' : 'Assign Technician'; ?>
