@@ -400,6 +400,21 @@ a { text-decoration: none; color: inherit; }
 @media (max-width: 860px) { .becca-in { grid-template-columns: 1fr; gap: 2rem; } }
 @media (prefers-reduced-motion: reduce) { .becca-card { animation: none; } }
 
+/* ══ FAQ ══ */
+.faq-wrap { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: .7rem; }
+.faq-item { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 2px 8px rgba(44,10,10,.05); overflow: hidden; transition: border-color .2s, box-shadow .2s; }
+.faq-item[open] { border-color: rgba(123,29,29,.25); box-shadow: 0 8px 22px rgba(74,14,14,.10); }
+.faq-item summary { display: flex; align-items: center; gap: .8rem; padding: 1.05rem 1.2rem; cursor: pointer; list-style: none; font-weight: 700; font-size: .95rem; color: var(--ink); user-select: none; }
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary .fq-ic { width: 30px; height: 30px; flex-shrink: 0; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: .8rem; color: var(--maroon); background: var(--maroon-soft); border: 1px solid rgba(123,29,29,.12); }
+.faq-item summary .fq-ch { margin-left: auto; color: var(--ink3); font-size: .8rem; transition: transform .25s; }
+.faq-item[open] summary .fq-ch { transform: rotate(180deg); }
+.faq-item[open] summary { color: var(--maroon-d); }
+.faq-a { padding: 0 1.2rem 1.15rem 3.9rem; font-size: .88rem; line-height: 1.7; color: var(--ink2); }
+.faq-a a { color: var(--maroon); font-weight: 700; text-decoration: underline; }
+.faq-a strong { color: var(--ink); }
+@media (max-width: 640px) { .faq-a { padding-left: 1.2rem; } }
+
 /* (footer styles: see includes/site_footer.php) */
 
 /* ══ RESPONSIVE ══ */
@@ -696,6 +711,47 @@ a { text-decoration: none; color: inherit; }
     </div>
   </section>
 
+  <!-- ══ FAQ ══ -->
+  <section class="section" id="faq">
+    <div class="container">
+      <div class="sec-head">
+        <span class="sec-eyebrow"><span class="dot"></span> Quick answers</span>
+        <h2 class="sec-title">How it works <em>for you</em></h2>
+        <p class="sec-sub">The most common questions from first-time reporters — answered in a minute.</p>
+      </div>
+      <div class="faq-wrap">
+        <details class="faq-item">
+          <summary><span class="fq-ic"><i class="fas fa-user-check"></i></span> Who can report defective equipment?<i class="fas fa-chevron-down fq-ch"></i></summary>
+          <div class="faq-a">Any <strong>student, teacher, or staff member</strong> of Batangas Eastern Colleges. You only need your official <strong>BEC email address</strong> — it's verified at sign-in so reports always come from the campus community.</div>
+        </details>
+        <details class="faq-item">
+          <summary><span class="fq-ic"><i class="fas fa-key"></i></span> Do I need to create an account?<i class="fas fa-chevron-down fq-ch"></i></summary>
+          <div class="faq-a">No. Enter your <strong>name and BEC email</strong> and you're in — no password, no registration. (PMO administrators and technicians have their own secured logins.)</div>
+        </details>
+        <details class="faq-item">
+          <summary><span class="fq-ic"><i class="fas fa-qrcode"></i></span> What's the fastest way to report?<i class="fas fa-chevron-down fq-ch"></i></summary>
+          <div class="faq-a"><strong>Scan the QR sticker</strong> on the equipment — the report form opens with that exact unit already selected. Just describe the problem and submit. No sticker? Use <a href="student_index.php">Report defective equipment</a> and search for the item.</div>
+        </details>
+        <details class="faq-item">
+          <summary><span class="fq-ic"><i class="fas fa-route"></i></span> How do I follow up on my report?<i class="fas fa-chevron-down fq-ch"></i></summary>
+          <div class="faq-a">You get a <strong>ticket number</strong> on screen and by email the moment you submit. Enter it on the <a href="track_report.php">Track Report</a> page anytime to see the live status — and you'll receive an email at every stage: received, approved, technician assigned, and repaired. Once fixed, we'll ask you to confirm the issue is really resolved.</div>
+        </details>
+        <details class="faq-item">
+          <summary><span class="fq-ic"><i class="fas fa-stopwatch"></i></span> How fast will it be repaired?<i class="fas fa-chevron-down fq-ch"></i></summary>
+          <div class="faq-a"><?php
+            require_once __DIR__ . '/config/sla.php';
+            $faqH = becSlaHours();
+            $faqD = static fn($h) => rtrim(rtrim(number_format($h / 24, 1), '0'), '.');
+          ?>Every report gets a priority with a target timeline: <strong>critical ≈ <?php echo $faqD($faqH['critical']); ?> day(s)</strong>, high ≈ <?php echo $faqD($faqH['high']); ?> days, medium ≈ <?php echo $faqD($faqH['medium']); ?> days, and low ≈ <?php echo $faqD($faqH['low']); ?> days. Reports that pass their target are automatically escalated to the PMO.</div>
+        </details>
+        <details class="faq-item">
+          <summary><span class="fq-ic"><i class="fas fa-user-shield"></i></span> Is my information safe?<i class="fas fa-chevron-down fq-ch"></i></summary>
+          <div class="faq-a">Yes. Your name, email, and report details are used <strong>solely for maintenance and follow-ups</strong>, in line with the <strong>Data Privacy Act of 2012 (RA 10173)</strong> — you give explicit consent at sign-in. Publicly visible reports show only the equipment and status, never your personal details.</div>
+        </details>
+      </div>
+    </div>
+  </section>
+
   <!-- shared footer -->
   <?php require __DIR__ . '/includes/site_footer.php'; ?>
 
@@ -709,7 +765,7 @@ a { text-decoration: none; color: inherit; }
     Array.prototype.forEach.call(grid.children, function (c, i) { c.style.transitionDelay = (i * 60) + 'ms'; });
   });
   // scroll-reveal
-  var els = document.querySelectorAll('.sec-head,.portal-card,.mod-card,.about,.rep-card,.rep-all,.cred,.showcase-copy,.status-widget,.becca-copy');
+  var els = document.querySelectorAll('.sec-head,.portal-card,.mod-card,.about,.rep-card,.rep-all,.cred,.showcase-copy,.status-widget,.becca-copy,.faq-item');
   if (reduce || !('IntersectionObserver' in window)) {
     els.forEach(function (el) { el.classList.add('reveal', 'in'); });
   } else {
