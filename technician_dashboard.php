@@ -1613,7 +1613,9 @@ function validateForm(f, submitterVal) {
     }
   }
   if (bad.length) {
-    techToast('err', 'Please fill in the highlighted required field' + (bad.length > 1 ? 's' : '') + '.');
+    var names = bad.map(function (el) { return el.dataset.req || 'a required field'; });
+    var listed = names.slice(0, 3).join(', ') + (names.length > 3 ? ' and ' + (names.length - 3) + ' more' : '');
+    techToast('err', 'Still needed: ' + listed + '.');
     bad[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
     setTimeout(function () { bad[0].focus({ preventScroll: true }); }, 300);
   }
