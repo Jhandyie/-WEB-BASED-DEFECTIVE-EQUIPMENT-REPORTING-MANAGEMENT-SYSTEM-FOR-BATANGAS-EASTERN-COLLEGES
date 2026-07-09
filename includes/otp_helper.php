@@ -296,7 +296,10 @@ function sendOTPEmail($email, $otp, $role = 'admin') {
 }
 
 function storeOTP($email, $otp, $role = 'admin') {
-    markEmailOtpUsed((string)$email);
+    // Do NOT invalidate earlier codes here: with resend + slow mail delivery the
+    // user often receives (and types) the previous email's code, which would then
+    // wrongly report "already been used". Every code lives its own short TTL and
+    // is single-use; ALL outstanding codes are burned together on successful login.
     return insertEmailOtp((string)$email, (string)$otp, (string)$role, 3);
 }
 
@@ -308,9 +311,10 @@ function verifyOTP($email, $otp_code, $role = 'admin') {
             return ['success' => false, 'message' => 'OTP has expired. Please request a new one.', 'user' => null];
         }
         $used = findEmailOtpRecord((string)$email, (string)$otp_code, (string)$role, 'used');
-        return ['success' => false, 'message' => $used ? 'This OTP has already been used.' : 'Invalid OTP code.', 'user' => null];
+        return ['success' => false, 'message' => $used ? 'This code was already used. Please click "Resend code" and enter the newest one.' : 'Invalid OTP code.', 'user' => null];
     }
     markOtpUsedById((int)($otp_record['otp_id'] ?? 0));
+    markEmailOtpUsed((string)$email); // burn any sibling codes — none can be replayed after a successful login
     $allowed_roles = ['admin', 'pmo', 'dean', 'finance', 'student', 'faculty', 'technician', 'handler', 'guest'];
     if (!in_array($role, $allowed_roles)) return ['success' => false, 'message' => 'Invalid role.', 'user' => null];
     $user = findUserByEmailAndRole((string)$email, (string)$role, [
