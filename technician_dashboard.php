@@ -725,7 +725,7 @@ body.modal-open .bell-fab{display:none;}
 .form input:focus,.form textarea:focus{outline:none;border-color:var(--maroon);box-shadow:0 0 0 3px rgba(123,29,29,.08);}
 .fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;}
 .fgrid label{margin-top:0;}
-.frow{display:grid;grid-template-columns:2fr .7fr 1fr 1.2fr;gap:8px;margin-bottom:8px;}
+.frow{display:grid;grid-template-columns:2fr .7fr 1fr 1.2fr auto;gap:8px;margin-bottom:8px;align-items:center;}
 .fs{display:flex;align-items:center;gap:10px;margin:1.2rem 0 .5rem;padding-top:1rem;border-top:1px dashed var(--bdr);}
 .fs:first-of-type{margin-top:.4rem;padding-top:0;border-top:none;}
 .fs-num{width:26px;height:26px;flex-shrink:0;border-radius:50%;background:linear-gradient(135deg,var(--maroon-d),var(--maroon));color:#fff;font-family:'Outfit',sans-serif;font-weight:800;font-size:.74rem;display:flex;align-items:center;justify-content:center;}
@@ -860,6 +860,9 @@ body.modal-open{overflow:hidden;}
 .fin-note i{color:var(--amber);margin-top:.15rem;}
 .add-row{display:inline-flex;align-items:center;gap:.45rem;margin-top:2px;padding:.5rem .9rem;border-radius:10px;border:1.5px dashed var(--bdr);background:#fff;color:var(--maroon);font-size:.78rem;font-weight:700;cursor:pointer;transition:all .15s;}
 .add-row:hover{border-color:var(--maroon);background:var(--maroon-soft);}
+.row-del{width:36px;height:36px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;border-radius:9px;border:1.5px solid var(--bdr);background:#fff;color:#9E8070;font-size:.8rem;cursor:pointer;transition:all .15s;}
+.row-del:hover{border-color:#DC2626;background:#FEF2F2;color:#DC2626;}
+@media(max-width:900px){.row-del{justify-self:start;}}
 
 /* ── Chip fields (parts / tools / materials) ── */
 .chipfield label{margin-top:0;}
@@ -1216,6 +1219,7 @@ body.modal-open{overflow:hidden;}
                     <input type="number" name="quantity[]" min="1" placeholder="Qty">
                     <input type="number" step="0.01" name="estimated_cost[]" placeholder="Est. cost (₱)">
                     <input type="text" name="supplier[]" placeholder="Supplier">
+                    <button type="button" class="row-del" data-del-part aria-label="Remove this part / material" title="Remove"><i class="fas fa-xmark"></i></button>
                   </div>
                   <?php endfor; ?>
                 </div>
@@ -1705,6 +1709,17 @@ document.querySelectorAll('[data-add-part]').forEach(function (btn) {
     rows.appendChild(row);
     row.querySelector('input') && row.querySelector('input').focus();
   });
+});
+
+/* ── Budget: remove a part/material row (last row clears instead of vanishing) ── */
+document.addEventListener('click', function (e) {
+  const del = e.target.closest('[data-del-part]');
+  if (!del) return;
+  const row = del.closest('.frow');
+  const rows = del.closest('.br-rows');
+  if (!row || !rows) return;
+  if (rows.querySelectorAll('.frow').length > 1) row.remove();
+  else row.querySelectorAll('input').forEach(function (i) { fieldOk(i); i.value = ''; });
 });
 
 /* ── Chip fields: unlimited parts / tools / materials, joined into one value ── */
