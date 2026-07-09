@@ -1659,7 +1659,7 @@ textarea.fc{resize:vertical;min-height:70px;}
         <!-- VERIFY -->
         <div class="af af-verify">
           <div class="af-title"><i class="fas fa-shield-alt"></i> Verify Completion</div>
-          <form method="POST" action="?view_id=<?php echo $vr['report_id'];?>&view=<?php echo $vw;?>">
+          <form id="verifyForm" method="POST" action="?view_id=<?php echo $vr['report_id'];?>&view=<?php echo $vw;?>">
             <input type="hidden" name="action" value="verify_completion">
             <input type="hidden" name="report_id" value="<?php echo esc($vr['report_id']);?>">
             <div class="fg">
@@ -1683,6 +1683,13 @@ textarea.fc{resize:vertical;min-height:70px;}
 
     <div class="mfoot">
       <button class="btn btn-ghost btn-sm" onclick="closeDet()">Close</button>
+      <?php if ($vr['status'] === 'completed'): ?>
+      <!-- always-visible shortcut; submits the Verify form in the right pane -->
+      <button type="submit" form="verifyForm" class="btn btn-green btn-sm"
+        onclick="return confirm('Verify this completion and close report <?php echo esc($vr['report_id']); ?>?\n\nThe reporter will be notified that the repair is confirmed.');">
+        <i class="fas fa-check-circle"></i> Verify &amp; Close
+      </button>
+      <?php endif; ?>
       <?php
         $vrAssigned = !empty($vr['technician_name']) && strtolower(trim((string)$vr['technician_name'])) !== 'unassigned';
         /* only statuses assignDefectReportToTechnician() accepts — once work starts
