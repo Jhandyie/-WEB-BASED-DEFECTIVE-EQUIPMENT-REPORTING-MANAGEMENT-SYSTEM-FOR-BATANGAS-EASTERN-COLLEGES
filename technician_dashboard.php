@@ -1604,7 +1604,9 @@ function validateForm(f, submitterVal) {
     else fieldOk(el);
   });
   /* budget: at least one part / material must be listed */
-  if ((f.action || '').indexOf('budget') !== -1) {
+  /* getAttribute: f.action is hijacked by the hidden <input name="action"> on the
+     completion form (returns the element, not the URL) and would throw here */
+  if ((f.getAttribute('action') || '').indexOf('budget') !== -1) {
     const parts = Array.from(f.querySelectorAll('input[name="part_needed[]"]'));
     if (parts.length && !parts.some(function (p) { return p.value.trim(); })) {
       fieldError(parts[0], 'Add at least one part / material.'); bad.push(parts[0]);
@@ -1679,10 +1681,11 @@ document.querySelectorAll('form.tech-ajax').forEach(function (f) {
     const btn = f.querySelector('button[type=submit]');
     const orig = btn ? btn.innerHTML : '';
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Submitting…'; }
-    const kind = (f.action || '').indexOf('budget') !== -1 ? 'budget' : 'complete';
+    const actionUrl = f.getAttribute('action') || '';
+    const kind = actionUrl.indexOf('budget') !== -1 ? 'budget' : 'complete';
     actionLoader(true, kind);
     try {
-      const res = await fetch(f.action, { method: 'POST', body: new FormData(f) });
+      const res = await fetch(actionUrl, { method: 'POST', body: new FormData(f) });
       const data = await res.json().catch(function () {
         return { success: false, message: 'The server sent an unreadable response (HTTP ' + res.status + '). If you attached photos, try smaller ones; otherwise contact the PMO.' };
       });
