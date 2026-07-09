@@ -891,7 +891,9 @@ body{
 ───────────────────────────────────────────────────── */
 .mo{position:fixed;inset:0;background:rgba(26,8,8,.6);backdrop-filter:blur(7px);
   z-index:500;display:none;align-items:flex-start;justify-content:center;
-  padding:1.5rem 1rem;overflow-y:auto;}
+  padding:1.5rem 1rem;overflow-y:auto;overscroll-behavior:contain;}
+/* while any modal is open the page behind must not scroll */
+body:has(.mo.open){overflow:hidden;}
 .mo.open{display:flex;animation:moFade .18s ease;}
 @keyframes moFade{from{opacity:0}to{opacity:1}}
 .mw{background:var(--s1);border-radius:var(--r4);width:100%;max-width:700px;
@@ -923,8 +925,8 @@ body{
 
 /* Two pane layout */
 .m2col{display:grid;grid-template-columns:1fr 1fr;gap:0;max-height:70vh;overflow:hidden;}
-.mleft{padding:1.35rem 1.55rem;overflow-y:auto;border-right:1px solid var(--bdr);}
-.mright{padding:1.35rem 1.55rem;overflow-y:auto;background:var(--s2);}
+.mleft{padding:1.35rem 1.55rem;overflow-y:auto;border-right:1px solid var(--bdr);overscroll-behavior:contain;}
+.mright{padding:1.35rem 1.55rem;overflow-y:auto;background:var(--s2);overscroll-behavior:contain;}
 .mleft::-webkit-scrollbar,.mright::-webkit-scrollbar{width:3px;}
 .mleft::-webkit-scrollbar-thumb,.mright::-webkit-scrollbar-thumb{background:var(--bdr);border-radius:3px;}
 
