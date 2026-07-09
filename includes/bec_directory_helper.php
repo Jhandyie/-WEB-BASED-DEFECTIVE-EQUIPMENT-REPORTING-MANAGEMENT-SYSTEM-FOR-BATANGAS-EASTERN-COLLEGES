@@ -39,9 +39,6 @@ function becdir_parse_file(string $tmpPath, string $origName): array {
     $records = [];
 
     if ($ext === 'xlsx') {
-        if (!extension_loaded('zip')) {
-            return ['rows' => [], 'error' => 'XLSX import is not available on this server (the PHP "zip" extension is disabled). Please save your Excel file as CSV and upload that instead.'];
-        }
         $records = becdir_read_xlsx($tmpPath);
         if ($records === null) return ['rows' => [], 'error' => 'Could not read that .xlsx file. Please re-save it or export as CSV.'];
     } elseif (in_array($ext, ['csv', 'txt'], true)) {
@@ -89,18 +86,53 @@ function becdir_parse_file(string $tmpPath, string $origName): array {
     return ['rows' => $rows, 'error' => ''];
 }
 
-/** Minimal XLSX reader (used only when ext-zip is available). Returns array of rows or null. */
+/** Read one entry out of a ZIP archive: ZipArchive when available, else a
+ *  pure-PHP central-directory parser (needs only zlib for deflated entries). */
+function becdir_zip_entry(string $path, string $entry): ?string {
+    if (class_exists('ZipArchive')) {
+        $zip = new ZipArchive();
+        if ($zip->open($path) !== true) return null;
+        $data = $zip->getFromName($entry);
+        $zip->close();
+        return $data === false ? null : $data;
+    }
+    $data = file_get_contents($path);
+    if ($data === false) return null;
+    $eocd = strrpos($data, "PK\x05\x06");             // end-of-central-directory record
+    if ($eocd === false) return null;
+    $count = unpack('v', substr($data, $eocd + 10, 2))[1];
+    $p     = unpack('V', substr($data, $eocd + 16, 4))[1];
+    for ($i = 0; $i < $count; $i++) {
+        if (substr($data, $p, 4) !== "PK\x01\x02") break;
+        $method = unpack('v', substr($data, $p + 10, 2))[1];
+        $csize  = unpack('V', substr($data, $p + 20, 4))[1];
+        $nlen   = unpack('v', substr($data, $p + 28, 2))[1];
+        $elen   = unpack('v', substr($data, $p + 30, 2))[1];
+        $clen   = unpack('v', substr($data, $p + 32, 2))[1];
+        $off    = unpack('V', substr($data, $p + 42, 4))[1];
+        if (substr($data, $p + 46, $nlen) === $entry) {
+            if (substr($data, $off, 4) !== "PK\x03\x04") return null;
+            $lnlen = unpack('v', substr($data, $off + 26, 2))[1];
+            $lelen = unpack('v', substr($data, $off + 28, 2))[1];
+            $raw = substr($data, $off + 30 + $lnlen + $lelen, $csize);
+            if ($method === 0) return $raw;                       // stored
+            if ($method === 8) { $out = @gzinflate($raw); return $out === false ? null : $out; } // deflated
+            return null;
+        }
+        $p += 46 + $nlen + $elen + $clen;
+    }
+    return null;
+}
+
+/** Minimal XLSX reader (works with or without ext-zip). Returns array of rows or null. */
 function becdir_read_xlsx(string $path): ?array {
-    $zip = new ZipArchive();
-    if ($zip->open($path) !== true) return null;
     $shared = [];
-    if (($ss = $zip->getFromName('xl/sharedStrings.xml')) !== false) {
+    if (($ss = becdir_zip_entry($path, 'xl/sharedStrings.xml')) !== null) {
         $xml = @simplexml_load_string($ss);
         if ($xml) { foreach ($xml->si as $si) { $shared[] = (string)($si->t ?? implode('', (array)$si->xpath('.//t'))); } }
     }
-    $sheet = $zip->getFromName('xl/worksheets/sheet1.xml');
-    $zip->close();
-    if ($sheet === false) return null;
+    $sheet = becdir_zip_entry($path, 'xl/worksheets/sheet1.xml');
+    if ($sheet === null) return null;
     $xml = @simplexml_load_string($sheet);
     if (!$xml) return null;
     $rows = [];
