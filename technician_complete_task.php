@@ -98,6 +98,13 @@ $repair_cost       = (float)($_POST['repair_cost'] ?? 0);
 $date_started_raw  = trim((string)($_POST['date_started'] ?? ''));
 $date_started      = $date_started_raw !== '' ? date('Y-m-d H:i:s', strtotime($date_started_raw)) : null;
 
+// Duration left blank → compute it from the actual start time (form pre-fills
+// date_started from the moment the technician pressed Start).
+if ($repair_duration === '' && $date_started !== null) {
+    $mins = (int) max(1, round((time() - strtotime($date_started)) / 60));
+    $repair_duration = $mins >= 60 ? intdiv($mins, 60) . 'h ' . ($mins % 60) . 'm' : $mins . 'm';
+}
+
 // --- Photo documentation by stage ---
 $base_dir       = __DIR__ . '/uploads/completed_work';
 $before_photos  = tcSavePhotoStage('before_photos', $base_dir . '/before');

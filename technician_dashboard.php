@@ -1232,19 +1232,19 @@ body.modal-open{overflow:hidden;}
               <form class="form tech-ajax" method="post" action="technician_complete_task.php" enctype="multipart/form-data" data-reload="1">
                 <input type="hidden" name="report_id" value="<?php echo $rid_e; ?>">
                 <input type="hidden" name="action" value="complete">
-                <div class="fs"><span class="fs-num">1</span><span class="fs-tx"><strong>Timing &amp; Cost</strong><span>When the work started and what it cost</span></span></div>
+                <div class="fs"><span class="fs-num">1</span><span class="fs-tx"><strong>Timing &amp; Cost</strong><span>Pre-filled from when you pressed Start — adjust only if needed</span></span></div>
                 <div class="fgrid">
-                  <div><label>Date started <em class="req">*</em></label><input type="datetime-local" name="date_started" data-req="Date started"></div>
-                  <div><label>Repair duration <em class="req">*</em></label><input type="text" name="repair_duration" placeholder="e.g. 1h 30m" data-req="Repair duration"></div>
+                  <div><label>Date started</label><input type="datetime-local" name="date_started" value="<?php echo $started ? date('Y-m-d\TH:i', $started) : ''; ?>"></div>
+                  <div><label>Repair duration</label><input type="text" name="repair_duration" placeholder="Leave blank — computed automatically"></div>
                   <div><label>Repair cost (₱)</label><input type="number" step="0.01" name="repair_cost" placeholder="0.00"></div>
                 </div>
-                <div class="fs"><span class="fs-num">2</span><span class="fs-tx"><strong>Diagnosis &amp; Work Done</strong><span>What was wrong and how you fixed it</span></span></div>
+                <div class="fs"><span class="fs-num">2</span><span class="fs-tx"><strong>Diagnosis &amp; Work Done</strong><span>Only these two are required — the rest is optional detail</span></span></div>
                 <label>Diagnosis <em class="req">*</em></label>
                 <textarea name="diagnosis" placeholder="What was found to be wrong?" data-req="Diagnosis"></textarea>
-                <label>Actions performed <em class="req">*</em></label>
-                <textarea name="actions_performed" placeholder="What did you do?" data-req="Actions performed"></textarea>
+                <label>Actions performed</label>
+                <textarea name="actions_performed" placeholder="Optional — specific steps you took."></textarea>
                 <label>Repair procedures</label>
-                <textarea name="repair_procedures" placeholder="Steps / procedures followed."></textarea>
+                <textarea name="repair_procedures" placeholder="Optional — procedures followed, for the maintenance record."></textarea>
                 <label>Repair summary <em class="req">*</em></label>
                 <textarea name="work_performed" placeholder="Overall summary of the repair." data-req="Repair summary"></textarea>
                 <div class="fs"><span class="fs-num">3</span><span class="fs-tx"><strong>Parts, Tools &amp; Materials</strong><span>Add each item one by one — press Enter or “+” after each</span></span></div>
@@ -1613,6 +1613,7 @@ function validateForm(f, submitterVal) {
     }
   }
   if (bad.length) {
+    techToast('err', 'Please fill in the highlighted required field' + (bad.length > 1 ? 's' : '') + '.');
     bad[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
     setTimeout(function () { bad[0].focus({ preventScroll: true }); }, 300);
   }
