@@ -890,6 +890,8 @@ body.modal-open{overflow:hidden;}
 .req{color:#DC2626;font-style:normal;font-weight:800;}
 .f-err{border-color:#DC2626 !important;background:#FFF8F8 !important;box-shadow:0 0 0 3px rgba(220,38,38,.12) !important;animation:fShake .3s ease;}
 @keyframes fShake{0%,100%{transform:translateX(0);}25%{transform:translateX(-4px);}75%{transform:translateX(4px);}}
+.f-flash{animation:fFlash .65s ease 2;}
+@keyframes fFlash{0%,100%{outline:3px solid rgba(220,38,38,0);outline-offset:2px;}50%{outline:6px solid rgba(220,38,38,.45);outline-offset:3px;}}
 .f-msg{display:flex;align-items:center;gap:.4rem;margin-top:.35rem;font-size:.74rem;font-weight:700;color:#DC2626;}
 .f-msg i{font-size:.72rem;}
 
@@ -1617,7 +1619,11 @@ function validateForm(f, submitterVal) {
     var listed = names.slice(0, 3).join(', ') + (names.length > 3 ? ' and ' + (names.length - 3) + ' more' : '');
     techToast('err', 'Still needed: ' + listed + '.');
     bad[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-    setTimeout(function () { bad[0].focus({ preventScroll: true }); }, 300);
+    setTimeout(function () {
+      bad[0].focus({ preventScroll: true });
+      /* pulse AFTER the scroll lands so the technician sees exactly which field */
+      bad[0].classList.remove('f-flash'); void bad[0].offsetWidth; bad[0].classList.add('f-flash');
+    }, 350);
   }
   return bad.length === 0;
 }
