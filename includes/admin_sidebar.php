@@ -22,7 +22,6 @@ $__sections = [
         ['defects',       'admin_defect_reports.php',     'fa-exclamation-triangle','Defect Reports'],
         ['workorders',    'admin_work_orders.php',        'fa-clipboard-check',     'Work Orders'],
         ['assign',        'admin_assign_technicians.php', 'fa-user-cog',            'Assign Technicians'],
-        ['budget',        'admin_budget_requests.php',    'fa-coins',               'Budget Requests'],
         ['preventive',    'admin_preventive.php',         'fa-calendar-check',      'Preventive Maint.'],
     ],
     'Management' => [
@@ -31,6 +30,7 @@ $__sections = [
         ['directory',     'admin_bec_directory.php',      'fa-id-card',             'BEC Directory'],
         ['notifications', 'admin_notifications.php',       'fa-bell',                'Notifications'],
         ['audit',         'admin_audit_log.php',           'fa-shield-halved',       'Audit Log'],
+        ['backup',        'admin_backup.php',              'fa-database',            'Backup & Recovery'],
     ],
 ];
 ?>

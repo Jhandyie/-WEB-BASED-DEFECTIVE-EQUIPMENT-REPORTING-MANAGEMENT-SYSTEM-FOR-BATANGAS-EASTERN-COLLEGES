@@ -4,8 +4,8 @@
  *
  * Walks ONE test report through the entire workflow over real HTTP:
  *   reporter submit → admin receive → approve → assign technician →
- *   technician accept → start → budget request (+ Finance ack) →
- *   completion w/ photo → admin verify → reporter satisfaction
+ *   technician accept → start → completion w/ photo →
+ *   admin verify → reporter satisfaction
  * asserting every status transition, then removes ALL test data.
  *
  * Run before a demo or after any change:
@@ -137,18 +137,8 @@ try {
     http($JAR_T, 'POST', "$BASE/technician_dashboard.php", ['action' => 'start', 'report_id' => $rid, 'technician_notes' => 'smoke start'], ["X-CSRF-Token: $tok3"]);
     step('Technician: start → in_progress', dbStatus($rid) === 'in_progress', dbStatus($rid));
 
-    // budget + Finance ack
-    [, $b] = http($JAR_T, 'POST', "$BASE/technician_budget_request.php", [
-        'report_id' => $rid, 'justification' => 'smoke parts', 'notify_finance' => '1',
-        'part_needed[0]' => 'Smoke widget', 'quantity[0]' => '1', 'estimated_cost[0]' => '10', 'supplier[0]' => 'Smoke Co',
-    ], ["X-CSRF-Token: $tok3"], true);
-    $j = json_decode($b, true);
-    $brid = (string)($j['request_id'] ?? '');
-    step('Budget request (+Finance email)', ($j['success'] ?? false) && $brid !== '', $brid ?: substr($b, 0, 120));
-    $ftok = $pdo->query("SELECT finance_token FROM budget_requests WHERE request_id=" . $pdo->quote($brid))->fetchColumn();
-    http($JAR_R, 'POST', "$BASE/budget_ack.php?token=" . urlencode((string)$ftok), ['token' => $ftok, 'act' => 'accepted']);
-    $fin = $pdo->query("SELECT finance_status FROM budget_requests WHERE request_id=" . $pdo->quote($brid))->fetchColumn();
-    step('Finance acknowledges budget', $fin === 'accepted', "finance_status=$fin");
+    // NOTE: the budget-request / Finance-acknowledgment step was removed from the
+    // system (feature retired) — the technician now goes straight to completion.
 
     // completion with a photo
     $png = sys_get_temp_dir() . '/smoke_photo.png';

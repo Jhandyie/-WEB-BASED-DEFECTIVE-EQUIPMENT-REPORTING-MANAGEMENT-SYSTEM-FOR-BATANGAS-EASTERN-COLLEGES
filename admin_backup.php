@@ -1,0 +1,323 @@
+<?php
+/**
+ * admin_backup.php — Backup & Data Recovery (admin only).
+ *
+ * Surfaces the database backup engine the system runs nightly and adds the
+ * recovery half documented in the manuscript: run an on-demand backup,
+ * download any archive, and restore/recover records from a chosen backup if
+ * data is accidentally deleted or corrupted. Restore is an UPSERT that never
+ * truncates, and always takes a safety snapshot first.
+ */
+require_once __DIR__ . '/includes/session_bootstrap.php';
+startRoleSession('admin');
+require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/csrf.php';
+require_once __DIR__ . '/includes/audit.php';
+require_once __DIR__ . '/includes/backup_restore.php';
+
+requireRole('admin');
+
+$admin_id   = $_SESSION['user_id'];
+$admin_name = $_SESSION['fullname'] ?? 'Administrator';
+
+function be($v): string { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
+function bdt($v): string { $t = is_numeric($v) ? (int)$v : strtotime((string)$v); return $t ? date('M d, Y · h:i A', $t) : '—'; }
+function bsize($b): string { $b = (int)$b; if ($b < 1024) return $b . ' B'; if ($b < 1048576) return round($b/1024) . ' KB'; return round($b/1048576, 1) . ' MB'; }
+
+/* ── Download an archive (read-only, streamed before any HTML) ── */
+if (isset($_GET['dl'])) {
+    $path = becResolveBackupPath((string)$_GET['dl']);
+    if ($path === null) { http_response_code(404); exit('Backup not found.'); }
+    logActivity($admin_id, 'backup.download', 'Downloaded backup ' . basename($path));
+    header('Content-Type: application/zip');
+    header('Content-Disposition: attachment; filename="' . basename($path) . '"');
+    header('Content-Length: ' . filesize($path));
+    header('X-Content-Type-Options: nosniff');
+    readfile($path);
+    exit();
+}
+
+/* ── State-changing actions (POST + CSRF, then redirect) ── */
+$flash = $_SESSION['backup_flash'] ?? null;
+unset($_SESSION['backup_flash']);
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireCsrf();
+    $action = (string)($_POST['action'] ?? '');
+
+    if ($action === 'backup') {
+        try {
+            $pdo = getPgsqlPdoConnection();
+            $r = becCreateDatabaseBackup($pdo);
+            logActivity($admin_id, 'backup.create', 'Created backup ' . $r['file'] . ' (' . $r['tables'] . ' tables, ' . $r['rows'] . ' rows)');
+            $flash = ['ok', 'Backup created: ' . $r['file'] . ' — ' . $r['tables'] . ' tables, ' . number_format($r['rows']) . ' records, ' . bsize($r['bytes']) . '.'];
+        } catch (Throwable $e) {
+            $flash = ['err', 'Backup failed: ' . $e->getMessage()];
+        }
+    } elseif ($action === 'delete') {
+        $path = becResolveBackupPath((string)($_POST['file'] ?? ''));
+        if ($path === null) {
+            $flash = ['err', 'That backup could not be found.'];
+        } else {
+            @unlink($path);
+            logActivity($admin_id, 'backup.delete', 'Deleted backup ' . basename($path));
+            $flash = ['ok', 'Deleted backup ' . basename($path) . '.'];
+        }
+    } elseif ($action === 'restore') {
+        $path = becResolveBackupPath((string)($_POST['file'] ?? ''));
+        $confirm = strtoupper(trim((string)($_POST['confirm'] ?? '')));
+        if ($path === null) {
+            $flash = ['err', 'That backup could not be found.'];
+        } elseif ($confirm !== 'RESTORE') {
+            $flash = ['err', 'Restore not confirmed — type RESTORE to proceed.'];
+        } else {
+            try {
+                $pdo = getPgsqlPdoConnection();
+                $res = becRestoreFromBackup($pdo, $path);
+                if ($res['ok']) {
+                    logActivity($admin_id, 'backup.restore', 'Restored from ' . basename($path) . ' — ' . $res['message'] . ' (safety: ' . ($res['safety'] ?? 'n/a') . ')');
+                    $detail = [];
+                    foreach ($res['restored'] as $t => $n) { $detail[] = $t . ' (' . $n . ')'; }
+                    $flash = ['ok', $res['message'] . ' Safety snapshot: ' . ($res['safety'] ?? 'n/a') . '. Tables: ' . (implode(', ', $detail) ?: 'none') . '.'];
+                } else {
+                    logActivity($admin_id, 'backup.restore_fail', 'Restore from ' . basename($path) . ' failed: ' . $res['message']);
+                    $flash = ['err', $res['message']];
+                }
+            } catch (Throwable $e) {
+                $flash = ['err', 'Restore failed: ' . $e->getMessage()];
+            }
+        }
+    }
+
+    $_SESSION['backup_flash'] = $flash;
+    header('Location: admin_backup.php');
+    exit();
+}
+
+/* ── Page data ── */
+$backups = becListBackups();
+$totalBytes = array_sum(array_column($backups, 'size'));
+$lastRun = $backups[0]['mtime'] ?? 0;
+$scheduledLikely = false;
+foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = true; break; } }
+?><!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<?php echo csrf_meta(); ?>
+<title>Backup &amp; Recovery — BEC Admin</title>
+<link rel="icon" type="image/png" href="assets/logs.png">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Outfit:wght@400;500;600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+  :root{ --maroon:#7B1D1D; --maroon-d:#4A0E0E; --gold:#C9960C; --ink:#1C1008; --ink2:#5C3838; --ink3:#8A7466; --paper:#F4F1EC; --surface:#fff; --border:#E2D9CC; --field:#FBF9F6; --danger:#B42318; --success:#1A7A33; }
+  *{margin:0;padding:0;box-sizing:border-box;font-family:'DM Sans',system-ui,sans-serif;}
+  body{background:var(--paper);color:var(--ink);min-height:100vh;}
+  .top{background:var(--maroon-d);color:#fff;padding:16px 28px;display:flex;align-items:center;gap:14px;}
+  .top .seal{width:40px;height:40px;border-radius:50%;background:#fff;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+  .top .seal img{width:100%;height:100%;object-fit:cover;}
+  .top h1{font-family:'Fraunces',serif;font-size:1.05rem;font-weight:700;}
+  .top .sub{font-size:.72rem;color:rgba(255,255,255,.7);}
+  .top a.back{margin-left:auto;color:#fff;text-decoration:none;font-size:.82rem;border:1px solid rgba(255,255,255,.3);padding:7px 14px;border-radius:8px;}
+  .top a.back:hover{background:rgba(255,255,255,.1);}
+  .wrap{max-width:none;margin:0;padding:24px 28px 60px;}
+  .head h2{font-family:'Fraunces',serif;font-size:1.5rem;}
+  .head p{font-size:.86rem;color:var(--ink3);margin-top:3px;max-width:760px;}
+  .flash{margin:16px 0;padding:12px 16px;border-radius:10px;font-size:.86rem;display:flex;gap:10px;align-items:flex-start;line-height:1.5;}
+  .flash.ok{background:#EEF7F0;border:1px solid #BFE3C8;color:#1A5A2A;}
+  .flash.err{background:#FDECEC;border:1px solid #F3C0C0;color:#8A1C1C;}
+  .flash i{margin-top:2px;}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin:18px 0;}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;box-shadow:0 1px 2px rgba(28,16,8,.04);}
+  .stat .lbl{font-size:.66rem;text-transform:uppercase;letter-spacing:.6px;color:var(--ink3);font-weight:700;}
+  .stat .val{font-family:'Fraunces',serif;font-size:1.4rem;margin-top:4px;color:var(--ink);}
+  .stat .sub{font-size:.72rem;color:var(--ink3);margin-top:2px;}
+  .grid{display:grid;grid-template-columns:1.4fr 1fr;gap:18px;align-items:start;}
+  @media(max-width:960px){ .grid{grid-template-columns:1fr;} }
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 2px rgba(28,16,8,.04);overflow:hidden;}
+  .card .ch{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
+  .card .ch h3{font-family:'Fraunces',serif;font-size:1.05rem;}
+  .card .ch .ci{width:34px;height:34px;border-radius:9px;background:var(--field);display:flex;align-items:center;justify-content:center;color:var(--maroon);}
+  .card .cb{padding:16px 18px;}
+  .card .cb p{font-size:.83rem;color:var(--ink2);line-height:1.55;margin-bottom:12px;}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:.6rem 1.15rem;border-radius:10px;border:1px solid var(--maroon);background:var(--maroon);color:#fff;font-size:.85rem;font-weight:600;cursor:pointer;text-decoration:none;font-family:'DM Sans',sans-serif;}
+  .btn:hover{background:#611616;}
+  .btn.ghost{background:#fff;color:var(--ink2);border-color:var(--border);}
+  .btn.ghost:hover{background:var(--field);}
+  .btn.danger{background:var(--danger);border-color:var(--danger);}
+  .btn.danger:hover{background:#8A1C1C;}
+  .btn.sm{padding:.4rem .7rem;font-size:.76rem;border-radius:8px;}
+  table{width:100%;border-collapse:collapse;font-size:.82rem;}
+  th{text-align:left;background:var(--field);color:var(--ink2);padding:10px 14px;font-size:.66rem;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);}
+  td{padding:11px 14px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  tr:hover td{background:#FDFBF7;}
+  .fname{font-family:'Outfit',monospace;font-weight:600;font-size:.8rem;color:var(--ink);word-break:break-all;}
+  .tag{display:inline-block;padding:.16rem .5rem;border-radius:12px;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px;}
+  .tag.backup{background:rgba(123,29,29,.08);color:var(--maroon);}
+  .tag.pre-restore{background:#FFF7E6;color:#9A6A00;}
+  .rowact{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;}
+  .empty{text-align:center;padding:44px 20px;color:var(--ink3);}
+  .empty i{font-size:2rem;color:var(--border);display:block;margin-bottom:10px;}
+  .note{background:var(--field);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:.78rem;color:var(--ink2);line-height:1.55;margin-top:14px;}
+  .note code{background:#efe9e0;padding:1px 6px;border-radius:5px;font-size:.74rem;}
+  select,input[type=text]{width:100%;padding:.55rem .7rem;border:1.5px solid var(--border);border-radius:9px;background:#fff;font-size:.84rem;font-family:'DM Sans',sans-serif;margin-bottom:10px;}
+  select:focus,input:focus{outline:none;border-color:var(--maroon);box-shadow:0 0 0 3px rgba(123,29,29,.08);}
+  label.fl{display:block;font-size:.72rem;font-weight:700;color:var(--ink2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.4px;}
+  .warn{background:#FDECEC;border:1px solid #F3C0C0;color:#8A1C1C;border-radius:9px;padding:10px 12px;font-size:.78rem;line-height:1.5;margin-bottom:12px;}
+  /* Persistent admin sidebar (canonical) */
+  :root{ --sb:262px; --m1:#2D0505; --g2:#D4A017; --g3:#F0C040; --r1:8px; --r2:12px; }
+  .sb{position:fixed;left:0;top:0;width:var(--sb);height:100vh;background:linear-gradient(168deg,#1E0202 0%,#350808 38%,#4A0E0E 68%,#3A0808 100%);display:flex;flex-direction:column;z-index:400;overflow:hidden;box-shadow:5px 0 30px rgba(45,5,5,.38);transition:transform .32s cubic-bezier(.4,0,.2,1);}
+  .sb::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 110% 45% at 50% -5%,rgba(212,160,23,.12),transparent);pointer-events:none;}
+  .sb-top{padding:1.35rem 1.2rem .9rem;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:.75rem;position:relative;z-index:1;}
+  .seal-ring{position:relative;width:46px;height:46px;flex-shrink:0;}
+  .seal-spin{position:absolute;inset:-3px;border-radius:50%;background:conic-gradient(var(--g2) 0%,var(--g3) 30%,var(--g2) 60%,var(--g3) 80%,var(--g2) 100%);animation:sealSpin 7s linear infinite;opacity:.72;}
+  @keyframes sealSpin{to{transform:rotate(360deg)}}
+  .seal-core{position:absolute;inset:2px;border-radius:50%;overflow:hidden;background:var(--m1);}
+  .seal-core img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+  .sb-brand strong{display:block;font-family:'Outfit',sans-serif;font-weight:800;font-size:.8rem;color:#fff;line-height:1.25;}
+  .sb-brand em{font-size:.57rem;font-style:normal;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:1.8px;}
+  .sb-user{margin:.45rem 1rem .2rem;padding:.65rem .875rem;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.07);border-radius:var(--r2);display:flex;align-items:center;gap:.65rem;position:relative;z-index:1;}
+  .uav{width:32px;height:32px;flex-shrink:0;border-radius:50%;background:linear-gradient(135deg,var(--g2),#B45309);display:flex;align-items:center;justify-content:center;font-family:'Outfit',sans-serif;font-weight:900;font-size:.77rem;color:#fff;box-shadow:0 3px 0 rgba(0,0,0,.28);}
+  .uname{font-size:.8rem;color:#fff;font-weight:600;display:block;}
+  .urole{font-size:.58rem;color:rgba(255,255,255,.32);text-transform:uppercase;letter-spacing:1px;}
+  .sb-nav{flex:1;padding:.25rem 0;overflow-y:auto;position:relative;z-index:1;scrollbar-width:thin;scrollbar-color:rgba(212,160,23,.45) transparent;}
+  .sb-nav::-webkit-scrollbar{width:6px;}
+  .sb-nav::-webkit-scrollbar-thumb{background:rgba(212,160,23,.4);border-radius:3px;}
+  .nav-sec{font-size:.54rem;text-transform:uppercase;letter-spacing:2.5px;color:rgba(255,255,255,.18);padding:.5rem 1.25rem .2rem;font-weight:700;}
+  .ni{display:flex;align-items:center;gap:.65rem;padding:.56rem 1.25rem;color:rgba(255,255,255,.42);background:none;border:none;width:100%;text-align:left;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:500;cursor:pointer;transition:all .16s;text-decoration:none;position:relative;}
+  .ni-ic{width:30px;height:30px;border-radius:var(--r1);display:flex;align-items:center;justify-content:center;font-size:.78rem;background:rgba(255,255,255,.05);flex-shrink:0;transition:all .22s;}
+  .ni:hover{color:rgba(255,255,255,.82);}
+  .ni:hover .ni-ic{background:rgba(255,255,255,.1);transform:scale(1.08);}
+  .ni.on{color:#fff;font-weight:600;}
+  .ni.on .ni-ic{background:linear-gradient(135deg,var(--g2),var(--g3));color:var(--m1);box-shadow:0 3px 0 rgba(0,0,0,.18),0 4px 12px rgba(212,160,23,.25);}
+  .ni.on::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(to bottom,var(--g2),var(--g3));border-radius:0 3px 3px 0;}
+  .sb-foot{padding:.55rem 1rem .95rem;border-top:1px solid rgba(255,255,255,.06);}
+  .lout{width:100%;display:flex;align-items:center;justify-content:center;gap:.65rem;padding:.52rem .78rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);color:rgba(255,255,255,.42);border-radius:var(--r1);cursor:pointer;font-size:.8rem;font-family:'DM Sans',sans-serif;font-weight:500;text-decoration:none;transition:all .18s;}
+  .lout:hover{background:rgba(220,38,38,.14);color:#fca5a5;border-color:rgba(220,38,38,.22);}
+  .top{margin-left:var(--sb);}
+  .wrap{margin:0 0 0 var(--sb);max-width:none;}
+  .top,.wrap{transition:margin-left .26s ease;}
+  body.becSbHide .top, body.becSbHide .wrap{margin-left:0 !important;}
+  @media(max-width:860px){ .sb{transform:translateX(-100%);} .top,.wrap{margin-left:0;} }
+</style>
+</head>
+<body>
+  <?php $activeNav = 'backup'; require __DIR__ . '/includes/admin_sidebar.php'; ?>
+  <div class="top">
+    <div class="seal"><img src="assets/logs.png" alt="BEC" onerror="this.parentElement.innerHTML='<i class=\'fas fa-shield\' style=\'color:#7B1D1D\'></i>'"></div>
+    <div>
+      <h1>Property Management Office</h1>
+      <div class="sub">Backup &amp; Data Recovery</div>
+    </div>
+    <a class="back" href="admin_dashboard.php"><i class="fas fa-arrow-left"></i> Dashboard</a>
+  </div>
+
+  <div class="wrap">
+    <div class="head">
+      <h2>Backup &amp; Data Recovery</h2>
+      <p>Protects the system against data loss. An automated daily backup produces a compressed snapshot of every database table; you can also back up on demand, download any snapshot, and recover records from one if data is accidentally deleted or corrupted.</p>
+    </div>
+
+    <?php if ($flash): ?>
+      <div class="flash <?php echo $flash[0] === 'ok' ? 'ok' : 'err'; ?>">
+        <i class="fas <?php echo $flash[0] === 'ok' ? 'fa-circle-check' : 'fa-triangle-exclamation'; ?>"></i>
+        <div><?php echo be($flash[1]); ?></div>
+      </div>
+    <?php endif; ?>
+
+    <div class="stats">
+      <div class="stat"><div class="lbl">Snapshots stored</div><div class="val"><?php echo count($backups); ?></div><div class="sub"><?php echo bsize($totalBytes); ?> on disk</div></div>
+      <div class="stat"><div class="lbl">Latest snapshot</div><div class="val" style="font-size:1rem;"><?php echo $lastRun ? bdt($lastRun) : '—'; ?></div><div class="sub"><?php echo $lastRun ? 'most recent backup' : 'no backups yet'; ?></div></div>
+      <div class="stat"><div class="lbl">Automated schedule</div><div class="val" style="font-size:1rem;">Daily</div><div class="sub">Windows Task Scheduler</div></div>
+    </div>
+
+    <div class="grid">
+      <!-- Snapshots list -->
+      <div class="card">
+        <div class="ch"><div class="ci"><i class="fas fa-database"></i></div><h3>Snapshots</h3></div>
+        <?php if (!$backups): ?>
+          <div class="empty"><i class="fas fa-box-open"></i><strong>No backups yet.</strong><div>Use “Back up now” to create the first snapshot.</div></div>
+        <?php else: ?>
+        <div style="overflow-x:auto;">
+        <table>
+          <thead><tr><th>Archive</th><th>Created</th><th>Contents</th><th>Size</th><th></th></tr></thead>
+          <tbody>
+            <?php foreach ($backups as $b): ?>
+            <tr>
+              <td><span class="fname"><?php echo be($b['file']); ?></span><br><span class="tag <?php echo be($b['kind']); ?>"><?php echo $b['kind'] === 'pre-restore' ? 'pre-restore safety' : 'backup'; ?></span></td>
+              <td style="white-space:nowrap;"><?php echo bdt($b['created_at'] ?: $b['mtime']); ?></td>
+              <td style="white-space:nowrap;"><?php echo $b['tables'] !== null ? (int)$b['tables'] . ' tables · ' . number_format((int)$b['rows']) . ' rows' : '—'; ?></td>
+              <td style="white-space:nowrap;"><?php echo bsize($b['size']); ?></td>
+              <td>
+                <div class="rowact">
+                  <a class="btn ghost sm" href="admin_backup.php?dl=<?php echo urlencode($b['file']); ?>"><i class="fas fa-download"></i></a>
+                  <form method="post" onsubmit="return confirm('Delete this backup permanently?\n<?php echo be($b['file']); ?>');" style="display:inline;">
+                    <?php echo csrf_field(); ?>
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="file" value="<?php echo be($b['file']); ?>">
+                    <button class="btn ghost sm" type="submit" title="Delete"><i class="fas fa-trash"></i></button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+        </div>
+        <?php endif; ?>
+      </div>
+
+      <!-- Actions -->
+      <div>
+        <div class="card" style="margin-bottom:18px;">
+          <div class="ch"><div class="ci"><i class="fas fa-cloud-arrow-up"></i></div><h3>Back up now</h3></div>
+          <div class="cb">
+            <p>Create an immediate snapshot of the entire database. Snapshots are compressed and the newest 14 are kept automatically.</p>
+            <form method="post">
+              <?php echo csrf_field(); ?>
+              <input type="hidden" name="action" value="backup">
+              <button class="btn" type="submit"><i class="fas fa-cloud-arrow-up"></i> Back up now</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="ch"><div class="ci"><i class="fas fa-clock-rotate-left"></i></div><h3>Recover data</h3></div>
+          <div class="cb">
+            <?php if (!$backups): ?>
+              <p>No snapshot is available to recover from yet.</p>
+            <?php else: ?>
+            <p>Restore records from a chosen snapshot. Missing records are recovered and changed records are reverted to the backed-up version; <strong>records newer than the snapshot are kept</strong> and nothing is deleted.</p>
+            <div class="warn"><i class="fas fa-shield-halved"></i> A safety snapshot of the current database is taken automatically <em>before</em> the restore, so this action is reversible. The whole restore runs in one transaction — if anything fails, no changes are applied.</div>
+            <form method="post" onsubmit="return this.confirm.value.trim().toUpperCase()==='RESTORE' || (alert('Type RESTORE to confirm.'),false);">
+              <?php echo csrf_field(); ?>
+              <input type="hidden" name="action" value="restore">
+              <label class="fl">Snapshot to recover from</label>
+              <select name="file" required>
+                <?php foreach ($backups as $b): ?>
+                <option value="<?php echo be($b['file']); ?>"><?php echo be($b['file']); ?> — <?php echo bdt($b['created_at'] ?: $b['mtime']); ?><?php echo $b['rows'] !== null ? ' (' . number_format((int)$b['rows']) . ' rows)' : ''; ?></option>
+                <?php endforeach; ?>
+              </select>
+              <label class="fl">Type <code style="font-family:inherit;">RESTORE</code> to confirm</label>
+              <input type="text" name="confirm" placeholder="RESTORE" autocomplete="off" required>
+              <button class="btn danger" type="submit"><i class="fas fa-clock-rotate-left"></i> Recover records</button>
+            </form>
+            <?php endif; ?>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="note">
+      <strong>How the automated backup runs.</strong> A Windows Task Scheduler job runs <code>php scripts\backup_db.php</code> nightly, producing rotating compressed archives of every database table (the same snapshots listed above), then rotating logs and flushing the mail outbox. To (re)create the scheduled task, run in an elevated PowerShell:
+      <br><br>
+      <code>schtasks /Create /SC DAILY /ST 01:30 /TN "BEC PMO DB Backup" /TR "\"C:\xampp\php\php.exe\" \"C:\xampp\htdocs\-WEB-BASED\scripts\backup_db.php\""</code>
+    </div>
+  </div>
+<script src="assets/sidebar_autohide.js" defer></script>
+<?php require_once __DIR__ . '/includes/admin_assistant.php'; ?>
+<?php require __DIR__ . '/includes/site_transitions.php'; ?>
+</body>
+</html>

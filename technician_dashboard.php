@@ -427,24 +427,6 @@ try {
     foreach ($notifications as $n) { if (!notifIsRead($n['is_read'] ?? false)) $unreadCount++; }
 } catch (Exception $e) { $notifications = []; $unreadCount = 0; }
 
-/* ── This technician's budget requests, grouped per report (so the workspace
-      shows "you already requested budget" with its live status) ── */
-$budgetByReport = [];
-try {
-    $bs = $conn->prepare("SELECT request_id, report_id, total_cost, status,
-                                 COALESCE(finance_status,'') AS finance_status, created_at
-                          FROM budget_requests WHERE technician_id = ?
-                          ORDER BY created_at DESC LIMIT 100");
-    $bs->bind_param('s', $techId);
-    $bs->execute();
-    $bres = $bs->get_result();
-    while ($b = $bres->fetch_assoc()) {
-        $rid = trim((string)($b['report_id'] ?? ''));
-        if ($rid !== '') { $budgetByReport[$rid][] = $b; }
-    }
-    $bs->close();
-} catch (Exception $e) { $budgetByReport = []; }
-
 /* Robust truthy check — the Postgres adapter may return booleans as 't'/'f' strings. */
 function notifIsRead($v): bool { return in_array(strtolower(trim((string)$v)), ['1','t','true','yes','on'], true); }
 /* Notification presentation helpers. */
@@ -1186,54 +1168,6 @@ body.modal-open{overflow:hidden;}
 
             <?php if (in_array($st, ['in_progress','waiting_for_materials','for_replacement'], true)): ?>
             <div class="sec sec-form">
-              <div class="sec-h"><small>Materials / budget</small><h3>Request Budget</h3></div>
-
-              <?php $myReqs = $budgetByReport[(string)$row['report_id']] ?? []; ?>
-              <?php if ($myReqs): ?>
-              <div class="br-existing">
-                <div class="br-existing-title"><i class="fas fa-circle-check"></i> You already submitted <?php echo count($myReqs); ?> budget request<?php echo count($myReqs) === 1 ? '' : 's'; ?> for this task:</div>
-                <?php foreach ($myReqs as $b):
-                  $bst = strtolower((string)$b['status']);
-                  $bTone = $bst === 'approved' ? 'ok' : ($bst === 'rejected' ? 'bad' : 'wait');
-                  $fin = strtolower((string)$b['finance_status']);
-                  $finLbl = $fin === 'accepted' ? 'Accepted by Finance' : ($fin === 'received' ? 'Received by Finance' : ($fin === 'awaiting' ? 'Finance notified' : ''));
-                ?>
-                <div class="br-row">
-                  <span class="br-id"><i class="fas fa-coins"></i> <?php echo e((string)$b['request_id']); ?></span>
-                  <span class="br-amt">₱<?php echo number_format((float)$b['total_cost'], 2); ?></span>
-                  <span class="br-st <?php echo $bTone; ?>"><?php echo $bst === 'pending' ? 'Pending PMO review' : ucfirst($bst); ?></span>
-                  <?php if ($finLbl !== ''): ?><span class="br-fin"><i class="fas fa-building-columns"></i> <?php echo $finLbl; ?></span><?php endif; ?>
-                  <span class="br-when"><?php echo e(fdate((string)$b['created_at'])); ?></span>
-                </div>
-                <?php endforeach; ?>
-              </div>
-              <?php endif; ?>
-
-              <form class="form tech-ajax" method="post" action="technician_budget_request.php" data-reload="1">
-                <input type="hidden" name="report_id" value="<?php echo $rid_e; ?>">
-                <input type="hidden" name="notify_finance" value="1">
-                <div class="br-rows">
-                  <?php for ($bi = 0; $bi < 2; $bi++): ?>
-                  <div class="frow">
-                    <input type="text" name="part_needed[]" placeholder="Part / material<?php echo $bi === 0 ? ' (e.g. RAM Module)' : ''; ?>">
-                    <input type="number" name="quantity[]" min="1" placeholder="Qty">
-                    <input type="number" step="0.01" name="estimated_cost[]" placeholder="Est. cost (₱)">
-                    <input type="text" name="supplier[]" placeholder="Supplier">
-                    <button type="button" class="row-del" data-del-part aria-label="Remove this part / material" title="Remove"><i class="fas fa-xmark"></i></button>
-                  </div>
-                  <?php endfor; ?>
-                </div>
-                <button type="button" class="add-row" data-add-part><i class="fas fa-plus"></i> Add another part / material</button>
-                <label for="just_<?php echo $rid_e; ?>">Justification <em class="req">*</em></label>
-                <textarea id="just_<?php echo $rid_e; ?>" name="justification" placeholder="Why are these parts/materials needed?" data-req="Justification"></textarea>
-                <div class="fin-note"><i class="fas fa-building-columns"></i> The <strong>Finance office is automatically notified by email</strong> for every budget request — they handle campus budgeting.</div>
-                <div class="actions">
-                  <button class="b2" type="submit"><i class="fas fa-coins"></i> Submit Budget Request</button>
-                </div>
-              </form>
-            </div>
-
-            <div class="sec sec-form">
               <div class="sec-h"><small>Finish the job</small><h3>Completion Report</h3></div>
               <form class="form tech-ajax" method="post" action="technician_complete_task.php" enctype="multipart/form-data" data-reload="1">
                 <input type="hidden" name="report_id" value="<?php echo $rid_e; ?>">
@@ -1390,7 +1324,7 @@ body.modal-open{overflow:hidden;}
       </div>
       <?php $anyNotif = false; foreach ($notifGroups as $g) { if ($g) { $anyNotif = true; break; } } ?>
       <?php if (!$anyNotif): ?>
-      <div class="empty"><i class="fas fa-bell-slash"></i><strong>No notifications</strong><div>New assignments, budget updates and reminders will appear here.</div></div>
+      <div class="empty"><i class="fas fa-bell-slash"></i><strong>No notifications</strong><div>New assignments and reminders will appear here.</div></div>
       <?php else: ?>
         <?php foreach ($notifGroups as $groupLabel => $items): if (!$items) continue; ?>
         <div class="ngroup"><?php echo e($groupLabel); ?></div>
@@ -1563,7 +1497,6 @@ const AXL_KINDS = {
   resume_materials: { cls: 'ax-resume',   icon: 'fa-box-open',         label: 'Materials received…',          sub: 'Resuming the repair' },
   resume:           { cls: 'ax-resume',   icon: 'fa-play',             label: 'Resuming repair…',             sub: 'Back in progress' },
   replace:          { cls: 'ax-replace',  icon: 'fa-rotate',           label: 'Recommending replacement…',    sub: 'Forwarding to the PMO' },
-  budget:           { cls: 'ax-budget',   icon: 'fa-coins',            label: 'Sending budget request…',      sub: 'Notifying PMO & Finance' },
   complete:         { cls: 'ax-complete', icon: 'fa-clipboard-check',  label: 'Submitting completion report…', sub: 'Uploading photos & details' },
   mark_read:        { cls: 'ax-notif',    icon: 'fa-bell',             label: 'Updating notifications…',      sub: 'Marking as read' },
   mark_all_read:    { cls: 'ax-notif',    icon: 'fa-bell',             label: 'Updating notifications…',      sub: 'Marking everything read' },
@@ -1603,15 +1536,6 @@ function validateForm(f, submitterVal) {
     if (!el.value.trim()) { fieldError(el, (el.dataset.req || 'This field') + ' is required.'); bad.push(el); }
     else fieldOk(el);
   });
-  /* budget: at least one part / material must be listed */
-  /* getAttribute: f.action is hijacked by the hidden <input name="action"> on the
-     completion form (returns the element, not the URL) and would throw here */
-  if ((f.getAttribute('action') || '').indexOf('budget') !== -1) {
-    const parts = Array.from(f.querySelectorAll('input[name="part_needed[]"]'));
-    if (parts.length && !parts.some(function (p) { return p.value.trim(); })) {
-      fieldError(parts[0], 'Add at least one part / material.'); bad.push(parts[0]);
-    } else if (parts.length) { fieldOk(parts[0]); }
-  }
   /* waiting / replacement need a reason in the note */
   if (submitterVal === 'waiting' || submitterVal === 'replace') {
     const t = f.querySelector('textarea[name="technician_notes"]');
@@ -1652,7 +1576,7 @@ document.querySelectorAll('form:not(.tech-ajax):not(.search)').forEach(function 
   });
 });
 
-/* AJAX submit for budget request + completion report (keeps file uploads working) */
+/* AJAX submit for the completion report (keeps file uploads working) */
 document.querySelectorAll('form.tech-ajax').forEach(function (f) {
   f.addEventListener('submit', async function (e) {
     e.preventDefault();
@@ -1682,8 +1606,7 @@ document.querySelectorAll('form.tech-ajax').forEach(function (f) {
     const orig = btn ? btn.innerHTML : '';
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Submitting…'; }
     const actionUrl = f.getAttribute('action') || '';
-    const kind = actionUrl.indexOf('budget') !== -1 ? 'budget' : 'complete';
-    actionLoader(true, kind);
+    actionLoader(true, 'complete');
     try {
       const res = await fetch(actionUrl, { method: 'POST', body: new FormData(f) });
       const data = await res.json().catch(function () {
@@ -1700,29 +1623,6 @@ document.querySelectorAll('form.tech-ajax').forEach(function (f) {
     actionLoader(false);
     if (btn) { btn.disabled = false; btn.innerHTML = orig; }
   });
-});
-
-/* ── Budget: add more part/material rows on demand ── */
-document.querySelectorAll('[data-add-part]').forEach(function (btn) {
-  btn.addEventListener('click', function () {
-    const rows = btn.closest('form').querySelector('.br-rows');
-    if (!rows || !rows.firstElementChild) return;
-    const row = rows.firstElementChild.cloneNode(true);
-    row.querySelectorAll('input').forEach(function (i) { i.value = ''; i.placeholder = i.placeholder.replace(' (e.g. RAM Module)', ''); });
-    rows.appendChild(row);
-    row.querySelector('input') && row.querySelector('input').focus();
-  });
-});
-
-/* ── Budget: remove a part/material row (last row clears instead of vanishing) ── */
-document.addEventListener('click', function (e) {
-  const del = e.target.closest('[data-del-part]');
-  if (!del) return;
-  const row = del.closest('.frow');
-  const rows = del.closest('.br-rows');
-  if (!row || !rows) return;
-  if (rows.querySelectorAll('.frow').length > 1) row.remove();
-  else row.querySelectorAll('input').forEach(function (i) { fieldOk(i); i.value = ''; });
 });
 
 /* ── Chip fields: unlimited parts / tools / materials, joined into one value ── */
