@@ -53,13 +53,35 @@ html{scrollbar-gutter:stable;}
 (function () {
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var loader = document.getElementById('pageLoader');
+  var textEl = loader ? loader.querySelector('.pl-text') : null;
   // Make the loader a direct child of <body> so position:fixed is ALWAYS relative
   // to the viewport (never trapped inside a transformed / overflow-hidden wrapper).
-  // This keeps it perfectly centered and consistent on every page.
   if (loader && loader.parentNode !== document.body) { document.body.appendChild(loader); }
   document.body.classList.add('page-fade');
   // Reset the loader whenever a page is shown (covers back/forward cache too).
   window.addEventListener('pageshow', function () { if (loader) loader.classList.remove('show'); });
+
+  // Task-specific labels for admin action submits (keyed by the form's action value).
+  var LABELS = {
+    mark_received:'Marking as received', approve:'Approving report', reject:'Rejecting report',
+    verify_completion:'Verifying completion', return_to_progress:'Reopening task', delete:'Deleting',
+    delete_all:'Clearing notifications', assign:'Assigning technician', reassign:'Reassigning technician',
+    unassign:'Unassigning', mark_read:'Updating notifications', mark_all_read:'Marking all read',
+    broadcast:'Sending announcement', backup:'Creating backup', restore:'Recovering data',
+    create_user:'Creating user', update_user:'Saving changes', add_user:'Adding user',
+    reset_password:'Resetting password', import:'Importing directory', verify:'Verifying & closing'
+  };
+  function prettify(s){ s=String(s||'').replace(/[_-]+/g,' ').trim(); return s?s.charAt(0).toUpperCase()+s.slice(1):''; }
+  function showLoader(text){
+    if (!loader) return;
+    if (textEl) textEl.textContent = (text || 'Loading') + '…';
+    loader.classList.add('show'); // stays until the next page paints
+  }
+  window.becShowLoader = showLoader; // exposed for pages that submit programmatically
+
+  var NAV_DELAY = reduce ? 0 : 140; // was 350ms — snappier while the loader still paints
+
+  // Link navigations.
   document.addEventListener('click', function (e) {
     var a = e.target.closest('a');
     if (!a) return;
@@ -70,8 +92,26 @@ html{scrollbar-gutter:stable;}
     if (url.origin !== location.origin) return;
     if (url.pathname === location.pathname && url.hash) return; // in-page anchor
     e.preventDefault();
-    if (loader) loader.classList.add('show'); // stays visible until the next page paints
-    setTimeout(function () { window.location.href = a.href; }, reduce ? 0 : 350);
+    showLoader('Loading');
+    setTimeout(function () { window.location.href = a.href; }, NAV_DELAY);
+  });
+
+  // Form submits (POST actions like mark-received / assign) — show the loader with a
+  // task-specific label. Skipped for AJAX/search forms and for pages that run their
+  // own action loader (the technician workspace defines window.actionLoader).
+  document.addEventListener('submit', function (e) {
+    var f = e.target;
+    if (!f || f.tagName !== 'FORM') return;
+    if (e.defaultPrevented) return; // a page/handler already cancelled the native submit
+    if (typeof window.actionLoader === 'function') return; // technician page: has its own loader
+    if (f.matches('.tech-ajax, .search, [data-no-loader]') || f.hasAttribute('data-ajax')) return;
+    var sub = e.submitter;
+    var action = (sub && sub.name === 'action' && sub.value) ? sub.value
+               : (f.querySelector('input[name="action"]') || {}).value || '';
+    var label = LABELS[action] || (sub && (sub.textContent || '').trim()) || prettify(action) || 'Working';
+    showLoader(label);
+    // Safety net: if the submit didn't actually navigate (unexpected AJAX), release it.
+    setTimeout(function () { if (loader) loader.classList.remove('show'); }, 12000);
   });
 })();
 </script>

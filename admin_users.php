@@ -28,8 +28,6 @@ if (is_array($roleCol) && isset($roleCol['Type'])) {
 $assignableRoleMeta = [
     'reporter' => 'Reporter',
     'pmo' => 'PMO',
-    'dean' => 'Dean',
-    'finance' => 'Finance',
     'technician' => 'Technician',
     'student' => 'Student',
     'admin' => 'Administrator',
@@ -37,8 +35,6 @@ $assignableRoleMeta = [
 $assignableRoles = $roleEnumValues
     ? array_values(array_filter(array_keys($assignableRoleMeta), static fn($role) => in_array($role, $roleEnumValues, true)))
     : array_keys($assignableRoleMeta);
-$missingWorkflowRoleEnums = array_values(array_filter(['dean', 'finance'], static fn($role) => !in_array($role, $roleEnumValues, true)));
-$workflowRoleSetupReady = $roleEnumValues ? empty($missingWorkflowRoleEnums) : true;
 
 $admin_id   = $_SESSION['user_id'];
 $admin_name = $_SESSION['fullname'] ?? 'Administrator';
@@ -234,30 +230,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    /* TOGGLE STATUS */
-    if ($act === 'toggle_status') {
-        $uid   = $_POST['user_id'] ?? '';
-        $newst = $_POST['new_status'] ?? 'active';
-        if ($uid === $admin_id) {
-            $_SESSION['flash'] = ['err', 'You cannot deactivate your own account.'];
-        } else {
-            if ($isPgSql) {
-                $stmt = $pdo->prepare("UPDATE {$usersTable} SET status = :status WHERE user_id = :user_id");
-                $ok = $stmt->execute(['status' => $newst, 'user_id' => $uid]);
-            } else {
-                $stmt = $conn->prepare("UPDATE {$usersTable} SET status=? WHERE user_id=?");
-                $ok = false;
-                if ($stmt) {
-                    $stmt->bind_param('ss', $newst, $uid);
-                    $ok = (bool)$stmt->execute();
-                }
-            }
-            $_SESSION['flash'] = $ok
-                ? ['ok', 'User status updated to '.ucfirst($newst).'.']
-                : ['err', 'Failed to update user status.'];
-        }
-    }
-
     /* DELETE */
     if ($act === 'delete') {
         $uid = $_POST['user_id'] ?? '';
@@ -355,13 +327,6 @@ $q = "SELECT u.*,
       WHERE u.status != 'deleted'";
 $params = []; $types = '';
 if ($rf !== 'all')   { $q .= " AND u.role = ?";   $params[] = $rf;   $types .= 's'; }
-if ($sf !== 'all') {
-    if ($sf === 'active') {
-        $q .= " AND u.status = 'active'";
-    } else {
-        $q .= " AND (u.status = 'inactive' OR u.status IS NULL OR TRIM(u.status)='')";
-    }
-}
 if ($sq !== '') {
     $ql = '%'.$sq.'%';
     $searchConds = ["u.fullname LIKE ?", "u.email LIKE ?", "u.user_id LIKE ?"];
@@ -388,6 +353,45 @@ if (isPgSqlDriver()) {
     $users = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 }
 
+// Directory roster (imported students / faculty / staff). Reporters don't hold login
+// accounts, so the imported directory people are surfaced here as read-only entries.
+$directoryEntries = [];
+try {
+    $dcolset = getTableColumns('bec_directory');
+    if ($dcolset) {
+        $pdoD = getPgsqlPdoConnection();
+        $reporterEmailExpr = isset($drCols['reporter_email'])
+            ? "(SELECT COUNT(*) FROM {$defectReportsTable} dr WHERE LOWER(dr.reporter_email)=LOWER(bd.email))"
+            : "0";
+        $drows = $pdoD->query("SELECT bd.*, {$reporterEmailExpr} AS report_count FROM public.bec_directory bd ORDER BY bd.full_name ASC")->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($drows as $bd) {
+            $ut = strtolower(trim((string)($bd['user_type'] ?? 'student')));
+            if (!in_array($ut, ['student','faculty','staff'], true)) { $ut = 'student'; }
+            $entry = [
+                'user_id'      => (string)($bd['student_number'] ?: ($bd['employee_number'] ?: ('DIR-'.($bd['id'] ?? '')))),
+                'fullname'     => (string)($bd['full_name'] ?? ''),
+                'email'        => (string)($bd['email'] ?? ''),
+                'role'         => $ut,           // student | faculty | staff
+                'department'   => (string)($bd['department'] ?? ''),
+                'status'       => 'active',
+                'report_count' => (int)($bd['report_count'] ?? 0),
+                'active_tasks' => 0,
+                'created_at'   => $bd['imported_at'] ?? null,
+                'phone'        => '',
+                'is_directory' => true,          // read-only marker
+            ];
+            // Respect the active role filter and search box.
+            if ($rf !== 'all' && $rf !== $ut && !($rf === 'reporter' && in_array($ut, ['student','faculty','staff'], true))) { continue; }
+            if ($sq !== '') {
+                $hay = strtolower($entry['fullname'].' '.$entry['email'].' '.$entry['user_id'].' '.$entry['department']);
+                if (strpos($hay, strtolower($sq)) === false) { continue; }
+            }
+            $directoryEntries[] = $entry;
+        }
+    }
+} catch (Throwable $e) { $directoryEntries = []; }
+$users = array_merge($users, $directoryEntries);
+
 // All users for counts
 if (isPgSqlDriver()) {
     $all_users_stmt = $pdo->query("SELECT role, status FROM {$usersTable} WHERE status IS NULL OR status != 'deleted'");
@@ -398,22 +402,20 @@ if (isPgSqlDriver()) {
 }
 
 function cntU($arr,$fn){return count(array_filter($arr,$fn));}
-function normStatus($s){ $s = strtolower(trim((string)($s ?? ''))); return $s === 'active' ? 'active' : 'inactive'; }
-$c_total  = count($all_users_raw);
-$c_admin  = cntU($all_users_raw, fn($u)=>$u['role']==='admin' && normStatus($u['status'] ?? '')==='active');
-$c_pmo    = cntU($all_users_raw, fn($u)=>$u['role']==='pmo' && normStatus($u['status'] ?? '')==='active');
-$c_dean   = cntU($all_users_raw, fn($u)=>$u['role']==='dean' && normStatus($u['status'] ?? '')==='active');
-$c_fin    = cntU($all_users_raw, fn($u)=>$u['role']==='finance' && normStatus($u['status'] ?? '')==='active');
-$c_tech   = cntU($all_users_raw, fn($u)=>$u['role']==='technician' && normStatus($u['status'] ?? '')==='active');
-$c_rep    = cntU($all_users_raw, fn($u)=>$u['role']==='reporter' && normStatus($u['status'] ?? '')==='active');
-$c_active = cntU($all_users_raw, fn($u)=>normStatus($u['status'] ?? '')==='active');
-$c_inact  = cntU($all_users_raw, fn($u)=>normStatus($u['status'] ?? '')==='inactive');
+$dirAll = [];
+try { $pdoC = getPgsqlPdoConnection(); $dirAll = $pdoC->query("SELECT LOWER(COALESCE(user_type,'student')) AS user_type FROM public.bec_directory")->fetchAll(PDO::FETCH_ASSOC); } catch (Throwable $e) { $dirAll = []; }
+$c_dirStudent = cntU($dirAll, fn($u)=>$u['user_type']==='student');
+$c_dirOther   = cntU($dirAll, fn($u)=>in_array($u['user_type'],['faculty','staff'],true));
+$c_admin  = cntU($all_users_raw, fn($u)=>$u['role']==='admin');
+$c_pmo    = cntU($all_users_raw, fn($u)=>$u['role']==='pmo');
+$c_tech   = cntU($all_users_raw, fn($u)=>$u['role']==='technician');
+$c_rep    = cntU($all_users_raw, fn($u)=>$u['role']==='reporter') + count($dirAll);
+$c_student = $c_dirStudent;
+$c_total  = count($all_users_raw) + count($dirAll);
 /* ─── HELPERS ───────────────────────────────────────── */
 function roleCls($r){return['admin'=>'r-admin','pmo'=>'r-pmo','dean'=>'r-dean','finance'=>'r-fin','technician'=>'r-tech','reporter'=>'r-rep','student'=>'r-stud'][$r]??'r-rep';}
 function roleIco($r){return['admin'=>'fas fa-crown','pmo'=>'fas fa-building','dean'=>'fas fa-user-tie','finance'=>'fas fa-wallet','technician'=>'fas fa-hard-hat','reporter'=>'fas fa-bullhorn','student'=>'fas fa-graduation-cap'][$r]??'fas fa-user';}
 function roleLbl($r){return ucfirst($r??'—');}
-function stCls($s){ $ns = normStatus($s); return $ns==='active' ? 's-act' : 's-inact'; }
-function stLbl($s){ return normStatus($s)==='active' ? 'Active' : 'Inactive'; }
 function initials($n){$p=array_filter(explode(' ',$n??''));return strtoupper(implode('',array_map(fn($x)=>substr($x,0,1),array_slice($p,0,2))));}
 function avatarColor($role){return['admin'=>'linear-gradient(135deg,#7B1D1D,#C53030)','pmo'=>'linear-gradient(135deg,#92400E,#F59E0B)','dean'=>'linear-gradient(135deg,#0F766E,#2DD4BF)','finance'=>'linear-gradient(135deg,#166534,#4ADE80)','technician'=>'linear-gradient(135deg,#1D4ED8,#60A5FA)','reporter'=>'linear-gradient(135deg,#7C3AED,#A78BFA)','student'=>'linear-gradient(135deg,#0891B2,#22D3EE)'][$role]??'linear-gradient(135deg,#6B7280,#9CA3AF)';}
 function deptCls($d){
@@ -876,15 +878,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
     </div>
     <?php endif; ?>
 
-    <?php if(!$workflowRoleSetupReady): ?>
-    <div class="flash err">
-      <i class="fas fa-exclamation-triangle"></i>
-      Dean/Finance accounts are not enabled in the live database yet. Missing `users.role` values:
-      <?php echo esc(implode(', ', $missingWorkflowRoleEnums)); ?>.
-      Apply <code>scripts/2026_04_workflow_role_portals.sql</code> first.
-    </div>
-    <?php endif; ?>
-
     <!-- Page Header -->
     <div class="ph">
       <div>
@@ -913,16 +906,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         <div class="snum" id="sn2"><?php echo $c_pmo; ?></div>
         <div class="slbl">PMO</div>
       </a>
-      <a href="?role=dean&status=all" class="scard sc-d">
-        <div class="sico"><i class="fas fa-user-tie"></i></div>
-        <div class="snum" id="sn3"><?php echo $c_dean; ?></div>
-        <div class="slbl">Dean</div>
-      </a>
-      <a href="?role=finance&status=all" class="scard sc-e">
-        <div class="sico"><i class="fas fa-wallet"></i></div>
-        <div class="snum" id="sn4"><?php echo $c_fin; ?></div>
-        <div class="slbl">Finance</div>
-      </a>
       <a href="?role=technician&status=all" class="scard sc-f">
         <div class="sico"><i class="fas fa-hard-hat"></i></div>
         <div class="snum" id="sn5"><?php echo $c_tech; ?></div>
@@ -933,15 +916,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         <div class="snum" id="sn6"><?php echo $c_rep; ?></div>
         <div class="slbl">Reporters</div>
       </a>
-      <a href="?role=all&status=active" class="scard sc-b">
-        <div class="sico"><i class="fas fa-user-check"></i></div>
-        <div class="snum" id="sn7"><?php echo $c_active; ?></div>
-        <div class="slbl">Active</div>
-      </a>
-      <a href="?role=all&status=inactive" class="scard sc-c">
-        <div class="sico"><i class="fas fa-user-times"></i></div>
-        <div class="snum" id="sn8"><?php echo $c_inact; ?></div>
-        <div class="slbl">Inactive</div>
+      <a href="?role=student&status=all" class="scard sc-c">
+        <div class="sico"><i class="fas fa-graduation-cap"></i></div>
+        <div class="snum" id="sn7"><?php echo $c_student; ?></div>
+        <div class="slbl">Students</div>
       </a>
     </div>
 
@@ -952,8 +930,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         ['all',   'All Users',     'fas fa-users',          'on'],
         ['admin', 'Admins',        'fas fa-crown',          'rtab-admin'],
         ['pmo', 'PMO',             'fas fa-building',       'rtab-rep'],
-        ['dean', 'Dean',           'fas fa-user-tie',       'rtab-stud'],
-        ['finance', 'Finance',     'fas fa-wallet',         'rtab-tech'],
         ['technician','Technicians','fas fa-hard-hat',      'rtab-tech'],
         ['reporter','Reporters',   'fas fa-bullhorn',       'rtab-rep'],
         ['student','Students',     'fas fa-graduation-cap', 'rtab-stud'],
@@ -975,11 +951,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         <input type="text" class="fsi" id="fsq" placeholder="Search name, email, ID, department…"
           value="<?php echo esc($sq); ?>" oninput="debounceGo()">
       </div>
-      <select class="fsel" id="fss" onchange="go()">
-        <option value="all"      <?php echo $sf==='all'?'selected':''; ?>>All Status</option>
-        <option value="active"   <?php echo $sf==='active'?'selected':''; ?>>Active</option>
-        <option value="inactive" <?php echo $sf==='inactive'?'selected':''; ?>>Inactive</option>
-      </select>
       <!-- View toggle -->
       <div class="vt" style="margin-left:auto;">
         <button class="vt-b" id="vt-tbl" onclick="setView('table')"><i class="fas fa-list"></i> Table</button>
@@ -1002,13 +973,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         <thead>
           <tr>
             <th>User</th><th>Email</th><th>Role</th><th>Department</th>
-            <th>Reports</th><th>Active Tasks</th><th>Status</th><th>Joined</th>
+            <th>Reports</th><th>Active Tasks</th><th>Joined</th>
             <th style="text-align:center;">Actions</th>
           </tr>
         </thead>
         <tbody>
           <?php if(empty($users)): ?>
-          <tr><td colspan="9"><div class="empty"><i class="fas fa-users-slash"></i>No users match the current filters.</div></td></tr>
+          <tr><td colspan="8"><div class="empty"><i class="fas fa-users-slash"></i>No users match the current filters.</div></td></tr>
           <?php else: foreach($users as $u):
             $init = initials($u['fullname']??'??');
             $avcol = avatarColor($u['role']??'');
@@ -1053,7 +1024,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
                 <?php echo $at; ?>
               </span>
             </td>
-            <td><span class="bdg <?php echo stCls($u['status']); ?>"><?php echo stLbl($u['status']); ?></span></td>
             <td style="font-size:.72rem;color:var(--t3);">
               <?php echo !empty($u['created_at'])?date('M j, Y',strtotime($u['created_at'])):'—'; ?>
             </td>
@@ -1063,6 +1033,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
                   onclick="openProfile(<?php echo htmlspecialchars(json_encode($u),ENT_QUOTES);?>)">
                   <i class="fas fa-eye"></i>
                 </button>
+                <?php if(empty($u['is_directory'])): ?>
                 <button type="button" class="btn bico bi-e" title="Edit User"
                   onclick="openEdit(<?php echo htmlspecialchars(json_encode($u),ENT_QUOTES);?>)">
                   <i class="fas fa-pen"></i>
@@ -1076,6 +1047,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
                   onclick="delUser('<?php echo esc($u['user_id']);?>','<?php echo esc($u['fullname']??'');?>')">
                   <i class="fas fa-trash"></i>
                 </button>
+                <?php endif; ?>
+                <?php else: ?>
+                <span class="bdg" style="background:rgba(8,145,178,.12);color:#0891B2;font-size:.6rem;" title="Imported from the BEC directory — reporter, no login account"><i class="fas fa-address-book" style="font-size:.6rem;margin-right:.18rem;"></i>Directory</span>
                 <?php endif; ?>
               </div>
             </td>
@@ -1094,13 +1068,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
           $init = initials($u['fullname']??'??');
           $avcol = avatarColor($u['role']??'');
           $dc = deptCls($u['department']??'');
-          $inactive = ($u['status']??'') !== 'active';
+          $isDir = !empty($u['is_directory']);
         ?>
-        <div class="ucard role-<?php echo esc($u['role']??'reporter');?><?php echo $inactive?' inactive':'';?>"
+        <div class="ucard role-<?php echo esc($u['role']??'reporter');?>"
           style="animation-delay:<?php echo $i*.04;?>s;">
           <div class="uc-top">
             <div class="uc-av" style="background:<?php echo $avcol;?>;"><?php echo $init;?></div>
-            <span class="uc-status"><span class="bdg <?php echo stCls($u['status']);?>"><?php echo stLbl($u['status']);?></span></span>
+            <?php if($isDir): ?><span class="uc-status"><span class="bdg" style="background:rgba(8,145,178,.12);color:#0891B2;font-size:.6rem;"><i class="fas fa-address-book" style="font-size:.55rem;margin-right:.15rem;"></i>Directory</span></span><?php endif; ?>
           </div>
           <div class="uc-name"><?php echo esc($u['fullname']??'—');?></div>
           <div class="uc-id"><?php echo esc($u['user_id']);?></div>
@@ -1306,13 +1280,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
               <?php endforeach; ?>
             </select>
           </div>
-          <div class="fg">
-            <label class="fl">Status</label>
-            <select name="status" id="eStatus" class="fc">
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
         </div>
         <div class="fg2">
           <div class="fg">
@@ -1426,11 +1393,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   <input type="hidden" name="action" value="delete">
   <input type="hidden" name="user_id" id="delUid">
 </form>
-<form id="toggleFrm" method="POST" action="admin_users.php" style="display:none;">
-  <input type="hidden" name="action" value="toggle_status">
-  <input type="hidden" name="user_id" id="toggleUid">
-  <input type="hidden" name="new_status" id="toggleStatus">
-</form>
 
 <div class="ttray" id="ttray"></div>
 
@@ -1495,10 +1457,10 @@ function toggleExp(e){
 }
 document.addEventListener('click',()=>{const m=document.getElementById('expMenu');if(m)m.style.display='none';});
 function getRows(){
-  const h=['User ID','Full Name','Email','Role','Department','Phone','Status','Joined','Reports','Active Tasks'];
+  const h=['User ID','Full Name','Email','Role','Department','Phone','Joined','Reports','Active Tasks'];
   const r=[];
   document.querySelectorAll('#uTbl tbody tr').forEach(tr=>{
-    const tds=tr.querySelectorAll('td');if(tds.length<8)return;
+    const tds=tr.querySelectorAll('td');if(tds.length<7)return;
     const uid=tr.querySelector('.tuid')?.textContent.trim()||'';
     const name=tr.querySelector('.tname')?.textContent.trim()||'';
     const email=tds[1].textContent.trim();
@@ -1506,9 +1468,8 @@ function getRows(){
     const dept=tds[3].textContent.trim();
     const reports=tds[4].textContent.trim();
     const tasks=tds[5].textContent.trim();
-    const status=tds[6].textContent.trim().replace(/\s+/g,' ');
-    const joined=tds[7].textContent.trim();
-    r.push([uid,name,email,role,dept,'',status,joined,reports,tasks]);
+    const joined=tds[6].textContent.trim();
+    r.push([uid,name,email,role,dept,'',joined,reports,tasks]);
   });
   return{h,r};
 }
@@ -1603,7 +1564,6 @@ function openEdit(u){
   document.getElementById('eFname').value = u.fullname||'';
   document.getElementById('eEmail').value = u.email||'';
   document.getElementById('eRole').value  = u.role||'reporter';
-  document.getElementById('eStatus').value= u.status||'active';
   document.getElementById('eDept').value  = u.department||'';
   document.getElementById('ePhone').value = u.phone||'';
   document.getElementById('epw').value    = '';
@@ -1622,8 +1582,7 @@ function openProfile(u){
   document.getElementById('profId').textContent   = u.user_id||'—';
   // badges
   const pb=document.getElementById('profBadges');
-  pb.innerHTML = roleBadge(u.role) +
-    (u.status==='active'?'<span class="bdg s-act">Active</span>':'<span class="bdg s-inact">Inactive</span>');
+  pb.innerHTML = roleBadge(u.role) + (u.is_directory?'<span class="bdg" style="background:rgba(8,145,178,.12);color:#0891B2;">Directory</span>':'');
   document.getElementById('profSubtitle').textContent = (u.email||'') + ' · Joined ' + fmtDate(u.created_at);
   // rows
   const rows=[
@@ -1631,7 +1590,6 @@ function openProfile(u){
     ['Phone',       escH(u.phone||'—')],
     ['Department',  deptBadge(u.department||'')],
     ['Role',        roleBadge(u.role||'')],
-    ['Status',      u.status==='active'?'<span class="bdg s-act">Active</span>':'<span class="bdg s-inact">Inactive</span>'],
     ['Reports Filed', `<span style="font-family:'Outfit',sans-serif;font-weight:800;font-size:.9rem;color:var(--m3);">${u.report_count||0}</span>`],
     ['Active Tasks', `<span style="font-family:'Outfit',sans-serif;font-weight:800;font-size:.9rem;">${u.active_tasks||0}</span>`],
     ['Created', fmtDate(u.created_at)],
@@ -1671,15 +1629,6 @@ function delUser(uid,name){
   document.getElementById('delFrm').submit();
 }
 
-/* ─── TOGGLE STATUS ──────────────────────────────────── */
-function toggleStatus(uid,cur){
-  const ns=cur==='active'?'inactive':'active';
-  if(!confirm('Set user status to '+ns+'?'))return;
-  document.getElementById('toggleUid').value=uid;
-  document.getElementById('toggleStatus').value=ns;
-  document.getElementById('toggleFrm').submit();
-}
-
 /* ─── PASSWORD STRENGTH ──────────────────────────────── */
 function checkStrength(inp,barId){
   const v=inp.value;let s=0;
@@ -1707,8 +1656,8 @@ function animN(id,to){
 }
 document.addEventListener('DOMContentLoaded',()=>{
   animN('sn0',<?php echo $c_total;?>);animN('sn1',<?php echo $c_admin;?>);
-  animN('sn2',<?php echo $c_tech;?>);animN('sn3',<?php echo $c_rep;?>);
-  animN('sn4',<?php echo $c_active;?>);animN('sn5',<?php echo $c_inact;?>);
+  animN('sn2',<?php echo $c_pmo;?>);animN('sn5',<?php echo $c_tech;?>);
+  animN('sn6',<?php echo $c_rep;?>);animN('sn7',<?php echo $c_student;?>);
 });
 
 /* ─── HELPERS ─────────────────────────────────────────── */
