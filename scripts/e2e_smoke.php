@@ -14,8 +14,6 @@
  * Notes:
  *  - Requires Apache running at http://localhost/-WEB-BASED/
  *  - Sends a handful of REAL emails to the smoke mailbox below (evidence!)
- *  - Finance/Dean mail is temporarily redirected to the smoke mailbox and
- *    restored afterwards, so no real office receives test messages.
  */
 error_reporting(E_ALL & ~E_DEPRECATED);
 $BASE  = 'http://localhost/-WEB-BASED';
@@ -77,15 +75,6 @@ try {
 
     $pdo = getPgsqlPdoConnection();
     step('Database reachable', true);
-
-    // temp mail redirects (restore in cleanup)
-    $settingsBackup = file_get_contents($settingsFile);
-    $s = json_decode($settingsBackup, true);
-    require_once $ROOT . '/config/finance.php';
-    require_once $ROOT . '/config/dean.php';
-    $s['mail_redirects'][BEC_FINANCE_EMAIL] = $SMOKE_MAIL;
-    $s['mail_redirects'][BEC_DEAN_EMAIL]    = $SMOKE_MAIL;
-    file_put_contents($settingsFile, json_encode($s, JSON_PRETTY_PRINT));
 
     // temp technician (email = smoke mailbox)
     $pdo->exec("DELETE FROM users WHERE user_id='TECH-SMOKE1'");

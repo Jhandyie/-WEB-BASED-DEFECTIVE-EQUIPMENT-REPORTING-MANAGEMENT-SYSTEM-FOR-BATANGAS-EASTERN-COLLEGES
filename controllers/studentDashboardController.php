@@ -399,7 +399,7 @@ class StudentDashboardController
     private function mapReportStatus(string $status): string
     {
         return match (strtolower($status)) {
-            'reported', 'pending', 'pmo_review', 'dean_review', 'finance_review', 'on_hold_budget', 'ready_for_assignment' => 'pending',
+            'reported', 'pending', 'pmo_review', 'ready_for_assignment' => 'pending',
             'assigned', 'in_progress', 'for_replacement' => 'in_progress',
             'completed', 'verified', 'closed' => 'completed',
             'rejected' => 'rejected',

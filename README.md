@@ -75,14 +75,13 @@ Every transition notifies the right people **in-app and by branded email**
    - `config/chat_secrets.php` ← from `config/chat_secrets.example.php` (Anthropic API key)
    - `data/system_settings.json` — SMTP account(s) per role (`smtp_username`,
      `smtp_password` app password, `from_name: "BEC PMO"`), plus optional `mail_redirects`
-   - `config/finance.php` — the Finance office email
    - `config/sla.php` — SLA hours per priority
 5. Open `http://localhost/-WEB-BASED/` — the landing page routes every audience to its portal.
 6. *(Optional)* Schedule backups: `scripts/backup_db.php` daily via Task Scheduler
    (`BEC PMO DB Backup`), archives to `backups/` with 14-day rotation.
 
 > **Production note:** serve over **HTTPS** for PWA installation and secure cookies, and point
-> `config/finance.php` + SMTP at institutional accounts.
+> SMTP at institutional accounts.
 > See **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** for the full hosting guide — including a
 > 10-minute public HTTPS demo via Cloudflare Tunnel, shared-hosting requirements
 > (`pdo_pgsql`, SMTP), cron backups, and a post-launch verification checklist.
@@ -103,7 +102,7 @@ admin_backup.php              Backup & Recovery (on-demand backup, download, res
 api/                          JSON APIs + exports
 includes/                     Shared: auth/sessions, CSRF, mail, exports, backup/restore,
                               Becca widgets, loaders, nav/footer
-config/                       Database adapter, finance + SLA settings, secrets (ignored)
+config/                       Database adapter, SLA settings, secrets (ignored)
 supabase/schema.sql           Full database schema
 scripts/backup_db.php         Automated backup job (Windows Task Scheduler)
 assets/, uploads/, backups/   Static assets, user uploads, DB archives (ignored)
@@ -118,7 +117,7 @@ in the database and all notification emails delivered.
 
 ## Documentation
 
-- **[docs/USER_MANUAL.md](docs/USER_MANUAL.md)** — role-by-role instructions (reporters, PMO admins, technicians, Finance)
+- **[docs/USER_MANUAL.md](docs/USER_MANUAL.md)** — role-by-role instructions (reporters, PMO admins, technicians)
 - **[docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)** — 15-minute defense/demo walkthrough with pre-flight checklist, Q&A prep, and fallbacks
 - **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** — hosting guide (instant HTTPS demo tunnel, shared hosting, VPS)
 - **[docs/EMAIL_DELIVERABILITY.md](docs/EMAIL_DELIVERABILITY.md)** — SPF/DKIM/DMARC setup for institutional mail

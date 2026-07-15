@@ -1549,15 +1549,12 @@ function openDetail(r){
   const raw = String(r.raw_status || r.status || '').toLowerCase();
   const steps=[
     {label:'Report Submitted',sub:'Your report has been received.',done:true},
-    {label:'PMO Review',sub:'Property and Maintenance Office is checking the report details.',done:['dean_review','finance_review','on_hold_budget','ready_for_assignment','assigned','in_progress','for_replacement','completed','verified','closed'].includes(raw),active:raw==='pmo_review'},
-    {label:'Dean Approval',sub:'Waiting for school approval.',done:['finance_review','on_hold_budget','ready_for_assignment','assigned','in_progress','for_replacement','completed','verified','closed'].includes(raw),active:raw==='dean_review'},
-    {label:'Finance Review',sub:'Budget availability is being checked.',done:['on_hold_budget','ready_for_assignment','assigned','in_progress','for_replacement','completed','verified','closed'].includes(raw),active:raw==='finance_review'},
+    {label:'PMO Review',sub:'Property and Maintenance Office is checking the report details.',done:['ready_for_assignment','assigned','in_progress','for_replacement','completed','verified','closed'].includes(raw),active:raw==='pmo_review'},
     {label:'Technician Action',sub:'Queued for assignment and repair.',done:['in_progress','for_replacement','completed','verified','closed'].includes(raw),active:['ready_for_assignment','assigned'].includes(raw)},
     {label:'Repair / Assessment',sub:r.remarks||'Technician repair or inspection is ongoing.',done:['for_replacement','completed','verified','closed'].includes(raw),active:raw==='in_progress'},
     {label:'PMO Verification',sub:'Awaiting final PMO verification.',done:['verified','closed'].includes(raw),active:raw==='completed'},
   ];
-  if(raw==='on_hold_budget')steps.splice(4,0,{label:'On Hold for Budget',sub:r.remarks||'The request is on hold until funds become available.',done:false,active:true});
-  if(raw==='for_replacement')steps.splice(6,0,{label:'For Replacement',sub:r.remarks||'The equipment was assessed as beyond repair.',done:true,active:true});
+  if(raw==='for_replacement')steps.splice(4,0,{label:'For Replacement',sub:r.remarks||'The equipment was assessed as beyond repair.',done:true,active:true});
   if(raw==='rejected')steps.splice(1,steps.length-1,{label:'Rejected',sub:r.remarks||'Report was rejected during review.',done:true,active:true});
 
   const tl=steps.map((s,i)=>`

@@ -643,7 +643,7 @@ function escapeHtml(value) {
 
 function badgeLabel(status) {
   const normalized = String(status || '').toLowerCase();
-  if (['reported','pmo_review','dean_review','finance_review','on_hold_budget','ready_for_assignment'].includes(normalized)) return 'Pending';
+  if (['reported','pmo_review','ready_for_assignment'].includes(normalized)) return 'Pending';
   if (['assigned','in_progress','for_replacement'].includes(normalized)) return 'In Progress';
   if (['completed','verified','closed'].includes(normalized)) return 'Resolved';
   if (normalized === 'rejected') return 'Rejected';

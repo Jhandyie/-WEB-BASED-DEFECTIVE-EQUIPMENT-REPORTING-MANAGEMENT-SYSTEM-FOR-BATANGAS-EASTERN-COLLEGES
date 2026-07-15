@@ -1101,9 +1101,6 @@ function defectWorkflowStatuses(): array {
     return [
         'reported' => 'Submitted',
         'pmo_review' => 'Received by PMO',
-        'dean_review' => 'Dean Approval',
-        'finance_review' => 'Finance Review',
-        'on_hold_budget' => 'On Hold for Budget',
         'ready_for_assignment' => 'Ready for Assignment',
         'assigned' => 'Technician Assigned',
         'accepted' => 'Received by Technician',
@@ -1138,7 +1135,7 @@ function defectStatusLabel($status): string {
 function defectStatusCategory($status): string {
     $status = strtolower(trim((string)$status));
     return match ($status) {
-        'reported', 'pmo_review', 'dean_review', 'finance_review', 'on_hold_budget', 'ready_for_assignment' => 'pending',
+        'reported', 'pmo_review', 'ready_for_assignment' => 'pending',
         'assigned', 'accepted', 'in_progress', 'waiting_for_materials', 'for_replacement' => 'in_progress',
         'completed', 'verified', 'closed' => 'completed',
         'rejected' => 'rejected',
@@ -1152,9 +1149,7 @@ function defectTimelineSteps(array $report): array {
 
     $steps = [
         ['label' => 'Submitted', 'done' => true, 'active' => $status === 'reported'],
-        ['label' => 'Received by PMO', 'done' => $hasReached(['dean_review', 'finance_review', 'on_hold_budget', 'ready_for_assignment', 'assigned', 'accepted', 'in_progress', 'waiting_for_materials', 'for_replacement', 'completed', 'verified', 'closed']), 'active' => $status === 'pmo_review'],
-        ['label' => 'Dean Approval', 'done' => $hasReached(['finance_review', 'on_hold_budget', 'ready_for_assignment', 'assigned', 'accepted', 'in_progress', 'waiting_for_materials', 'for_replacement', 'completed', 'verified', 'closed']), 'active' => $status === 'dean_review'],
-        ['label' => 'Finance Review', 'done' => $hasReached(['on_hold_budget', 'ready_for_assignment', 'assigned', 'accepted', 'in_progress', 'waiting_for_materials', 'for_replacement', 'completed', 'verified', 'closed']), 'active' => $status === 'finance_review'],
+        ['label' => 'Received by PMO', 'done' => $hasReached(['ready_for_assignment', 'assigned', 'accepted', 'in_progress', 'waiting_for_materials', 'for_replacement', 'completed', 'verified', 'closed']), 'active' => $status === 'pmo_review'],
         ['label' => 'Technician Assigned', 'done' => $hasReached(['accepted', 'in_progress', 'waiting_for_materials', 'for_replacement', 'completed', 'verified', 'closed']), 'active' => in_array($status, ['ready_for_assignment', 'assigned'], true)],
         ['label' => 'Received by Technician', 'done' => $hasReached(['in_progress', 'waiting_for_materials', 'for_replacement', 'completed', 'verified', 'closed']), 'active' => $status === 'accepted'],
         ['label' => 'Repair In Progress', 'done' => $hasReached(['for_replacement', 'completed', 'verified', 'closed']), 'active' => in_array($status, ['in_progress', 'waiting_for_materials'], true)],
@@ -1162,16 +1157,8 @@ function defectTimelineSteps(array $report): array {
         ['label' => 'Closed', 'done' => $hasReached(['closed']), 'active' => $status === 'verified'],
     ];
 
-    if ($status === 'on_hold_budget') {
-        array_splice($steps, 4, 0, [[
-            'label' => 'On Hold for Budget',
-            'done' => false,
-            'active' => true,
-        ]]);
-    }
-
     if ($status === 'for_replacement') {
-        array_splice($steps, 6, 0, [[
+        array_splice($steps, 4, 0, [[
             'label' => 'Replacement Required',
             'done' => true,
             'active' => true,
@@ -1384,7 +1371,7 @@ function findOpenReportForEquipment(string $equipmentId): ?array {
     $conn = getDBConnection();
     $st = $conn->prepare("SELECT report_id, status, report_date FROM defect_reports
                           WHERE equipment_id = ?
-                            AND status IN ('reported','pmo_review','dean_review','finance_review','on_hold_budget',
+                            AND status IN ('reported','pmo_review',
                                            'ready_for_assignment','assigned','accepted','in_progress',
                                            'waiting_for_materials','for_replacement')
                           ORDER BY report_date DESC LIMIT 1");
@@ -2340,9 +2327,6 @@ function getStatusClass($status) {
     $classes = [
         'reported' => 'warning',
         'pmo_review' => 'warning',
-        'dean_review' => 'warning',
-        'finance_review' => 'warning',
-        'on_hold_budget' => 'warning',
         'ready_for_assignment' => 'info',
         'assigned' => 'info',
         'in_progress' => 'primary',

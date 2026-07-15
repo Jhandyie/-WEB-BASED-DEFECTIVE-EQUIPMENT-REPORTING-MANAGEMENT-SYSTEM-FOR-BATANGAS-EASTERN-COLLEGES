@@ -1,7 +1,7 @@
 # Deployment Guide — BEC PMO Equipment Reporting System
 
 How to take the system from your local XAMPP to a real, HTTPS-served deployment that
-students, the PMO, technicians, and Finance can actually use.
+students, the PMO, and technicians can actually use.
 
 The good news: **the database is already in the cloud** (Supabase PostgreSQL) and the code
 builds every URL dynamically from the request host — nothing is hardcoded to `localhost`.
@@ -51,7 +51,6 @@ No Composer, no Node, no database server needed on the host — Supabase stays a
    - `.env` — Supabase connection (same values as local)
    - `config/chat_secrets.php` — Anthropic API key
    - `data/system_settings.json` — SMTP accounts (`from_name: "BEC PMO"`, Gmail app password)
-   - `config/finance.php` — the real Finance office email
    - `config/sla.php` — SLA hours (already committed; adjust if needed)
 
 3. **Make these writable** by PHP (usually 755/775 on shared hosting):
@@ -96,8 +95,8 @@ someone is comfortable maintaining a server — shared hosting is less work for 
 
 ## What changes automatically (no edits needed)
 
-- **All links and emails** — the landing page, OTP mails, assignment deep links, and the
-  Finance acknowledgment URL are all built from the live request host.
+- **All links and emails** — the landing page, OTP mails, and assignment deep links are all
+  built from the live request host.
 - **The PWA** — manifest + service worker use relative paths; once HTTPS is on, phones will
   offer "Add to Home Screen" for the technician portal for real.
 - **Supabase** — same database from anywhere; nothing migrates.
@@ -108,8 +107,7 @@ someone is comfortable maintaining a server — shared hosting is less work for 
 2. **Admin OTP email arrives** (proves SMTP works from the host).
 3. Submit a test defect report → confirmation email arrives.
 4. Technician login + open a task; install the PWA on a phone.
-5. Budget request → Finance email + acknowledgment link works on the public URL.
-6. Branded PDF/Excel exports download.
+5. Branded PDF/Excel exports download.
 7. Next morning: a new archive exists in `backups/`.
 8. `https://your-site/data/system_settings.json` returns **403** (secrets blocked)
    — same for `/config/`, `/logs/`, `/backups/`, `/.env`.
