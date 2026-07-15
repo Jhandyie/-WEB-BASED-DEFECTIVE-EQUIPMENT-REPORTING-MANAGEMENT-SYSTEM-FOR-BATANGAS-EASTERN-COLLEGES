@@ -829,9 +829,6 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .nav-item:focus-visib
     <a href="admin_assign_technicians.php" class="nav-item">
       <span class="nav-ic"><i class="fas fa-user-cog"></i></span> Assign Technicians
     </a>
-    <a href="admin_budget_requests.php" class="nav-item">
-      <span class="nav-ic"><i class="fas fa-coins"></i></span> Budget Requests
-    </a>
     <a href="admin_preventive.php" class="nav-item">
       <span class="nav-ic"><i class="fas fa-calendar-check"></i></span> Preventive Maintenance
     </a>

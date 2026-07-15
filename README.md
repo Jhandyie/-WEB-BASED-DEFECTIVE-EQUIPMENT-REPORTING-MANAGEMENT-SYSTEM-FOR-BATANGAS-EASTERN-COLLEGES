@@ -4,9 +4,8 @@ A web-based defective equipment reporting and maintenance management system buil
 **Property Management Office (PMO) of Batangas Eastern Colleges** (San Juan, Batangas · Est. 1940).
 
 It gives the campus one official channel to **report, track, repair, and resolve** defective
-equipment — from the first report to PMO verification and reporter sign-off — with budget
-requests routed to the Finance office, email notifications at every stage, and a built-in
-AI assistant ("Becca") on every portal.
+equipment — from the first report to PMO verification and reporter sign-off — with email
+notifications at every stage, and a built-in AI assistant ("Becca") on every portal.
 
 ---
 
@@ -17,9 +16,8 @@ AI assistant ("Becca") on every portal.
 | **Landing page** (`index.php`) | Everyone | Campus-photo hero, modules overview, live public-reports preview, Becca AI chat |
 | **Reporter portal** (`student_index.php`) | Students, faculty & staff | Guided defect reporting with photos, priority inference, email confirmations |
 | **Public tracker** (`track_report.php`, `public_reports.php`) | Everyone | Track any ticket by ID/asset tag, follow-up requests, satisfaction confirmation |
-| **Admin / PMO suite** (`admin_*.php`) | PMO administrators | Dashboard + analytics, defect review (receive → approve → assign → verify), work orders, budget approvals, preventive maintenance, inventory, user management, audit log, branded exports |
-| **Technician portal** (`technician_dashboard.php`) | Maintenance technicians | Installable **PWA**; scroll-down repair workspace with live SLA/repair timers, workflow stepper, budget requests, photo-documented completion reports |
-| **Finance acknowledgment** (`budget_ack.php`) | Finance office | Tokenized email link — mark budget requests *Received* / *Accepted*, no login needed |
+| **Admin / PMO suite** (`admin_*.php`) | PMO administrators | Dashboard + analytics, defect review (receive → approve → assign → verify), work orders, preventive maintenance, inventory, user management, audit log, backup & recovery, branded exports |
+| **Technician portal** (`technician_dashboard.php`) | Maintenance technicians | Installable **PWA**; scroll-down repair workspace with live SLA/repair timers, workflow stepper, photo-documented completion reports |
 
 ## The report lifecycle
 
@@ -30,17 +28,17 @@ Reported → Received by PMO → Approved → Assigned → In Progress
 ```
 
 Every transition notifies the right people **in-app and by branded email**
-(reporter confirmations, technician assignment mail with a deep link, Finance
-budget notifications, PMO alerts).
+(reporter confirmations, technician assignment mail with a deep link, PMO alerts).
 
 ## Feature highlights
 
 - **Becca AI assistant ×3** — student, admin, and technician variants (Anthropic Claude via a
   server-side proxy; each is session-gated, reads live data for its role, and falls back to a
   built-in rules brain so it always answers). English & Filipino.
-- **Budget → Finance flow** — technicians request parts with itemized costs; the Finance office
-  is automatically emailed with a secure acknowledgment link; PMO approves/rejects; everyone is
-  notified of each state (visible on the technician's task).
+- **Backup & data recovery** — automated daily database snapshots (rotating compressed archives
+  via Windows Task Scheduler) plus an admin **Backup & Recovery** page to back up on demand,
+  download any snapshot, and restore/recover records after accidental deletion or corruption
+  (transactional upsert with an automatic pre-restore safety snapshot).
 - **Official branded exports** — PDF and true `.xlsx` Excel (built without extensions) matching
   the official BEC PMO inventory form: letterhead, grouped bands, and real signatories.
 - **Inventory by Excel upload** — the PMO uploads the official inventory workbook; items are
@@ -97,23 +95,24 @@ student_index.php             Reporter portal (entry + identity)
 student_dashboard.php         Reporter dashboard (submit/track reports)
 track_report.php              Public ticket tracker + satisfaction
 technician_dashboard.php      Technician repair workspace (PWA)
-technician_*.php              Technician endpoints (budget, completion, chat proxy)
-admin_*.php                   PMO admin suite (dashboard, defects, work orders, budget,
-                              preventive, inventory, users, analytics, audit log…)
-budget_ack.php                Finance tokenized acknowledgment page
+technician_*.php              Technician endpoints (completion, chat proxy)
+admin_*.php                   PMO admin suite (dashboard, defects, work orders,
+                              preventive, inventory, users, analytics, audit log,
+                              backup & recovery…)
+admin_backup.php              Backup & Recovery (on-demand backup, download, restore)
 api/                          JSON APIs + exports
-includes/                     Shared: auth/sessions, CSRF, mail, exports, Becca widgets,
-                              loaders, nav/footer
+includes/                     Shared: auth/sessions, CSRF, mail, exports, backup/restore,
+                              Becca widgets, loaders, nav/footer
 config/                       Database adapter, finance + SLA settings, secrets (ignored)
 supabase/schema.sql           Full database schema
-scripts/backup_db.php         Automated backup job
+scripts/backup_db.php         Automated backup job (Windows Task Scheduler)
 assets/, uploads/, backups/   Static assets, user uploads, DB archives (ignored)
 ```
 
 ## Testing
 
 The full lifecycle is covered by an end-to-end exercise against the running system
-(report → receive → approve → assign → accept → start → budget + Finance ack →
+(report → receive → approve → assign → accept → start →
 complete with photos → verify → satisfaction), with every status transition asserted
 in the database and all notification emails delivered.
 
