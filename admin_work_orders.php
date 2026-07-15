@@ -1041,14 +1041,6 @@ function go(){
   u.searchParams.set('search',  document.getElementById('fsq').value);
   location.href=u.toString();
 }
-/* Keep admin UI colors stable across visited links */
-a,
-a:link,
-a:visited,
-a:hover,
-a:active{
-  color:inherit;
-}
 let dbt; function debounceGo(){clearTimeout(dbt);dbt=setTimeout(go,500);}
 
 /* ─── EXPORT MENU ───────────────────────────────────── */
@@ -1109,14 +1101,6 @@ function exportPDF(){
   </body></html>`);
   win.document.close();setTimeout(()=>{win.print();win.close();},400);
   toast('ok','Print dialog opened.','PDF Export');
-}
-/* Keep admin UI colors stable across visited links */
-a,
-a:link,
-a:visited,
-a:hover,
-a:active{
-  color:inherit;
 }
 
 /* ─── CREATE MODAL ──────────────────────────────────── */
