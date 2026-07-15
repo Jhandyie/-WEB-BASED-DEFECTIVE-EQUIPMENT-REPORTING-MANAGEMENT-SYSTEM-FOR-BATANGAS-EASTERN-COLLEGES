@@ -283,15 +283,28 @@ function tr_timeline(array $report): array {
         ];
     }
 
+    // Fully-resolved reports: nothing is still "in progress" — mark every step done
+    // (verified is the practical end state; many reports never move to 'closed').
+    $statusLc = strtolower(trim((string)($report['status'] ?? '')));
+    if (in_array($statusLc, ['verified', 'closed'], true)) {
+        foreach ($items as &$it) { if ($it['state'] === 'active') { $it['state'] = 'done'; } }
+        unset($it);
+    }
+
     return $items;
 }
 
-function tr_progress(array $timeline): array {
+function tr_progress(array $timeline, string $status = ''): array {
+    $status = strtolower(trim($status));
     $total = count($timeline);
     $done = 0; $current = '';
     foreach ($timeline as $t) {
         if ($t['state'] === 'done') { $done++; $current = $t['label']; }
         if ($t['state'] === 'active') { $current = $t['label']; }
+    }
+    // Terminal states are 100% complete.
+    if (in_array($status, ['verified', 'closed'], true)) {
+        return ['pct' => 100, 'current' => $current ?: 'Resolved', 'done' => $total, 'total' => $total];
     }
     $hasActive = false;
     foreach ($timeline as $t) { if ($t['state'] === 'active') { $hasActive = true; break; } }
@@ -445,7 +458,7 @@ html{scroll-behavior:smooth}
         <div class="ticket"><?php echo htmlspecialchars($report['report_id']); ?></div>
         <?php
           $tl = tr_timeline($report);
-          $prog = tr_progress($tl);
+          $prog = tr_progress($tl, (string)$report['status']);
           $heroIcon = match (defectStatusCategory((string)$report['status'])) {
             'pending'     => 'fa-hourglass-half',
             'in_progress' => 'fa-screwdriver-wrench',

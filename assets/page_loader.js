@@ -30,15 +30,10 @@
     ".pl-ring{position:absolute;inset:0;border-radius:50%;border:3px solid rgba(201,150,12,.22);border-top-color:#C9960C;animation:plSpin .8s linear infinite;}" +
     ".pl-logo{width:58px;height:58px;border-radius:50%;overflow:hidden;background:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 2.5px rgba(201,150,12,.35),0 7px 20px rgba(0,0,0,.45);}" +
     ".pl-logo img{width:100%;height:100%;object-fit:cover;display:block;}" +
-    ".pl-track{position:relative;width:150px;height:4px;background:rgba(201,150,12,.22);border-radius:4px;}" +
-    ".pl-walk{position:absolute;bottom:3px;left:0;animation:plMove 3s ease-in-out infinite;}" +
-    ".pl-walk i{display:block;color:#C9960C;font-size:1.45rem;animation:plBob .5s ease-in-out infinite;}" +
     ".pl-text{color:rgba(255,255,255,.85);font-family:'DM Sans',sans-serif;font-size:.74rem;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;}" +
     "@keyframes plSpin{to{transform:rotate(360deg);}}" +
-    "@keyframes plMove{0%{left:2px;transform:scaleX(1);}45%{left:calc(100% - 24px);transform:scaleX(1);}50%{left:calc(100% - 24px);transform:scaleX(-1);}95%{left:2px;transform:scaleX(-1);}100%{left:2px;transform:scaleX(1);}}" +
-    "@keyframes plBob{0%,100%{transform:translateY(0);}50%{transform:translateY(-4px);}}" +
     "@media(prefers-reduced-motion:no-preference){body.page-fade{animation:pageFadeIn .45s ease both;}@keyframes pageFadeIn{from{opacity:0;}to{opacity:1;}}}" +
-    "@media(prefers-reduced-motion:reduce){.pl-ring,.pl-walk,.pl-walk i{animation:none;}}";
+    "@media(prefers-reduced-motion:reduce){.pl-ring{animation:none;}}";
   var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
 
   var loader;
@@ -54,7 +49,6 @@
         '<div class="pl-emblem"><div class="pl-ring"></div>' +
           '<div class="pl-logo"><img src="' + logo + '" alt="BEC" onerror="this.style.display=\'none\';this.parentElement.innerHTML=\'<i class=&quot;fas fa-graduation-cap&quot; style=&quot;color:#7B1D1D;font-size:1.4rem&quot;></i>\'"></div>' +
         '</div>' +
-        '<div class="pl-track"><span class="pl-walk"><i class="fas fa-person-walking"></i></span></div>' +
         '<div class="pl-text">Loading&hellip;</div>' +
       '</div>';
     document.body.appendChild(loader);

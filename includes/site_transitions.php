@@ -22,20 +22,15 @@ html{scrollbar-gutter:stable;}
 .pl-logo{width:58px;height:58px;border-radius:50%;overflow:hidden;background:#fff;display:flex;align-items:center;justify-content:center;
   box-shadow:0 0 0 2.5px rgba(201,150,12,.35),0 7px 20px rgba(0,0,0,.45);}
 .pl-logo img{width:100%;height:100%;object-fit:cover;display:block;}
-.pl-track{position:relative;width:150px;height:4px;background:rgba(201,150,12,.22);border-radius:4px;}
-.pl-walk{position:absolute;bottom:3px;left:0;animation:plMove 3s ease-in-out infinite;}
-.pl-walk i{display:block;color:#C9960C;font-size:1.45rem;animation:plBob .5s ease-in-out infinite;}
 .pl-text{color:rgba(255,255,255,.85);font-family:'DM Sans',sans-serif;font-size:.74rem;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;}
 @keyframes plSpin{to{transform:rotate(360deg);}}
-@keyframes plMove{0%{left:2px;transform:scaleX(1);}45%{left:calc(100% - 24px);transform:scaleX(1);}50%{left:calc(100% - 24px);transform:scaleX(-1);}95%{left:2px;transform:scaleX(-1);}100%{left:2px;transform:scaleX(1);}}
-@keyframes plBob{0%,100%{transform:translateY(0);}50%{transform:translateY(-4px);}}
 /* opacity-only page fade — NO transform on <body>, so it never becomes a
    containing block for the fixed loader (which would shift its center). */
 @media (prefers-reduced-motion: no-preference){
   body.page-fade{animation:pageFadeIn .45s ease both;}
   @keyframes pageFadeIn{from{opacity:0;}to{opacity:1;}}
 }
-@media (prefers-reduced-motion: reduce){ .pl-ring,.pl-walk,.pl-walk i{animation:none;} }
+@media (prefers-reduced-motion: reduce){ .pl-ring{animation:none;} }
 </style>
 
 <div id="pageLoader" class="page-loader" role="status" aria-live="polite" aria-hidden="true">
@@ -44,7 +39,6 @@ html{scrollbar-gutter:stable;}
       <div class="pl-ring"></div>
       <div class="pl-logo"><img src="assets/logs.png" alt="BEC" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=&quot;fas fa-graduation-cap&quot; style=&quot;color:#7B1D1D;font-size:1.8rem&quot;></i>'"></div>
     </div>
-    <div class="pl-track"><span class="pl-walk"><i class="fas fa-person-walking"></i></span></div>
     <div class="pl-text">Loading&hellip;</div>
   </div>
 </div>
