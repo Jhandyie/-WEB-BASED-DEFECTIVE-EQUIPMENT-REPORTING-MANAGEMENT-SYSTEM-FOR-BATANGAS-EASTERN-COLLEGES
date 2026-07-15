@@ -11,6 +11,17 @@ Options -Indexes
 # PWA: correct MIME type for the web-app manifest
 AddType application/manifest+json .webmanifest
 
+# Security response headers (no CSP — the app relies on inline scripts/styles).
+<IfModule mod_headers.c>
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set X-Permitted-Cross-Domain-Policies "none"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(self)"
+    # HSTS is honored only over HTTPS; harmless (ignored) over plain HTTP in dev.
+    Header always set Strict-Transport-Security "max-age=15552000" "expr=%{HTTPS} == 'on'"
+</IfModule>
+
 # Block dotfiles (.env, .git, etc.)
 <FilesMatch "^\.">
     Require all denied
