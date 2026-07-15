@@ -589,6 +589,17 @@ body.modal-open .bell-fab{display:none;}
 .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 3px var(--maroon-soft);}
 .page-head h1{font-size:clamp(1.45rem,3vw,1.9rem);color:var(--ink);margin:.2rem 0 .25rem;}
 .page-head p{font-size:.88rem;color:var(--ink3);max-width:60ch;}
+/* Installable-app prompt */
+.install-cta{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 16px;padding:12px 16px;border-radius:14px;background:linear-gradient(135deg,var(--maroon-soft),rgba(201,150,12,.10));border:1px solid rgba(123,29,29,.18);}
+.install-cta .ic-txt{display:flex;align-items:center;gap:12px;min-width:0;}
+.install-cta .ic-txt>i{font-size:1.35rem;color:var(--maroon);flex-shrink:0;}
+.install-cta strong{display:block;font-size:.92rem;color:var(--ink);}
+.install-cta span{display:block;font-size:.78rem;color:var(--ink3);line-height:1.45;}
+.ic-install{display:inline-flex;align-items:center;gap:7px;padding:.6rem 1.05rem;border:none;border-radius:11px;cursor:pointer;background:linear-gradient(135deg,var(--maroon-d),var(--maroon));color:#fff;font-family:'DM Sans',sans-serif;font-size:.84rem;font-weight:700;box-shadow:0 5px 14px rgba(74,14,14,.24);}
+.ic-install:hover{filter:brightness(1.08);}
+.ic-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.ic-dismiss{width:34px;height:34px;border-radius:10px;border:1px solid var(--bdr);background:#fff;color:var(--ink3);cursor:pointer;flex-shrink:0;}
+.ic-dismiss:hover{color:var(--maroon);border-color:var(--maroon);}
 
 /* Flash */
 .flash{display:flex;align-items:flex-start;gap:.6rem;padding:12px 15px;border-radius:var(--r2);font-size:.86rem;font-weight:500;margin-bottom:16px;line-height:1.5;}
@@ -1011,6 +1022,17 @@ body.modal-open{overflow:hidden;}
           ? 'Your verified and closed repair records, kept for accountability and reference.'
           : 'Select a task below to open its repair workspace. Work through each stage and submit your completion report when done.'; ?></p>
     </header>
+
+    <!-- Installable PWA prompt (shown only when installable / on iOS, and not already installed) -->
+    <div class="install-cta" id="installCta" hidden>
+      <div class="ic-txt"><i class="fas fa-mobile-screen-button"></i>
+        <div><strong>Install the Technician app</strong><span id="icSub">Add it to your home screen for a full-screen, offline-capable app.</span></div>
+      </div>
+      <div class="ic-actions">
+        <button type="button" class="ic-install" id="icInstall"><i class="fas fa-download"></i> Install app</button>
+        <button type="button" class="ic-dismiss" id="icDismiss" aria-label="Dismiss"><i class="fas fa-xmark"></i></button>
+      </div>
+    </div>
 
     <!-- ═══ QUEUE ═══ -->
     <section class="card queue-shell" id="queue">
@@ -1701,6 +1723,35 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(function () {/* non-fatal */});
   });
 }
+
+/* PWA: in-page "Install app" prompt (Android/desktop fire beforeinstallprompt; iOS gets a hint) */
+(function () {
+  var cta = document.getElementById('installCta');
+  if (!cta) return;
+  var btn = document.getElementById('icInstall');
+  var sub = document.getElementById('icSub');
+  var dismiss = document.getElementById('icDismiss');
+  var deferred = null;
+  var installed = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+  var snoozed = false;
+  try { snoozed = localStorage.getItem('becInstallDismissed') === '1'; } catch (e) {}
+  function show() { if (!installed && !snoozed) cta.hidden = false; }
+  if (dismiss) dismiss.addEventListener('click', function () { cta.hidden = true; try { localStorage.setItem('becInstallDismissed', '1'); } catch (e) {} });
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferred = e; if (btn) btn.hidden = false; show(); });
+  if (btn) btn.addEventListener('click', async function () {
+    if (!deferred) return;
+    deferred.prompt();
+    try { await deferred.userChoice; } catch (e) {}
+    deferred = null; cta.hidden = true;
+  });
+  window.addEventListener('appinstalled', function () { cta.hidden = true; if (window.techToast) techToast('ok', 'App installed — open it from your home screen.'); });
+  if (isIOS && !installed && !snoozed) {
+    if (btn) btn.hidden = true; // iOS Safari can't trigger the install programmatically
+    if (sub) sub.innerHTML = 'On iPhone/iPad: tap <i class="fas fa-arrow-up-from-bracket"></i> <strong>Share</strong>, then <strong>Add to Home Screen</strong>.';
+    show();
+  }
+})();
 </script>
 <?php require_once __DIR__ . '/includes/csrf_inject.php'; ?>
 <?php require __DIR__ . '/includes/technician_assistant.php'; ?>
