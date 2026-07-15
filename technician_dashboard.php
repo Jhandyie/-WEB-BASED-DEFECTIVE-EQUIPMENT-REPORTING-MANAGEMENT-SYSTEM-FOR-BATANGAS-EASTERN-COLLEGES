@@ -1568,6 +1568,14 @@ document.querySelectorAll('form:not(.tech-ajax):not(.search)').forEach(function 
   f.addEventListener('submit', function (e) {
     const kind = (e.submitter && e.submitter.value) || (f.querySelector('input[name=action]') || {}).value || 'default';
     if (!validateForm(f, kind)) { e.preventDefault(); return; }
+    // The buttons carry name="action" (Receive/Start/Save/…). Disabling them below
+    // would drop the clicked button from the POST (disabled controls aren't submitted),
+    // so $_POST['action'] would arrive empty. Preserve it as a hidden input first.
+    if (e.submitter && e.submitter.name) {
+      const keep = document.createElement('input');
+      keep.type = 'hidden'; keep.name = e.submitter.name; keep.value = e.submitter.value;
+      f.appendChild(keep);
+    }
     actionLoader(true, kind);
     f.querySelectorAll('button[type=submit]').forEach(function (b) {
       b.disabled = true;
