@@ -69,7 +69,6 @@
     <div class="tia-chips" id="tiaChips">
       <button class="tia-chip" type="button">What's next?</button>
       <button class="tia-chip" type="button">Summarize my tasks</button>
-      <button class="tia-chip" type="button">How do I request budget?</button>
       <button class="tia-chip" type="button">How do I complete a task?</button>
     </div>
     <div class="tia-inp">
@@ -101,7 +100,7 @@
   }
   function untype(){ const t=document.getElementById('tiaTyping'); if(t) t.remove(); }
 
-  function open(){ ov.classList.add('open'); if(!greeted){greeted=true; add('bot',"Hi! I'm **BECCA**, your technician assistant. I can tell you what's in your queue, what to work on next, and walk you through budget requests and completion reports. How can I help?");} setTimeout(()=>input.focus(),250); }
+  function open(){ ov.classList.add('open'); if(!greeted){greeted=true; add('bot',"Hi! I'm **BECCA**, your technician assistant. I can tell you what's in your queue, what to work on next, and walk you through completion reports. How can I help?");} setTimeout(()=>input.focus(),250); }
   function close(){ ov.classList.remove('open'); }
   fab.addEventListener('click',open); closeBtn.addEventListener('click',close);
   ov.addEventListener('click',e=>{ if(e.target===ov) close(); });

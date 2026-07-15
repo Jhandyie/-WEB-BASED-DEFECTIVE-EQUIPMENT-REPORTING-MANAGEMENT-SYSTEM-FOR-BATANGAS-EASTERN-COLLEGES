@@ -3,8 +3,8 @@
  * technician_chat_proxy.php — "BECCA AI" for the technician portal.
  *
  * Read-only helper for maintenance technicians: knows the technician's own
- * task queue (live), explains the repair workflow (receive → start → materials /
- * budget → complete), and gives practical troubleshooting guidance. Falls back
+ * task queue (live), explains the repair workflow (receive → start → materials
+ * → complete), and gives practical troubleshooting guidance. Falls back
  * to a built-in brain when the AI service is unavailable, so it always answers.
  *
  * Technician-session gated. Same Anthropic key as the other assistants.
@@ -109,7 +109,7 @@ function techLocalReply(string $text, array $d): string
         : "Your queue is clear right now.";
 
     if ($q === '' || $has('/\b(hi|hello|hey|kumusta|good (morning|afternoon|evening))\b/')) {
-        return "Hi! I'm BECCA, your technician assistant. I can tell you what's in your queue, what to do next, and walk you through receiving, repairing, requesting budget, and completing a task. {$nextLine}";
+        return "Hi! I'm BECCA, your technician assistant. I can tell you what's in your queue, what to do next, and walk you through receiving, repairing, and completing a task. {$nextLine}";
     }
     if ($has('/\b(next|priority|first|start with|what should i)\b/')) {
         return $nextLine . ($d['to_receive'] > 0 ? " You also have {$d['to_receive']} task(s) waiting to be received." : '');
@@ -119,9 +119,6 @@ function techLocalReply(string $text, array $d): string
     }
     if ($has('/\b(receive|accept)\b/')) {
         return "Open the task from My Tasks, then press \"Receive Task\" in the Repair Progress section. That confirms the job is in your hands; the button then changes to \"Start Repair\".";
-    }
-    if ($has('/\b(budget|parts|materials|request)\b/')) {
-        return "While a task is In Progress, the workspace shows \"Request Budget\": list the parts (name, qty, estimated cost, supplier), add a justification, and submit. Tick \"Also notify the Finance office\" to email Finance at the same time. The PMO reviews it and you'll be notified of the decision.";
     }
     if ($has('/\b(complete|finish|completion|report done|submit)\b/')) {
         return "Use the Completion Report at the bottom of the task workspace: timing & cost, diagnosis, actions performed, parts/tools/materials, findings and recommendations, plus before/during/after photos. Submitting moves the task to \"Awaiting PMO Verification\".";
@@ -136,9 +133,9 @@ function techLocalReply(string $text, array $d): string
         return "Each task shows a live \"Due in / Overdue\" chip based on its priority (" . becSlaSummaryText() . "). Start with anything marked Overdue or due soonest.";
     }
     if ($has('/\b(what can you|help|who are you|capabilities)\b/')) {
-        return "I can: report your live queue and what to do next; explain each workspace action (Receive, Start, Waiting for Materials, Recommend Replacement, Resume); and guide you through Budget Requests and the Completion Report. Try \"what's next?\" or \"how do I request budget?\".";
+        return "I can: report your live queue and what to do next; explain each workspace action (Receive, Start, Waiting for Materials, Recommend Replacement, Resume); and guide you through the Completion Report. Try \"what's next?\" or \"how do I complete a task?\".";
     }
-    return "I can help with your queue and the repair workflow. Try: \"what's next?\", \"summarize my tasks\", \"how do I request budget?\", or \"how do I complete a task?\". {$nextLine}";
+    return "I can help with your queue and the repair workflow. Try: \"what's next?\", \"summarize my tasks\", or \"how do I complete a task?\". {$nextLine}";
 }
 
 // ── Read request ──
@@ -182,7 +179,7 @@ You are talking to technician {$techName}. Be a practical, friendly senior-colle
 CORE ROLE
 - Tell the technician what is in THEIR queue and what to work on next (use the live data below).
 - Walk them through the workspace actions: Receive Task -> Start Repair -> (Waiting for Materials / Recommend Replacement / Resume) -> Completion Report.
-- Explain Budget Requests (parts list, justification, optional Finance email) and the Completion Report fields (timing/cost, diagnosis, work done, parts/tools/materials, findings, recommendations, before/during/after photos).
+- Explain the Completion Report fields (timing/cost, diagnosis, work done, parts/tools/materials, findings, recommendations, before/during/after photos).
 - Offer sensible general troubleshooting directions for common campus equipment (projectors, computers, aircon, printers) — clearly as suggestions; safety first, and defer to school procedures.
 
 SECURITY & HONESTY

@@ -64,7 +64,7 @@ function dbStatus(string $rid): string {
 }
 
 echo "== BEC PMO lifecycle smoke test ==\n";
-$pdo = null; $rid = ''; $brid = ''; $seeds = []; $settingsBackup = null;
+$pdo = null; $rid = ''; $seeds = []; $settingsBackup = null;
 $settingsFile = $ROOT . '/data/system_settings.json';
 
 try {
@@ -158,8 +158,7 @@ try {
 echo "-- cleanup --\n";
 try {
     if ($pdo) {
-        if ($brid) { $pdo->exec("DELETE FROM budget_request_items WHERE request_id=" . $pdo->quote($brid)); $pdo->exec("DELETE FROM budget_requests WHERE request_id=" . $pdo->quote($brid)); }
-        if ($rid)  { $pdo->exec("DELETE FROM notifications WHERE related_id IN (" . $pdo->quote($rid) . ($brid ? "," . $pdo->quote($brid) : '') . ")"); $pdo->exec("DELETE FROM maintenance_history WHERE report_id=" . $pdo->quote($rid)); $pdo->exec("DELETE FROM work_orders WHERE report_id=" . $pdo->quote($rid)); $pdo->exec("DELETE FROM defect_reports WHERE report_id=" . $pdo->quote($rid)); }
+        if ($rid)  { $pdo->exec("DELETE FROM notifications WHERE related_id=" . $pdo->quote($rid)); $pdo->exec("DELETE FROM maintenance_history WHERE report_id=" . $pdo->quote($rid)); $pdo->exec("DELETE FROM work_orders WHERE report_id=" . $pdo->quote($rid)); $pdo->exec("DELETE FROM defect_reports WHERE report_id=" . $pdo->quote($rid)); }
         $pdo->exec("DELETE FROM users WHERE user_id='TECH-SMOKE1'");
     }
     if ($settingsBackup !== null) { file_put_contents($settingsFile, $settingsBackup); }

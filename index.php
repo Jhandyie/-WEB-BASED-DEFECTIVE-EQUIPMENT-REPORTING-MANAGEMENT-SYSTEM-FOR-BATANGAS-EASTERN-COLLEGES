@@ -568,7 +568,7 @@ a { text-decoration: none; color: inherit; }
         <div class="mod-card"><div class="mod-ic"><i class="fas fa-screwdriver-wrench"></i></div><div class="mod-tx"><b>Work Orders</b><span>Technicians track repair progress through to completion.</span></div></div>
         <div class="mod-card feat"><div class="mod-ic"><i class="fas fa-boxes-stacked"></i></div><div class="mod-tx"><b>Inventory</b><span>Maintain equipment records, asset tags, and locations.</span></div></div>
         <div class="mod-card"><div class="mod-ic"><i class="fas fa-calendar-check"></i></div><div class="mod-tx"><b>Preventive Maintenance</b><span>Schedule recurring upkeep before equipment fails.</span></div></div>
-        <div class="mod-card"><div class="mod-ic"><i class="fas fa-coins"></i></div><div class="mod-tx"><b>Budget Requests</b><span>Raise and track funding for repairs and parts.</span></div></div>
+        <div class="mod-card"><div class="mod-ic"><i class="fas fa-database"></i></div><div class="mod-tx"><b>Backup &amp; Recovery</b><span>Automated snapshots with one-click data recovery.</span></div></div>
         <div class="mod-card"><div class="mod-ic"><i class="fas fa-chart-line"></i></div><div class="mod-tx"><b>Analytics &amp; Reports</b><span>Dashboards and exports for data-driven decisions.</span></div></div>
         <div class="mod-card feat"><div class="mod-ic"><i class="fas fa-robot"></i></div><div class="mod-tx"><b>AI Assistant (Becca)</b><span>Built-in guidance and troubleshooting, anytime.</span></div></div>
       </div>

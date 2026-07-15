@@ -56,7 +56,7 @@ function adminBuildData(): array
         'technicians' => 0, 'busiest' => [], 'unassigned' => 0,
         'top_equipment' => [], 'top_location' => [],
         'equipment_total' => 0, 'equipment_attention' => 0,
-        'budget_pending' => 0, 'pm_active' => 0, 'pm_due' => 0,
+        'pm_active' => 0, 'pm_due' => 0,
         'users_total' => 0, 'users_inactive' => 0,
     ];
     try { $p = getPgsqlPdoConnection(); } catch (\Throwable $e) { return $d; }
@@ -92,7 +92,6 @@ function adminBuildData(): array
 
     $d['equipment_total']     = $scalar("SELECT COUNT(*) FROM public.equipment WHERE LOWER(COALESCE(status,''))<>'deleted'");
     $d['equipment_attention'] = $scalar("SELECT COUNT(*) FROM public.equipment WHERE LOWER(COALESCE(status,'')) IN ('defective','faulty','damaged','maintenance','under_maintenance')");
-    $d['budget_pending']      = $scalar("SELECT COUNT(*) FROM public.budget_requests WHERE status='pending'");
     $d['pm_active']           = $scalar("SELECT COUNT(*) FROM public.preventive_schedules WHERE status='active'");
     $d['pm_due']              = $scalar("SELECT COUNT(*) FROM public.preventive_schedules WHERE status='active' AND next_due <= CURRENT_DATE");
     $d['users_total']         = $scalar("SELECT COUNT(*) FROM public.users WHERE COALESCE(status,'active')<>'deleted'");
@@ -123,7 +122,7 @@ function adminDataText(array $d): string
         . "- Most-reported equipment: " . adminTopLine($d['top_equipment']) . "\n"
         . "- Most-reported locations: " . adminTopLine($d['top_location']) . "\n"
         . "- Equipment records: {$d['equipment_total']} | needing attention: {$d['equipment_attention']}\n"
-        . "- Budget requests pending: {$d['budget_pending']} | Preventive schedules active: {$d['pm_active']} (due now: {$d['pm_due']})\n"
+        . "- Preventive schedules active: {$d['pm_active']} (due now: {$d['pm_due']})\n"
         . "- Users: {$d['users_total']} | inactive: {$d['users_inactive']}";
 }
 
@@ -134,7 +133,7 @@ function adminLocalReply(string $text, array $d): string
     $has = fn(string $re) => (bool) preg_match($re, $q);
 
     if ($q === '' || $has('/\b(hi|hello|hey|kumusta|good (morning|afternoon|evening))\b/')) {
-        return "Hi! I'm BECCA AI, your admin assistant. I can summarize live data (open reports, overdue, busiest technician, most-reported equipment) and explain any workflow — receiving, approving, assigning, budget, preventive maintenance, work orders, or users. What would you like to know?";
+        return "Hi! I'm BECCA AI, your admin assistant. I can summarize live data (open reports, overdue, busiest technician, most-reported equipment) and explain any workflow — receiving, approving, assigning, preventive maintenance, work orders, or users. What would you like to know?";
     }
 
     // ── Live data questions ──
@@ -165,9 +164,6 @@ function adminLocalReply(string $text, array $d): string
     if ($has('/\b(equipment)\b/') && $has('/\b(attention|maintenance|defective|faulty|broken|status)\b/')) {
         return "Of {$d['equipment_total']} equipment records, {$d['equipment_attention']} currently need attention (defective or under maintenance).";
     }
-    if ($has('/\b(budget|expense|cost|parts)\b/')) {
-        return "There are {$d['budget_pending']} budget request(s) pending review. Open 'Budget Requests' to approve or reject them; approving notifies the technician.";
-    }
     if ($has('/\b(preventive|pm|scheduled maintenance|recurring)\b/')) {
         return "Preventive maintenance: {$d['pm_active']} active schedule(s), {$d['pm_due']} due now. Due tasks auto-generate a work item when you open the dashboard or the Preventive Maintenance page.";
     }
@@ -196,7 +192,7 @@ function adminLocalReply(string $text, array $d): string
     }
 
     if ($has('/\b(what can you|help|capabilities|features|who are you)\b/')) {
-        return "I'm BECCA AI. I can: summarize live data (reports, priorities, overdue, technician workload, top equipment/locations, budgets, preventive maintenance, users); explain how to receive/approve/assign/verify reports; and recommend what to prioritize. Ask me things like \"how many critical reports are open?\" or \"how do I assign a technician?\"";
+        return "I'm BECCA AI. I can: summarize live data (reports, priorities, overdue, technician workload, top equipment/locations, preventive maintenance, users); explain how to receive/approve/assign/verify reports; and recommend what to prioritize. Ask me things like \"how many critical reports are open?\" or \"how do I assign a technician?\"";
     }
 
     // Default
@@ -260,7 +256,7 @@ SECURITY & HONESTY
 WORKFLOW REFERENCE (for how-to questions)
 - Report lifecycle: Reported -> Received by PMO -> Approved -> Assigned -> In Progress -> Completed -> Verified/Closed (Rejected branch).
 - Receive: Defect Reports -> "Mark as Received". Approve: report detail -> Approve (sets department/priority, auto-creates a work order). Assign: Assign Technicians -> pick report -> click a technician card. Verify: report detail -> Verify when the technician marks it Completed.
-- Budget Requests: technicians submit parts requests; admin approves/rejects. Preventive Maintenance: recurring schedules that auto-generate tasks when due. Overdue open reports are auto-escalated to the PMO.
+- Preventive Maintenance: recurring schedules that auto-generate tasks when due. Overdue open reports are auto-escalated to the PMO.
 
 {$dataText}
 

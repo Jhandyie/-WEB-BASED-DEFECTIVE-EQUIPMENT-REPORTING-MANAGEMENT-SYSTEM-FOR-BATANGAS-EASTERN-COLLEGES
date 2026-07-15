@@ -133,7 +133,7 @@ try {
   }
   function untype(){ const t=document.getElementById('aiaTyping'); if(t) t.remove(); }
 
-  function open(){ ov.classList.add('open'); if(!greeted){greeted=true; add('bot',"Hi! I'm **BECCA AI**, your admin assistant. Ask me about live data (open reports, overdue, technician workload, top equipment) or how any workflow works — receiving, approving, assigning, budget, preventive maintenance. How can I help?");} setTimeout(()=>input.focus(),250); }
+  function open(){ ov.classList.add('open'); if(!greeted){greeted=true; add('bot',"Hi! I'm **BECCA AI**, your admin assistant. Ask me about live data (open reports, overdue, technician workload, top equipment) or how any workflow works — receiving, approving, assigning, preventive maintenance. How can I help?");} setTimeout(()=>input.focus(),250); }
   function close(){ ov.classList.remove('open'); }
   fab.addEventListener('click',open); closeBtn.addEventListener('click',close);
   ov.addEventListener('click',e=>{ if(e.target===ov) close(); });
