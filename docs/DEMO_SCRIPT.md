@@ -59,18 +59,17 @@ On the phone (PWA) or a second browser:
 - Open the task → point out the **workflow stepper**, live **SLA "Due in…" chip**.
 - **Receive Task** → **Start Repair** (repair timer starts ticking — each action shows
   its own themed loading animation; worth a sentence).
-- **Request Budget**: add two parts with costs, justification →
-  *"Finance is notified automatically — they own campus budgeting."*
-- Show the **Finance email** → open its **acknowledgment link** (no login needed) →
-  **Accept** → back on the technician's task the status chip updates.
-- Back as admin: **Budget Requests** (show the compact accordion queue) → **Approve**.
-- Technician: **Completion Report** — required fields flag red if skipped (show once),
+- **Completion Report** — required fields flag red if skipped (show once),
   add before/during/after photos, submit.
 
 ### 7. Closing the loop (1 min)
-- Admin: report shows **Completed** → **Verify** (reporter emailed again).
-- Reporter: Track page → **"Was your issue resolved?" → Yes** → satisfaction recorded.
+- Admin: report shows **Completed** → **Verify & Close** (reporter emailed; report is closed).
+- Reporter: Track page → progress ring reads **100%** → **"Was your issue resolved?" → Yes** →
+  satisfaction recorded.
 - One line: *"Every step you just saw is in the audit log"* → flash **Admin → Audit Log**.
+- *(Optional, ~30s)* **Admin → Backup & Recovery**: "Back up now" makes a compressed snapshot
+  of every table; a nightly Windows Task Scheduler job does this automatically, and any
+  snapshot can restore records if data is ever deleted — the system's data-recovery safeguard.
 
 ### 8. Rapid-fire extras (1–2 min, pick 2–3)
 - **Exports**: Users → Export PDF (official BEC letterhead + blue band form)
@@ -112,7 +111,7 @@ HTTPS, and cron backups.
 **"What are the limitations / future work?"**
 Currently hosted locally (deployment guide ready); email uses a Gmail account (institutional
 SPF/DKIM setup documented in docs/EMAIL_DELIVERABILITY.md); future: SMS notifications,
-a dean-level analytics portal, and printed monthly PMO summaries.
+an executive analytics dashboard, and printed monthly PMO summaries.
 
 ---
 

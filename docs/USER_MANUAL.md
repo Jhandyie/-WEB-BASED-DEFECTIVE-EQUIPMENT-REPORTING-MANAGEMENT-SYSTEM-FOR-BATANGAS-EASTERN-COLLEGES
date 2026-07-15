@@ -42,12 +42,6 @@ emailed to you** (valid 3 minutes).
 4. When a technician completes a repair → open the report → **Verify & Close**
    (the reporter is asked to confirm satisfaction).
 
-### Budget requests
-**Budget Requests** page — each row shows requester, total, status, and Finance state.
-Click a row to expand: line items, justification, then **Approve** or **Reject** (with
-remarks). **Notify Finance / Re-send** emails the Finance office a secure acknowledgment
-link. Finance's response (*Received / Accepted*) appears on the row automatically.
-
 ### Other tools
 - **Preventive Maintenance** — recurring schedules that generate tasks when due.
 - **Inventory** — upload the official PMO Excel workbook to populate totals; print a
@@ -56,6 +50,8 @@ link. Finance's response (*Received / Accepted*) appears on the row automaticall
   3-day expiry), reset passwords. **Export** produces the official BEC letterhead
   User List (PDF / Excel / CSV).
 - **Audit Log** — searchable record of every action (who, what, when, from where).
+- **Backup & Recovery** — back up the whole database on demand, download any snapshot, and
+  restore/recover records if data is ever deleted; a nightly backup also runs automatically.
 - **BECCA AI** (floating orb) — ask for summaries, overdue items, busiest technician,
   or how any workflow works. Read-only.
 
@@ -75,25 +71,11 @@ password (link valid 3 days).
 3. **Receive Task** → **Start Repair** (your repair timer starts).
 4. If blocked: **Waiting for Materials** (with a note) → later **Materials Received — Resume**.
    If the unit isn't worth fixing: **Recommend Replacement**.
-5. Need parts? **Request Budget** — list each part with qty/cost/supplier + justification.
-   Finance is notified automatically; you'll see the request's status (PMO + Finance) on the
-   task, and you're notified when it's decided.
-6. Finish with the **Completion Report** — timing & cost, diagnosis, actions, parts/tools/
+5. Finish with the **Completion Report** — timing & cost, diagnosis, actions, parts/tools/
    materials (add each item with **Enter**), findings, recommendations, and
    **before/during/after photos**. Submit → the task moves to *Awaiting PMO Verification*.
-7. The **bell icon** (top-right / Alerts tab) holds all your notifications.
-8. **BECCA** (floating orb) can tell you what's next in your queue and walk you through any step.
-
----
-
-## 4. Finance Office
-
-No account needed. When a technician files a budget request you receive an email:
-**"Budget Request — Review Requested"** with the items and total.
-
-- Click **Review & Acknowledge Request** → a secure page opens.
-- Press **Mark as Received** when it's in your queue, and **Accept Request** when processed.
-- The PMO and the technician are notified automatically of your action.
+6. The **bell icon** (top-right / Alerts tab) holds all your notifications.
+7. **BECCA** (floating orb) can tell you what's next in your queue and walk you through any step.
 
 ---
 
