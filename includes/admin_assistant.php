@@ -82,7 +82,7 @@ try {
     display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(220,38,38,.4);}
   @media(max-width:560px){.aia-bell{right:1rem;bottom:10.4rem;width:46px;height:46px;}}
   /* When relocated into a page's top header bar it sits inline, not floating. */
-  .aia-bell.in-top{position:static;right:auto;bottom:auto;width:40px;height:40px;font-size:.95rem;margin-left:.15rem;
+  .aia-bell.in-top{position:relative;top:auto;right:auto;bottom:auto;left:auto;width:40px;height:40px;font-size:.95rem;margin-left:.15rem;flex-shrink:0;
     background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);color:#fff;box-shadow:none;}
   .aia-bell.in-top:hover{background:rgba(255,255,255,.22);color:#fff;transform:none;box-shadow:none;}
 </style>
