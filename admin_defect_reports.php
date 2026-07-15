@@ -191,8 +191,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['flash'] = ['err', 'Report rejected.'];
     }
     elseif ($act === 'verify_completion') {
+        // "Verify & Close" — the PMO confirms the repair and closes the report in one step
+        // (the button and the reporter notice both say the report is resolved/closed).
         updateDefectReport($reportId, [
-            'status'                        => 'verified',
+            'status'                        => 'closed',
             'completion_verified_by_admin'  => $admin_id,
             'admin_notes'                   => $_POST['verification_notes'] ?? '',
         ]);
@@ -210,11 +212,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $woResult = autoCreateWorkOrderFromReport($reportId, $admin_id, $vDept, $vPrio, $vNotes);
 
         if (($woResult['status'] ?? '') === 'created') {
-            $_SESSION['flash'] = ['ok', 'Completion verified and work order ' . ($woResult['work_order_id'] ?? '') . ' was auto-created.'];
+            $_SESSION['flash'] = ['ok', 'Completion verified and report closed. Work order ' . ($woResult['work_order_id'] ?? '') . ' was auto-created.'];
         } elseif (($woResult['status'] ?? '') === 'exists') {
-            $_SESSION['flash'] = ['ok', 'Completion verified. Existing work order ' . ($woResult['work_order_id'] ?? '') . ' already linked.'];
+            $_SESSION['flash'] = ['ok', 'Completion verified and report closed. Existing work order ' . ($woResult['work_order_id'] ?? '') . ' already linked.'];
         } else {
-            $_SESSION['flash'] = ['ok', 'Completion verified - report closed.'];
+            $_SESSION['flash'] = ['ok', 'Completion verified and report closed.'];
         }
     }
     elseif ($act === 'return_to_progress') {

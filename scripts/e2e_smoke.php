@@ -145,7 +145,7 @@ try {
     [, $page] = http($JAR_A, 'GET', "$BASE/admin_defect_reports.php");
     $tok4 = csrfFrom($page);
     http($JAR_A, 'POST', "$BASE/admin_defect_reports.php", ['action' => 'verify_completion', 'report_id' => $rid, 'verification_notes' => 'smoke verified'], ["X-CSRF-Token: $tok4"]);
-    step('Admin: verify → verified', dbStatus($rid) === 'verified', dbStatus($rid));
+    step('Admin: verify & close → closed', dbStatus($rid) === 'closed', dbStatus($rid));
     http($JAR_R, 'POST', "$BASE/track_report.php", ['action' => 'confirm_satisfaction', 'report_id' => $rid, 'verdict' => 'yes', 'satisfaction_note' => 'smoke ok']);
     $sat = $pdo->query("SELECT COALESCE(satisfaction,'') FROM defect_reports WHERE report_id=" . $pdo->quote($rid))->fetchColumn();
     step('Reporter satisfaction recorded', $sat === 'satisfied', "satisfaction=$sat");
