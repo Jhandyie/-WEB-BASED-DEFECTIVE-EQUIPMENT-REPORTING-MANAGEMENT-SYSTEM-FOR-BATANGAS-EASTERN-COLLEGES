@@ -65,6 +65,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
     } else {
         $up = $conn->prepare("UPDATE defect_reports SET satisfaction = ?, satisfaction_at = NOW(), satisfaction_note = ? WHERE report_id = ?");
         if ($up) { $up->bind_param('sss', $verdict, $note, $sid); $up->execute(); $up->close(); }
+        // Reporter satisfied on a PMO-verified report closes the loop for good
+        // (verified → closed), so the two "resolved" states don't linger apart.
+        if ($verdict === 'satisfied' && strtolower((string)$rep['status']) === 'verified') {
+            $cl = $conn->prepare("UPDATE defect_reports SET status = 'closed' WHERE report_id = ?");
+            if ($cl) { $cl->bind_param('s', $sid); $cl->execute(); $cl->close(); }
+            if (function_exists('logActivity')) { try { logActivity('reporter', 'reporter', 'report.closed', 'Auto-closed after reporter confirmed resolution — ' . $sid); } catch (\Throwable $e) {} }
+        }
         // If not fixed, alert admins so they can re-open / follow through.
         if ($verdict === 'unsatisfied') {
             $adminRes = $conn->query("SELECT user_id FROM users WHERE role = 'admin' AND status = 'active' AND user_id IS NOT NULL AND user_id != ''");
