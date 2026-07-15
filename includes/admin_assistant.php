@@ -81,11 +81,35 @@ try {
     background:linear-gradient(135deg,#DC2626,#B91C1C);color:#fff;font-size:.64rem;font-weight:800;
     display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(220,38,38,.4);}
   @media(max-width:560px){.aia-bell{right:1rem;bottom:10.4rem;width:46px;height:46px;}}
+  /* When relocated into a page's top header bar it sits inline, not floating. */
+  .aia-bell.in-top{position:static;right:auto;bottom:auto;width:40px;height:40px;font-size:.95rem;margin-left:.15rem;
+    background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);color:#fff;box-shadow:none;}
+  .aia-bell.in-top:hover{background:rgba(255,255,255,.22);color:#fff;transform:none;box-shadow:none;}
 </style>
 <a class="aia-bell" href="admin_notifications.php" aria-label="Notifications<?php echo $__aiaUnread > 0 ? ' (' . $__aiaUnread . ' unread)' : ''; ?>" title="Notifications">
   <i class="fas fa-bell"></i>
   <?php if ($__aiaUnread > 0): ?><span class="ab-dot"><?php echo $__aiaUnread > 9 ? '9+' : $__aiaUnread; ?></span><?php endif; ?>
 </a>
+<script>
+/* Put the notification bell in its perfect place: the page's top-right header.
+   Pages using the .topbar layout already render a header bell, so the floating
+   one is a duplicate and is removed; .top (maroon bar) pages get the bell moved in. */
+(function () {
+  var bell = document.querySelector('.aia-bell');
+  if (!bell) return;
+  var place = function () {
+    if (document.querySelector('.topbar .tb-r a[href*="notification"]')) { bell.remove(); return; }
+    var top = document.querySelector('.top');
+    if (top) {
+      bell.classList.add('in-top');
+      var back = top.querySelector('a.back, .back');
+      if (back) { top.insertBefore(bell, back); } else { top.appendChild(bell); }
+    }
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', place);
+  else place();
+})();
+</script>
 <button class="aia-fab" id="aiaFab" type="button" aria-label="Open BECCA AI admin assistant" title="BECCA AI">
   <span class="aia-ic"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="AI"></span>
 </button>

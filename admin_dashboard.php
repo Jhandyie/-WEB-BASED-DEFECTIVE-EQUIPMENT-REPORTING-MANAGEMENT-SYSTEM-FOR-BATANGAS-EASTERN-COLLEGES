@@ -743,7 +743,7 @@ body{
 .lv{font-weight:700;font-size:.75rem;color:var(--t1);}
 
 /* -- TOAST -------------------------------------- */
-.ttray{position:fixed;bottom:1.5rem;right:1.5rem;display:flex;flex-direction:column;gap:.4rem;z-index:9999;}
+.ttray{position:fixed;top:1.25rem;left:50%;transform:translateX(-50%);align-items:center;display:flex;flex-direction:column;gap:.4rem;z-index:9999;}
 .toast{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r2);padding:.72rem .9rem;display:flex;align-items:flex-start;gap:.55rem;box-shadow:var(--sh3);min-width:250px;animation:tIn .22s ease;border-left:3px solid var(--m3);}
 .toast.ok{border-left-color:#15803D;}
 .toast.err{border-left-color:#DC2626;}

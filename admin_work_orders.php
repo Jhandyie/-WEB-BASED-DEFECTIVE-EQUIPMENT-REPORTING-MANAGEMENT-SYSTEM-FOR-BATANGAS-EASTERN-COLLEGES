@@ -552,7 +552,7 @@ textarea.fc{resize:vertical;min-height:72px;}
 .tlt span{font-size:.68rem;color:var(--t3);}
 
 /* ── TOAST ───────────────────────────────────────── */
-.ttray{position:fixed;bottom:1.5rem;right:1.5rem;display:flex;flex-direction:column;gap:.38rem;z-index:9999;}
+.ttray{position:fixed;top:1.25rem;left:50%;transform:translateX(-50%);align-items:center;display:flex;flex-direction:column;gap:.38rem;z-index:9999;}
 .tst{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r2);padding:.68rem .88rem;
   display:flex;align-items:flex-start;gap:.5rem;box-shadow:var(--sh3);min-width:240px;
   animation:tIn .22s cubic-bezier(.4,0,.2,1);border-left:3px solid var(--m3);}
