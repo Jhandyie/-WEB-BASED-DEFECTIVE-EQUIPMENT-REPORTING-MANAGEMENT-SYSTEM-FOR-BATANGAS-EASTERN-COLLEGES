@@ -789,10 +789,16 @@ body.modal-open{overflow:hidden;}
 /* ═══════════════ MOBILE BOTTOM NAV ═══════════════ */
 .bnav{display:none;}
 @media(max-width:960px){
+  html{overflow-x:hidden;} /* nothing should push the page wider than the phone */
   .sb{transform:translateX(calc(-100% - 10px));transition:transform .26s cubic-bezier(.4,0,.2,1);}
   body.sb-open .sb{transform:none;box-shadow:0 0 60px rgba(0,0,0,.5);}
-  .main{margin-left:0;}
-  .wrap{padding:12px 12px 90px;}
+  .main{margin-left:0;min-width:0;}
+  .wrap{padding:12px 12px 90px;max-width:100%;}
+  .ctx.active{grid-template-columns:1fr;} /* Workflow + Asset History stack instead of cramming side-by-side */
+  .ws-body{grid-template-columns:1fr;}
+  /* let grid/flex children shrink so long text wraps instead of clipping / forcing width */
+  .facts>div,.qcard,.qcard>*,.hrow,.hrow>*,.tl-step,.tl-step>*,.sec,.card,.ws-head,.ws-head>*{min-width:0;}
+  .facts strong,.qcard .qc-sub,.qcard .qc-loc,.hrow .hd,.hrow strong,.ws-title,.tl-step p{overflow-wrap:anywhere;white-space:normal;}
   .topbar{display:flex;}
   .ws-back{display:flex;align-items:center;justify-content:center;}
   .bnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:300;background:linear-gradient(180deg,#3A0808,#2D0505);
