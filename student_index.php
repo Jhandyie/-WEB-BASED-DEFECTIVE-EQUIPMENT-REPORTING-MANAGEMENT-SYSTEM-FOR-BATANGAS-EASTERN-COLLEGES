@@ -697,8 +697,8 @@ body::after {
         <div class="ch-status">Online &middot; Ready to help</div>
       </div>
       <div class="ch-btns">
-        <button class="ch-btn" onclick="clearChat()" title="New chat"><i class="fas fa-rotate-right"></i></button>
-        <button class="ch-btn" onclick="closeChat()" title="Close"><i class="fas fa-xmark"></i></button>
+        <button class="ch-btn" onclick="clearChat()" title="New chat" aria-label="Start a new chat"><i class="fas fa-rotate-right"></i></button>
+        <button class="ch-btn" onclick="closeChat()" title="Close" aria-label="Close chat"><i class="fas fa-xmark"></i></button>
       </div>
     </div>
 
