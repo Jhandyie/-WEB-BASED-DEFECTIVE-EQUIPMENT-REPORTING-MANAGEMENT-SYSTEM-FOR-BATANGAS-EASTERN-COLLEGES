@@ -905,7 +905,7 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .nav-item:focus-visib
       <div class="hero-left">
         <div class="hero-eyebrow"><i class="fas fa-tools"></i> BEC Equipment Reporting & Maintenance System</div>
         <h1 class="hero-title">Good <?php $h=date('G');echo $h<12?'Morning':($h<17?'Afternoon':'Evening');?>, <span class="hl"><?php echo htmlspecialchars($admin_first);?>!</span></h1>
-        <p class="hero-sub">Here's your operational overview for today. <?php if($criticalRep>0): ?><strong style="color:#FCA5A5;"><?php echo $criticalRep;?> critical <?php echo $criticalRep==1?'case':'cases';?> need immediate attention.</strong><?php endif; ?></p>
+        <p class="hero-sub">Here's your operational overview for today. <?php if($criticalRep>0): ?><strong style="color:#FCA5A5;"><?php echo $criticalRep;?> critical <?php echo $criticalRep==1?'case needs':'cases need';?> immediate attention.</strong><?php endif; ?></p>
       </div>
       <div class="hero-meta">
         <div class="hero-timestamp">
@@ -992,7 +992,7 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .nav-item:focus-visib
         <div class="qa-ic"><i class="fas fa-users"></i></div>
         <div class="qa-text">
           <strong>User Management</strong>
-          <span><?php echo $userCount;?> registered users</span>
+          <span><?php echo $userCount;?> user<?php echo $userCount==1?'':'s';?> in the system</span>
         </div>
       </a>
     </div>
@@ -1012,7 +1012,7 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .nav-item:focus-visib
       <div class="sc s2" onclick="location.href='admin_defect_reports.php?status=assigned'">
         <div class="sc-ic"><i class="fas fa-check-double"></i></div>
         <div class="sc-num" id="n2"><?php echo $approvedReports;?></div>
-        <div class="sc-lbl">Recieved</div>
+        <div class="sc-lbl">Received</div>
       </div>
       <div class="sc s3" onclick="location.href='admin_defect_reports.php?status=in_progress'">
         <div class="sc-ic"><i class="fas fa-wrench"></i></div>

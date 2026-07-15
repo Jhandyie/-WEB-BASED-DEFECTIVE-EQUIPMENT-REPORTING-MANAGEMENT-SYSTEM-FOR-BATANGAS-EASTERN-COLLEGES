@@ -2789,18 +2789,24 @@ function closeSession($session_id) {
  * Get total user count across all roles
  */
 function getTotalUserCount() {
-    $conn = getDBConnection();
-    $tables = ['admins', 'maintenance_technicians', 'faculty_members', 'students'];
-    $total = 0;
-
-    foreach ($tables as $table) {
-        $result = $conn->query("SELECT COUNT(*) as count FROM `$table` WHERE status = 'active'");
-        if ($result) {
-            $total += $result->fetch_assoc()['count'];
+    // Registered accounts live in the `users` table (admins, PMO, technicians).
+    // The old per-role tables (admins/maintenance_technicians/…) are unused/empty.
+    try {
+        if (isPgSqlDriver()) {
+            $pdo = getPgsqlPdoConnection();
+            $n = (int) $pdo->query("SELECT COUNT(*) FROM public.users WHERE COALESCE(status,'active') <> 'deleted'")->fetchColumn();
+            // Imported BEC directory people (students/faculty/staff) are surfaced as users
+            // in User Management, so count them here too.
+            try { $n += (int) $pdo->query("SELECT COUNT(*) FROM public.bec_directory")->fetchColumn(); } catch (\Throwable $e) {}
+            return $n;
         }
+        $conn = getDBConnection();
+        $res = $conn->query("SELECT COUNT(*) AS c FROM users WHERE COALESCE(status,'active') <> 'deleted'");
+        return $res ? (int) $res->fetch_assoc()['c'] : 0;
+    } catch (\Throwable $e) {
+        error_log('getTotalUserCount failed: ' . $e->getMessage());
+        return 0;
     }
-
-    return $total;
 }
 
 

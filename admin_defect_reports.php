@@ -945,7 +945,7 @@ textarea.fc{resize:vertical;min-height:70px;}
       <a href="?status=assigned&view=<?php echo $vw;?>" class="scard sc-q">
         <div class="sico"><i class="fas fa-check-double"></i></div>
         <div class="snum" id="sn2"><?php echo $c_app; ?></div>
-        <div class="slbl">Recieved</div>
+        <div class="slbl">Received</div>
       </a>
       <a href="?status=in_progress&view=<?php echo $vw;?>" class="scard sc-r">
         <div class="sico"><i class="fas fa-wrench"></i></div>
@@ -1234,7 +1234,7 @@ textarea.fc{resize:vertical;min-height:70px;}
           $steps = [
             ['Submitted',         'Report received and logged.',           true,  false],
             ['Pending',    'Awaiting admin review.',                $st!=='reported', false],
-            ['Recieved',          'Categorised & dispatched.',             in_array($st,['assigned','in_progress','completed','verified','closed']), false],
+            ['Received',          'Categorised & dispatched.',             in_array($st,['assigned','in_progress','completed','verified','closed']), false],
             ['In Progress',       'Technician working on repair.',         in_array($st,['in_progress','completed','verified','closed']), $st==='in_progress'],
             ['Completed',         'Repair completed by technician.',       in_array($st,['completed','verified','closed']), false],
             ['Verified & Closed', 'Admin confirmed and closed.',           in_array($st,['verified','closed']), false],
