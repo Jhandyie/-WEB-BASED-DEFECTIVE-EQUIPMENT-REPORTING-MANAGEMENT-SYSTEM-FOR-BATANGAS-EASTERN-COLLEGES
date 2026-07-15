@@ -11,7 +11,7 @@ define('SITE_TRANSITIONS_RENDERED', true);
 <style>
 /* reserve the scrollbar gutter on every page so the viewport width — and thus
    the perfectly-centered loader — is identical whether a page scrolls or not */
-html{scrollbar-gutter:stable;}
+html{scrollbar-gutter:stable;font-size:106.25%;} /* global ~+6% readability bump (16→17px); all rem sizes scale */
 .page-loader{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;
   background:radial-gradient(120% 120% at 50% 30%,#4A0E0E 0%,#2D0505 100%);
   opacity:0;visibility:hidden;transition:opacity .15s ease,visibility .15s ease;}
