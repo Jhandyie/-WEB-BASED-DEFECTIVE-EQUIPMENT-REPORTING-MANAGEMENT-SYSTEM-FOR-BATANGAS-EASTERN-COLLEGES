@@ -171,7 +171,9 @@ function forgotPassword() {
         $__appBase = $__scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirname(dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/\\');
         $reset_link = $__appBase . "/technician/reset_password.php?token=" . $token;
         error_log("Password reset link for {$email}: {$reset_link}");
-        // TODO: send $reset_link via email (PHPMailer / your mail helper)
+        require_once __DIR__ . '/../includes/mail_helper.php';
+        try { sendPasswordResetEmail($email, $reset_link); }
+        catch (\Throwable $e) { error_log('technician reset email failed: ' . $e->getMessage()); }
     }
 
     // Generic response regardless of whether the email was found
