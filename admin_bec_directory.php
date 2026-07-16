@@ -177,7 +177,7 @@ try {
           <div class="empty"><i class="fas fa-inbox" style="font-size:1.6rem;display:block;margin-bottom:.5rem;"></i><?php echo $total===0 ? 'No directory imported yet. Upload a CSV to get started.' : 'No records match your search.'; ?></div>
         <?php else: ?>
           <div style="overflow-x:auto;">
-          <table>
+          <table data-paginate="15" data-paginate-noun="people">
             <thead><tr><th>Name</th><th>Email</th><th>Type</th><th>Dept</th><th>Program</th><th>Emp/Student No.</th></tr></thead>
             <tbody>
               <?php foreach ($rows as $r): $ut = $r['user_type'] ?: 'x'; ?>
@@ -199,6 +199,7 @@ try {
   </div>
 <?php require_once __DIR__ . '/includes/csrf_inject.php'; ?>
 <script src="assets/sidebar_autohide.js" defer></script>
+<script src="assets/table_paginate.js" defer></script>
 <?php require_once __DIR__ . '/includes/admin_assistant.php'; ?>
 <?php require __DIR__ . '/includes/site_transitions.php'; ?>
 </body>

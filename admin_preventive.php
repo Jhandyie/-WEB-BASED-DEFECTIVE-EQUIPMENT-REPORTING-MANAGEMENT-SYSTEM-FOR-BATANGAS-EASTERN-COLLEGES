@@ -227,7 +227,7 @@ $presets   = pmFrequencyPresets();
           <div class="empty"><i class="fas fa-calendar" style="font-size:1.6rem;display:block;margin-bottom:.5rem;"></i>No preventive schedules yet. Create one above to automate recurring maintenance.</div>
         <?php else: ?>
           <div class="tbl-wrap">
-          <table>
+          <table data-paginate="15" data-paginate-noun="schedules">
             <thead><tr><th>Task</th><th>Equipment</th><th>Every</th><th>Next Due</th><th>Priority</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>
               <?php foreach ($schedules as $s):
@@ -258,6 +258,7 @@ $presets   = pmFrequencyPresets();
   </div>
 <?php require_once __DIR__ . '/includes/csrf_inject.php'; ?>
 <script src="assets/sidebar_autohide.js" defer></script>
+<script src="assets/table_paginate.js" defer></script>
 <?php require_once __DIR__ . '/includes/admin_assistant.php'; ?>
 <?php require __DIR__ . '/includes/site_transitions.php'; ?>
 </body>

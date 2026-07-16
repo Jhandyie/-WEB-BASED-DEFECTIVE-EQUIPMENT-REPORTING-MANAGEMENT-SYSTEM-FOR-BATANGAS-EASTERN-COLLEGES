@@ -733,7 +733,7 @@ textarea.fc{resize:vertical;min-height:72px;}
           <button class="btn btn-maroon btn-sm" onclick="openCreate()"><i class="fas fa-plus"></i> New WO</button>
         </div>
       </div>
-      <table class="tbl" id="woTbl">
+      <table class="tbl" id="woTbl" data-paginate="12" data-paginate-noun="work orders">
         <thead>
           <tr>
             <th>WO ID</th><th>Title</th><th>Linked Report</th><th>Equipment</th>
@@ -1314,6 +1314,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 </script>
 <?php require_once __DIR__ . '/includes/csrf_inject.php'; ?>
 <script src="assets/sidebar_autohide.js" defer></script>
+<script src="assets/table_paginate.js" defer></script>
 <?php require_once __DIR__ . '/includes/admin_assistant.php'; ?>
 <?php require __DIR__ . '/includes/site_transitions.php'; ?>
 </body>

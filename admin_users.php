@@ -969,7 +969,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
       <button class="btn btn-sm" style="background:#C9960C;color:#fff;border:none;" onclick="document.getElementById('inviteMo').classList.add('open')"><i class="fas fa-user-shield"></i> Invite Technician</button>
         </div>
       </div>
-      <table class="tbl" id="uTbl">
+      <table class="tbl" id="uTbl" data-paginate="12" data-paginate-noun="users">
         <thead>
           <tr>
             <th>User</th><th>Email</th><th>Role</th><th>Department</th>
@@ -1061,7 +1061,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 
     <!-- ════ GRID VIEW ════ -->
     <div id="gridView" style="display:none;">
-      <div class="ugrid">
+      <div class="ugrid" data-paginate="12" data-paginate-noun="users" data-paginate-rows=".ucard">
         <?php if(empty($users)): ?>
         <div style="grid-column:1/-1;"><div class="empty"><i class="fas fa-users-slash"></i>No users match the current filters.</div></div>
         <?php else: foreach($users as $i=>$u):
@@ -1665,6 +1665,7 @@ function toast(type,msg,title){
 </script>
 <?php require_once __DIR__ . '/includes/csrf_inject.php'; ?>
 <script src="assets/sidebar_autohide.js" defer></script>
+<script src="assets/table_paginate.js" defer></script>
 <?php require_once __DIR__ . '/includes/admin_assistant.php'; ?>
 <?php require __DIR__ . '/includes/site_transitions.php'; ?>
 </body>
