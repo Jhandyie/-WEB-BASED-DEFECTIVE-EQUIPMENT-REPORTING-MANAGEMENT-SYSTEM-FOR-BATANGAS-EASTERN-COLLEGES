@@ -986,6 +986,15 @@ textarea.fc{resize:vertical;min-height:72px;}
         </form>
       </div>
 
+      <!-- Linked work orders track the report; status is not edited here -->
+      <div class="status-af" id="vStatusLinked" style="display:none;">
+        <div class="sa-title"><i class="fas fa-link"></i> Status follows the linked report</div>
+        <p style="font-size:.82rem;color:var(--t3);line-height:1.55;margin:.35rem 0 0;">
+          This work order tracks defect report <strong id="vLinkedRid"></strong>. Its status and assigned
+          technician update automatically as the repair progresses — verify or reassign it from the report.
+        </p>
+      </div>
+
     </div>
     <div class="mf">
       <button class="btn btn-ghost btn-sm" onclick="document.getElementById('viewMo').classList.remove('open')">Close</button>
@@ -1175,6 +1184,16 @@ function openView(w){
   // status update form
   document.getElementById('vStatusWoid').value=w.work_order_id;
   document.getElementById('vStatusSel').value=w.status;
+  // Linked work orders are monitored (status/technician come from the report); standalone
+  // work orders keep the manual status editor.
+  const saf=document.getElementById('vStatusAf'), sln=document.getElementById('vStatusLinked');
+  if(w.report_id){
+    if(saf) saf.style.display='none';
+    if(sln){ sln.style.display='block'; const lr=document.getElementById('vLinkedRid'); if(lr) lr.textContent=w.report_id; }
+  } else {
+    if(saf) saf.style.display='';
+    if(sln) sln.style.display='none';
+  }
   // report link
   const rl=document.getElementById('vRepLink');
   if(w.report_id){rl.style.display='inline-flex';rl.href='admin_defect_reports.php?view_id='+encodeURIComponent(w.report_id);}
@@ -1223,6 +1242,10 @@ function escH(s){const d=document.createElement('div');d.textContent=s;return d.
 
 /* ─── STATUS MODAL ──────────────────────────────────── */
 function openStatus(woid,cur){
+  // Linked work orders are monitored, not manually edited — open the detail view instead.
+  var list=Array.isArray(workOrdersMap)?workOrdersMap:[];
+  var w=list.find(x=>(x.work_order_id||'')===woid);
+  if(w && w.report_id){ openView(w); return; }
   document.getElementById('sWoid').textContent=woid;
   document.getElementById('sWoidInput').value=woid;
   document.getElementById('sStatus').value=cur;
