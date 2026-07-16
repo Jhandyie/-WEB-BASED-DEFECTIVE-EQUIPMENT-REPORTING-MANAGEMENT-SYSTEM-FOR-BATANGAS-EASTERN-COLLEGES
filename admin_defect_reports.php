@@ -294,7 +294,7 @@ $c_app  = cnt($all_raw, fn($r)=>in_array($r['status'],$stages['received'], true)
 $c_prog = cnt($all_raw, fn($r)=>in_array($r['status'],$stages['in_progress'], true));
 $c_done = cnt($all_raw, fn($r)=>in_array($r['status'],$stages['completed'], true));
 $c_rej  = cnt($all_raw, fn($r)=>in_array($r['status'],$stages['rejected'], true));
-$c_crit = cnt($all_raw, fn($r)=>$r['priority']==='critical'&&!in_array($r['status'],['completed','verified','closed','rejected']));
+$c_crit = cnt($all_raw, fn($r)=>$r['priority']==='critical'); // match the card link (?priority=critical shows all statuses)
 
 /* ─── KANBAN COLUMNS ───────────────────────────────────── */
 $cols = [
