@@ -98,12 +98,15 @@ try {
   var bell = document.querySelector('.aia-bell');
   if (!bell) return;
   var place = function () {
-    if (document.querySelector('.topbar .tb-r a[href*="notification"]')) { bell.remove(); return; }
+    // Any page whose header already shows a notification bell → drop the floating duplicate.
+    if (document.querySelector('.topbar a[href*="notification"], .top a[href*="notification"]')) { bell.remove(); return; }
     var top = document.querySelector('.top');
     if (top) {
       bell.classList.add('in-top');
       var back = top.querySelector('a.back, .back');
       if (back) { top.insertBefore(bell, back); } else { top.appendChild(bell); }
+    } else {
+      bell.remove(); // no header to host it → don't leave it floating
     }
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', place);
