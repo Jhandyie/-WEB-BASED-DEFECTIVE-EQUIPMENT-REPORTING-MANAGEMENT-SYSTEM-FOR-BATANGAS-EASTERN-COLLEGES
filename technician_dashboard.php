@@ -1737,7 +1737,11 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-/* PWA: in-page "Install app" prompt (Android/desktop fire beforeinstallprompt; iOS gets a hint) */
+/* PWA: in-page "Install app" prompt.
+   The banner is ALWAYS shown (unless already installed or dismissed) and adapts its guidance
+   so there is never a dead end: one-tap install when the browser offers it, share-sheet steps
+   on iOS, address-bar/menu steps on desktop, and a clear "needs HTTPS" notice when the page is
+   opened over an insecure LAN address (the usual reason install fails on a phone). */
 (function () {
   var cta = document.getElementById('installCta');
   if (!cta) return;
@@ -1747,23 +1751,55 @@ if ('serviceWorker' in navigator) {
   var deferred = null;
   var installed = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
   var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+  var bipSupported = ('onbeforeinstallprompt' in window);
+  var host = location.hostname;
+  var isLocalhost = host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+  var secure = (location.protocol === 'https:') || isLocalhost || window.isSecureContext === true;
   var snoozed = false;
   try { snoozed = localStorage.getItem('becInstallDismissed') === '1'; } catch (e) {}
-  function show() { if (!installed && !snoozed) cta.hidden = false; }
+
+  function setMode() {
+    if (installed || snoozed) { cta.hidden = true; return; }
+    if (!secure) {
+      if (btn) btn.hidden = true;
+      if (sub) sub.innerHTML = 'To install on a phone, open this site through its secure <strong>https://</strong> address. Installing is blocked over a plain http (LAN) link.';
+      cta.hidden = false; return;
+    }
+    if (deferred) {                                   // browser is ready to install in one tap
+      if (btn) btn.hidden = false;
+      if (sub) sub.textContent = 'Add it to your home screen for a full-screen, offline-capable app.';
+      cta.hidden = false; return;
+    }
+    if (isIOS) {
+      if (btn) btn.hidden = true;                     // iOS Safari can't trigger install programmatically
+      if (sub) sub.innerHTML = 'On iPhone/iPad: tap <i class="fas fa-arrow-up-from-bracket"></i> <strong>Share</strong>, then <strong>Add to Home Screen</strong>.';
+      cta.hidden = false; return;
+    }
+    if (bipSupported) {                               // Chrome/Edge, secure, before the install heuristic fires
+      if (btn) btn.hidden = false;
+      if (sub) sub.innerHTML = 'Tap <strong>Install app</strong> — or use the install <i class="fas fa-circle-down"></i> icon in your browser\'s address bar.';
+    } else {                                          // e.g. Firefox: no programmatic install
+      if (btn) btn.hidden = true;
+      if (sub) sub.innerHTML = 'For an installable app, open this page in <strong>Chrome</strong> or <strong>Edge</strong>, then choose menu → <strong>Install app</strong>.';
+    }
+    cta.hidden = false;
+  }
+
   if (dismiss) dismiss.addEventListener('click', function () { cta.hidden = true; try { localStorage.setItem('becInstallDismissed', '1'); } catch (e) {} });
-  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferred = e; if (btn) btn.hidden = false; show(); });
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferred = e; setMode(); });
   if (btn) btn.addEventListener('click', async function () {
-    if (!deferred) return;
-    deferred.prompt();
-    try { await deferred.userChoice; } catch (e) {}
-    deferred = null; cta.hidden = true;
+    if (deferred) {
+      deferred.prompt();
+      try { await deferred.userChoice; } catch (e) {}
+      deferred = null; cta.hidden = true;
+      return;
+    }
+    // No stored prompt yet — guide the user to the browser's own install control.
+    if (window.techToast) techToast('ok', 'Use the install icon in your browser\'s address bar (or menu → Install app) to add the app.');
   });
   window.addEventListener('appinstalled', function () { cta.hidden = true; if (window.techToast) techToast('ok', 'App installed — open it from your home screen.'); });
-  if (isIOS && !installed && !snoozed) {
-    if (btn) btn.hidden = true; // iOS Safari can't trigger the install programmatically
-    if (sub) sub.innerHTML = 'On iPhone/iPad: tap <i class="fas fa-arrow-up-from-bracket"></i> <strong>Share</strong>, then <strong>Add to Home Screen</strong>.';
-    show();
-  }
+
+  setMode();
 })();
 
 /* ── Web Push: opt in to task-assignment alerts ── */
