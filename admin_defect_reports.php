@@ -240,11 +240,27 @@ $df = $_GET['dept']     ?? 'all';
 $sq = $_GET['search']   ?? '';
 $vw = $_GET['view']     ?? 'table'; // 'table' | 'kanban'
 
+// Workflow stages — each stat card / status filter covers a group of raw statuses, so the
+// counts and the filtered list stay consistent and always add up to the total.
+$stages = [
+    'pending'     => ['reported','pmo_review'],
+    'received'    => ['ready_for_assignment','assigned'],
+    'in_progress' => ['accepted','in_progress','waiting_for_materials','for_replacement'],
+    'completed'   => ['completed','verified','closed'],
+    'rejected'    => ['rejected'],
+];
+
 $all_raw  = getDefectReportsWithFilters('all','all','');
 $all_raw  = array_values(array_filter($all_raw, fn($r) => !in_array(($r['status'] ?? ''), ['deleted',''], true)));
 
-$reports  = getDefectReportsWithFilters($sf, $pf, $sq);
+// Fetch by priority + search from the DB; apply the status-STAGE filter in PHP so the list
+// matches the stat cards (e.g. "In Progress" includes accepted / waiting / for-replacement).
+$reports  = getDefectReportsWithFilters('all', $pf, $sq);
 $reports  = array_values(array_filter($reports, fn($r) => !in_array(($r['status'] ?? ''), ['deleted',''], true)));
+if ($sf !== 'all') {
+    $sfStatuses = $stages[$sf] ?? [$sf]; // stage key → its statuses; otherwise treat as an exact status
+    $reports = array_values(array_filter($reports, fn($r) => in_array(($r['status'] ?? ''), $sfStatuses, true)));
+}
 if ($df !== 'all') {
     $reports = array_values(array_filter($reports,
         fn($r) => ($r['department_assigned'] ?? '') === $df));
@@ -273,11 +289,11 @@ if (isset($_GET['view_id'])) {
 /* ─── COUNTS ───────────────────────────────────────────── */
 function cnt($arr, $fn) { return count(array_filter($arr, $fn)); }
 $c_all  = count($all_raw);
-$c_pend = cnt($all_raw, fn($r)=>in_array($r['status'],['reported','pmo_review'], true));
-$c_app  = cnt($all_raw, fn($r)=>in_array($r['status'],['ready_for_assignment','assigned'], true));
-$c_prog = cnt($all_raw, fn($r)=>$r['status']==='in_progress');
-$c_done = cnt($all_raw, fn($r)=>in_array($r['status'],['completed','verified','closed']));
-$c_rej  = cnt($all_raw, fn($r)=>$r['status']==='rejected');
+$c_pend = cnt($all_raw, fn($r)=>in_array($r['status'],$stages['pending'], true));
+$c_app  = cnt($all_raw, fn($r)=>in_array($r['status'],$stages['received'], true));
+$c_prog = cnt($all_raw, fn($r)=>in_array($r['status'],$stages['in_progress'], true));
+$c_done = cnt($all_raw, fn($r)=>in_array($r['status'],$stages['completed'], true));
+$c_rej  = cnt($all_raw, fn($r)=>in_array($r['status'],$stages['rejected'], true));
 $c_crit = cnt($all_raw, fn($r)=>$r['priority']==='critical'&&!in_array($r['status'],['completed','verified','closed','rejected']));
 
 /* ─── KANBAN COLUMNS ───────────────────────────────────── */
@@ -822,6 +838,13 @@ textarea.fc{resize:vertical;min-height:70px;}
 /* ── EMPTY ───────────────────────────────────────────── */
 .empty{text-align:center;padding:3rem 1.5rem;color:var(--t3);}
 .empty i{font-size:2.5rem;display:block;margin-bottom:.75rem;opacity:.22;}
+.rpager{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;padding:.85rem 1rem;border-top:1px solid var(--bdr);}
+.rpager .rp-info{font-size:.78rem;color:var(--t3);}
+.rpager .rp-btns{display:flex;gap:.3rem;flex-wrap:wrap;}
+.rpager button{min-width:32px;height:32px;padding:0 .55rem;border:1px solid var(--bdr);background:#fff;color:var(--t2);border-radius:8px;font-size:.8rem;font-weight:700;cursor:pointer;transition:all .15s;}
+.rpager button:hover:not(:disabled){border-color:var(--m3);color:var(--m3);}
+.rpager button.on{background:linear-gradient(135deg,#4A0E0E,#7B1D1D);color:#fff;border-color:transparent;}
+.rpager button:disabled{opacity:.45;cursor:default;}
 
 /* ── RESPONSIVE ──────────────────────────────────────── */
 @media(max-width:1400px){.sums{grid-template-columns:repeat(4,1fr);}
@@ -937,12 +960,12 @@ textarea.fc{resize:vertical;min-height:70px;}
         <div class="snum" id="sn0"><?php echo $c_all; ?></div>
         <div class="slbl">All Reports</div>
       </a>
-      <a href="?status=reported&view=<?php echo $vw;?>" class="scard sc-p">
+      <a href="?status=pending&view=<?php echo $vw;?>" class="scard sc-p">
         <div class="sico"><i class="fas fa-hourglass-half"></i></div>
         <div class="snum" id="sn1"><?php echo $c_pend; ?></div>
         <div class="slbl">Pending</div>
       </a>
-      <a href="?status=assigned&view=<?php echo $vw;?>" class="scard sc-q">
+      <a href="?status=received&view=<?php echo $vw;?>" class="scard sc-q">
         <div class="sico"><i class="fas fa-check-double"></i></div>
         <div class="snum" id="sn2"><?php echo $c_app; ?></div>
         <div class="slbl">Received</div>
@@ -978,12 +1001,10 @@ textarea.fc{resize:vertical;min-height:70px;}
       </div>
       <select class="fsel" id="fss" onchange="go()">
         <option value="all" <?php echo $sf==='all'?'selected':''; ?>>All Status</option>
-        <option value="reported"    <?php echo $sf==='reported'?'selected':''; ?>>Pending Verify</option>
-        <option value="ready_for_assignment" <?php echo $sf==='ready_for_assignment'?'selected':''; ?>>Ready to Assign</option>
-        <option value="assigned"    <?php echo $sf==='assigned'?'selected':''; ?>>Approved</option>
+        <option value="pending"     <?php echo $sf==='pending'?'selected':''; ?>>Pending (awaiting PMO)</option>
+        <option value="received"    <?php echo $sf==='received'?'selected':''; ?>>Received / Assigned</option>
         <option value="in_progress" <?php echo $sf==='in_progress'?'selected':''; ?>>In Progress</option>
         <option value="completed"   <?php echo $sf==='completed'?'selected':''; ?>>Completed</option>
-        <option value="verified"    <?php echo $sf==='verified'?'selected':''; ?>>Verified</option>
         <option value="rejected"    <?php echo $sf==='rejected'?'selected':''; ?>>Rejected</option>
       </select>
       <select class="fsel" id="fsp" onchange="go()">
@@ -1068,6 +1089,7 @@ textarea.fc{resize:vertical;min-height:70px;}
             <?php endforeach; endif; ?>
           </tbody>
         </table>
+        <div class="rpager" id="repPager" hidden></div>
       </div>
     </div>
 
@@ -1711,6 +1733,38 @@ function runAdvancedExport(format){
   window.open('api/export_reports.php?' + p.toString(), '_blank');
   closeExportModal();
 }
+</script>
+<script>
+/* Defect reports: client-side pagination so long lists don't require endless scrolling. */
+(function () {
+  var PER = 10;
+  var tbody = document.querySelector('#mainTbl tbody');
+  var pager = document.getElementById('repPager');
+  if (!tbody || !pager) return;
+  var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr.rep-row'));
+  if (rows.length <= PER) { pager.hidden = true; return; }
+  var pages = Math.ceil(rows.length / PER), cur = 1;
+  function render() {
+    rows.forEach(function (r, i) { r.style.display = (Math.floor(i / PER) + 1 === cur) ? '' : 'none'; });
+    var start = (cur - 1) * PER + 1, end = Math.min(cur * PER, rows.length), btns = '';
+    for (var p = 1; p <= pages; p++) { btns += '<button type="button" data-p="' + p + '"' + (p === cur ? ' class="on"' : '') + '>' + p + '</button>'; }
+    pager.innerHTML =
+      '<span class="rp-info">Showing ' + start + '–' + end + ' of ' + rows.length + ' reports</span>' +
+      '<div class="rp-btns"><button type="button" data-p="prev"' + (cur === 1 ? ' disabled' : '') + '>‹ Prev</button>' +
+      btns + '<button type="button" data-p="next"' + (cur === pages ? ' disabled' : '') + '>Next ›</button></div>';
+    pager.hidden = false;
+  }
+  pager.addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    var p = b.getAttribute('data-p');
+    if (p === 'prev') cur = Math.max(1, cur - 1);
+    else if (p === 'next') cur = Math.min(pages, cur + 1);
+    else cur = parseInt(p, 10) || 1;
+    render();
+    var t = document.getElementById('mainTbl'); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  render();
+})();
 </script>
 <script src="assets/sidebar_autohide.js" defer></script>
 <?php require_once __DIR__ . '/includes/admin_assistant.php'; ?>
