@@ -1296,6 +1296,19 @@ html { scroll-behavior: smooth; }
 .section-card.is-active { border-color: rgba(201,150,12,.55); box-shadow: 0 0 0 1px rgba(201,150,12,.35), 0 12px 32px rgba(123,29,29,.10); }
 .section-card.is-active .section-icon { background: var(--maroon); color: #fff; }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+/* Minimalist error / incomplete-fields popup */
+.err-modal { position: fixed; inset: 0; z-index: 11000; display: none; align-items: center; justify-content: center; padding: 1.2rem; background: rgba(28,16,8,.5); backdrop-filter: blur(3px); }
+.err-modal.show { display: flex; }
+.err-box { background: #fff; border-radius: 16px; max-width: 400px; width: 100%; padding: 1.7rem 1.5rem 1.4rem; text-align: center; box-shadow: 0 24px 64px rgba(44,10,10,.30); animation: errPop .18s ease; }
+@keyframes errPop { from { transform: scale(.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.err-ic { width: 54px; height: 54px; border-radius: 50%; background: #FDECEC; color: #C0392B; display: flex; align-items: center; justify-content: center; font-size: 1.45rem; margin: 0 auto 1rem; }
+.err-box h3 { font-family: 'Fraunces', serif; font-size: 1.18rem; color: var(--ink); margin-bottom: .4rem; }
+.err-box p { font-size: .85rem; color: var(--ink2); line-height: 1.55; margin-bottom: 1rem; }
+.err-list { list-style: none; text-align: left; margin: 0 0 1.15rem; padding: 0; display: flex; flex-direction: column; gap: .4rem; max-height: 190px; overflow: auto; }
+.err-list li { font-size: .8rem; color: var(--ink); display: flex; align-items: center; gap: .55rem; padding: .55rem .75rem; background: #FBF3F3; border-radius: 9px; border-left: 3px solid #C0392B; }
+.err-list li i { color: #C0392B; font-size: .72rem; flex-shrink: 0; }
+.err-btn { width: 100%; padding: .82rem; border: none; border-radius: 11px; background: linear-gradient(135deg, var(--maroon-d), var(--maroon)); color: #fff; font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: .9rem; cursor: pointer; transition: filter .15s; }
+.err-btn:hover { filter: brightness(1.08); }
 </style>
 </head>
 <body>
@@ -2108,12 +2121,26 @@ function rfValidate() {
     }
   });
   if (bad.length) {
-    bad[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-    setTimeout(() => {
-      bad[0].focus({ preventScroll: true });
-      /* pulse AFTER the scroll lands so the reporter sees exactly which field */
-      bad[0].classList.remove('f-flash'); void bad[0].offsetWidth; bad[0].classList.add('f-flash');
-    }, 350);
+    // Build a friendly list of the fields that need attention for the popup.
+    const seen = {};
+    const labels = [];
+    bad.forEach((el) => {
+      let l = el.closest('.fg')?.querySelector('.fl')?.childNodes[0]?.textContent?.trim();
+      if (l) l = l.replace(/\s*\*$/, '');
+      else if (el.type === 'checkbox') l = 'Data Privacy agreement';
+      else l = el.getAttribute('placeholder') || 'A required field';
+      if (!seen[l]) { seen[l] = 1; labels.push(l); }
+    });
+    if (window.setErrFirstField) window.setErrFirstField(bad[0]);
+    if (window.showErrModal) {
+      window.showErrModal(
+        labels.length === 1 ? 'One more detail needed' : 'Some details are missing',
+        'Please complete the following before submitting your report:',
+        labels
+      );
+    } else {
+      bad[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   }
   return bad.length === 0;
 }
@@ -2183,6 +2210,54 @@ window.addEventListener('load', function () {
 });
 </script>
 <?php endif; ?>
+<!-- Minimalist error / incomplete-fields popup -->
+<div class="err-modal" id="errModal" aria-hidden="true">
+  <div class="err-box" role="dialog" aria-modal="true" aria-labelledby="errTitle">
+    <div class="err-ic"><i class="fas fa-triangle-exclamation"></i></div>
+    <h3 id="errTitle">Some details are missing</h3>
+    <p id="errMsg">Please complete the following before submitting your report.</p>
+    <ul class="err-list" id="errList"></ul>
+    <button type="button" class="err-btn" id="errClose">Review the form</button>
+  </div>
+</div>
+<script>
+(function () {
+  var modal = document.getElementById('errModal');
+  if (!modal) return;
+  var first = null;
+  window.showErrModal = function (title, msg, items) {
+    document.getElementById('errTitle').textContent = title;
+    document.getElementById('errMsg').textContent = msg;
+    var list = document.getElementById('errList');
+    list.innerHTML = '';
+    (items || []).forEach(function (t) {
+      var li = document.createElement('li');
+      var ic = document.createElement('i'); ic.className = 'fas fa-circle-exclamation';
+      var sp = document.createElement('span'); sp.textContent = t;
+      li.appendChild(ic); li.appendChild(sp); list.appendChild(li);
+    });
+    list.style.display = (items && items.length) ? '' : 'none';
+    modal.classList.add('show'); modal.setAttribute('aria-hidden', 'false');
+  };
+  window.setErrFirstField = function (el) { first = el || null; };
+  function close() {
+    modal.classList.remove('show'); modal.setAttribute('aria-hidden', 'true');
+    if (first) {
+      var b = first; first = null;
+      b.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(function () { try { b.focus({ preventScroll: true }); } catch (e) {} b.classList.remove('f-flash'); void b.offsetWidth; b.classList.add('f-flash'); }, 300);
+    }
+  }
+  document.getElementById('errClose').addEventListener('click', close);
+  modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modal.classList.contains('show')) close(); });
+})();
+<?php if (!empty($error)): ?>
+window.addEventListener('DOMContentLoaded', function () {
+  if (window.showErrModal) window.showErrModal('Please check your report', <?php echo json_encode($error, JSON_UNESCAPED_UNICODE); ?>, []);
+});
+<?php endif; ?>
+</script>
 <?php require __DIR__ . '/includes/site_transitions.php'; ?>
 </body>
 </html>
