@@ -15,6 +15,15 @@ $techName = trim((string)($_SESSION['fullname'] ?? 'Technician'));
 $techEmail = trim((string)($_SESSION['user_email'] ?? ''));
 $techKeys = technicianIdentityKeysFromSession($_SESSION);
 
+// Which unit does this technician belong to? ITSO technicians get a slimmer completion form
+// (no cost fields); PMO (and anyone else) get the cost fields. Keyed off the Department.
+$techDept = trim((string)($_SESSION['department'] ?? ''));
+if ($techDept === '' && $techId !== '') {
+    $dq = $conn->prepare("SELECT department FROM users WHERE user_id = ? LIMIT 1");
+    if ($dq) { $dq->bind_param('s', $techId); $dq->execute(); $drow = $dq->get_result()->fetch_assoc(); $techDept = trim((string)($drow['department'] ?? '')); $dq->close(); }
+}
+$techIsItso = (stripos($techDept, 'itso') !== false);
+
 function e($v): string { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 function fdate($v, $fallback = 'N/A'): string { $t = strtotime((string)$v); return $t ? date('M d, Y', $t) : $fallback; }
 function fdt($v, $fallback = 'N/A'): string { $t = strtotime((string)$v); return $t ? date('M d, Y h:i A', $t) : $fallback; }
@@ -977,6 +986,19 @@ body.modal-open{overflow:hidden;}
   .q-badges .badge{padding:.16rem .45rem;font-size:.56rem;gap:3px;}
   .q-badges .badge i{font-size:.54rem;}
 }
+/* Minimalist missing-fields popup */
+.te-modal{position:fixed;inset:0;z-index:12000;display:none;align-items:center;justify-content:center;padding:1.2rem;background:rgba(20,6,6,.55);backdrop-filter:blur(3px);}
+.te-modal.show{display:flex;}
+.te-box{background:#fff;border-radius:16px;max-width:400px;width:100%;padding:1.7rem 1.5rem 1.4rem;text-align:center;box-shadow:0 24px 64px rgba(30,6,6,.4);animation:tePop .18s ease;}
+@keyframes tePop{from{transform:scale(.94);opacity:0;}to{transform:scale(1);opacity:1;}}
+.te-ic{width:54px;height:54px;border-radius:50%;background:#FDECEC;color:#C0392B;display:flex;align-items:center;justify-content:center;font-size:1.45rem;margin:0 auto 1rem;}
+.te-box h3{font-family:'Outfit',sans-serif;font-size:1.15rem;font-weight:800;color:var(--ink);margin-bottom:.4rem;}
+.te-box p{font-size:.85rem;color:var(--ink2);line-height:1.55;margin-bottom:1rem;}
+.te-list{list-style:none;text-align:left;margin:0 0 1.15rem;padding:0;display:flex;flex-direction:column;gap:.4rem;max-height:190px;overflow:auto;}
+.te-list li{font-size:.8rem;color:var(--ink);display:flex;align-items:center;gap:.55rem;padding:.55rem .75rem;background:#FBF3F3;border-radius:9px;border-left:3px solid #C0392B;}
+.te-list li i{color:#C0392B;font-size:.72rem;flex-shrink:0;}
+.te-btn{width:100%;padding:.82rem;border:none;border-radius:11px;background:linear-gradient(135deg,var(--maroon-d),var(--maroon));color:#fff;font-family:'Outfit',sans-serif;font-weight:700;font-size:.9rem;cursor:pointer;transition:filter .15s;}
+.te-btn:hover{filter:brightness(1.08);}
 </style>
 </head>
 <body>
@@ -1236,11 +1258,14 @@ body.modal-open{overflow:hidden;}
               <form class="form tech-ajax" method="post" action="technician_complete_task.php" enctype="multipart/form-data" data-reload="1">
                 <input type="hidden" name="report_id" value="<?php echo $rid_e; ?>">
                 <input type="hidden" name="action" value="complete">
-                <div class="fs"><span class="fs-num">1</span><span class="fs-tx"><strong>Timing &amp; Cost</strong><span>Pre-filled from when you pressed Start — adjust only if needed</span></span></div>
+                <div class="fs"><span class="fs-num">1</span><span class="fs-tx"><strong><?php echo $techIsItso ? 'Timing' : 'Timing &amp; Cost'; ?></strong><span>Pre-filled from when you pressed Start — adjust only if needed</span></span></div>
                 <div class="fgrid">
                   <div><label>Date started</label><input type="datetime-local" name="date_started" value="<?php echo $started ? date('Y-m-d\TH:i', $started) : ''; ?>"></div>
                   <div><label>Repair duration</label><input type="text" name="repair_duration" placeholder="Leave blank — computed automatically"></div>
-                  <div><label>Repair cost (₱)</label><input type="number" step="0.01" name="repair_cost" placeholder="0.00"></div>
+                  <?php if (!$techIsItso): ?>
+                  <div><label>Estimated cost — repair &amp; maintenance (₱)</label><input type="number" step="0.01" min="0" inputmode="decimal" name="estimated_cost" placeholder="0.00"></div>
+                  <div><label>Actual cost — tallied by you (₱)</label><input type="number" step="0.01" min="0" inputmode="decimal" name="repair_cost" placeholder="0.00"></div>
+                  <?php endif; ?>
                 </div>
                 <div class="fs"><span class="fs-num">2</span><span class="fs-tx"><strong>Diagnosis &amp; Work Done</strong><span>Only these two are required — the rest is optional detail</span></span></div>
                 <label>Diagnosis <em class="req">*</em></label>
@@ -1263,30 +1288,16 @@ body.modal-open{overflow:hidden;}
                     <div class="chip-list"></div>
                   </div>
                   <div class="chipfield" data-chipfield>
-                    <label>Tools used</label>
-                    <input type="hidden" name="tools_used" value="">
-                    <div class="chip-entry">
-                      <input type="text" class="chip-in" placeholder="e.g. multimeter">
-                      <button type="button" class="chip-add" aria-label="Add item"><i class="fas fa-plus"></i></button>
-                    </div>
-                    <div class="chip-list"></div>
-                  </div>
-                  <div class="chipfield" data-chipfield>
-                    <label>Materials used</label>
+                    <label>Tools &amp; materials used</label>
                     <input type="hidden" name="materials_used" value="">
                     <div class="chip-entry">
-                      <input type="text" class="chip-in" placeholder="e.g. thermal paste">
+                      <input type="text" class="chip-in" placeholder="e.g. multimeter, thermal paste">
                       <button type="button" class="chip-add" aria-label="Add item"><i class="fas fa-plus"></i></button>
                     </div>
                     <div class="chip-list"></div>
                   </div>
                 </div>
-                <div class="fs"><span class="fs-num">4</span><span class="fs-tx"><strong>Outcome</strong><span>Final condition and any follow-up needed</span></span></div>
-                <label>Final findings</label>
-                <textarea name="findings" placeholder="Condition after repair / test results."></textarea>
-                <label>Recommendations</label>
-                <textarea name="recommendations" placeholder="Any follow-up or preventive recommendation."></textarea>
-                <div class="fs"><span class="fs-num">5</span><span class="fs-tx"><strong>Photo Documentation</strong><span>Before, during &amp; after evidence of the repair</span></span></div>
+                <div class="fs"><span class="fs-num">4</span><span class="fs-tx"><strong>Photo Documentation</strong><span>Optional — before, during &amp; after evidence of the repair</span></span></div>
                 <div class="photo-grid">
                   <div class="photo-field">
                     <label class="photo-drop">
@@ -1609,15 +1620,14 @@ function validateForm(f, submitterVal) {
     }
   }
   if (bad.length) {
-    var names = bad.map(function (el) { return el.dataset.req || 'a required field'; });
-    var listed = names.slice(0, 3).join(', ') + (names.length > 3 ? ' and ' + (names.length - 3) + ' more' : '');
-    techToast('err', 'Still needed: ' + listed + '.');
-    bad[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-    setTimeout(function () {
-      bad[0].focus({ preventScroll: true });
-      /* pulse AFTER the scroll lands so the technician sees exactly which field */
-      bad[0].classList.remove('f-flash'); void bad[0].offsetWidth; bad[0].classList.add('f-flash');
-    }, 350);
+    var seen = {}, names = [];
+    bad.forEach(function (el) { var n = el.dataset.req || 'A required field'; if (!seen[n]) { seen[n] = 1; names.push(n); } });
+    if (window.showTechErr) {
+      window.showTechErr(names, bad[0]);
+    } else {
+      techToast('err', 'Still needed: ' + names.slice(0, 3).join(', ') + '.');
+      bad[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
   }
   return bad.length === 0;
 }
@@ -1900,6 +1910,44 @@ if ('serviceWorker' in navigator) {
     var c = e.changedTouches[0], dx = c.clientX - sx, dy = c.clientY - sy;
     if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) go(dx < 0 ? 1 : -1);
   }, { passive: true });
+})();
+</script>
+
+<!-- Minimalist missing-fields popup for the completion form -->
+<div class="te-modal" id="teErrModal" aria-hidden="true">
+  <div class="te-box" role="dialog" aria-modal="true" aria-labelledby="teErrTitle">
+    <div class="te-ic"><i class="fas fa-triangle-exclamation"></i></div>
+    <h3 id="teErrTitle">Some details are missing</h3>
+    <p id="teErrMsg">Please complete the following before submitting your report.</p>
+    <ul class="te-list" id="teErrList"></ul>
+    <button type="button" class="te-btn" id="teErrClose">Review the form</button>
+  </div>
+</div>
+<script>
+(function () {
+  var modal = document.getElementById('teErrModal');
+  if (!modal) return;
+  var first = null;
+  window.showTechErr = function (items, firstEl) {
+    first = firstEl || null;
+    document.getElementById('teErrTitle').textContent = (items && items.length === 1) ? 'One more detail needed' : 'Some details are missing';
+    var list = document.getElementById('teErrList');
+    list.innerHTML = '';
+    (items || []).forEach(function (t) {
+      var li = document.createElement('li');
+      var ic = document.createElement('i'); ic.className = 'fas fa-circle-exclamation';
+      var sp = document.createElement('span'); sp.textContent = t;
+      li.appendChild(ic); li.appendChild(sp); list.appendChild(li);
+    });
+    modal.classList.add('show'); modal.setAttribute('aria-hidden', 'false');
+  };
+  function close() {
+    modal.classList.remove('show'); modal.setAttribute('aria-hidden', 'true');
+    if (first) { var b = first; first = null; b.scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(function () { try { b.focus({ preventScroll: true }); } catch (e) {} b.classList.remove('f-flash'); void b.offsetWidth; b.classList.add('f-flash'); }, 300); }
+  }
+  document.getElementById('teErrClose').addEventListener('click', close);
+  modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modal.classList.contains('show')) close(); });
 })();
 </script>
 <?php require_once __DIR__ . '/includes/csrf_inject.php'; ?>

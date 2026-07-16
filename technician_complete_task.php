@@ -95,6 +95,7 @@ $recommendations   = trim((string)($_POST['recommendations'] ?? ''));
 $completion_notes  = trim((string)($_POST['completion_notes'] ?? ''));
 $repair_duration   = trim((string)($_POST['repair_duration'] ?? ''));
 $repair_cost       = (float)($_POST['repair_cost'] ?? 0);
+$estimated_cost    = (float)($_POST['estimated_cost'] ?? 0);
 $date_started_raw  = trim((string)($_POST['date_started'] ?? ''));
 $date_started      = $date_started_raw !== '' ? date('Y-m-d H:i:s', strtotime($date_started_raw)) : null;
 
@@ -136,6 +137,7 @@ try {
             completion_notes = ?,
             repair_duration = ?,
             repair_cost = ?,
+            estimated_cost = ?,
             before_photos = ?,
             during_photos = ?,
             after_photos = ?,
@@ -151,12 +153,13 @@ try {
     $after_json  = json_encode($after_photos);
     $work_json   = json_encode($work_photos);
     $cost_str    = number_format($repair_cost, 2, '.', '');
+    $est_str     = number_format($estimated_cost, 2, '.', '');
 
     $stmt->bind_param(
-        'sssssssssssssssssss',
+        'ssssssssssssssssssss',
         $date_started, $diagnosis, $actions_performed, $repair_procedures, $work_performed,
         $parts_replaced, $tools_used, $materials_used, $findings, $recommendations,
-        $completion_notes, $repair_duration, $cost_str,
+        $completion_notes, $repair_duration, $cost_str, $est_str,
         $before_json, $during_json, $after_json, $work_json,
         $report_id, $technician_id
     );

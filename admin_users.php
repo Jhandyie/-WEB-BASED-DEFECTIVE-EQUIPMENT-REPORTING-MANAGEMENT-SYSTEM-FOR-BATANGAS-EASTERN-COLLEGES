@@ -1238,8 +1238,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
             <input type="text" name="position" class="fc" placeholder="e.g. Maintenance Technician">
           </div>
           <div class="fg">
-            <label class="fl">Department</label>
-            <input type="text" name="department" class="fc" placeholder="e.g. PMO, ITSO">
+            <label class="fl">Unit / Department <span>*</span></label>
+            <select name="department" class="fc" required>
+              <option value="">Select unit…</option>
+              <option value="PMO">PMO — Property Management Office</option>
+              <option value="ITSO">ITSO — Information Technology Services Office</option>
+              <option value="Maintenance Department">Maintenance Department</option>
+            </select>
           </div>
         </div>
         <div class="fg">

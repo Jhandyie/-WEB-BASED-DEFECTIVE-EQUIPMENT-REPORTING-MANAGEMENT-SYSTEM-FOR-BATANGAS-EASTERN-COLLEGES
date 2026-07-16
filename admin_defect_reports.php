@@ -1329,12 +1329,15 @@ textarea.fc{resize:vertical;min-height:70px;}
               return $out;
             };
             $before=$relPhotos($vr['before_photos']??''); $during=$relPhotos($vr['during_photos']??''); $after=$relPhotos($vr['after_photos']??''); $work=$relPhotos($vr['work_photos']??'');
+            $toolsMaterials = trim(implode(', ', array_filter([trim((string)($vr['tools_used']??'')), trim((string)($vr['materials_used']??''))])));
+            $fmtCost = fn($v) => (($v??'')!=='' && $v!==null && (float)$v > 0) ? ('₱'.number_format((float)$v,2)) : '';
             $logRows = [
               'Date Started'=>$vr['date_started']??'', 'Completion Date'=>$vr['completion_date']??'', 'Repair Duration'=>$vr['repair_duration']??'',
-              'Repair Cost'=>(($vr['repair_cost']??'')!=='' && $vr['repair_cost']!==null)?('₱'.number_format((float)$vr['repair_cost'],2)):'',
+              'Estimated Cost'=>$fmtCost($vr['estimated_cost']??''),
+              'Actual Cost'=>$fmtCost($vr['repair_cost']??''),
               'Diagnosis'=>$vr['diagnosis']??'', 'Actions Performed'=>$vr['actions_performed']??'', 'Repair Procedures'=>$vr['repair_procedures']??'',
-              'Repair Summary'=>$vr['work_performed']??'', 'Parts Replaced'=>$vr['parts_replaced']??'', 'Tools Used'=>$vr['tools_used']??'',
-              'Materials Used'=>$vr['materials_used']??'', 'Final Findings'=>$vr['findings']??'', 'Recommendations'=>$vr['recommendations']??'',
+              'Repair Summary'=>$vr['work_performed']??'', 'Parts Replaced'=>$vr['parts_replaced']??'', 'Tools & Materials'=>$toolsMaterials,
+              'Final Findings'=>$vr['findings']??'', 'Recommendations'=>$vr['recommendations']??'',
             ];
         ?>
         <div class="af" style="background:#f6fbf7;border:1px solid #cfe9d6;margin-bottom:.6rem;">
