@@ -1,1 +1,71 @@
-﻿{}
+{
+    "airConditioners": [
+        {
+            "id": 1,
+            "propertyNo": "AIR-UPLOAD-0001",
+            "campus": "All Campuses",
+            "building": "Multiple",
+            "buildingName": "Uploaded Inventory",
+            "room": "Multiple Rooms",
+            "type": "Air Conditioning Unit",
+            "article": "Air Conditioning Unit",
+            "qty": 122,
+            "status": "Active",
+            "department": "PMO",
+            "remarks": "Imported from NEW-Inventory-2025-Dao.xlsx on Jul 16, 2026"
+        }
+    ],
+    "televisions": [
+        {
+            "id": 1,
+            "propertyNo": "TEL-UPLOAD-0001",
+            "campus": "All Campuses",
+            "building": "Multiple",
+            "buildingName": "Uploaded Inventory",
+            "room": "Multiple Rooms",
+            "type": "Television Unit",
+            "article": "Television Unit",
+            "qty": 3,
+            "status": "Active",
+            "department": "PMO",
+            "remarks": "Imported from NEW-Inventory-2025-Dao.xlsx on Jul 16, 2026"
+        }
+    ],
+    "filingCabinets": [
+        {
+            "id": 1,
+            "propertyNo": "FIL-UPLOAD-0001",
+            "campus": "All Campuses",
+            "building": "Multiple",
+            "buildingName": "Uploaded Inventory",
+            "room": "Multiple Rooms",
+            "type": "Filing Cabinet",
+            "article": "Filing Cabinet",
+            "qty": 245,
+            "status": "Active",
+            "department": "PMO",
+            "remarks": "Imported from NEW-Inventory-2025-Dao.xlsx on Jul 16, 2026"
+        }
+    ],
+    "copyPrinters": [
+        {
+            "id": 1,
+            "propertyNo": "COP-UPLOAD-0001",
+            "campus": "All Campuses",
+            "building": "Multiple",
+            "buildingName": "Uploaded Inventory",
+            "room": "Multiple Rooms",
+            "type": "Copy Printer",
+            "article": "Copy Printer",
+            "qty": 2,
+            "status": "Active",
+            "department": "PMO",
+            "remarks": "Imported from NEW-Inventory-2025-Dao.xlsx on Jul 16, 2026"
+        }
+    ],
+    "_meta": {
+        "uploaded_at": "2026-07-16T03:44:11+02:00",
+        "filename": "NEW-Inventory-2025-Dao.xlsx",
+        "total": 372
+    }
+}

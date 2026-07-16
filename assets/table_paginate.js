@@ -18,15 +18,20 @@
     if (document.getElementById(STYLE_ID)) return;
     var css =
       '.tp-pager{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;' +
-      'gap:.6rem;margin:.9rem .2rem .2rem;font-family:inherit;}' +
-      '.tp-pager .tp-info{font-size:.78rem;color:var(--t3,#6b7280);}' +
-      '.tp-pager .tp-btns{display:flex;flex-wrap:wrap;gap:.3rem;}' +
-      '.tp-pager button{min-width:2rem;padding:.34rem .55rem;border:1px solid var(--bdr,#e5e7eb);' +
-      'background:var(--card,#fff);color:var(--t2,#374151);border-radius:8px;cursor:pointer;' +
-      'font-size:.78rem;font-weight:700;line-height:1;transition:background .12s,border-color .12s;}' +
-      '.tp-pager button:hover:not(:disabled){border-color:var(--m3,#7a1220);color:var(--m3,#7a1220);}' +
-      '.tp-pager button.on{background:var(--m3,#7a1220);border-color:var(--m3,#7a1220);color:#fff;}' +
-      '.tp-pager button:disabled{opacity:.45;cursor:default;}';
+      'gap:.75rem;margin:1rem .1rem .25rem;font-family:inherit;}' +
+      '.tp-pager .tp-info{font-size:.76rem;color:var(--t3,#6b7280);font-weight:600;letter-spacing:.01em;}' +
+      '.tp-pager .tp-btns{display:flex;flex-wrap:wrap;align-items:center;gap:.28rem;}' +
+      '.tp-pager .tp-gap{padding:0 .15rem;color:var(--t4,#9ca3af);font-size:.8rem;user-select:none;}' +
+      '.tp-pager button{display:inline-flex;align-items:center;justify-content:center;min-width:2.1rem;' +
+      'height:2.1rem;padding:0 .62rem;border:1px solid var(--bdr,#e5e7eb);background:var(--card,#fff);' +
+      'color:var(--t2,#374151);border-radius:999px;cursor:pointer;font-size:.78rem;font-weight:700;' +
+      'line-height:1;transition:color .14s,background .14s,border-color .14s,box-shadow .14s,transform .14s;}' +
+      '.tp-pager button:hover:not(:disabled):not(.on){border-color:var(--m3,#7a1220);color:var(--m3,#7a1220);' +
+      'background:var(--m1,#fdf2f3);transform:translateY(-1px);}' +
+      '.tp-pager button.on{background:var(--m3,#7a1220);border-color:var(--m3,#7a1220);color:#fff;' +
+      'box-shadow:0 2px 8px rgba(122,18,32,.28);}' +
+      '.tp-pager button:disabled{opacity:.4;cursor:default;}' +
+      '@media(max-width:640px){.tp-pager{justify-content:center;}.tp-pager .tp-info{width:100%;text-align:center;}}';
     var s = document.createElement('style');
     s.id = STYLE_ID;
     s.textContent = css;

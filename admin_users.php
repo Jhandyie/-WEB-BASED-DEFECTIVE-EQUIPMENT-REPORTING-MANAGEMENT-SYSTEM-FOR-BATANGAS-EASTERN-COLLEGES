@@ -215,6 +215,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $updateData['user_id'] = $uid;
                 $stmt = $pdo->prepare("UPDATE {$usersTable} SET " . implode(', ', $sets) . " WHERE user_id = :user_id");
                 $stmt->execute($updateData);
+                $affected = $stmt->rowCount();
             } else {
                 $sets = [];
                 foreach (array_keys($updateData) as $field) {
@@ -225,8 +226,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $conn->prepare("UPDATE {$usersTable} SET " . implode(', ', $sets) . " WHERE user_id = ?");
                 $stmt->bind_param(str_repeat('s', count($values)), ...$values);
                 $stmt->execute();
+                $affected = $stmt->affected_rows;
             }
-            $_SESSION['flash'] = ['ok', "User \"$fname\" updated successfully."];
+            if ($affected < 1) {
+                // No account row matched — e.g. a directory-imported reporter (no login account).
+                $_SESSION['flash'] = ['err', "No editable account was found for \"$fname\". Directory-imported reporters have no login account to update."];
+            } else {
+                $_SESSION['flash'] = ['ok', "User \"$fname\" updated successfully."];
+            }
         }
     }
 
@@ -1106,20 +1113,24 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
               onclick="openProfile(<?php echo htmlspecialchars(json_encode($u),ENT_QUOTES);?>)">
               <i class="fas fa-eye"></i> View
             </button>
-            <button type="button" class="btn btn-gold btn-sm"
+            <?php if(empty($u['is_directory'])): ?>
+            <button type="button" class="btn btn-gold btn-sm" title="Edit User"
               onclick="openEdit(<?php echo htmlspecialchars(json_encode($u),ENT_QUOTES);?>)">
               <i class="fas fa-pen"></i>
             </button>
-            <button type="button" class="btn btn-ghost btn-sm"
+            <button type="button" class="btn btn-ghost btn-sm" title="Reset Password"
               onclick="openReset('<?php echo esc($u['user_id']);?>','<?php echo esc($u['fullname']??'');?>')">
               <i class="fas fa-key"></i>
             </button>
             <?php if($u['user_id']!==$admin_id):?>
-            <button type="button" class="btn btn-red btn-sm"
+            <button type="button" class="btn btn-red btn-sm" title="Delete"
               onclick="delUser('<?php echo esc($u['user_id']);?>','<?php echo esc($u['fullname']??'');?>')">
               <i class="fas fa-trash"></i>
             </button>
             <?php endif;?>
+            <?php else: ?>
+            <span class="bdg" style="flex:1;justify-content:center;background:rgba(8,145,178,.1);color:#0891B2;font-size:.62rem;" title="Imported from the BEC directory — reporter, no login account to edit"><i class="fas fa-address-book" style="font-size:.6rem;margin-right:.2rem;"></i>Directory record</span>
+            <?php endif; ?>
           </div>
         </div>
         <?php endforeach; endif;?>
