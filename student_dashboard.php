@@ -1309,6 +1309,10 @@ html { scroll-behavior: smooth; }
 .err-list li i { color: #C0392B; font-size: .72rem; flex-shrink: 0; }
 .err-btn { width: 100%; padding: .82rem; border: none; border-radius: 11px; background: linear-gradient(135deg, var(--maroon-d), var(--maroon)); color: #fff; font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: .9rem; cursor: pointer; transition: filter .15s; }
 .err-btn:hover { filter: brightness(1.08); }
+.exit-actions { display: flex; gap: .6rem; }
+.exit-actions .err-btn, .exit-actions .err-btn2 { flex: 1; }
+.err-btn2 { padding: .82rem; border: 1.5px solid var(--border); border-radius: 11px; background: #fff; color: var(--ink2); font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: .9rem; cursor: pointer; transition: border-color .15s, color .15s; }
+.err-btn2:hover { border-color: var(--maroon); color: var(--maroon); }
 </style>
 </head>
 <body>
@@ -2257,6 +2261,42 @@ window.addEventListener('DOMContentLoaded', function () {
   if (window.showErrModal) window.showErrModal('Please check your report', <?php echo json_encode($error, JSON_UNESCAPED_UNICODE); ?>, []);
 });
 <?php endif; ?>
+</script>
+
+<!-- Exit confirmation: asks before leaving the report and returning to sign-in -->
+<div class="err-modal" id="exitModal" aria-hidden="true">
+  <div class="err-box" role="dialog" aria-modal="true" aria-labelledby="exitTitle">
+    <div class="err-ic" style="background:#FFF4E5;color:#C9960C;"><i class="fas fa-right-from-bracket"></i></div>
+    <h3 id="exitTitle">Leave and go back to sign-in?</h3>
+    <p>Any details you've entered on this report have not been submitted yet and will be lost. Do you really want to exit?</p>
+    <div class="exit-actions">
+      <button type="button" class="err-btn2" id="exitNo">No</button>
+      <button type="button" class="err-btn" id="exitYes">Yes</button>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var modal = document.getElementById('exitModal');
+  if (!modal) return;
+  var pendingUrl = null;
+  function open(url) { pendingUrl = url; modal.classList.add('show'); modal.setAttribute('aria-hidden', 'false'); }
+  function close() { modal.classList.remove('show'); modal.setAttribute('aria-hidden', 'true'); pendingUrl = null; }
+  // Intercept the Back button and the Sign-out link.
+  document.querySelectorAll('.btn-cancel, .logout-link').forEach(function (link) {
+    link.addEventListener('click', function (e) {
+      e.preventDefault();
+      open(link.getAttribute('href'));
+    });
+  });
+  document.getElementById('exitYes').addEventListener('click', function () {
+    var url = pendingUrl; close();
+    if (url) window.location.href = url;
+  });
+  document.getElementById('exitNo').addEventListener('click', close);
+  modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modal.classList.contains('show')) close(); });
+})();
 </script>
 <?php require __DIR__ . '/includes/site_transitions.php'; ?>
 </body>
