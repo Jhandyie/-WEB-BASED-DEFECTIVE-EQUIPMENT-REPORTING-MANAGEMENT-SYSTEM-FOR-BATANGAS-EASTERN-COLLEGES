@@ -519,6 +519,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$error && $photo_paths) { $photo_path = $photo_paths[0]; }
         }
 
+        // Handle short video evidence (up to 2 clips, 20MB each). Validate by REAL MIME
+        // (finfo) — never trust the client type — and save with a derived safe extension.
+        $video_paths = [];
+        if (!$error && !empty($_FILES['videos']) && is_array($_FILES['videos']['tmp_name'] ?? null)) {
+            $allowedVid = ['video/mp4' => 'mp4', 'video/webm' => 'webm', 'video/quicktime' => 'mov'];
+            $vmax_size  = 20 * 1024 * 1024; // 20MB per video
+            $vmax_count = 2;
+            $vcount = 0;
+            $finfo = function_exists('finfo_open') ? finfo_open(FILEINFO_MIME_TYPE) : false;
+            foreach ($_FILES['videos']['tmp_name'] as $i => $tmp) {
+                if (($_FILES['videos']['error'][$i] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) continue;
+                if ($vcount >= $vmax_count) { $error = 'You can upload up to ' . $vmax_count . ' videos per report.'; break; }
+                if (!is_uploaded_file($tmp)) { continue; }
+                $size = (int)($_FILES['videos']['size'][$i] ?? 0);
+                if ($size <= 0 || $size > $vmax_size) { $error = 'Each video must be a valid clip under 20MB.'; break; }
+                $mime = $finfo ? finfo_file($finfo, $tmp) : (string)($_FILES['videos']['type'][$i] ?? '');
+                if (!isset($allowedVid[$mime])) { $error = 'Videos must be MP4, WEBM, or MOV files.'; break; }
+                $safeExt = $allowedVid[$mime];
+                $rel  = 'uploads/reports/' . $ticket . '_v' . ($vcount + 1) . '.' . $safeExt;
+                $dest = __DIR__ . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $rel);
+                $dir  = dirname($dest);
+                if (!is_dir($dir)) { @mkdir($dir, 0755, true); }
+                if (move_uploaded_file($tmp, $dest)) {
+                    @chmod($dest, 0644);
+                    $video_paths[] = $rel;
+                    $vcount++;
+                } else { $error = 'Video upload failed. Please try again.'; break; }
+            }
+            if ($finfo) { finfo_close($finfo); }
+        }
+
         if (!$error) {
             $reportPayload = [
                 'report_id' => $ticket,
@@ -538,6 +569,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($photo_path !== null) {
                 $reportPayload['photo_path'] = $photo_path;
                 $reportPayload['defect_photos'] = $photo_paths;
+            }
+            if ($video_paths) {
+                $reportPayload['defect_videos'] = $video_paths;
             }
 
             $saved = addDefectReport($reportPayload);
@@ -1563,7 +1597,7 @@ html { scroll-behavior: smooth; }
       <div class="section-head">
         <div class="section-icon"><i class="fas fa-camera"></i></div>
         <div>
-          <div class="section-title">Photo Evidence</div>
+          <div class="section-title">Photo &amp; Video Evidence</div>
           <div class="section-sub">Optional but strongly recommended</div>
         </div>
       </div>
@@ -1576,6 +1610,15 @@ html { scroll-behavior: smooth; }
         <div class="photo-meta" id="photo-meta"></div>
       </div>
       <div class="photo-grid" id="photo-grid"></div>
+
+      <div class="photo-zone" id="video-zone" style="margin-top:1rem;">
+        <input type="file" name="videos[]" id="video-input" accept="video/mp4,video/webm,video/quicktime" multiple>
+        <div class="photo-icon"><i class="fas fa-video"></i></div>
+        <div class="photo-title">Add a short video (optional), or tap to choose</div>
+        <div class="photo-sub">MP4, WEBM, MOV — up to <strong>2 videos</strong>, max 20MB each</div>
+        <div class="photo-meta" id="video-meta"></div>
+      </div>
+      <div class="photo-grid" id="video-grid"></div>
     </div>
 
     <!-- ── SUBMIT ── -->
@@ -1946,6 +1989,55 @@ photoZone.addEventListener('drop', e => {
   e.preventDefault(); photoZone.classList.remove('drag');
   if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files);
 });
+
+// ── Video evidence picker (mirrors photos; up to 2 short clips) ──
+const videoInput = document.getElementById('video-input');
+const videoZone  = document.getElementById('video-zone');
+const videoGrid  = document.getElementById('video-grid');
+const videoMeta  = document.getElementById('video-meta');
+const MAX_VIDEOS = 2;
+const MAX_VBYTES = 20 * 1024 * 1024;
+const OK_VTYPES  = ['video/mp4','video/webm','video/quicktime'];
+let videoStore   = [];
+function syncVideoInput(){ const dt = new DataTransfer(); videoStore.forEach(v => dt.items.add(v.file)); videoInput.files = dt.files; }
+function renderVideos(){
+  videoGrid.innerHTML = ''; let total = 0;
+  videoStore.forEach((v, idx) => {
+    total += v.file.size;
+    const cell = document.createElement('div');
+    cell.className = 'pg-cell';
+    cell.innerHTML =
+      '<video src="'+v.url+'" muted playsinline preload="metadata" style="width:100%;height:100%;object-fit:cover;border-radius:8px;background:#000;"></video>' +
+      '<button type="button" class="pg-x" data-i="'+idx+'" aria-label="Remove"><i class="fas fa-times"></i></button>' +
+      '<span class="pg-size">'+fmtSize(v.file.size)+'</span>';
+    videoGrid.appendChild(cell);
+  });
+  videoMeta.innerHTML = videoStore.length ? '<i class="fas fa-video"></i> '+videoStore.length+' / '+MAX_VIDEOS+' videos · '+fmtSize(total) : '';
+}
+function addVideoFiles(fileList){
+  const errs = [];
+  Array.from(fileList).forEach(file => {
+    if (videoStore.length >= MAX_VIDEOS){ errs.push('Maximum '+MAX_VIDEOS+' videos.'); return; }
+    if (!OK_VTYPES.includes(file.type)){ errs.push(file.name+': unsupported type'); return; }
+    if (file.size > MAX_VBYTES){ errs.push(file.name+': over 20MB'); return; }
+    if (videoStore.some(v => v.file.name===file.name && v.file.size===file.size)) return;
+    videoStore.push({ file, url: URL.createObjectURL(file) });
+  });
+  syncVideoInput(); renderVideos();
+  if (errs.length) { videoMeta.innerHTML = '<span style="color:#b42318">'+errs[0]+'</span>'; }
+}
+if (videoInput) {
+  videoInput.addEventListener('change', () => { addVideoFiles(videoInput.files); });
+  videoGrid.addEventListener('click', e => {
+    const btn = e.target.closest('.pg-x'); if (!btn) return;
+    const i = parseInt(btn.dataset.i, 10);
+    if (videoStore[i]) { URL.revokeObjectURL(videoStore[i].url); videoStore.splice(i,1); }
+    syncVideoInput(); renderVideos();
+  });
+  ['dragenter','dragover'].forEach(ev => videoZone.addEventListener(ev, e => { e.preventDefault(); videoZone.classList.add('drag'); }));
+  ['dragleave','dragend'].forEach(ev => videoZone.addEventListener(ev, e => { e.preventDefault(); videoZone.classList.remove('drag'); }));
+  videoZone.addEventListener('drop', e => { e.preventDefault(); videoZone.classList.remove('drag'); if (e.dataTransfer && e.dataTransfer.files) addVideoFiles(e.dataTransfer.files); });
+}
 
 /* ── Form progress stepper: built from the section cards, scrollspy-highlighted ── */
 (function () {

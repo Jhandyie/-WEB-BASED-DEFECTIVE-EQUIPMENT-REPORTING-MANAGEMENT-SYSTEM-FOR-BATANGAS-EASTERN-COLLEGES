@@ -137,6 +137,19 @@ function taskPhotos(array $row): array {
     }
     return $out;
 }
+function taskVideos(array $row): array {
+    $out = [];
+    $raw = $row['defect_videos'] ?? '';
+    if (is_string($raw) && trim($raw) !== '') {
+        $dec = json_decode($raw, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($dec)) {
+            foreach ($dec as $v) { $v = trim((string)$v); if ($v !== '' && !in_array($v, $out, true)) $out[] = str_replace('\\', '/', $v); }
+        } else {
+            $out[] = str_replace('\\', '/', trim((string)$raw));
+        }
+    }
+    return $out;
+}
 function workflowSteps(string $status): array {
     $status = strtolower(trim($status));
     $reached = fn(array $targets) => in_array($status, $targets, true);
@@ -313,8 +326,8 @@ if ($search !== '') {
 }
 $activeStatuses = ['assigned','accepted','in_progress','waiting_for_materials','for_replacement','completed'];
 $historyStatuses = ['verified','closed'];
-$activeSql = "SELECT r.report_id,$equipmentIdExpr equipment_id,r.assigned_date assigned_date,$startedExpr started_at,$equipmentExpr equipment_name,$issueExpr issue_description,$priorityExpr priority,$statusExpr status,$locationExpr location,$reportDateExpr report_date,$completionExpr completion_date,$notesExpr technician_notes,$instExpr handler_instructions,$assetExpr asset_tag,$categoryExpr category_name FROM defect_reports r $join WHERE $assigneeWhere AND $statusExpr IN ('assigned','accepted','in_progress','waiting_for_materials','for_replacement','completed') $searchSql ORDER BY FIELD($statusExpr,'assigned','accepted','in_progress','waiting_for_materials','for_replacement','completed'), FIELD($priorityExpr,'critical','high','medium','low'), $reportDateExpr DESC";
-$historySql = "SELECT r.report_id,$equipmentIdExpr equipment_id,$equipmentExpr equipment_name,$issueExpr issue_description,$priorityExpr priority,$statusExpr status,$locationExpr location,$reportDateExpr report_date,$completionExpr completion_date,$notesExpr technician_notes,$instExpr handler_instructions,$assetExpr asset_tag,$categoryExpr category_name FROM defect_reports r $join WHERE $assigneeWhere AND $statusExpr IN ('verified','closed') $searchSql ORDER BY COALESCE($completionExpr,$reportDateExpr) DESC";
+$activeSql = "SELECT r.report_id,$equipmentIdExpr equipment_id,r.assigned_date assigned_date,$startedExpr started_at,$equipmentExpr equipment_name,$issueExpr issue_description,$priorityExpr priority,$statusExpr status,$locationExpr location,$reportDateExpr report_date,$completionExpr completion_date,$notesExpr technician_notes,$instExpr handler_instructions,$assetExpr asset_tag,$categoryExpr category_name,r.photo_path photo_path,r.defect_photos defect_photos,r.defect_videos defect_videos FROM defect_reports r $join WHERE $assigneeWhere AND $statusExpr IN ('assigned','accepted','in_progress','waiting_for_materials','for_replacement','completed') $searchSql ORDER BY FIELD($statusExpr,'assigned','accepted','in_progress','waiting_for_materials','for_replacement','completed'), FIELD($priorityExpr,'critical','high','medium','low'), $reportDateExpr DESC";
+$historySql = "SELECT r.report_id,$equipmentIdExpr equipment_id,$equipmentExpr equipment_name,$issueExpr issue_description,$priorityExpr priority,$statusExpr status,$locationExpr location,$reportDateExpr report_date,$completionExpr completion_date,$notesExpr technician_notes,$instExpr handler_instructions,$assetExpr asset_tag,$categoryExpr category_name,r.photo_path photo_path,r.defect_photos defect_photos,r.defect_videos defect_videos FROM defect_reports r $join WHERE $assigneeWhere AND $statusExpr IN ('verified','closed') $searchSql ORDER BY COALESCE($completionExpr,$reportDateExpr) DESC";
 $activeStmt = $conn->prepare($activeSql);
 $activeStmt->bind_param($assigneeTypes . $searchTypes, ...array_merge($assigneeVals, $searchVals));
 $activeStmt->execute();
@@ -325,9 +338,9 @@ $historyStmt->bind_param($assigneeTypes . $searchTypes, ...array_merge($assignee
 $historyStmt->execute();
 $historyTasks = $historyStmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $historyStmt->close();
-foreach ($activeTasks as &$t) $t['photos'] = taskPhotos($t);
+foreach ($activeTasks as &$t) { $t['photos'] = taskPhotos($t); $t['videos'] = taskVideos($t); }
 unset($t);
-foreach ($historyTasks as &$t) $t['photos'] = taskPhotos($t);
+foreach ($historyTasks as &$t) { $t['photos'] = taskPhotos($t); $t['videos'] = taskVideos($t); }
 unset($t);
 
 $filterConfig = $tab === 'history'
@@ -712,6 +725,8 @@ body.modal-open .bell-fab{display:none;}
 .facts strong{font-size:.84rem;color:var(--ink);font-weight:600;}
 .photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;}
 .photos img{width:100%;height:110px;object-fit:cover;border-radius:10px;border:1px solid var(--bdr);cursor:zoom-in;transition:transform .12s,box-shadow .12s;}
+.vids{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;}
+.vids video{width:100%;max-height:260px;border-radius:10px;border:1px solid var(--bdr);background:#000;}
 .photos img:hover,.photos img:focus-visible{transform:scale(1.03);box-shadow:0 5px 16px rgba(0,0,0,.2);outline:none;border-color:var(--maroon);}
 
 /* Fullscreen photo viewer (tap evidence to enlarge; swipe / arrows to move between photos) */
@@ -1117,6 +1132,7 @@ body.modal-open{overflow:hidden;}
         $due = $tab !== 'history' ? slaDueTs($row) : null;
         $started = strtotime((string)($row['started_at'] ?? ''));
         $photos = taskPhotos($row);
+        $videos = taskVideos($row);
         $curStep = sstep($st);
       ?>
       <article class="ws-panel <?php echo $isSel ? 'active' : ''; ?>" id="ws-<?php echo $rid_e; ?>">
@@ -1182,6 +1198,15 @@ body.modal-open{overflow:hidden;}
               <div class="sec-h"><small>Evidence</small><h3>Photo Evidence</h3></div>
               <div class="photos">
                 <?php foreach ($photos as $photo): ?><img src="<?php echo e($photo); ?>" alt="Defect photo — tap to enlarge" loading="lazy" tabindex="0" role="button"><?php endforeach; ?>
+              </div>
+            </div>
+            <?php endif; ?>
+
+            <?php if (!empty($videos)): ?>
+            <div class="sec">
+              <div class="sec-h"><small>Evidence</small><h3>Video Evidence</h3></div>
+              <div class="vids">
+                <?php foreach ($videos as $vid): ?><video src="<?php echo e($vid); ?>" controls preload="metadata" playsinline></video><?php endforeach; ?>
               </div>
             </div>
             <?php endif; ?>

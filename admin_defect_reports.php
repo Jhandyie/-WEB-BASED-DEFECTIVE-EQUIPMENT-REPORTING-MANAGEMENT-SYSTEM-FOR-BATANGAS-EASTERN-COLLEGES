@@ -283,6 +283,7 @@ if (isset($_GET['view_id'])) {
         $vr['location']        = $eq['location']        ?? '—';
         $vr['reporter_name']   = $vr['reporter_name']   ?? 'N/A';
         $vr['technician_name'] = !empty($vr['technician_name']) ? $vr['technician_name'] : 'Unassigned';
+        $vr['video_urls']      = videoListFromRow($vr);
     }
 }
 
@@ -353,6 +354,26 @@ function photoListFromRow($row){
     $p = str_replace('\\', '/', trim((string)$p));
     if ($p === '') continue;
     if (!in_array($p, $out, true)) $out[] = $p;
+  }
+  return $out;
+}
+function videoListFromRow($row){
+  $vids = [];
+  if (!empty($row['defect_videos'])) {
+    $raw = $row['defect_videos'];
+    if (is_string($raw)) {
+      $dec = json_decode($raw, true);
+      if (json_last_error() === JSON_ERROR_NONE && is_array($dec)) {
+        foreach ($dec as $v) $vids[] = (string)$v;
+      } elseif (trim($raw) !== '') {
+        $vids[] = $raw;
+      }
+    }
+  }
+  $out = [];
+  foreach ($vids as $v) {
+    $v = str_replace('\\', '/', trim((string)$v));
+    if ($v !== '' && !in_array($v, $out, true)) $out[] = $v;
   }
   return $out;
 }
@@ -1251,6 +1272,16 @@ textarea.fc{resize:vertical;min-height:70px;}
             <?php endforeach; ?>
           </div>
           <?php endif; ?>
+        </div>
+        <?php endif; ?>
+        <?php if(!empty($vr['video_urls'])): ?>
+        <div style="margin-top:.875rem;">
+          <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:.4rem;">
+            <i class="fas fa-video" style="color:var(--m3);"></i> Video Evidence
+          </div>
+          <?php foreach($vr['video_urls'] as $vv): ?>
+          <video src="<?php echo esc($vv); ?>" controls preload="metadata" playsinline style="width:100%;max-height:340px;border-radius:10px;border:2px solid var(--bdr);background:#000;margin-bottom:.5rem;"></video>
+          <?php endforeach; ?>
         </div>
         <?php endif; ?>
       </div>

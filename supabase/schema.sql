@@ -187,6 +187,7 @@ create table if not exists public.defect_reports (
   photo_url text,
   image_path text,
   defect_photos jsonb,
+  defect_videos text,
   technician_notes text,
   resolution_notes text,
   verification_notes text,

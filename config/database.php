@@ -1250,6 +1250,9 @@ function addDefectReport($data) {
     if (isset($data['defect_photos']) && is_array($data['defect_photos'])) {
         $data['defect_photos'] = json_encode($data['defect_photos']);
     }
+    if (isset($data['defect_videos']) && is_array($data['defect_videos'])) {
+        $data['defect_videos'] = json_encode($data['defect_videos']);
+    }
 
     $filtered = [];
     foreach ($data as $field => $value) {
