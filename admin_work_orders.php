@@ -132,11 +132,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 function fetchWOs($conn, $woEqExpr, $woIssueExpr, $woPrioExpr, $woDeptExpr, $woEqJoin) {
     $sql = "
         SELECT w.*, {$woEqExpr} AS equipment_name, {$woIssueExpr} AS issue_description, {$woPrioExpr} as rep_priority,
-               {$woDeptExpr} AS department_assigned, u.fullname as tech_name
+               {$woDeptExpr} AS department_assigned, u.fullname as tech_name,
+               d.status AS rep_status, d.assigned_to AS rep_assigned_to, ru.fullname AS rep_tech_name
         FROM work_orders w
         LEFT JOIN defect_reports d ON w.report_id = d.report_id
         {$woEqJoin}
         LEFT JOIN users u ON w.assigned_technician = u.user_id
+        LEFT JOIN users ru ON d.assigned_to = ru.user_id
         WHERE w.status != 'deleted'
         ORDER BY
           FIELD(w.priority,'critical','high','medium','low'),
@@ -146,7 +148,29 @@ function fetchWOs($conn, $woEqExpr, $woIssueExpr, $woPrioExpr, $woDeptExpr, $woE
     return $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
 }
 
+/* Map a linked defect report's status onto the work-order status vocabulary so
+   Work Order Monitoring reflects the live repair lifecycle (per the paper). */
+function woStatusFromReport(string $s): string {
+    return match (strtolower(trim($s))) {
+        'reported', 'pmo_review', 'ready_for_assignment', 'assigned' => 'open',
+        'accepted', 'in_progress', 'waiting_for_materials'          => 'in_progress',
+        'for_replacement'                                           => 'on_hold',
+        'completed'                                                 => 'completed',
+        'verified', 'closed', 'rejected'                            => 'closed',
+        default                                                     => 'open',
+    };
+}
+
 $all_wos   = $has_work_orders ? fetchWOs($conn, $woEqExpr, $woIssueExpr, $woPrioExpr, $woDeptExpr, $woEqJoin) : [];
+// For work orders tied to a defect report, mirror the report's live status and assigned
+// technician so monitoring stays in sync with the actual repair (report is the source of truth).
+foreach ($all_wos as &$__w) {
+    if (!empty($__w['report_id']) && !empty($__w['rep_status'])) {
+        $__w['status'] = woStatusFromReport((string) $__w['rep_status']);
+        if (!empty($__w['rep_tech_name'])) { $__w['tech_name'] = $__w['rep_tech_name']; }
+    }
+}
+unset($__w);
 $sf        = $_GET['status']   ?? 'all';
 $pf        = $_GET['priority'] ?? 'all';
 $sq        = $_GET['search']   ?? '';
