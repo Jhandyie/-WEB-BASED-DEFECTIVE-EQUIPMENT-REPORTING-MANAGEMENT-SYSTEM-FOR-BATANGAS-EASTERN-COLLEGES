@@ -992,6 +992,32 @@ function getDefectReportColumns() {
     return $columns;
 }
 
+/**
+ * The unit ("PMO" or "ITSO") an admin belongs to, derived from their department.
+ * Returns '' when the admin has no unit set (treated as "see all"). Cached per request.
+ */
+function adminUnitForUser(string $userId): string {
+    static $cache = [];
+    if ($userId === '') return '';
+    if (isset($cache[$userId])) return $cache[$userId];
+    $d = '';
+    try {
+        if (isPgSqlDriver()) {
+            $pdo = getPgsqlPdoConnection();
+            $st = $pdo->prepare("SELECT department FROM public.users WHERE user_id = :u LIMIT 1");
+            $st->execute(['u' => $userId]); $d = (string)$st->fetchColumn();
+        } else {
+            $conn = getDBConnection();
+            $st = $conn->prepare("SELECT department FROM users WHERE user_id = ? LIMIT 1");
+            if ($st) { $st->bind_param('s', $userId); $st->execute(); $r = $st->get_result()->fetch_assoc(); $d = (string)($r['department'] ?? ''); }
+        }
+    } catch (\Throwable $e) { $d = ''; }
+    $d = strtoupper($d);
+    $unit = strpos($d, 'ITSO') !== false ? 'ITSO' : (strpos($d, 'PMO') !== false ? 'PMO' : '');
+    $cache[$userId] = $unit;
+    return $unit;
+}
+
 function inferDefectReportPhotoPaths(array $report) {
     $photos = [];
 

@@ -236,7 +236,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 /* ─── FILTERS ──────────────────────────────────────────── */
 $sf = $_GET['status']   ?? 'all';
 $pf = $_GET['priority'] ?? 'all';
-$df = $_GET['dept']     ?? 'all';
+$adminUnit  = adminUnitForUser($admin_id);   // 'PMO' | 'ITSO' | '' (no unit → sees all)
+$dfExplicit = array_key_exists('dept', $_GET); // did the admin pick a unit, or is this their default?
+// Default the department filter to the admin's own unit; they can still switch to All/other.
+$df = $_GET['dept'] ?? ($adminUnit !== '' ? $adminUnit : 'all');
+// Unit scope: a chosen unit is strict; the admin's DEFAULT unit view also surfaces reports not
+// yet triaged (no department_assigned) so pending items are never hidden from both admins.
+$unitFilter = function ($r) use ($df, $dfExplicit) {
+    if ($df === 'all') return true;
+    $d = (string)($r['department_assigned'] ?? '');
+    if ($d === $df) return true;
+    if (!$dfExplicit && $d === '') return true;
+    return false;
+};
 $sq = $_GET['search']   ?? '';
 $vw = $_GET['view']     ?? 'table'; // 'table' | 'kanban'
 
@@ -252,6 +264,7 @@ $stages = [
 
 $all_raw  = getDefectReportsWithFilters('all','all','');
 $all_raw  = array_values(array_filter($all_raw, fn($r) => !in_array(($r['status'] ?? ''), ['deleted',''], true)));
+$all_raw  = array_values(array_filter($all_raw, $unitFilter)); // scope counts to the active unit
 
 // Fetch by priority + search from the DB; apply the status-STAGE filter in PHP so the list
 // matches the stat cards (e.g. "In Progress" includes accepted / waiting / for-replacement).
@@ -261,10 +274,7 @@ if ($sf !== 'all') {
     $sfStatuses = $stages[$sf] ?? [$sf]; // stage key → its statuses; otherwise treat as an exact status
     $reports = array_values(array_filter($reports, fn($r) => in_array(($r['status'] ?? ''), $sfStatuses, true)));
 }
-if ($df !== 'all') {
-    $reports = array_values(array_filter($reports,
-        fn($r) => ($r['department_assigned'] ?? '') === $df));
-}
+$reports = array_values(array_filter($reports, $unitFilter));
 foreach ($reports as &$r0) {
     $pl = photoListFromRow($r0);
     $r0['photo_urls'] = $pl;
@@ -500,6 +510,8 @@ body{
 .breadcrumb a{color:var(--t3);text-decoration:none;}.breadcrumb a:hover{color:var(--m3);}
 .breadcrumb i{font-size:.56rem;}
 .tb-r{display:flex;align-items:center;gap:.55rem;}
+.unit-badge{display:inline-flex;align-items:center;gap:.35rem;vertical-align:middle;margin-left:.55rem;padding:.22rem .6rem;border-radius:999px;background:linear-gradient(135deg,var(--m3,#7a1220),#a01a2b);color:#fff;font-family:'DM Sans',sans-serif;font-size:.62rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;box-shadow:0 2px 8px rgba(122,18,32,.25);}
+.unit-badge i{font-size:.6rem;}
 .ic-btn{width:34px;height:34px;background:var(--s2);border:1px solid var(--bdr);
   border-radius:var(--r1);display:flex;align-items:center;justify-content:center;
   cursor:pointer;color:var(--t2);font-size:.85rem;transition:all .17s;
@@ -955,8 +967,10 @@ textarea.fc{resize:vertical;min-height:70px;}
     <!-- Page Header -->
     <div class="ph">
       <div>
-        <h1><i class="fas fa-exclamation-triangle"></i> Defect Reports</h1>
-        <p class="ph-sub">Review, approve, categorise and monitor all equipment defect reports. Click any card to open details.</p>
+        <h1><i class="fas fa-exclamation-triangle"></i> Defect Reports
+          <?php if ($adminUnit !== ''): ?><span class="unit-badge"><i class="fas fa-<?php echo $adminUnit==='ITSO'?'laptop-code':'building-shield'; ?>"></i> <?php echo esc($adminUnit); ?> Admin</span><?php endif; ?>
+        </h1>
+        <p class="ph-sub"><?php if ($adminUnit !== '' && !$dfExplicit): ?>Showing <strong><?php echo esc($adminUnit); ?></strong> reports by default (plus any not yet triaged) — use the <em>Department</em> filter to view All or the other unit. <?php endif; ?>Review, approve, categorise and monitor equipment defect reports. Click any card to open details.</p>
       </div>
       <div class="ph-acts">
         <!-- View toggle -->
