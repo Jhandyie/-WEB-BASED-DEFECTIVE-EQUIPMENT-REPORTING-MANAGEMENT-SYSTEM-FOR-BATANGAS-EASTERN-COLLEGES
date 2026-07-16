@@ -882,7 +882,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
     <div class="ph">
       <div>
         <h1><i class="fas fa-users"></i> User Management</h1>
-        <p class="ph-sub">Create, edit, and manage all system users — administrators, PMO, Dean, Finance, technicians, reporters, and students.</p>
+        <p class="ph-sub">Create, edit, and manage all system users — administrators, PMO, technicians, and the imported directory of reporters and students.</p>
       </div>
       <div style="display:flex;gap:.45rem;">
         <button class="btn btn-ghost btn-sm" onclick="location.reload()"><i class="fas fa-sync-alt"></i> Refresh</button>
