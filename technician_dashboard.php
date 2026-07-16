@@ -592,16 +592,16 @@ body.modal-open .bell-fab{display:none;}
 .page-head h1{font-size:clamp(1.45rem,3vw,1.9rem);color:var(--ink);margin:.2rem 0 .25rem;}
 .page-head p{font-size:.88rem;color:var(--ink3);max-width:60ch;}
 /* Installable-app prompt */
-.install-cta{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 16px;padding:12px 16px;border-radius:14px;background:linear-gradient(135deg,var(--maroon-soft),rgba(201,150,12,.10));border:1px solid rgba(123,29,29,.18);}
-.install-cta .ic-txt{display:flex;align-items:center;gap:12px;min-width:0;}
-.install-cta .ic-txt>i{font-size:1.35rem;color:var(--maroon);flex-shrink:0;}
-.install-cta strong{display:block;font-size:.92rem;color:var(--ink);}
-.install-cta span{display:block;font-size:.78rem;color:var(--ink3);line-height:1.45;}
-.ic-install{display:inline-flex;align-items:center;gap:7px;padding:.6rem 1.05rem;border:none;border-radius:11px;cursor:pointer;background:linear-gradient(135deg,var(--maroon-d),var(--maroon));color:#fff;font-family:'DM Sans',sans-serif;font-size:.84rem;font-weight:700;box-shadow:0 5px 14px rgba(74,14,14,.24);}
-.ic-install:hover{filter:brightness(1.08);}
-.ic-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;}
-.ic-dismiss{width:34px;height:34px;border-radius:10px;border:1px solid var(--bdr);background:#fff;color:var(--ink3);cursor:pointer;flex-shrink:0;}
-.ic-dismiss:hover{color:var(--maroon);border-color:var(--maroon);}
+/* Compact PWA action chips (buttons only) — sit neatly on desktop and stretch on mobile */
+.pwa-bar{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin:0 0 14px;}
+.pwa-chip{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:.6rem 1.1rem;border:none;border-radius:999px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:700;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.15);transition:transform .12s,filter .12s;}
+.pwa-chip i{font-size:.9rem;}
+.pwa-chip:hover{filter:brightness(1.08);transform:translateY(-1px);}
+.pwa-chip:active{transform:translateY(0);}
+.pwa-chip.install{background:linear-gradient(135deg,var(--maroon-d),var(--maroon));}
+.pwa-chip.alerts{background:linear-gradient(135deg,#9A6B00,var(--gold));}
+.pwa-chip[hidden]{display:none;}
+@media(max-width:560px){.pwa-bar{justify-content:stretch;}.pwa-chip{flex:1 1 0;}}
 
 /* Flash */
 .flash{display:flex;align-items:flex-start;gap:.6rem;padding:12px 15px;border-radius:var(--r2);font-size:.86rem;font-weight:500;margin-bottom:16px;line-height:1.5;}
@@ -711,7 +711,21 @@ body.modal-open .bell-fab{display:none;}
 .facts small{display:block;font-size:.58rem;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--ink3);margin-bottom:3px;}
 .facts strong{font-size:.84rem;color:var(--ink);font-weight:600;}
 .photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;}
-.photos img{width:100%;height:110px;object-fit:cover;border-radius:10px;border:1px solid var(--bdr);}
+.photos img{width:100%;height:110px;object-fit:cover;border-radius:10px;border:1px solid var(--bdr);cursor:zoom-in;transition:transform .12s,box-shadow .12s;}
+.photos img:hover,.photos img:focus-visible{transform:scale(1.03);box-shadow:0 5px 16px rgba(0,0,0,.2);outline:none;border-color:var(--maroon);}
+
+/* Fullscreen photo viewer (tap evidence to enlarge; swipe / arrows to move between photos) */
+.lb-ov{position:fixed;inset:0;z-index:12000;background:rgba(12,4,4,.94);display:none;align-items:center;justify-content:center;}
+.lb-ov.open{display:flex;}
+.lb-img{max-width:94vw;max-height:84vh;object-fit:contain;border-radius:8px;box-shadow:0 12px 48px rgba(0,0,0,.55);user-select:none;-webkit-user-select:none;touch-action:pan-y;}
+.lb-btn{position:absolute;background:rgba(255,255,255,.14);border:none;color:#fff;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:background .14s;}
+.lb-btn:hover{background:rgba(255,255,255,.3);}
+.lb-nav{top:50%;transform:translateY(-50%);width:50px;height:50px;font-size:1.7rem;}
+.lb-prev{left:12px;} .lb-next{right:12px;}
+.lb-close{top:14px;right:16px;width:44px;height:44px;font-size:1.5rem;}
+.lb-count{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);color:#fff;font-size:.82rem;font-weight:700;background:rgba(0,0,0,.45);padding:.32rem .85rem;border-radius:999px;letter-spacing:.02em;}
+.lb-btn[hidden],.lb-count[hidden]{display:none;}
+@media(max-width:560px){.lb-nav{width:44px;height:44px;font-size:1.45rem;}}
 
 /* Forms — landing-style fields + 3D buttons */
 .form label{display:block;font-size:.7rem;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--ink2);margin:.85rem 0 .3rem;}
@@ -1025,26 +1039,10 @@ body.modal-open{overflow:hidden;}
           : 'Select a task below to open its repair workspace. Work through each stage and submit your completion report when done.'; ?></p>
     </header>
 
-    <!-- Installable PWA prompt (shown only when installable / on iOS, and not already installed) -->
-    <div class="install-cta" id="installCta" hidden>
-      <div class="ic-txt"><i class="fas fa-mobile-screen-button"></i>
-        <div><strong>Install the Technician app</strong><span id="icSub">Add it to your home screen for a full-screen, offline-capable app.</span></div>
-      </div>
-      <div class="ic-actions">
-        <button type="button" class="ic-install" id="icInstall"><i class="fas fa-download"></i> Install app</button>
-        <button type="button" class="ic-dismiss" id="icDismiss" aria-label="Dismiss"><i class="fas fa-xmark"></i></button>
-      </div>
-    </div>
-
-    <!-- Push-notification opt-in (shown when the browser can enable it and it's not yet on) -->
-    <div class="install-cta" id="notifCta" hidden style="border-color:rgba(201,150,12,.32);">
-      <div class="ic-txt"><i class="fas fa-bell" style="color:var(--gold);"></i>
-        <div><strong>Turn on task alerts</strong><span>Get notified the moment a new repair is assigned to you — even when the app is closed.</span></div>
-      </div>
-      <div class="ic-actions">
-        <button type="button" class="ic-install" id="notifEnable" style="background:linear-gradient(135deg,#9A6B00,var(--gold));"><i class="fas fa-bell"></i> Enable alerts</button>
-        <button type="button" class="ic-dismiss" id="notifDismiss" aria-label="Dismiss"><i class="fas fa-xmark"></i></button>
-      </div>
+    <!-- Compact PWA actions: buttons only. Each chip shows only when it applies. -->
+    <div class="pwa-bar" id="pwaBar" hidden>
+      <button type="button" class="pwa-chip install" id="icInstall" hidden><i class="fas fa-download"></i>Install app</button>
+      <button type="button" class="pwa-chip alerts" id="notifEnable" hidden><i class="fas fa-bell"></i>Enable alerts</button>
     </div>
 
     <!-- ═══ QUEUE ═══ -->
@@ -1183,7 +1181,7 @@ body.modal-open{overflow:hidden;}
             <div class="sec">
               <div class="sec-h"><small>Evidence</small><h3>Photo Evidence</h3></div>
               <div class="photos">
-                <?php foreach ($photos as $photo): ?><img src="<?php echo e($photo); ?>" alt="Defect photo" loading="lazy"><?php endforeach; ?>
+                <?php foreach ($photos as $photo): ?><img src="<?php echo e($photo); ?>" alt="Defect photo — tap to enlarge" loading="lazy" tabindex="0" role="button"><?php endforeach; ?>
               </div>
             </div>
             <?php endif; ?>
@@ -1743,11 +1741,9 @@ if ('serviceWorker' in navigator) {
    on iOS, address-bar/menu steps on desktop, and a clear "needs HTTPS" notice when the page is
    opened over an insecure LAN address (the usual reason install fails on a phone). */
 (function () {
-  var cta = document.getElementById('installCta');
-  if (!cta) return;
+  var bar = document.getElementById('pwaBar');
   var btn = document.getElementById('icInstall');
-  var sub = document.getElementById('icSub');
-  var dismiss = document.getElementById('icDismiss');
+  if (!bar || !btn) return;
   var deferred = null;
   var installed = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
   var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
@@ -1755,61 +1751,43 @@ if ('serviceWorker' in navigator) {
   var host = location.hostname;
   var isLocalhost = host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
   var secure = (location.protocol === 'https:') || isLocalhost || window.isSecureContext === true;
-  var snoozed = false;
-  try { snoozed = localStorage.getItem('becInstallDismissed') === '1'; } catch (e) {}
 
-  function setMode() {
-    if (installed || snoozed) { cta.hidden = true; return; }
-    if (!secure) {
-      if (btn) btn.hidden = true;
-      if (sub) sub.innerHTML = 'To install on a phone, open this site through its secure <strong>https://</strong> address. Installing is blocked over a plain http (LAN) link.';
-      cta.hidden = false; return;
-    }
-    if (deferred) {                                   // browser is ready to install in one tap
-      if (btn) btn.hidden = false;
-      if (sub) sub.textContent = 'Add it to your home screen for a full-screen, offline-capable app.';
-      cta.hidden = false; return;
-    }
-    if (isIOS) {
-      if (btn) btn.hidden = true;                     // iOS Safari can't trigger install programmatically
-      if (sub) sub.innerHTML = 'On iPhone/iPad: tap <i class="fas fa-arrow-up-from-bracket"></i> <strong>Share</strong>, then <strong>Add to Home Screen</strong>.';
-      cta.hidden = false; return;
-    }
-    if (bipSupported) {                               // Chrome/Edge, secure, before the install heuristic fires
-      if (btn) btn.hidden = false;
-      if (sub) sub.innerHTML = 'Tap <strong>Install app</strong> — or use the install <i class="fas fa-circle-down"></i> icon in your browser\'s address bar.';
-    } else {                                          // e.g. Firefox: no programmatic install
-      if (btn) btn.hidden = true;
-      if (sub) sub.innerHTML = 'For an installable app, open this page in <strong>Chrome</strong> or <strong>Edge</strong>, then choose menu → <strong>Install app</strong>.';
-    }
-    cta.hidden = false;
+  // Shared: show the bar whenever either chip is visible, hide it when both are gone.
+  function syncBar() {
+    var n = document.getElementById('notifEnable');
+    bar.hidden = !((btn && !btn.hidden) || (n && !n.hidden));
+  }
+  window.pwaSyncBar = syncBar;
+
+  function showInstall() { btn.hidden = installed; syncBar(); }
+  function guide() {                                  // tapping when a one-tap prompt isn't available
+    if (!window.techToast) return;
+    if (!secure) return techToast('ok', 'To install on a phone, open the site through its secure https:// address.');
+    if (isIOS) return techToast('ok', 'On iPhone/iPad: tap Share, then “Add to Home Screen.”');
+    if (bipSupported) return techToast('ok', 'Use the install icon in your browser’s address bar, or menu → Install app.');
+    return techToast('ok', 'Open this page in Chrome or Edge, then menu → Install app.');
   }
 
-  if (dismiss) dismiss.addEventListener('click', function () { cta.hidden = true; try { localStorage.setItem('becInstallDismissed', '1'); } catch (e) {} });
-  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferred = e; setMode(); });
-  if (btn) btn.addEventListener('click', async function () {
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferred = e; showInstall(); });
+  btn.addEventListener('click', async function () {
     if (deferred) {
       deferred.prompt();
       try { await deferred.userChoice; } catch (e) {}
-      deferred = null; cta.hidden = true;
+      deferred = null; btn.hidden = true; syncBar();
       return;
     }
-    // No stored prompt yet — guide the user to the browser's own install control.
-    if (window.techToast) techToast('ok', 'Use the install icon in your browser\'s address bar (or menu → Install app) to add the app.');
+    guide();
   });
-  window.addEventListener('appinstalled', function () { cta.hidden = true; if (window.techToast) techToast('ok', 'App installed — open it from your home screen.'); });
-
-  setMode();
+  window.addEventListener('appinstalled', function () { btn.hidden = true; syncBar(); if (window.techToast) techToast('ok', 'App installed — open it from your home screen.'); });
+  showInstall();
 })();
 
-/* ── Web Push: opt in to task-assignment alerts ── */
+/* ── Web Push: opt in to task-assignment alerts (Enable alerts chip) ── */
 (function () {
-  var cta = document.getElementById('notifCta');
   var enable = document.getElementById('notifEnable');
-  var dismiss = document.getElementById('notifDismiss');
   var VAPID = <?php echo json_encode($vapidPublicKey); ?>;
-  if (!cta || !('serviceWorker' in navigator) || !('PushManager' in window) || !window.Notification || !VAPID) return;
-  var snoozed = false; try { snoozed = localStorage.getItem('becNotifDismissed') === '1'; } catch (e) {}
+  if (!enable || !('serviceWorker' in navigator) || !('PushManager' in window) || !window.Notification || !VAPID) return;
+  function sync() { if (window.pwaSyncBar) window.pwaSyncBar(); else { var b = document.getElementById('pwaBar'); if (b) b.hidden = false; } }
   function b64ToU8(s) {
     var pad = '='.repeat((4 - s.length % 4) % 4), b = (s + pad).replace(/-/g, '+').replace(/_/g, '/'), raw = atob(b), u = new Uint8Array(raw.length);
     for (var i = 0; i < raw.length; i++) u[i] = raw.charCodeAt(i);
@@ -1821,18 +1799,82 @@ if ('serviceWorker' in navigator) {
       var sub = await reg.pushManager.getSubscription();
       if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToU8(VAPID) });
       await fetch('push_subscribe.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sub) });
-      cta.hidden = true;
+      enable.hidden = true; sync();
       if (window.techToast) techToast('ok', 'Task alerts enabled — you\'ll be notified of new assignments.');
     } catch (e) { if (window.techToast) techToast('err', 'Could not enable alerts: ' + e.message); }
   }
-  if (dismiss) dismiss.addEventListener('click', function () { cta.hidden = true; try { localStorage.setItem('becNotifDismissed', '1'); } catch (e) {} });
-  if (enable) enable.addEventListener('click', async function () {
+  enable.addEventListener('click', async function () {
     var perm = await Notification.requestPermission();
     if (perm === 'granted') subscribe();
     else if (window.techToast) techToast('err', 'Notifications are blocked — enable them in your browser settings.');
   });
   if (Notification.permission === 'granted') subscribe();       // already allowed → keep subscription fresh
-  else if (Notification.permission === 'default' && !snoozed) cta.hidden = false; // offer it
+  else if (Notification.permission === 'default') { enable.hidden = false; sync(); } // offer it
+})();
+</script>
+
+<!-- Fullscreen photo viewer for evidence (tap to enlarge; swipe or arrows to move between photos) -->
+<div class="lb-ov" id="lbOv" aria-hidden="true" role="dialog" aria-label="Photo viewer">
+  <button class="lb-btn lb-close" id="lbClose" type="button" aria-label="Close">&times;</button>
+  <button class="lb-btn lb-nav lb-prev" id="lbPrev" type="button" aria-label="Previous photo">&#8249;</button>
+  <img class="lb-img" id="lbImg" alt="Evidence photo">
+  <button class="lb-btn lb-nav lb-next" id="lbNext" type="button" aria-label="Next photo">&#8250;</button>
+  <div class="lb-count" id="lbCount"></div>
+</div>
+<script>
+(function () {
+  var ov = document.getElementById('lbOv');
+  if (!ov) return;
+  var img = document.getElementById('lbImg'), prev = document.getElementById('lbPrev'),
+      next = document.getElementById('lbNext'), closeB = document.getElementById('lbClose'),
+      count = document.getElementById('lbCount');
+  var set = [], idx = 0;
+  function render() {
+    img.src = set[idx] || '';
+    var multi = set.length > 1;
+    count.textContent = (idx + 1) + ' / ' + set.length;
+    prev.hidden = !multi; next.hidden = !multi; count.hidden = !multi;
+  }
+  function open(list, i) {
+    set = list; idx = i; render();
+    ov.classList.add('open'); ov.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+  function close() {
+    ov.classList.remove('open'); ov.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = ''; img.src = '';
+  }
+  function go(d) { if (set.length < 2) return; idx = (idx + d + set.length) % set.length; render(); }
+
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    var grid = (t.tagName === 'IMG') ? t.closest('.photos') : null;
+    if (grid) {
+      var imgs = Array.prototype.slice.call(grid.querySelectorAll('img'));
+      open(imgs.map(function (x) { return x.getAttribute('src'); }), imgs.indexOf(t));
+      return;
+    }
+    if (t === ov || t.closest('#lbClose')) close();
+    else if (t.closest('#lbPrev')) go(-1);
+    else if (t.closest('#lbNext')) go(1);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (ov.classList.contains('open')) {
+      if (e.key === 'Escape') close();
+      else if (e.key === 'ArrowLeft') go(-1);
+      else if (e.key === 'ArrowRight') go(1);
+      return;
+    }
+    var a = document.activeElement;
+    if ((e.key === 'Enter' || e.key === ' ') && a && a.tagName === 'IMG' && a.closest('.photos')) { e.preventDefault(); a.click(); }
+  });
+  // swipe on touch devices
+  var sx = 0, sy = 0;
+  ov.addEventListener('touchstart', function (e) { if (e.touches.length === 1) { sx = e.touches[0].clientX; sy = e.touches[0].clientY; } }, { passive: true });
+  ov.addEventListener('touchend', function (e) {
+    var c = e.changedTouches[0], dx = c.clientX - sx, dy = c.clientY - sy;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) go(dx < 0 ? 1 : -1);
+  }, { passive: true });
 })();
 </script>
 <?php require_once __DIR__ . '/includes/csrf_inject.php'; ?>
