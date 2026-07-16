@@ -25,9 +25,24 @@ $student_email = $_SESSION['guest_email'];
  * Departments with an empty list have no specific course — the course field stays disabled.
  */
 $becPrograms = [
-    'Pre-School'                          => [],
-    'Grade School'                        => [],
-    'Junior High School'                  => [],
+    'Pre-School'                          => [
+        'Nursery',
+        'Kindergarten',
+    ],
+    'Grade School'                        => [
+        'Grade 1',
+        'Grade 2',
+        'Grade 3',
+        'Grade 4',
+        'Grade 5',
+        'Grade 6',
+    ],
+    'Junior High School'                  => [
+        'Grade 7',
+        'Grade 8',
+        'Grade 9',
+        'Grade 10',
+    ],
     'Senior High School'                  => [
         'STEM — Science, Technology, Engineering and Mathematics',
         'ABM — Accountancy, Business and Management',
@@ -64,7 +79,22 @@ $becPrograms = [
         'Housekeeping NC II',
         'Bartending NC II',
     ],
-    'Administrative / Non-teaching Office' => [],
+    'Administrative / Non-teaching Office' => [
+        "Registrar's Office",
+        'Admissions Office',
+        'Cashier / Finance Office',
+        'Accounting Office',
+        'Human Resources Office',
+        'Property Management Office (PMO)',
+        'Information Technology Office (ITSO)',
+        'Library',
+        'Guidance and Counseling Office',
+        'Clinic / Medical and Dental',
+        'Security Office',
+        'General Services / Maintenance',
+        "Administrator's / Principal's Office",
+        'Other Office',
+    ],
 ];
 
 // Pre-fill equipment from a scanned QR code (?eq=EQUIPMENT_ID)
@@ -1364,7 +1394,7 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
       <div class="fg" style="margin-top:.85rem;">
-        <label class="fl">Course / Program <span id="rCourseOpt" style="color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(select a department first)</span></label>
+        <label class="fl">Course / Program / Grade Level <span id="rCourseOpt" style="color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(select a department first)</span></label>
         <div class="fi-wrap">
           <i class="fas fa-graduation-cap fi-icon"></i>
           <select name="reporter_course" id="rCourse" class="fsel" disabled>
@@ -1589,7 +1619,7 @@ html { scroll-behavior: smooth; }
     course.innerHTML = '';
     if (list.length) {
       var ph = document.createElement('option');
-      ph.value = ''; ph.textContent = 'Select your course / program…'; ph.disabled = true; ph.selected = true;
+      ph.value = ''; ph.textContent = 'Select your course, program, or grade level…'; ph.disabled = true; ph.selected = true;
       course.appendChild(ph);
       list.forEach(function (c) {
         var o = document.createElement('option');
