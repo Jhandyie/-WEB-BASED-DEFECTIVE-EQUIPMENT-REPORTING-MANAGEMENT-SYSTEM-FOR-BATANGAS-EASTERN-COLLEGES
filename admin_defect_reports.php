@@ -1172,6 +1172,12 @@ textarea.fc{resize:vertical;min-height:70px;}
         <?php if (!empty($vr['reporter_email'])): ?>
         <div class="det-row"><div class="det-k">Contact</div><div class="det-v"><a href="mailto:<?php echo esc($vr['reporter_email']); ?>"><?php echo esc($vr['reporter_email']); ?></a></div></div>
         <?php endif; ?>
+        <?php if (!empty($vr['reporter_department'])): ?>
+        <div class="det-row"><div class="det-k">Department</div><div class="det-v"><?php echo esc($vr['reporter_department']); ?></div></div>
+        <?php endif; ?>
+        <?php if (!empty($vr['reporter_course'])): ?>
+        <div class="det-row"><div class="det-k">Course / Program</div><div class="det-v"><?php echo esc($vr['reporter_course']); ?></div></div>
+        <?php endif; ?>
         <div class="det-row"><div class="det-k">Priority</div><div class="det-v"><span class="bdg b-<?php echo prCls($vr['priority']); ?>"><?php echo prLbl($vr['priority']); ?></span></div></div>
         <div class="det-row"><div class="det-k">Status</div><div class="det-v"><span class="bdg b-<?php echo stCls($vr['status']); ?>"><?php echo stLbl($vr['status']); ?></span></div></div>
         <?php

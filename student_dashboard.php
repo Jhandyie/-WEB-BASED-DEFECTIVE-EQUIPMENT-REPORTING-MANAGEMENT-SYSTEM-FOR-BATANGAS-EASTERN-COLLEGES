@@ -19,6 +19,54 @@ if (empty($_SESSION['guest_email']) || empty($_SESSION['guest_name'])) {
 $student_name  = $_SESSION['guest_name'];
 $student_email = $_SESSION['guest_email'];
 
+/*
+ * Official BEC academic structure (department => specific course/program offerings).
+ * Source: bec.edu.ph (College, Senior High School Tracks, Technical-Vocational Center).
+ * Departments with an empty list have no specific course — the course field stays disabled.
+ */
+$becPrograms = [
+    'Pre-School'                          => [],
+    'Grade School'                        => [],
+    'Junior High School'                  => [],
+    'Senior High School'                  => [
+        'STEM — Science, Technology, Engineering and Mathematics',
+        'ABM — Accountancy, Business and Management',
+        'HUMSS — Humanities and Social Sciences',
+        'TVL — Home Economics (HE)',
+        'TVL — Information and Communications Technology (ICT)',
+    ],
+    'College of Teacher Education'        => [
+        'Bachelor of Elementary Education',
+        'Bachelor of Secondary Education major in English',
+        'Bachelor of Secondary Education major in Filipino',
+        'Bachelor of Secondary Education major in Mathematics',
+        'Bachelor of Secondary Education major in Science',
+        'Bachelor of Secondary Education major in Social Studies',
+        'Bachelor of Secondary Education major in Values Education',
+    ],
+    'College of Business'                 => [
+        'Bachelor of Science in Accountancy',
+        'Bachelor of Science in Accounting Information Systems',
+        'Bachelor of Science in Business Administration major in Financial Management',
+        'Bachelor of Science in Business Administration major in Human Resource Management',
+    ],
+    'College of Computer Studies'         => [
+        'Bachelor of Science in Information Systems',
+    ],
+    'Technical-Vocational Center'         => [
+        'Computer Systems Servicing NC II',
+        'Contact Center Services NC II',
+        'Electronic Products Assembly and Servicing NC II',
+        'Visual Graphic Design NC III',
+        'Cookery NC II',
+        'Food and Beverage Services NC II',
+        'Front Office Services NC II',
+        'Housekeeping NC II',
+        'Bartending NC II',
+    ],
+    'Administrative / Non-teaching Office' => [],
+];
+
 // Pre-fill equipment from a scanned QR code (?eq=EQUIPMENT_ID)
 $prefillEq = null;
 $eqParam = trim((string)($_GET['eq'] ?? ''));
@@ -377,6 +425,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Please fill in all required fields.';
     }
 
+    // Reporter's BEC department / course (academic categorization)
+    $reporterDepartment = trim($_POST['reporter_department'] ?? '');
+    $reporterCourse     = trim($_POST['reporter_course'] ?? '');
+    if (!$error) {
+        if ($reporterDepartment === '' || !array_key_exists($reporterDepartment, $becPrograms)) {
+            $error = 'Please select your department or academic unit.';
+        } elseif (!empty($becPrograms[$reporterDepartment]) && ($reporterCourse === '' || !in_array($reporterCourse, $becPrograms[$reporterDepartment], true))) {
+            $error = 'Please select your course or program.';
+        } elseif (empty($becPrograms[$reporterDepartment])) {
+            $reporterCourse = ''; // department has no specific course
+        }
+    }
+
+    // Contact number (optional): if given, must be exactly 11 digits (numbers only).
+    $reporterPhone = trim($_POST['student_phone'] ?? '');
+    if (!$error && $reporterPhone !== '' && !preg_match('/^\d{11}$/', $reporterPhone)) {
+        $error = 'Please enter a valid 11-digit mobile number (numbers only), e.g. 09171234567.';
+    }
+
     // Duplicate guard: this equipment may already have an open report.
     $duplicateFound = null;
     if (!$error && empty($_POST['duplicate_override']) && function_exists('findOpenReportForEquipment')) {
@@ -431,6 +498,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'reported_by' => getGuestReporterId(),
                 'reporter_name' => $student_name,
                 'reporter_email' => $student_email,
+                'reporter_department' => $reporterDepartment,
+                'reporter_course' => $reporterCourse,
                 'issue_description' => trim($_POST['defect_description']),
                 'priority' => $reportPriority,
                 'status' => 'reported',
@@ -721,7 +790,8 @@ body::after {
   box-shadow:0 0 0 3px rgba(123,29,29,.09);
 }
 .fi::placeholder,.fta::placeholder { color:#C4AFA8;font-size:.82rem; }
-.fsel { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239E8070' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat:no-repeat;background-position:right .85rem center; }
+.fsel { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239E8070' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat:no-repeat;background-position:right .85rem center;cursor:pointer; }
+.fsel:disabled { background-color:#F5EFE6;color:var(--ink3);cursor:not-allowed;opacity:1; }
 .fi-wrap-sel { position:relative; }
 .fi-wrap-sel .fi-icon { pointer-events:none; }
 
@@ -1281,13 +1351,37 @@ html { scroll-behavior: smooth; }
           <div class="ro-value"><?php echo htmlspecialchars($student_email); ?></div>
         </div>
       </div>
+      <div class="fg" style="margin-top:.85rem;">
+        <label class="fl">Department / Academic Unit <span style="color:var(--maroon);">*</span></label>
+        <div class="fi-wrap">
+          <i class="fas fa-building-columns fi-icon"></i>
+          <select name="reporter_department" id="rDept" class="fsel" required>
+            <option value="" disabled <?php echo empty($_POST['reporter_department']) ? 'selected' : ''; ?>>Select your department…</option>
+            <?php foreach (array_keys($becPrograms) as $dept): ?>
+              <option value="<?php echo htmlspecialchars($dept, ENT_QUOTES); ?>" <?php echo (($_POST['reporter_department'] ?? '') === $dept) ? 'selected' : ''; ?>><?php echo htmlspecialchars($dept); ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+      </div>
+      <div class="fg" style="margin-top:.85rem;">
+        <label class="fl">Course / Program <span id="rCourseOpt" style="color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(select a department first)</span></label>
+        <div class="fi-wrap">
+          <i class="fas fa-graduation-cap fi-icon"></i>
+          <select name="reporter_course" id="rCourse" class="fsel" disabled>
+            <option value="">—</option>
+          </select>
+        </div>
+      </div>
       <div style="margin-top:.85rem;">
         <label class="fl">Contact Number <span style="color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
         <div class="fi-wrap">
           <i class="fas fa-phone fi-icon"></i>
-          <input type="tel" name="student_phone" class="fi" placeholder="e.g. 09xx-xxx-xxxx"
-            value="<?php echo htmlspecialchars($_POST['student_phone'] ?? ''); ?>">
+          <input type="tel" name="student_phone" id="rPhone" class="fi" placeholder="e.g. 09171234567"
+            value="<?php echo htmlspecialchars($_POST['student_phone'] ?? ''); ?>"
+            inputmode="numeric" autocomplete="tel" maxlength="11" pattern="\d{11}"
+            title="Enter your 11-digit mobile number (numbers only), e.g. 09171234567">
         </div>
+        <div class="fi-hint"><i class="fas fa-circle-info"></i> 11-digit mobile number, numbers only (e.g. 09171234567).</div>
       </div>
     </div>
 
@@ -1482,6 +1576,48 @@ html { scroll-behavior: smooth; }
 </div>
 
 <script>
+// ── Reporter Information: dependent Department → Course dropdown (accurate BEC program list) ──
+(function () {
+  var PROGRAMS = <?php echo json_encode($becPrograms, JSON_UNESCAPED_UNICODE); ?>;
+  var dept = document.getElementById('rDept'),
+      course = document.getElementById('rCourse'),
+      optHint = document.getElementById('rCourseOpt');
+  if (!dept || !course) return;
+  var preset = <?php echo json_encode($_POST['reporter_course'] ?? '', JSON_UNESCAPED_UNICODE); ?>;
+  function fill() {
+    var list = PROGRAMS[dept.value] || [];
+    course.innerHTML = '';
+    if (list.length) {
+      var ph = document.createElement('option');
+      ph.value = ''; ph.textContent = 'Select your course / program…'; ph.disabled = true; ph.selected = true;
+      course.appendChild(ph);
+      list.forEach(function (c) {
+        var o = document.createElement('option');
+        o.value = c; o.textContent = c;
+        if (c === preset) { o.selected = true; ph.selected = false; }
+        course.appendChild(o);
+      });
+      course.disabled = false; course.required = true;
+      if (optHint) optHint.textContent = '*';
+    } else {
+      var o = document.createElement('option');
+      o.value = ''; o.textContent = dept.value ? 'Not applicable for this department' : '—';
+      course.appendChild(o);
+      course.disabled = true; course.required = false;
+      if (optHint) optHint.textContent = dept.value ? '(not applicable)' : '(select a department first)';
+    }
+  }
+  dept.addEventListener('change', function () { preset = ''; fill(); });
+  fill(); // initial render (restores selection after a validation error too)
+})();
+
+// ── Contact number: allow digits only, cap at 11 (PH mobile format) ──
+(function () {
+  var ph = document.getElementById('rPhone');
+  if (!ph) return;
+  ph.addEventListener('input', function () { this.value = this.value.replace(/\D/g, '').slice(0, 11); });
+})();
+
 // ── Equipment search / autocomplete ──────────────────────────────────────
 const equipData = <?php echo json_encode($equipment_list); ?>;
 

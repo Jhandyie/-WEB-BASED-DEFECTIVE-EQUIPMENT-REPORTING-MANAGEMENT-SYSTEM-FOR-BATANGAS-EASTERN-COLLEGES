@@ -225,6 +225,14 @@ body::after {
 .fi-hint { font-size: .68rem; color: var(--ink3); margin-top: .28rem; display: block; line-height: 1.55; }
 .fi-hint i { margin-right: .3rem; }
 .fi-hint strong { color: var(--ink2); white-space: nowrap; }
+/* Friendly "about this portal" details (replaces the old button-like pills) */
+.intro-card { background: #FBF8F1; border: 1px solid var(--border); border-radius: 14px; padding: 1rem 1.1rem 1.05rem; margin-bottom: 1.5rem; }
+.intro-card h3 { font-family: 'Fraunces', serif; font-size: .95rem; font-weight: 600; color: var(--ink); margin-bottom: .7rem; display: flex; align-items: center; gap: .45rem; }
+.intro-card h3 i { color: var(--gold); font-size: .85rem; }
+.intro-list { display: flex; flex-direction: column; gap: .62rem; }
+.intro-list li { list-style: none; display: flex; align-items: flex-start; gap: .62rem; font-size: .78rem; color: var(--ink2); line-height: 1.55; }
+.intro-list > li > i { color: var(--maroon); font-size: .8rem; margin-top: .2rem; flex-shrink: 0; width: 1.05rem; text-align: center; }
+.intro-list b { color: var(--ink); font-weight: 600; }
 .alert {
   padding: .7rem .9rem; border-radius: 10px; font-size: .78rem; line-height: 1.5;
   margin-bottom: 1.1rem; display: flex; align-items: flex-start; gap: .5rem;
@@ -605,17 +613,16 @@ body::after {
   <!-- RIGHT — report entry form -->
   <main class="panel">
     <div class="panel-eyebrow"><span class="pe-dot"></span> Equipment Defect Reporting</div>
-    <h1 class="panel-title">Submit an <em>equipment defect</em> report</h1>
-    <p class="panel-sub">Enter your name and official Batangas Eastern Colleges email to continue. A ticket reference will be emailed to you upon submission.</p>
-    <div class="pills">
-      <span class="pill"><i class="fas fa-id-card"></i> Official BEC access</span>
-      <span class="pill"><i class="fas fa-envelope"></i> Email confirmation</span>
-      <span class="pill"><i class="fas fa-magnifying-glass"></i> Online tracking</span>
-      <span class="pill"><i class="fas fa-user-shield"></i> Privacy-protected</span>
-    </div>
-    <div class="notice">
-      <i class="fas fa-info-circle"></i>
-      <span>Your details are used solely to generate and deliver your report ticket, in line with PMO data-handling practices.</span>
+    <h1 class="panel-title">Report <em>defective campus equipment</em></h1>
+    <p class="panel-sub">Welcome to the official Property Management Office portal of Batangas Eastern Colleges. Use this page to report any damaged or malfunctioning equipment on campus. Sign in with your official BEC details below; once you submit, a ticket reference is sent to your email so you can follow your report from review all the way to its resolution.</p>
+    <div class="intro-card">
+      <h3><i class="fas fa-circle-info"></i> A few things to know</h3>
+      <ul class="intro-list">
+        <li><i class="fas fa-id-card"></i><span><b>Who may report.</b> Any Batangas Eastern Colleges student, faculty, or staff member with an official <b>@bec.edu.ph</b> email account may file a report.</span></li>
+        <li><i class="fas fa-clipboard-list"></i><span><b>What to prepare.</b> Identify the equipment, where it is located, and a short description of the problem. Adding a photo helps the technicians assess it faster.</span></li>
+        <li><i class="fas fa-route"></i><span><b>What happens after you submit.</b> The PMO reviews your report, assigns a technician, and carries out the repair. You are updated by email at every key stage and can track the status online at any time.</span></li>
+        <li><i class="fas fa-user-shield"></i><span><b>How your information is used.</b> Your details are used only to process and deliver your report, kept confidential in line with the Data Privacy Act of 2012 (RA 10173).</span></li>
+      </ul>
     </div>
     <?php if ($error): ?>
     <div class="alert alert-err">
