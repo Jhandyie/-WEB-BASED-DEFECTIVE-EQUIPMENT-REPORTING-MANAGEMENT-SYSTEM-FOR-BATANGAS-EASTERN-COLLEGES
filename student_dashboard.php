@@ -2267,8 +2267,8 @@ window.addEventListener('DOMContentLoaded', function () {
 <div class="err-modal" id="exitModal" aria-hidden="true">
   <div class="err-box" role="dialog" aria-modal="true" aria-labelledby="exitTitle">
     <div class="err-ic" style="background:#FFF4E5;color:#C9960C;"><i class="fas fa-right-from-bracket"></i></div>
-    <h3 id="exitTitle">Leave and go back to sign-in?</h3>
-    <p>Any details you've entered on this report have not been submitted yet and will be lost. Do you really want to exit?</p>
+    <h3 id="exitTitle">Do you really want to exit?</h3>
+    <p>You haven't submitted this report yet. If you leave now and go back to sign-in, the details you've entered will be lost.</p>
     <div class="exit-actions">
       <button type="button" class="err-btn2" id="exitNo">No</button>
       <button type="button" class="err-btn" id="exitYes">Yes</button>
@@ -2286,8 +2286,11 @@ window.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('.btn-cancel, .logout-link').forEach(function (link) {
     link.addEventListener('click', function (e) {
       e.preventDefault();
+      // Stop the page-transition handler (delegated on document) from navigating anyway.
+      e.stopPropagation();
+      if (e.stopImmediatePropagation) e.stopImmediatePropagation();
       open(link.getAttribute('href'));
-    });
+    }, true); // capture phase — run before the document-level transition listener
   });
   document.getElementById('exitYes').addEventListener('click', function () {
     var url = pendingUrl; close();
