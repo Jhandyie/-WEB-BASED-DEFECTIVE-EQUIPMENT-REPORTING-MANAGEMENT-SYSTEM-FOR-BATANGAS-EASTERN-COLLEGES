@@ -2279,6 +2279,7 @@ window.addEventListener('DOMContentLoaded', function () {
 (function () {
   var modal = document.getElementById('exitModal');
   if (!modal) return;
+  if (<?php echo !empty($success) ? 'true' : 'false'; ?>) return; // report already submitted — nothing to lose, no guard
   var pendingUrl = null;
   function open(url) { pendingUrl = url; modal.classList.add('show'); modal.setAttribute('aria-hidden', 'false'); }
   function close() { modal.classList.remove('show'); modal.setAttribute('aria-hidden', 'true'); pendingUrl = null; }
@@ -2292,6 +2293,14 @@ window.addEventListener('DOMContentLoaded', function () {
       open(link.getAttribute('href'));
     }, true); // capture phase — run before the document-level transition listener
   });
+  // Intercept the browser / phone Back gesture (swipe-back or hardware/soft back button).
+  try {
+    history.pushState(null, document.title, location.href);
+    window.addEventListener('popstate', function () {
+      history.pushState(null, document.title, location.href); // re-trap so the page stays put
+      if (!modal.classList.contains('show')) open('student_index.php');
+    });
+  } catch (e) { /* History API unavailable — the on-page links are still guarded */ }
   document.getElementById('exitYes').addEventListener('click', function () {
     var url = pendingUrl; close();
     if (url) window.location.href = url;
