@@ -4,10 +4,12 @@ startRoleSession('technician');
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/technician_guard.php';
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/webpush.php';
 
 requireRole('technician');
 
 $conn = getDBConnection();
+$vapidPublicKey = wpPublicKey(); // applicationServerKey for Web Push
 $techId = trim((string)($_SESSION['user_id'] ?? ''));
 $techName = trim((string)($_SESSION['fullname'] ?? 'Technician'));
 $techEmail = trim((string)($_SESSION['user_email'] ?? ''));
@@ -1034,6 +1036,17 @@ body.modal-open{overflow:hidden;}
       </div>
     </div>
 
+    <!-- Push-notification opt-in (shown when the browser can enable it and it's not yet on) -->
+    <div class="install-cta" id="notifCta" hidden style="border-color:rgba(201,150,12,.32);">
+      <div class="ic-txt"><i class="fas fa-bell" style="color:var(--gold);"></i>
+        <div><strong>Turn on task alerts</strong><span>Get notified the moment a new repair is assigned to you — even when the app is closed.</span></div>
+      </div>
+      <div class="ic-actions">
+        <button type="button" class="ic-install" id="notifEnable" style="background:linear-gradient(135deg,#9A6B00,var(--gold));"><i class="fas fa-bell"></i> Enable alerts</button>
+        <button type="button" class="ic-dismiss" id="notifDismiss" aria-label="Dismiss"><i class="fas fa-xmark"></i></button>
+      </div>
+    </div>
+
     <!-- ═══ QUEUE ═══ -->
     <section class="card queue-shell" id="queue">
       <div class="queue-top">
@@ -1751,6 +1764,39 @@ if ('serviceWorker' in navigator) {
     if (sub) sub.innerHTML = 'On iPhone/iPad: tap <i class="fas fa-arrow-up-from-bracket"></i> <strong>Share</strong>, then <strong>Add to Home Screen</strong>.';
     show();
   }
+})();
+
+/* ── Web Push: opt in to task-assignment alerts ── */
+(function () {
+  var cta = document.getElementById('notifCta');
+  var enable = document.getElementById('notifEnable');
+  var dismiss = document.getElementById('notifDismiss');
+  var VAPID = <?php echo json_encode($vapidPublicKey); ?>;
+  if (!cta || !('serviceWorker' in navigator) || !('PushManager' in window) || !window.Notification || !VAPID) return;
+  var snoozed = false; try { snoozed = localStorage.getItem('becNotifDismissed') === '1'; } catch (e) {}
+  function b64ToU8(s) {
+    var pad = '='.repeat((4 - s.length % 4) % 4), b = (s + pad).replace(/-/g, '+').replace(/_/g, '/'), raw = atob(b), u = new Uint8Array(raw.length);
+    for (var i = 0; i < raw.length; i++) u[i] = raw.charCodeAt(i);
+    return u;
+  }
+  async function subscribe() {
+    try {
+      var reg = await navigator.serviceWorker.ready;
+      var sub = await reg.pushManager.getSubscription();
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToU8(VAPID) });
+      await fetch('push_subscribe.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sub) });
+      cta.hidden = true;
+      if (window.techToast) techToast('ok', 'Task alerts enabled — you\'ll be notified of new assignments.');
+    } catch (e) { if (window.techToast) techToast('err', 'Could not enable alerts: ' + e.message); }
+  }
+  if (dismiss) dismiss.addEventListener('click', function () { cta.hidden = true; try { localStorage.setItem('becNotifDismissed', '1'); } catch (e) {} });
+  if (enable) enable.addEventListener('click', async function () {
+    var perm = await Notification.requestPermission();
+    if (perm === 'granted') subscribe();
+    else if (window.techToast) techToast('err', 'Notifications are blocked — enable them in your browser settings.');
+  });
+  if (Notification.permission === 'granted') subscribe();       // already allowed → keep subscription fresh
+  else if (Notification.permission === 'default' && !snoozed) cta.hidden = false; // offer it
 })();
 </script>
 <?php require_once __DIR__ . '/includes/csrf_inject.php'; ?>

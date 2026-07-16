@@ -6,7 +6,7 @@
  *   - Static assets (css/js/img/fonts): cache-first with background refill.
  *   - POSTs / API calls are never intercepted.
  */
-const VERSION = 'bec-pmo-v3';
+const VERSION = 'bec-pmo-v4';
 const STATIC_CACHE = VERSION + '-static';
 const PAGE_CACHE = VERSION + '-pages';
 
@@ -65,4 +65,35 @@ self.addEventListener('fetch', (event) => {
       })
     );
   }
+});
+
+/* ── Web Push: show a notification when the PMO assigns a task ──
+   Payload-less "tickle": we display a fixed message and open the workspace on click. */
+self.addEventListener('push', (event) => {
+  let title = 'BEC Technician';
+  let body  = 'You have a new task update. Tap to open your workspace.';
+  try {
+    if (event.data) { const d = event.data.json(); if (d.title) title = d.title; if (d.body) body = d.body; }
+  } catch (e) { /* payload-less push — use defaults */ }
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: body,
+      icon: 'assets/pwa-icon-192.png',
+      badge: 'assets/pwa-icon-192.png',
+      tag: 'bec-task',
+      renotify: true,
+      data: { url: 'technician_dashboard.php?tab=my_tasks&source=push' }
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || 'technician_dashboard.php?tab=my_tasks';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const c of list) { if (c.url.includes('technician_dashboard.php') && 'focus' in c) return c.focus(); }
+      if (self.clients.openWindow) return self.clients.openWindow(target);
+    })
+  );
 });

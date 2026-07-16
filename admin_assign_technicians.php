@@ -42,6 +42,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
             }
         }
+        // Web Push: instantly alert the assigned technician's installed app (best-effort).
+        if (!empty($result['ok']) && $tid !== '') {
+            try { require_once __DIR__ . '/includes/webpush.php'; wpNotifyUser((string) $tid); }
+            catch (\Throwable $e) { error_log('assign push failed: ' . $e->getMessage()); }
+        }
         $_SESSION['flash'] = [$result['ok'] ? 'ok' : 'err', $result['message']];
     }
 
