@@ -161,6 +161,7 @@ create table if not exists public.defect_reports (
   report_id varchar(32) primary key,
   equipment_id varchar(32) not null references public.equipment(equipment_id) on delete restrict,
   reported_by varchar(32),
+  reporter_name varchar(255),
   issue_description text,
   defect_description text,
   priority text not null default 'medium' check (priority in ('critical','high','medium','low')),

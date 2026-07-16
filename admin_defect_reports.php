@@ -1169,6 +1169,9 @@ textarea.fc{resize:vertical;min-height:70px;}
         <div class="det-row"><div class="det-k">Asset Tag</div><div class="det-v"><?php echo esc($vr['asset_tag']); ?></div></div>
         <div class="det-row"><div class="det-k">Location</div><div class="det-v"><?php echo esc($vr['location']); ?></div></div>
         <div class="det-row"><div class="det-k">Reported By</div><div class="det-v"><?php echo esc($vr['reporter_name']); ?></div></div>
+        <?php if (!empty($vr['reporter_email'])): ?>
+        <div class="det-row"><div class="det-k">Contact</div><div class="det-v"><a href="mailto:<?php echo esc($vr['reporter_email']); ?>"><?php echo esc($vr['reporter_email']); ?></a></div></div>
+        <?php endif; ?>
         <div class="det-row"><div class="det-k">Priority</div><div class="det-v"><span class="bdg b-<?php echo prCls($vr['priority']); ?>"><?php echo prLbl($vr['priority']); ?></span></div></div>
         <div class="det-row"><div class="det-k">Status</div><div class="det-v"><span class="bdg b-<?php echo stCls($vr['status']); ?>"><?php echo stLbl($vr['status']); ?></span></div></div>
         <?php

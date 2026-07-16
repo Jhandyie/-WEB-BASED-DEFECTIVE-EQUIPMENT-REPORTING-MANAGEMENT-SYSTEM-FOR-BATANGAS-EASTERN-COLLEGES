@@ -1322,11 +1322,12 @@ function getDefectReportById($report_id) {
         $sql = "SELECT dr.*, e.equipment_name, e.asset_tag as asset_tag,
                             COALESCE(c.category_name, CAST(e.category_id AS TEXT)) as category_name,
                             COALESCE(tu.fullname, tu.username, mt.fullname) as technician_name,
-                            COALESCE(u.fullname, u.username, dr.reported_by) as reporter_name
+                            COALESCE(NULLIF(dr.reporter_name,''), u.fullname, u.username, d.full_name, NULLIF(dr.reporter_email,''), dr.reported_by) as reporter_name
                             FROM public.defect_reports dr
                             JOIN public.equipment e ON dr.equipment_id = e.equipment_id
                             LEFT JOIN public.categories c ON e.category_id = c.category_id
                             LEFT JOIN public.users u ON dr.reported_by = u.user_id
+                            LEFT JOIN public.bec_directory d ON dr.reporter_email IS NOT NULL AND lower(d.email) = lower(dr.reporter_email)
                             LEFT JOIN public.users tu ON dr.assigned_to = tu.user_id
                             LEFT JOIN public.maintenance_technicians mt ON dr.assigned_to = mt.technician_id
                             WHERE dr.report_id = :report_id";
@@ -1340,11 +1341,12 @@ function getDefectReportById($report_id) {
     $stmt = $conn->prepare("SELECT dr.*, e.equipment_name, e.asset_tag as asset_tag,
                             COALESCE(c.category_name, CAST(e.category_id AS CHAR)) as category_name,
                             COALESCE(tu.fullname, tu.username, mt.fullname) as technician_name,
-                            COALESCE(u.fullname, u.username, dr.reported_by) as reporter_name
+                            COALESCE(NULLIF(dr.reporter_name,''), u.fullname, u.username, d.full_name, NULLIF(dr.reporter_email,''), dr.reported_by) as reporter_name
                             FROM defect_reports dr
                             JOIN equipment e ON dr.equipment_id = e.equipment_id
                             LEFT JOIN categories c ON e.category_id = c.category_id
                             LEFT JOIN users u ON dr.reported_by = u.user_id
+                            LEFT JOIN bec_directory d ON dr.reporter_email IS NOT NULL AND lower(d.email) = lower(dr.reporter_email)
                             LEFT JOIN users tu ON dr.assigned_to = tu.user_id
                             LEFT JOIN maintenance_technicians mt ON dr.assigned_to = mt.technician_id
                             WHERE dr.report_id = ?");
@@ -1387,10 +1389,11 @@ function getUserDefectReports($user_id) {
     if (isPgSqlDriver()) {
         $pdo = getPgsqlPdoConnection();
         $sql = "SELECT dr.*, e.equipment_name, e.asset_tag as asset_tag,
-                            COALESCE(u.fullname, u.username, dr.reported_by) as reporter_name
+                            COALESCE(NULLIF(dr.reporter_name,''), u.fullname, u.username, d.full_name, NULLIF(dr.reporter_email,''), dr.reported_by) as reporter_name
                             FROM public.defect_reports dr
                             JOIN public.equipment e ON dr.equipment_id = e.equipment_id
                             LEFT JOIN public.users u ON dr.reported_by = u.user_id
+                            LEFT JOIN public.bec_directory d ON dr.reporter_email IS NOT NULL AND lower(d.email) = lower(dr.reporter_email)
                             WHERE dr.reported_by = :user_id
                             ORDER BY dr.report_date DESC";
         $stmt = $pdo->prepare($sql);
@@ -1402,10 +1405,11 @@ function getUserDefectReports($user_id) {
     $conn = getDBConnection();
 
     $stmt = $conn->prepare("SELECT dr.*, e.equipment_name, e.asset_tag as asset_tag,
-                            COALESCE(u.fullname, u.username, dr.reported_by) as reporter_name
+                            COALESCE(NULLIF(dr.reporter_name,''), u.fullname, u.username, d.full_name, NULLIF(dr.reporter_email,''), dr.reported_by) as reporter_name
                             FROM defect_reports dr
                             JOIN equipment e ON dr.equipment_id = e.equipment_id
                             LEFT JOIN users u ON dr.reported_by = u.user_id
+                            LEFT JOIN bec_directory d ON dr.reporter_email IS NOT NULL AND lower(d.email) = lower(dr.reporter_email)
                             WHERE dr.reported_by = ?
                             ORDER BY dr.report_date DESC");
     $stmt->bind_param("s", $user_id);
@@ -1491,13 +1495,14 @@ function getDefectReportsWithFilters($status = 'all', $priority = 'all', $search
         $sql = "SELECT dr.*, e.equipment_name, e.asset_tag as asset_tag,
             COALESCE(c.category_name, CAST(e.category_id AS TEXT)) as category_name,
             COALESCE(tu.fullname, tu.username, mt.fullname) as technician_name,
-            COALESCE(u.fullname, u.username, dr.reported_by) as reporter_name
+            COALESCE(NULLIF(dr.reporter_name,''), u.fullname, u.username, d.full_name, NULLIF(dr.reporter_email,''), dr.reported_by) as reporter_name
             FROM public.defect_reports dr
             JOIN public.equipment e ON dr.equipment_id = e.equipment_id
             LEFT JOIN public.categories c ON e.category_id = c.category_id
             LEFT JOIN public.users tu ON dr.assigned_to = tu.user_id
             LEFT JOIN public.maintenance_technicians mt ON dr.assigned_to = mt.technician_id
             LEFT JOIN public.users u ON dr.reported_by = u.user_id
+                            LEFT JOIN public.bec_directory d ON dr.reporter_email IS NOT NULL AND lower(d.email) = lower(dr.reporter_email)
             WHERE 1=1";
 
         $params = [];
@@ -1525,13 +1530,14 @@ function getDefectReportsWithFilters($status = 'all', $priority = 'all', $search
     $sql = "SELECT dr.*, e.equipment_name, e.asset_tag as asset_tag,
             COALESCE(c.category_name, CAST(e.category_id AS CHAR)) as category_name,
             COALESCE(tu.fullname, tu.username, mt.fullname) as technician_name,
-            COALESCE(u.fullname, u.username, dr.reported_by) as reporter_name
+            COALESCE(NULLIF(dr.reporter_name,''), u.fullname, u.username, d.full_name, NULLIF(dr.reporter_email,''), dr.reported_by) as reporter_name
             FROM defect_reports dr
             JOIN equipment e ON dr.equipment_id = e.equipment_id
             LEFT JOIN categories c ON e.category_id = c.category_id
             LEFT JOIN users tu ON dr.assigned_to = tu.user_id
             LEFT JOIN maintenance_technicians mt ON dr.assigned_to = mt.technician_id
             LEFT JOIN users u ON dr.reported_by = u.user_id
+                            LEFT JOIN bec_directory d ON dr.reporter_email IS NOT NULL AND lower(d.email) = lower(dr.reporter_email)
             WHERE 1=1";
 
     $params = [];

@@ -429,6 +429,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'equipment_name' => trim((string)($_POST['equipment_name'] ?? '')),
                 'location' => trim((string)($_POST['location'] ?? '')),
                 'reported_by' => getGuestReporterId(),
+                'reporter_name' => $student_name,
                 'reporter_email' => $student_email,
                 'issue_description' => trim($_POST['defect_description']),
                 'priority' => $reportPriority,
