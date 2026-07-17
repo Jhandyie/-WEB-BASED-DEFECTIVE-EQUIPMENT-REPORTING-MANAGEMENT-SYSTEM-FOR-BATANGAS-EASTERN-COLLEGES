@@ -167,6 +167,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($hasEqCategory)   { $insCols[] = 'category';        $insVals[] = $cat; }
             if ($hasEqLocation)   { $insCols[] = 'location';        $insVals[] = $loc; }
             if ($hasEqDepartment) { $insCols[] = 'department';      $insVals[] = $dept; }
+            if (isset($eqCols['unit']) && function_exists('classifyDepartmentByEquipment')) {
+                $insCols[] = 'unit'; $insVals[] = classifyDepartmentByEquipment('', $name, $cat, $loc);
+            }
             if ($hasEqBrand)      { $insCols[] = 'brand';           $insVals[] = $brand; }
             if ($hasEqModel)      { $insCols[] = 'model';           $insVals[] = $model; }
             if (isset($eqCols['serial_number']))   { $insCols[] = 'serial_number';   $insVals[] = $serial; }
@@ -1400,16 +1403,7 @@ textarea.fc{resize:vertical;min-height:72px;}
           <div class="fg"><label class="fl">Location <span>*</span></label>
             <input type="text" name="location" class="fc" placeholder="e.g. Room 201, Lab 3" required></div>
         </div>
-        <div class="sec-title"><i class="fas fa-tag"></i> Brand & Model</div>
-        <div class="fg3">
-          <div class="fg"><label class="fl">Brand</label>
-            <input type="text" name="brand" class="fc" placeholder="e.g. HP, Dell, Canon"></div>
-          <div class="fg"><label class="fl">Model</label>
-            <input type="text" name="model" class="fc" placeholder="e.g. ProBook 450 G8"></div>
-          <div class="fg"><label class="fl">Serial Number</label>
-            <input type="text" name="serial_number" class="fc" placeholder="Manufacturer S/N"></div>
-        </div>
-        <div class="sec-title"><i class="fas fa-clipboard-check"></i> Status & Condition</div>
+        <div class="sec-title"><i class="fas fa-clipboard-check"></i> Status</div>
         <div class="fg2">
           <div class="fg"><label class="fl">Status</label>
             <select name="status" class="fc">
@@ -1419,32 +1413,7 @@ textarea.fc{resize:vertical;min-height:72px;}
               <option value="retired">Retired</option>
             </select>
           </div>
-          <div class="fg"><label class="fl">Condition</label>
-            <select name="condition" class="fc">
-              <option value="excellent">Excellent</option>
-              <option value="good" selected>Good</option>
-              <option value="fair">Fair</option>
-              <option value="poor">Poor</option>
-            </select>
-          </div>
         </div>
-        <div class="sec-title"><i class="fas fa-receipt"></i> Purchase & Warranty</div>
-        <div class="fg3">
-          <div class="fg"><label class="fl">Purchase Date</label>
-            <input type="date" name="purchase_date" class="fc"></div>
-          <div class="fg"><label class="fl">Purchase Price (?)</label>
-            <input type="number" name="purchase_price" class="fc" placeholder="0.00" step="0.01" min="0"></div>
-          <div class="fg"><label class="fl">Warranty Expiry</label>
-            <input type="date" name="warranty_expiry" class="fc"></div>
-        </div>
-        <div class="sec-title"><i class="fas fa-list-check"></i> Inventory Tracking</div>
-        <div class="fg3">
-          <div class="fg"><label class="fl">Acquired</label><input type="text" name="acquired" class="fc" placeholder="e.g. 120"></div>
-          <div class="fg"><label class="fl">Issued</label><input type="text" name="issued" class="fc" placeholder="e.g. 80"></div>
-          <div class="fg"><label class="fl">Counted</label><input type="text" name="counted" class="fc" placeholder="e.g. 78"></div>
-        </div>
-        <div class="fg"><label class="fl">Remarks</label>
-          <textarea name="remarks" class="fc" placeholder="Inventory remarks"></textarea></div>
         <div class="fg"><label class="fl">Notes</label>
           <textarea name="notes" class="fc" placeholder="Additional notes about this equipment-"></textarea></div>
       </form>
@@ -1500,13 +1469,7 @@ textarea.fc{resize:vertical;min-height:72px;}
           <div class="fg"><label class="fl">Location <span>*</span></label>
             <input type="text" name="location" id="eEloc" class="fc" required></div>
         </div>
-        <div class="sec-title"><i class="fas fa-tag"></i> Brand & Model</div>
-        <div class="fg3">
-          <div class="fg"><label class="fl">Brand</label><input type="text" name="brand" id="eEbrand" class="fc"></div>
-          <div class="fg"><label class="fl">Model</label><input type="text" name="model" id="eEmodel" class="fc"></div>
-          <div class="fg"><label class="fl">Serial Number</label><input type="text" name="serial_number" id="eEserial" class="fc"></div>
-        </div>
-        <div class="sec-title"><i class="fas fa-clipboard-check"></i> Status & Condition</div>
+        <div class="sec-title"><i class="fas fa-clipboard-check"></i> Status</div>
         <div class="fg2">
           <div class="fg"><label class="fl">Status</label>
             <select name="status" id="eEst" class="fc">
@@ -1516,28 +1479,7 @@ textarea.fc{resize:vertical;min-height:72px;}
               <option value="retired">Retired</option>
             </select>
           </div>
-          <div class="fg"><label class="fl">Condition</label>
-            <select name="condition" id="eEcond" class="fc">
-              <option value="excellent">Excellent</option>
-              <option value="good">Good</option>
-              <option value="fair">Fair</option>
-              <option value="poor">Poor</option>
-            </select>
-          </div>
         </div>
-        <div class="sec-title"><i class="fas fa-receipt"></i> Purchase & Warranty</div>
-        <div class="fg3">
-          <div class="fg"><label class="fl">Purchase Date</label><input type="date" name="purchase_date" id="eEpdate" class="fc"></div>
-          <div class="fg"><label class="fl">Purchase Price (?)</label><input type="number" name="purchase_price" id="eEprice" class="fc" step="0.01" min="0"></div>
-          <div class="fg"><label class="fl">Warranty Expiry</label><input type="date" name="warranty_expiry" id="eEwarr" class="fc"></div>
-        </div>
-        <div class="sec-title"><i class="fas fa-list-check"></i> Inventory Tracking</div>
-        <div class="fg3">
-          <div class="fg"><label class="fl">Acquired</label><input type="text" name="acquired" id="eEacquired" class="fc"></div>
-          <div class="fg"><label class="fl">Issued</label><input type="text" name="issued" id="eEissued" class="fc"></div>
-          <div class="fg"><label class="fl">Counted</label><input type="text" name="counted" id="eEcounted" class="fc"></div>
-        </div>
-        <div class="fg"><label class="fl">Remarks</label><textarea name="remarks" id="eEremarks" class="fc"></textarea></div>
         <div class="fg"><label class="fl">Notes</label><textarea name="notes" id="eEnotes" class="fc"></textarea></div>
       </form>
     </div>
@@ -1784,18 +1726,7 @@ function openEdit(e){
   setSelVal('eEcat',e.category||'');
   document.getElementById('eEloc').value=e.location||'';
   setSelVal('eEdept',e.department||'');
-  document.getElementById('eEbrand').value=e.brand||'';
-  document.getElementById('eEmodel').value=e.model||'';
-  document.getElementById('eEserial').value=e.serial_number||'';
   setSelVal('eEst',e.status||'operational');
-  setSelVal('eEcond',e.condition||'good');
-  document.getElementById('eEpdate').value=e.purchase_date||'';
-  document.getElementById('eEprice').value=e.purchase_price||'';
-  document.getElementById('eEwarr').value=e.warranty_expiry||'';
-  document.getElementById('eEacquired').value=e.acquired||'';
-  document.getElementById('eEissued').value=e.issued||'';
-  document.getElementById('eEcounted').value=e.counted||'';
-  document.getElementById('eEremarks').value=e.remarks||e.notes||'';
   document.getElementById('eEnotes').value=e.notes||'';
   document.getElementById('editSub').textContent=(e.equipment_id||'')+' - '+(e.equipment_name||'');
   document.getElementById('editMo').classList.add('open');
