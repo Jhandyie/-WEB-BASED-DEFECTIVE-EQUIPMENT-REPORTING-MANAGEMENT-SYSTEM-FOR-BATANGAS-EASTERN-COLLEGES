@@ -1604,7 +1604,8 @@ function openProfile(u){
   add('Employee No.', u.employee_number);
   add('Specialization', u.specialization);
   add('Position', u.position);
-  add('Account ID', u.user_id);
+  // Only show Account ID when it isn't just a copy of the student/employee number (directory records reuse it).
+  if (u.user_id && u.user_id !== u.student_number && u.user_id !== u.employee_number) add('Account ID', u.user_id);
   add('Status', u.status);
   rows.push(['Reports Filed', `<span style="font-family:'Outfit',sans-serif;font-weight:800;font-size:.9rem;color:var(--m3);">${u.report_count||0}</span>`]);
   if (!u.is_directory) rows.push(['Active Tasks', `<span style="font-family:'Outfit',sans-serif;font-weight:800;font-size:.9rem;">${u.active_tasks||0}</span>`]);
