@@ -321,6 +321,12 @@ $cf  = $_GET['category']   ?? 'all';
 $sf  = $_GET['status']     ?? 'all';
 $df  = $_GET['dept']       ?? 'all';
 $sq  = $_GET['search']     ?? '';
+// PMO/ITSO responsible-unit scope: defaults to the logged-in admin's unit, still switchable.
+$adminUnit  = function_exists('adminUnitForUser') ? adminUnitForUser($admin_id) : '';
+$uf         = $_GET['unit'] ?? ($adminUnit !== '' ? $adminUnit : 'all');
+$uf         = in_array($uf, ['all','ITSO','PMO'], true) ? $uf : 'all';
+$ufExplicit = array_key_exists('unit', $_GET);
+$hasEqUnit  = isset($eqCols['unit']);
 $vw  = $_GET['view']       ?? 'table'; // table | grid
 $jc  = $_GET['jc']         ?? ''; // JSON category quick view
 $pg  = max(1, (int)($_GET['page'] ?? 1));
@@ -369,6 +375,10 @@ if ($hasEqStatus) { $q .= " AND e.status != 'deleted'"; }
 if ($cf!=='all' && $hasEqCategory) { $q.=" AND e.category=?";    $params[]=$cf; $types.='s'; }
 if ($sf!=='all' && $hasEqStatus)   { $q.=" AND e.status=?";      $params[]=$sf; $types.='s'; }
 if ($df!=='all' && $hasEqDepartment){$q.=" AND e.department=?";  $params[]=$df; $types.='s'; }
+if ($uf!=='all' && $hasEqUnit) {
+    if ($ufExplicit) { $q.=" AND e.unit=?"; $params[]=$uf; $types.='s'; }
+    else { $q.=" AND (e.unit=? OR e.unit IS NULL OR e.unit='')"; $params[]=$uf; $types.='s'; } // default view keeps un-classified
+}
 if ($sq!=='') {
     $ql='%'.$sq.'%';
     $searchParts = ["e.equipment_name LIKE ?", "e.asset_tag LIKE ?"]; 
@@ -398,6 +408,10 @@ $allSql = "SELECT " .
     ($hasEqCondition ? "`condition`" : "'good' AS `condition`") . "," .
     ($hasEqWarranty ? "warranty_expiry" : "NULL AS warranty_expiry") .
     " FROM equipment" . ($hasEqStatus ? " WHERE status!='deleted'" : "");
+if ($uf!=='all' && $hasEqUnit) {
+    $uCond = $ufExplicit ? "unit='$uf'" : "(unit='$uf' OR unit IS NULL OR unit='')";
+    $allSql .= (strpos($allSql, 'WHERE') !== false ? " AND " : " WHERE ") . $uCond;
+}
 $all_res=$conn->query($allSql);
 $all_raw=$all_res?$all_res->fetch_all(MYSQLI_ASSOC):[];
 $db_total = count($all_raw);
@@ -1047,8 +1061,9 @@ textarea.fc{resize:vertical;min-height:72px;}
       <div>
         <h1 style="font-family:'Outfit',sans-serif;font-size:1.45rem;font-weight:800;display:flex;align-items:center;gap:.45rem;">
           <i class="fas fa-boxes" style="color:var(--m3);"></i> Inventory
+          <?php if($adminUnit!==''): ?><span style="display:inline-flex;align-items:center;gap:.35rem;padding:.2rem .58rem;border-radius:999px;background:linear-gradient(135deg,var(--m3,#7a1220),#a01a2b);color:#fff;font-family:'DM Sans',sans-serif;font-size:.6rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;"><i class="fas fa-<?php echo $adminUnit==='ITSO'?'laptop-code':'building-shield';?>" style="font-size:.58rem;"></i> <?php echo esc($adminUnit);?> Admin</span><?php endif; ?>
         </h1>
-        <p style="font-size:.78rem;color:var(--t3);margin-top:.18rem;">Track, manage, and monitor all BEC equipment - warranties, defect history, and condition reports.</p>
+        <p style="font-size:.78rem;color:var(--t3);margin-top:.18rem;"><?php if($adminUnit!==''&&!$ufExplicit): ?>Showing <strong><?php echo esc($adminUnit);?></strong> equipment by default — use the unit filter to view All or the other unit. <?php endif; ?>Track, manage, and monitor BEC equipment by responsible unit, status, and defect history.</p>
       </div>
       <button class="btn btn-ghost btn-sm" onclick="location.reload()"><i class="fas fa-sync-alt"></i> Refresh</button>
     </div>
@@ -1160,6 +1175,13 @@ textarea.fc{resize:vertical;min-height:72px;}
         <option value="<?php echo esc($dept);?>" <?php echo $df===$dept?'selected':'';?>><?php echo esc($dept);?></option>
         <?php endforeach;?>
       </select>
+      <?php if($hasEqUnit): ?>
+      <select class="fsel" id="fsu" onchange="go()" title="Responsible unit (PMO/ITSO)">
+        <option value="all"  <?php echo $uf==='all'?'selected':'';?>>All Units</option>
+        <option value="ITSO" <?php echo $uf==='ITSO'?'selected':'';?>>ITSO</option>
+        <option value="PMO"  <?php echo $uf==='PMO'?'selected':'';?>>PMO</option>
+      </select>
+      <?php endif; ?>
       <div class="vt">
         <button class="vt-b" id="vt-tbl" onclick="setView('table')"><i class="fas fa-list"></i> Table</button>
         <button class="vt-b" id="vt-grid" onclick="setView('grid')"><i class="fas fa-th-large"></i> Grid</button>
@@ -1323,6 +1345,7 @@ textarea.fc{resize:vertical;min-height:72px;}
         <input type="hidden" name="status" value="<?php echo esc($sf);?>">
         <input type="hidden" name="category" value="<?php echo esc($cf);?>">
         <input type="hidden" name="dept" value="<?php echo esc($df);?>">
+        <input type="hidden" name="unit" value="<?php echo esc($uf);?>">
         <input type="hidden" name="search" value="<?php echo esc($sq);?>">
         <input type="hidden" name="jc" value="<?php echo esc($jc);?>">
         <input type="hidden" name="per_page" value="<?php echo (int)$per;?>">
@@ -1598,6 +1621,7 @@ function go(){
   u.searchParams.set('status',   document.getElementById('fss').value);
   u.searchParams.set('category', document.getElementById('fsc').value);
   u.searchParams.set('dept',     document.getElementById('fsd').value);
+  const fsu=document.getElementById('fsu'); if(fsu) u.searchParams.set('unit', fsu.value);
   u.searchParams.set('search',   document.getElementById('fsq').value);
   u.searchParams.set('per_page', document.getElementById('fper').value);
   u.searchParams.set('page',     '1');
