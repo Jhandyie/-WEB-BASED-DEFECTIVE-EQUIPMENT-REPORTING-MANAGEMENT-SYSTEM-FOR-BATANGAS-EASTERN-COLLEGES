@@ -1537,7 +1537,7 @@ html { scroll-behavior: smooth; }
           <label class="fl">Asset Tag / Equipment ID <span style="color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(if visible)</span></label>
           <div class="fi-wrap">
             <i class="fas fa-barcode fi-icon"></i>
-            <input type="text" name="asset_tag" class="fi" placeholder="e.g. BEC-LAB2-PC05"
+            <input type="text" name="asset_tag" class="fi" placeholder="e.g. BEC-LAB2-PC05" maxlength="40"
               value="<?php echo htmlspecialchars($_POST['asset_tag'] ?? ''); ?>">
           </div>
           <div class="fi-hint"><i class="fas fa-info-circle"></i> Auto-filled when you select an inventory item, or type it manually if visible.</div>
@@ -1586,7 +1586,7 @@ html { scroll-behavior: smooth; }
         <!-- Defect description -->
         <div class="fg" style="grid-column:1/-1">
           <label class="fl">Description of Defect <span class="req">*</span></label>
-          <textarea name="defect_description" class="fta" rows="4"
+          <textarea name="defect_description" class="fta" rows="4" maxlength="1500"
             placeholder="Describe what's wrong with the equipment. Include any error messages, sounds, or behaviors you observed…" required><?php echo htmlspecialchars($_POST['defect_description'] ?? ''); ?></textarea>
           <div class="fi-hint"><i class="fas fa-pen"></i> Be as specific as possible — this helps technicians diagnose faster.</div>
         </div>

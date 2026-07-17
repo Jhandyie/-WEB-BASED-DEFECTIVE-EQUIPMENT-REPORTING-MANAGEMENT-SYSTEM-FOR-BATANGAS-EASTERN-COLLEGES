@@ -639,7 +639,7 @@ body::after {
           <i class="fas fa-user fi-icon"></i>
           <input type="text" name="full_name" class="fi" placeholder="e.g. Maria Santos"
             value="<?php echo htmlspecialchars($_POST['full_name'] ?? ''); ?>"
-            autocomplete="name" required>
+            autocomplete="name" maxlength="80" data-guard="alpha" required>
         </div>
       </div>
       <div class="fg">
@@ -648,7 +648,7 @@ body::after {
           <i class="fas fa-envelope fi-icon"></i>
           <input type="email" name="email" class="fi" placeholder="juan.delacruz@bec.edu.ph"
             value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>"
-            autocomplete="email" required
+            autocomplete="email" maxlength="120" required
             pattern="[a-zA-Z0-9._%+\-]+@bec\.edu\.ph$"
             title="Use your official BEC email ending in @bec.edu.ph">
         </div>

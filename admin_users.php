@@ -1160,11 +1160,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         <div class="fg2">
           <div class="fg">
             <label class="fl">Full Name <span>*</span></label>
-            <input type="text" name="fullname" class="fc" placeholder="Juan dela Cruz" required>
+            <input type="text" name="fullname" class="fc" placeholder="Juan dela Cruz" maxlength="100" data-guard="alpha" required>
           </div>
           <div class="fg">
             <label class="fl">Email Address <span>*</span></label>
-            <input type="email" name="email" class="fc" placeholder="juan@bec.edu.ph" required>
+            <input type="email" name="email" class="fc" placeholder="juan@bec.edu.ph" maxlength="150" required>
           </div>
         </div>
         <div class="fg2">
@@ -1185,7 +1185,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         </div>
         <div class="fg">
           <label class="fl">Phone Number</label>
-          <input type="tel" name="phone" class="fc" placeholder="+63 9XX XXX XXXX">
+          <input type="tel" name="phone" class="fc" placeholder="09171234567" maxlength="11" inputmode="numeric">
         </div>
         <div class="fg2">
           <div class="fg">
@@ -1229,11 +1229,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         <div class="fg2">
           <div class="fg">
             <label class="fl">Full Name <span>*</span></label>
-            <input type="text" name="fullname" class="fc" placeholder="Juan dela Cruz" required>
+            <input type="text" name="fullname" class="fc" placeholder="Juan dela Cruz" maxlength="100" data-guard="alpha" required>
           </div>
           <div class="fg">
             <label class="fl">Email Address <span>*</span></label>
-            <input type="email" name="email" class="fc" placeholder="technician@bec.edu.ph" required>
+            <input type="email" name="email" class="fc" placeholder="technician@bec.edu.ph" maxlength="150" required>
           </div>
         </div>
         <div class="fg2">
@@ -1282,11 +1282,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         <div class="fg2">
           <div class="fg">
             <label class="fl">Full Name <span>*</span></label>
-            <input type="text" name="fullname" id="eFname" class="fc" required>
+            <input type="text" name="fullname" id="eFname" class="fc" maxlength="100" data-guard="alpha" required>
           </div>
           <div class="fg">
             <label class="fl">Email Address <span>*</span></label>
-            <input type="email" name="email" id="eEmail" class="fc" required>
+            <input type="email" name="email" id="eEmail" class="fc" maxlength="150" required>
           </div>
         </div>
         <div class="fg2">
@@ -1308,7 +1308,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
           </div>
           <div class="fg">
             <label class="fl">Phone</label>
-            <input type="tel" name="phone" id="ePhone" class="fc">
+            <input type="tel" name="phone" id="ePhone" class="fc" placeholder="09171234567" maxlength="11" inputmode="numeric">
           </div>
         </div>
         <div class="fg">

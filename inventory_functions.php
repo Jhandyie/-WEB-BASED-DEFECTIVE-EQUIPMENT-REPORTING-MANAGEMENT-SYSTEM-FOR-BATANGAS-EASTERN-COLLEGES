@@ -1371,9 +1371,9 @@ textarea.fc{resize:vertical;min-height:72px;}
         <div class="sec-title"><i class="fas fa-info-circle"></i> Basic Information</div>
         <div class="fg2">
           <div class="fg"><label class="fl">Equipment Name <span>*</span></label>
-            <input type="text" name="equipment_name" class="fc" placeholder="e.g. HP LaserJet Pro" required></div>
+            <input type="text" name="equipment_name" class="fc" placeholder="e.g. HP LaserJet Pro" maxlength="120" required></div>
           <div class="fg"><label class="fl">Asset Tag <span>*</span></label>
-            <input type="text" name="asset_tag" class="fc" placeholder="e.g. BEC-PRN-001" required></div>
+            <input type="text" name="asset_tag" class="fc" placeholder="e.g. BEC-PRN-001" maxlength="40" required></div>
         </div>
         <div class="fg3">
           <div class="fg"><label class="fl">Category</label>
@@ -1396,7 +1396,7 @@ textarea.fc{resize:vertical;min-height:72px;}
             </select>
           </div>
           <div class="fg"><label class="fl">Location <span>*</span></label>
-            <input type="text" name="location" class="fc" placeholder="e.g. Room 201, Lab 3" required></div>
+            <input type="text" name="location" class="fc" placeholder="e.g. Room 201, Lab 3" maxlength="150" required></div>
         </div>
         <div class="sec-title"><i class="fas fa-clipboard-check"></i> Status</div>
         <div class="fg2">
@@ -1437,9 +1437,9 @@ textarea.fc{resize:vertical;min-height:72px;}
         <div class="sec-title"><i class="fas fa-info-circle"></i> Basic Information</div>
         <div class="fg2">
           <div class="fg"><label class="fl">Equipment Name <span>*</span></label>
-            <input type="text" name="equipment_name" id="eEname" class="fc" required></div>
+            <input type="text" name="equipment_name" id="eEname" class="fc" maxlength="120" required></div>
           <div class="fg"><label class="fl">Asset Tag <span>*</span></label>
-            <input type="text" name="asset_tag" id="eEtag" class="fc" required></div>
+            <input type="text" name="asset_tag" id="eEtag" class="fc" maxlength="40" required></div>
         </div>
         <div class="fg3">
           <div class="fg"><label class="fl">Category</label>
@@ -1462,7 +1462,7 @@ textarea.fc{resize:vertical;min-height:72px;}
             </select>
           </div>
           <div class="fg"><label class="fl">Location <span>*</span></label>
-            <input type="text" name="location" id="eEloc" class="fc" required></div>
+            <input type="text" name="location" id="eEloc" class="fc" maxlength="150" required></div>
         </div>
         <div class="sec-title"><i class="fas fa-clipboard-check"></i> Status</div>
         <div class="fg2">
