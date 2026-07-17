@@ -612,18 +612,19 @@ if (!function_exists('updateUserLastLogin')) {
 
 if (!function_exists('createPasswordResetRecord')) {
     function createPasswordResetRecord(string $email, string $token, string $expiresAt): bool {
+        // Expiry is computed on the DATABASE clock (now() + 1 hour) so it can never be thrown off
+        // by a mismatch between the PHP timezone and the database timezone. $expiresAt is ignored.
         if (isPgSqlDriver()) {
             $pdo = getPgsqlPdoConnection();
-            $stmt = $pdo->prepare('INSERT INTO public.password_resets (email, token, expires_at, created_at) VALUES (:email, :token, :expires_at, now())');
+            $stmt = $pdo->prepare("INSERT INTO public.password_resets (email, token, expires_at, created_at) VALUES (:email, :token, now() + interval '1 hour', now())");
             return $stmt->execute([
                 'email' => $email,
                 'token' => $token,
-                'expires_at' => $expiresAt,
             ]);
         }
         $conn = getDBConnection();
-        $stmt = $conn->prepare("INSERT INTO password_resets (email, token, expires_at) VALUES (?, ?, ?)");
-        $stmt->bind_param('sss', $email, $token, $expiresAt);
+        $stmt = $conn->prepare("INSERT INTO password_resets (email, token, expires_at) VALUES (?, ?, NOW() + INTERVAL 1 HOUR)");
+        $stmt->bind_param('ss', $email, $token);
         $ok = $stmt->execute();
         $stmt->close();
         return (bool)$ok;
@@ -642,11 +643,10 @@ if (!function_exists('replacePasswordResetRecord')) {
             try {
                 $delete = $pdo->prepare('DELETE FROM public.password_resets WHERE email = :email');
                 $delete->execute(['email' => $email]);
-                $insert = $pdo->prepare('INSERT INTO public.password_resets (email, token, expires_at, created_at) VALUES (:email, :token, :expires_at, now())');
+                $insert = $pdo->prepare("INSERT INTO public.password_resets (email, token, expires_at, created_at) VALUES (:email, :token, now() + interval '1 hour', now())");
                 $insert->execute([
                     'email' => $email,
                     'token' => $token,
-                    'expires_at' => $expiresAt,
                 ]);
                 $pdo->commit();
                 return true;
@@ -666,8 +666,8 @@ if (!function_exists('replacePasswordResetRecord')) {
             $delete->execute();
             $delete->close();
 
-            $insert = $conn->prepare('INSERT INTO password_resets (email, token, expires_at) VALUES (?, ?, ?)');
-            $insert->bind_param('sss', $email, $token, $expiresAt);
+            $insert = $conn->prepare('INSERT INTO password_resets (email, token, expires_at) VALUES (?, ?, NOW() + INTERVAL 1 HOUR)');
+            $insert->bind_param('ss', $email, $token);
             $ok = $insert->execute();
             $insert->close();
 

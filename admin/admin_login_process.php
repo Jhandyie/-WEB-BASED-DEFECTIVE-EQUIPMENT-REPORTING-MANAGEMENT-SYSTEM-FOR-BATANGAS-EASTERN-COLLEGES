@@ -375,11 +375,15 @@ function resetPassword() {
         exit();
     }
 
-    if (strlen($new_password) < 6) {
+    if (strlen($new_password) < 8) {
         http_response_code(400);
-        echo json_encode(['success' => false, 'message' => 'Password must be at least 6 characters']);
+        echo json_encode(['success' => false, 'message' => 'Password must be at least 8 characters']);
         exit();
     }
+
+    // Defence-in-depth: cap reset submissions per IP (tokens are already 256-bit random).
+    try { RateLimiter::enforce('admin_reset:' . RateLimiter::clientIp(), 10, 900); }
+    catch (Exception $e) { http_response_code(429); echo json_encode(['success' => false, 'message' => $e->getMessage()]); exit(); }
 
     $row = findActivePasswordResetUserByToken($token, 'admin');
     if (!$row) {

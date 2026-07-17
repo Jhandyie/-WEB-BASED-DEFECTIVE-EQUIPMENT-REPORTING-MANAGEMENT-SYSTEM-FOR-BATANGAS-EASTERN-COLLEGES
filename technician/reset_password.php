@@ -1,6 +1,6 @@
 <?php
-// admin/reset_password.php — landing page for the admin password-reset link.
-// The token is validated (and consumed) server-side by admin_login_process.php (action=reset_password).
+// technician/reset_password.php — landing page for the technician password-reset link.
+// The token is validated (and consumed) server-side by technician_login_process.php (action=reset_password).
 $token = trim((string)($_GET['token'] ?? ''));
 $hasToken = $token !== '';
 ?><!DOCTYPE html>
@@ -51,17 +51,17 @@ $hasToken = $token !== '';
     <div class="auth-head">
       <div class="auth-seal"><img src="../assets/logs.png" alt="BEC"></div>
       <h1>Batangas Eastern Colleges</h1>
-      <span class="role">Administrator · Reset Password</span>
+      <span class="role">Maintenance Technician · Reset Password</span>
     </div>
     <div class="auth-body">
       <div id="msg" class="msg"></div>
       <?php if (!$hasToken): ?>
         <div class="form-title">Invalid reset link</div>
         <p class="form-hint">This password-reset link is missing its token. Please request a new one from the sign-in page.</p>
-        <a class="btn" href="admin_login_otp.html" style="display:block;text-align:center;text-decoration:none;">Back to sign in</a>
+        <a class="btn" href="login.html" style="display:block;text-align:center;text-decoration:none;">Back to sign in</a>
       <?php else: ?>
         <div class="form-title">Set a new password</div>
-        <p class="form-hint">Choose a strong password of at least 8 characters for your admin account.</p>
+        <p class="form-hint">Choose a strong password of at least 8 characters for your technician account.</p>
         <form id="resetForm" autocomplete="off">
           <input type="hidden" id="token" value="<?php echo htmlspecialchars($token, ENT_QUOTES); ?>">
           <div class="field">
@@ -82,7 +82,7 @@ $hasToken = $token !== '';
           </div>
           <button type="submit" class="btn" id="submitBtn">Reset password</button>
         </form>
-        <div class="foot"><a href="admin_login_otp.html">Back to sign in</a></div>
+        <div class="foot"><a href="login.html">Back to sign in</a></div>
       <?php endif; ?>
     </div>
   </div>
@@ -115,7 +115,7 @@ $hasToken = $token !== '';
   if (pw2) pw2.addEventListener('input', checkMatch);
 
   async function getCsrf() {
-    try { var r = await fetch('admin_login_process.php?action=get_csrf', { credentials: 'same-origin' }); var j = await r.json(); return j.token || ''; }
+    try { var r = await fetch('technician_login_process.php?action=get_csrf', { credentials: 'same-origin' }); var j = await r.json(); return j.token || ''; }
     catch (e) { return ''; }
   }
   if (form) form.addEventListener('submit', async function (e) {
@@ -129,12 +129,12 @@ $hasToken = $token !== '';
     body.set('new_password', pw.value);
     body.set('csrf_token', await getCsrf());
     try {
-      var r = await fetch('admin_login_process.php', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() });
+      var r = await fetch('technician_login_process.php', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() });
       var j = await r.json();
       if (j.success) {
         show((j.message || 'Password reset successful.') + ' Redirecting to sign in…', 'ok');
         form.style.display = 'none';
-        setTimeout(function () { window.location.href = 'admin_login_otp.html'; }, 1800);
+        setTimeout(function () { window.location.href = 'login.html'; }, 1800);
       } else {
         show(j.message || 'Could not reset your password. The link may have expired — request a new one.', 'err');
         btn.disabled = false; btn.textContent = 'Reset password';
