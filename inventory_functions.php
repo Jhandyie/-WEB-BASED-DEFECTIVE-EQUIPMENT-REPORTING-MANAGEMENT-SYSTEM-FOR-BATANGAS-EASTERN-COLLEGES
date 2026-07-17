@@ -657,7 +657,7 @@ function qurl(array $params): string { return '?' . http_build_query($params); }
   --m1:#2D0505;--m2:#4A0E0E;--m3:#7B1D1D;--m4:#9B2C2C;
   --g1:#92600A;--g2:#D4A017;--g3:#F0C040;--gp:#FEF9E7;
   --bg:#F4EFE6;--s1:#FFFFFF;--s2:#FAF7F0;--s3:#F2EAD9;
-  --bdr:#E5D9C6;--bdr2:#D0C0A8;
+  --bdr:#ECE2D2;--bdr2:#D8C9B2;
   --t1:#1A0808;--t2:#5C3838;--t3:#9C7A7A;--t4:#C8ABAB;
   --sh0:0 1px 2px rgba(45,5,5,.05);
   --sh1:0 2px 8px rgba(45,5,5,.07),0 1px 3px rgba(45,5,5,.04);
@@ -780,7 +780,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 
 /* -- SUMMARY CARDS ---------------------------------- */
 .sums{display:grid;grid-template-columns:repeat(6,1fr);gap:.7rem;margin-bottom:1.375rem;}
-.scard{background:var(--s1);border-radius:var(--r3);padding:.95rem 1.05rem;
+.scard{background:var(--s1);border-radius:var(--r3);padding:1.15rem 1.2rem;
   border:1px solid var(--bdr);position:relative;overflow:hidden;
   transition:all .26s cubic-bezier(.4,0,.2,1);box-shadow:var(--sh0);cursor:pointer;text-decoration:none;display:block;}
 .scard::before{content:'';position:absolute;top:-16px;right:-16px;width:66px;height:66px;border-radius:50%;
@@ -808,10 +808,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 @keyframes critP{0%,100%{box-shadow:0 4px 0 rgba(0,0,0,.08);}50%{box-shadow:0 4px 0 rgba(0,0,0,.08),0 0 14px rgba(220,38,38,.35);}}
 .sc-e .sico{--sib:#F9FAFB;--sic:#6B7280;}
 .sc-f .sico{--sib:#FFF7ED;--sic:#C2410C;animation:critP 2s ease-in-out infinite;}
-.snum{font-family:'Outfit',sans-serif;font-size:1.9rem;font-weight:800;color:var(--t1);line-height:1;
+.snum{font-family:'Outfit',sans-serif;font-size:2.2rem;font-weight:800;color:var(--t1);line-height:1;
   margin-bottom:.1rem;position:relative;z-index:1;transition:color .26s;}
 .scard:hover .snum{color:var(--sk);}
-.slbl{font-size:.57rem;text-transform:uppercase;letter-spacing:.7px;color:var(--t3);font-weight:700;position:relative;z-index:1;}
+.slbl{font-size:.6rem;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);font-weight:700;position:relative;z-index:1;margin-top:.15rem;}
 .scard{animation:scIn .3s ease both;}
 .scard:nth-child(1){animation-delay:.04s;}.scard:nth-child(2){animation-delay:.08s;}
 .scard:nth-child(3){animation-delay:.12s;}.scard:nth-child(4){animation-delay:.16s;}
@@ -844,14 +844,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .ph3 h3{font-family:'Outfit',sans-serif;font-size:.9rem;font-weight:700;color:var(--t1);
   display:flex;align-items:center;gap:.35rem;margin:0;}
 .ph3 h3 i{color:var(--m3);}
-.tbl{width:100%;border-collapse:collapse;}
-.tbl thead th{padding:.52rem 1rem;font-size:.6rem;text-transform:uppercase;letter-spacing:.85px;
-  color:var(--t3);font-weight:800;text-align:left;background:var(--s2);border-bottom:1.5px solid var(--bdr);white-space:nowrap;}
-.tbl tbody td{padding:.7rem 1rem;font-size:.79rem;color:var(--t1);border-bottom:1px solid var(--bdr);vertical-align:middle;}
+.tbl-scroll{max-height:62vh;overflow-y:auto;}
+.tbl{width:100%;border-collapse:separate;border-spacing:0;}
+.tbl thead th{padding:.5rem .9rem;font-size:.58rem;text-transform:uppercase;letter-spacing:.8px;
+  color:var(--t3);font-weight:800;text-align:left;background:var(--s2);border-bottom:1.5px solid var(--bdr);white-space:nowrap;
+  position:sticky;top:0;z-index:5;}
+.tbl tbody td{padding:.55rem .9rem;font-size:.78rem;color:var(--t1);border-bottom:1px solid rgba(0,0,0,.045);vertical-align:middle;}
+.tbl tbody tr:nth-child(even) td{background:rgba(123,29,29,.022);}
 .tbl tbody tr:last-child td{border-bottom:none;}
-.tbl tbody tr{transition:background .1s,transform .1s;}
+.tbl tbody tr{transition:background .1s;}
 .tbl tbody tr:hover td{background:var(--s2);}
-.tbl tbody tr:hover{transform:translateX(2px);}
 .eid{font-family:'Outfit',sans-serif;font-weight:800;color:var(--m3);font-size:.74rem;}
 .en{font-weight:700;}.esl{font-size:.63rem;color:var(--t3);} 
 .pgx{display:flex;align-items:center;justify-content:space-between;gap:.7rem;flex-wrap:wrap;} 
@@ -1203,6 +1205,7 @@ textarea.fc{resize:vertical;min-height:72px;}
           <button class="btn btn-maroon btn-sm" onclick="openAdd()"><i class="fas fa-plus"></i> Add Equipment</button>
         </div>
       </div>
+      <div class="tbl-scroll">
       <table class="tbl" id="invTbl">
         <thead>
           <tr>
@@ -1282,6 +1285,7 @@ textarea.fc{resize:vertical;min-height:72px;}
           <?php endforeach; endif;?>
         </tbody>
       </table>
+      </div>
     </div>
 
     <!-- ---- GRID VIEW ---- -->
@@ -1305,7 +1309,9 @@ textarea.fc{resize:vertical;min-height:72px;}
             <div class="ec-name"><?php echo esc($e['equipment_name']);?></div>
             <div class="ec-tag"><i class="fas fa-tag" style="font-size:.6rem;color:var(--t3);"></i><?php echo esc($e['asset_tag']);?></div>
             <div class="ec-meta">
-              <span class="bdg <?php echo condCls($e['condition']??'good');?>"><?php echo condLbl($e['condition']??'-');?></span>
+              <?php $gu=strtoupper(trim((string)($e['unit']??'')));
+                if($gu==='ITSO') echo '<span class="dept-itso"><i class="fas fa-laptop-code"></i>ITSO</span>';
+                elseif($gu==='PMO') echo '<span class="dept-pmo"><i class="fas fa-building"></i>PMO</span>'; ?>
               <?php if($od>0):?><span class="defect-chip"><i class="fas fa-exclamation-triangle"></i><?php echo $od;?> defect<?php echo $od!=1?'s':'';?></span><?php endif;?>
             </div>
             <div class="ec-loc"><i class="fas fa-map-marker-alt"></i><?php echo esc($e['location']??'Unknown location');?></div>
