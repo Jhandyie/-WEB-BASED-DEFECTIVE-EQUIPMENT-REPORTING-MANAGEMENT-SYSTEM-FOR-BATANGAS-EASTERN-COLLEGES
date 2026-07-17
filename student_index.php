@@ -1219,5 +1219,6 @@ function escAttr(s) { return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39
 
 <?php require __DIR__ . '/includes/site_reveal.php'; ?>
 <?php require __DIR__ . '/includes/site_transitions.php'; ?>
+<script src="assets/input_guard.js" defer></script>
 </body>
 </html>

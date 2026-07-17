@@ -88,3 +88,5 @@ $__csrf = csrf_token();
   };
 })();
 </script>
+<!-- Consistent strict input rules (digits-only, length caps, trim) across all forms on the page. -->
+<script src="assets/input_guard.js" defer></script>

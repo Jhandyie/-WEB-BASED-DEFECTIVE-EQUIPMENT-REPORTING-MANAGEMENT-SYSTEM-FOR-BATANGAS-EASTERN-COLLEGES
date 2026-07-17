@@ -2320,5 +2320,6 @@ window.addEventListener('DOMContentLoaded', function () {
 })();
 </script>
 <?php require __DIR__ . '/includes/site_transitions.php'; ?>
+<script src="assets/input_guard.js" defer></script>
 </body>
 </html>
