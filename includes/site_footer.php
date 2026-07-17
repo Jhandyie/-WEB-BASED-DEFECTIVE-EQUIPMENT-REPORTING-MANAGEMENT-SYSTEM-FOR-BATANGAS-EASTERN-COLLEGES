@@ -51,6 +51,8 @@ $bsfYear = date('Y');
           <li><a href="student_index.php">Report equipment</a></li>
           <li><a href="track_report.php">Track a report</a></li>
           <li><a href="public_reports.php">Public reports</a></li>
+          <li><a href="technician/login.html">Technician sign-in</a></li>
+          <li><a href="admin/admin_login_otp.html">Admin sign-in (PMO / ITSO)</a></li>
         </ul>
       </div>
       <div class="bsfoot-col">

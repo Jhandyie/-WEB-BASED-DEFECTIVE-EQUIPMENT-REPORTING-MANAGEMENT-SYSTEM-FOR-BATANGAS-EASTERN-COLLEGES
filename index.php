@@ -235,6 +235,14 @@ a { text-decoration: none; color: inherit; }
 /* ══ PORTALS ══ */
 .portal-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1rem; }
 .portal-grid--single { grid-template-columns: minmax(0, 460px); justify-content: center; }
+/* Discreet staff sign-in row under the reporter portal card */
+.staff-access { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: .55rem 1rem; margin-top: 1.15rem; font-size: .78rem; color: var(--ink3); }
+.staff-access .sa-label { display: inline-flex; align-items: center; gap: .4rem; font-weight: 600; }
+.staff-access .sa-label i { color: var(--gold); font-size: .72rem; }
+.staff-access a { display: inline-flex; align-items: center; gap: .38rem; color: var(--maroon); font-weight: 600; text-decoration: none; padding: .3rem .68rem; border: 1px solid rgba(123,29,29,.18); border-radius: 999px; background: rgba(123,29,29,.04); transition: background .15s, border-color .15s; }
+.staff-access a:hover { background: rgba(123,29,29,.09); border-color: rgba(123,29,29,.35); }
+.staff-access a i { font-size: .68rem; }
+.staff-access .sa-sep { width: 4px; height: 4px; border-radius: 50%; background: var(--border); }
 .portal-card { position: relative; display: flex; flex-direction: column; background: var(--surface);
   border: 1px solid var(--border); border-radius: 18px; padding: 1.8rem 1.6rem; box-shadow: var(--shadow);
   transition: transform .22s cubic-bezier(.22,1,.36,1), box-shadow .22s, border-color .22s; overflow: hidden; }
@@ -550,6 +558,12 @@ a { text-decoration: none; color: inherit; }
           <span class="pc-enter">Enter portal <i class="fas fa-arrow-right"></i></span>
         </a>
       </div>
+      <div class="staff-access">
+        <span class="sa-label"><i class="fas fa-user-shield"></i> BEC personnel?</span>
+        <a href="technician/login.html"><i class="fas fa-screwdriver-wrench"></i> Technician sign-in</a>
+        <span class="sa-sep"></span>
+        <a href="admin/admin_login_otp.html"><i class="fas fa-building-shield"></i> PMO / ITSO admin sign-in</a>
+      </div>
     </div>
   </section>
 
@@ -562,9 +576,9 @@ a { text-decoration: none; color: inherit; }
         <p class="sec-sub">From the moment a defect is reported to its final resolution — the platform covers the full equipment-management workflow.</p>
       </div>
       <div class="mod-grid">
-        <div class="mod-card feat"><div class="mod-ic"><i class="fas fa-clipboard-list"></i></div><div class="mod-tx"><b>Defect Reporting</b><span>Reporters log equipment issues with photos, location, and priority.</span></div></div>
+        <div class="mod-card feat"><div class="mod-ic"><i class="fas fa-clipboard-list"></i></div><div class="mod-tx"><b>Defect Reporting</b><span>Reporters log equipment issues with photo or video evidence, location, and priority.</span></div></div>
         <div class="mod-card"><div class="mod-ic"><i class="fas fa-clipboard-check"></i></div><div class="mod-tx"><b>Review &amp; Approval</b><span>The PMO verifies every report before any work begins.</span></div></div>
-        <div class="mod-card"><div class="mod-ic"><i class="fas fa-people-carry-box"></i></div><div class="mod-tx"><b>Technician Assignment</b><span>Route cases to the right staff with balanced workloads.</span></div></div>
+        <div class="mod-card"><div class="mod-ic"><i class="fas fa-people-carry-box"></i></div><div class="mod-tx"><b>Technician Assignment</b><span>Cases route to the right unit — PMO or ITSO — with balanced technician workloads.</span></div></div>
         <div class="mod-card"><div class="mod-ic"><i class="fas fa-screwdriver-wrench"></i></div><div class="mod-tx"><b>Work Orders</b><span>Technicians track repair progress through to completion.</span></div></div>
         <div class="mod-card feat"><div class="mod-ic"><i class="fas fa-boxes-stacked"></i></div><div class="mod-tx"><b>Inventory</b><span>Maintain equipment records, asset tags, and locations.</span></div></div>
         <div class="mod-card"><div class="mod-ic"><i class="fas fa-calendar-check"></i></div><div class="mod-tx"><b>Preventive Maintenance</b><span>Schedule recurring upkeep before equipment fails.</span></div></div>
