@@ -1185,13 +1185,13 @@ textarea.fc{resize:vertical;min-height:72px;}
         <thead>
           <tr>
             <th>ID</th><th>Equipment</th><th>Asset Tag</th><th>Category</th>
-            <th>Location</th><th>Department</th><th>Status</th><th>Condition</th>
-            <th>Open Defects</th><th>Warranty</th><th style="text-align:center;">Actions</th>
+            <th>Location</th><th>Department</th><th>Unit</th><th>Status</th>
+            <th>Open Defects</th><th style="text-align:center;">Actions</th>
           </tr>
         </thead>
         <tbody>
           <?php if(empty($items)):?>
-          <tr><td colspan="11"><div class="empty"><i class="fas fa-box-open"></i>No equipment found. Add some with the button above.</div></td></tr>
+          <tr><td colspan="10"><div class="empty"><i class="fas fa-box-open"></i>No equipment found. Add some with the button above.</div></td></tr>
           <?php else: foreach($items as $e):
             $ws = warrantyStatus($e['warranty_expiry']??null);
             $od = (int)($e['open_defects']??0);
@@ -1222,24 +1222,19 @@ textarea.fc{resize:vertical;min-height:72px;}
               else: echo '<span style="color:var(--t4)">-</span>';
               endif;?>
             </td>
+            <td>
+              <?php $u=strtoupper(trim((string)($e['unit']??'')));
+                if($u==='ITSO') echo '<span class="dept-itso"><i class="fas fa-laptop-code"></i>ITSO</span>';
+                elseif($u==='PMO') echo '<span class="dept-pmo"><i class="fas fa-building"></i>PMO</span>';
+                else echo '<span style="color:var(--t4)">-</span>';?>
+            </td>
             <td><span class="bdg <?php echo stCls($e['status']);?>"><?php echo stLbl($e['status']);?></span></td>
-            <td><span class="bdg <?php echo condCls($e['condition']??'good');?>"><?php echo condLbl($e['condition']??'-');?></span></td>
             <td style="text-align:center;">
               <?php if($od>0):?>
               <span class="defect-chip"><i class="fas fa-exclamation-triangle"></i><?php echo $od;?></span>
               <?php else:?>
               <span class="defect-chip none">0</span>
               <?php endif;?>
-            </td>
-            <td>
-              <?php if($ws):
-                [$wst,$wcol,$wdays]=$ws;
-                $wtxt = $wst==='expired'?'Expired '.abs($wdays).'d ago':($wst==='expiring'?'Expires in '.$wdays.'d':'Valid');
-              ?>
-              <span style="font-size:.7rem;font-weight:700;color:<?php echo $wcol;?>;">
-                <i class="fas fa-shield-alt" style="font-size:.62rem;"></i> <?php echo $wtxt;?>
-              </span>
-              <?php else:?><span style="color:var(--t4);font-size:.72rem;">-</span><?php endif;?>
             </td>
             <td style="text-align:center;">
               <div style="display:flex;gap:.25rem;justify-content:center;">
