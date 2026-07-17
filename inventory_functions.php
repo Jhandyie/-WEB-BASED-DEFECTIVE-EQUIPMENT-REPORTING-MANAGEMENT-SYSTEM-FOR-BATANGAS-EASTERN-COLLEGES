@@ -1399,15 +1399,13 @@ textarea.fc{resize:vertical;min-height:72px;}
             <input type="text" name="location" class="fc" placeholder="e.g. Room 201, Lab 3" maxlength="150" required></div>
         </div>
         <div class="sec-title"><i class="fas fa-clipboard-check"></i> Status</div>
-        <div class="fg2">
-          <div class="fg"><label class="fl">Status</label>
-            <select name="status" class="fc">
-              <option value="operational">Operational</option>
-              <option value="under_maintenance">Under Maintenance</option>
-              <option value="faulty">Faulty</option>
-              <option value="retired">Retired</option>
-            </select>
-          </div>
+        <div class="fg"><label class="fl">Status</label>
+          <select name="status" class="fc">
+            <option value="operational">Operational</option>
+            <option value="under_maintenance">Under Maintenance</option>
+            <option value="faulty">Faulty</option>
+            <option value="retired">Retired</option>
+          </select>
         </div>
         <div class="fg"><label class="fl">Notes</label>
           <textarea name="notes" class="fc" placeholder="Additional notes about this equipment-"></textarea></div>
@@ -1465,15 +1463,13 @@ textarea.fc{resize:vertical;min-height:72px;}
             <input type="text" name="location" id="eEloc" class="fc" maxlength="150" required></div>
         </div>
         <div class="sec-title"><i class="fas fa-clipboard-check"></i> Status</div>
-        <div class="fg2">
-          <div class="fg"><label class="fl">Status</label>
-            <select name="status" id="eEst" class="fc">
-              <option value="operational">Operational</option>
-              <option value="under_maintenance">Under Maintenance</option>
-              <option value="faulty">Faulty</option>
-              <option value="retired">Retired</option>
-            </select>
-          </div>
+        <div class="fg"><label class="fl">Status</label>
+          <select name="status" id="eEst" class="fc">
+            <option value="operational">Operational</option>
+            <option value="under_maintenance">Under Maintenance</option>
+            <option value="faulty">Faulty</option>
+            <option value="retired">Retired</option>
+          </select>
         </div>
         <div class="fg"><label class="fl">Notes</label><textarea name="notes" id="eEnotes" class="fc"></textarea></div>
       </form>
