@@ -161,6 +161,16 @@ function forgotPassword() {
         exit();
     }
 
+    // Anti-abuse: cap reset requests so a stranger can't bombard a technician's inbox.
+    try {
+        RateLimiter::enforce('tech_forgot:' . RateLimiter::clientIp(), 3, 900);
+        RateLimiter::enforce('tech_forgot_mail:' . strtolower($email), 3, 900); // per-target cap, any IP
+    } catch (Exception $e) {
+        http_response_code(429);
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        exit();
+    }
+
     $user = findUserByEmailAndRole($email, $role, ['user_id', 'email']);
     if ($user) {
         $token   = bin2hex(random_bytes(32));

@@ -256,6 +256,24 @@ function resendOTP() {
         exit();
     }
 
+    // Anti-abuse: resend needs no password, so cap it hard — both per requester and per target
+    // inbox — to stop OTP email bombing of the admin.
+    try {
+        RateLimiter::enforce('admin_resend:' . RateLimiter::clientIp(), 4, 900);
+        RateLimiter::enforce('admin_resend_mail:' . strtolower($email), 5, 900);
+    } catch (Exception $e) {
+        http_response_code(429);
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        exit();
+    }
+
+    // Only resend when a login attempt for this email is actually pending OTP in this session —
+    // a stranger poking the endpoint directly never triggers an email.
+    if (strtolower((string)($_SESSION['temp_user_email'] ?? '')) !== strtolower($email)) {
+        echo json_encode(['success' => true, 'message' => 'If this email is registered, an OTP has been sent.']);
+        exit();
+    }
+
     $user = findUserByEmailAndRole($email, $role, ['user_id', 'email', 'fullname']);
     if (!$user) {
         echo json_encode(['success' => true, 'message' => 'If this email is registered, an OTP has been sent.']);
@@ -300,6 +318,16 @@ function forgotPassword() {
         exit();
     }
 
+    // Anti-abuse: cap reset requests so a stranger can't bombard the admin's inbox.
+    try {
+        RateLimiter::enforce('admin_forgot:' . RateLimiter::clientIp(), 3, 900);
+        RateLimiter::enforce('admin_forgot_mail:' . strtolower($email), 3, 900); // per-target cap, any IP
+    } catch (Exception $e) {
+        http_response_code(429);
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        exit();
+    }
+
     $user = findUserByEmailAndRole($email, $role, ['user_id', 'email', 'fullname']);
     if (!$user) {
         echo json_encode([
@@ -321,6 +349,11 @@ function forgotPassword() {
     $__appBase = $__scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirname(dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/\\');
     $reset_link = $__appBase . "/admin/reset_password.php?token=" . $token;
     error_log("Admin password reset link for {$email}: " . $reset_link);
+
+    // Actually deliver the link (previously it was only written to the error log).
+    require_once __DIR__ . '/../includes/mail_helper.php';
+    try { sendPasswordResetEmail($email, $reset_link); }
+    catch (\Throwable $e) { error_log('admin reset email failed: ' . $e->getMessage()); }
 
     echo json_encode([
         'success' => true,
