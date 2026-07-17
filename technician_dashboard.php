@@ -1950,6 +1950,48 @@ if ('serviceWorker' in navigator) {
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modal.classList.contains('show')) close(); });
 })();
 </script>
+
+<!-- Exit / log-out confirmation (also traps the phone/browser Back gesture) -->
+<div class="te-modal" id="tExitModal" aria-hidden="true">
+  <div class="te-box" role="dialog" aria-modal="true" aria-labelledby="tExitTitle">
+    <div class="te-ic" style="background:#FFF4E5;color:#C9960C;"><i class="fas fa-right-from-bracket"></i></div>
+    <h3 id="tExitTitle">Do you really want to log out?</h3>
+    <p>You'll be signed out and returned to the technician login page.</p>
+    <div style="display:flex;gap:.6rem;">
+      <button type="button" class="te-btn" id="tExitNo" style="background:#fff;border:1.5px solid var(--bdr);color:var(--ink2);">No, stay</button>
+      <button type="button" class="te-btn" id="tExitYes">Yes, log out</button>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var modal = document.getElementById('tExitModal');
+  if (!modal) return;
+  var LOGOUT = 'technician/logout.php';
+  var pending = null;
+  function open(url) { pending = url || LOGOUT; modal.classList.add('show'); modal.setAttribute('aria-hidden', 'false'); }
+  function close() { modal.classList.remove('show'); modal.setAttribute('aria-hidden', 'true'); pending = null; }
+  // Intercept the Log Out link (capture phase so the page-transition handler can't navigate first).
+  document.querySelectorAll('.lout').forEach(function (link) {
+    link.addEventListener('click', function (e) {
+      e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+      open(link.getAttribute('href'));
+    }, true);
+  });
+  // Trap the browser / phone Back gesture.
+  try {
+    history.pushState(null, document.title, location.href);
+    window.addEventListener('popstate', function () {
+      history.pushState(null, document.title, location.href);
+      if (!modal.classList.contains('show')) open(LOGOUT);
+    });
+  } catch (e) {}
+  document.getElementById('tExitYes').addEventListener('click', function () { var u = pending; close(); window.location.href = u || LOGOUT; });
+  document.getElementById('tExitNo').addEventListener('click', close);
+  modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modal.classList.contains('show')) close(); });
+})();
+</script>
 <?php require_once __DIR__ . '/includes/csrf_inject.php'; ?>
 <?php require __DIR__ . '/includes/technician_assistant.php'; ?>
 <?php require __DIR__ . '/includes/site_transitions.php'; ?>
