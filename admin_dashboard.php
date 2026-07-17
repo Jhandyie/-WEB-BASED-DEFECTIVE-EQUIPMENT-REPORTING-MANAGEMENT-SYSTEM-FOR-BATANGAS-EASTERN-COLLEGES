@@ -17,6 +17,14 @@ $admin_first = explode(' ', $admin_name)[0];
 
 // -- CORE DATA ---------------------------------
 $allReports        = getAllDefectReports();
+// PMO/ITSO: scope this admin's overview to their own unit (un-triaged reports still show).
+$adminUnit = adminUnitForUser($_SESSION['user_id'] ?? '');
+if ($adminUnit !== '') {
+    $allReports = array_values(array_filter($allReports, function ($r) use ($adminUnit) {
+        $d = (string)($r['department_assigned'] ?? '');
+        return $d === $adminUnit || $d === '';
+    }));
+}
 $notificationCount = getUnreadNotificationCount(null);
 $userCount         = getTotalUserCount();
 function dashboardSummarizeText(?string $text, int $limit): string
@@ -562,6 +570,8 @@ body{
 .hero-eyebrow i{color:var(--g2);}
 .hero-title{font-family:'Outfit',sans-serif;font-size:1.75rem;font-weight:800;color:#fff;line-height:1.2;margin-bottom:.3rem;text-shadow:0 2px 10px rgba(0,0,0,.25);}
 .hero-title .hl{color:var(--g3);}
+.hero-title .unit-badge{display:inline-flex;align-items:center;gap:.35rem;vertical-align:middle;margin-left:.6rem;padding:.24rem .66rem;border-radius:999px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);color:#fff;font-family:'DM Sans',sans-serif;font-size:.6rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;text-shadow:none;}
+.hero-title .unit-badge i{font-size:.58rem;}
 .hero-sub{color:rgba(255,255,255,.48);font-size:.84rem;}
 .hero-meta{
   display:flex;align-items:center;gap:1.25rem;flex-shrink:0;
@@ -904,8 +914,10 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .nav-item:focus-visib
     <div class="hero">
       <div class="hero-left">
         <div class="hero-eyebrow"><i class="fas fa-tools"></i> BEC Equipment Reporting & Maintenance System</div>
-        <h1 class="hero-title">Good <?php $h=date('G');echo $h<12?'Morning':($h<17?'Afternoon':'Evening');?>, <span class="hl"><?php echo htmlspecialchars($admin_first);?>!</span></h1>
-        <p class="hero-sub">Here's your operational overview for today. <?php if($criticalRep>0): ?><strong style="color:#FCA5A5;"><?php echo $criticalRep;?> critical <?php echo $criticalRep==1?'case needs':'cases need';?> immediate attention.</strong><?php endif; ?></p>
+        <h1 class="hero-title">Good <?php $h=date('G');echo $h<12?'Morning':($h<17?'Afternoon':'Evening');?>, <span class="hl"><?php echo htmlspecialchars($admin_first);?>!</span>
+          <?php if($adminUnit!==''): ?><span class="unit-badge"><i class="fas fa-<?php echo $adminUnit==='ITSO'?'laptop-code':'building-shield'; ?>"></i> <?php echo htmlspecialchars($adminUnit);?> Admin</span><?php endif; ?>
+        </h1>
+        <p class="hero-sub"><?php if($adminUnit!==''): ?>Your <strong><?php echo htmlspecialchars($adminUnit);?></strong> overview for today. <?php else: ?>Here's your operational overview for today. <?php endif; ?><?php if($criticalRep>0): ?><strong style="color:#FCA5A5;"><?php echo $criticalRep;?> critical <?php echo $criticalRep==1?'case needs':'cases need';?> immediate attention.</strong><?php endif; ?></p>
       </div>
       <div class="hero-meta">
         <div class="hero-timestamp">

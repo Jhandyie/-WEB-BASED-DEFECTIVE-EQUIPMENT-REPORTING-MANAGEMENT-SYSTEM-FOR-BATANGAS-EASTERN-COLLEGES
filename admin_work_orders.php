@@ -176,6 +176,18 @@ $pf        = $_GET['priority'] ?? 'all';
 $sq        = $_GET['search']   ?? '';
 $view_id   = $_GET['view']     ?? null;
 
+// Unit scope (PMO/ITSO): default to the admin's own unit; still switchable to All/other.
+$adminUnit  = adminUnitForUser($admin_id);
+$dfExplicit = array_key_exists('dept', $_GET);
+$df = $_GET['dept'] ?? ($adminUnit !== '' ? $adminUnit : 'all');
+$all_wos = array_values(array_filter($all_wos, function ($w) use ($df, $dfExplicit) {
+    if ($df === 'all') return true;
+    $d = (string)($w['department_assigned'] ?? '');
+    if ($d === $df) return true;
+    if (!$dfExplicit && $d === '') return true; // default view also shows un-triaged
+    return false;
+}));
+
 // filter
 $wos = $all_wos;
 if ($sf !== 'all') $wos = array_filter($wos, fn($w) => $w['status'] === $sf);
@@ -377,6 +389,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .ph h1{font-family:'Outfit',sans-serif;font-size:1.45rem;font-weight:800;display:flex;align-items:center;gap:.45rem;}
 .ph h1 i{color:var(--m3);}
 .ph-sub{font-size:.78rem;color:var(--t3);margin-top:.18rem;}
+.unit-badge{display:inline-flex;align-items:center;gap:.35rem;margin-left:.5rem;padding:.2rem .58rem;border-radius:999px;background:linear-gradient(135deg,var(--m3,#7a1220),#a01a2b);color:#fff;font-family:'DM Sans',sans-serif;font-size:.6rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;}
+.unit-badge i{font-size:.58rem;}
 
 /* ── BUTTONS ─────────────────────────────────────── */
 .btn{display:inline-flex;align-items:center;gap:.32rem;padding:.4rem .875rem;border-radius:var(--r1);
@@ -660,8 +674,10 @@ textarea.fc{resize:vertical;min-height:72px;}
     <!-- Page Header -->
     <div class="ph">
       <div>
-        <h1><i class="fas fa-clipboard-check"></i> Work Orders</h1>
-        <p class="ph-sub">Create, assign, and track maintenance work orders linked to approved defect reports.</p>
+        <h1><i class="fas fa-clipboard-check"></i> Work Orders
+          <?php if ($adminUnit !== ''): ?><span class="unit-badge"><i class="fas fa-<?php echo $adminUnit==='ITSO'?'laptop-code':'building-shield'; ?>"></i> <?php echo esc($adminUnit); ?> Admin</span><?php endif; ?>
+        </h1>
+        <p class="ph-sub"><?php if ($adminUnit !== '' && !$dfExplicit): ?>Showing <strong><?php echo esc($adminUnit); ?></strong> work orders by default — use the unit filter to view All or the other unit. <?php endif; ?>Create, assign, and track maintenance work orders linked to approved defect reports.</p>
       </div>
       <div style="display:flex;gap:.45rem;">
         <button class="btn btn-ghost btn-sm" onclick="location.reload()"><i class="fas fa-sync-alt"></i> Refresh</button>
@@ -718,6 +734,11 @@ textarea.fc{resize:vertical;min-height:72px;}
         <option value="high"     <?php echo $pf==='high'?'selected':''; ?>>High</option>
         <option value="medium"   <?php echo $pf==='medium'?'selected':''; ?>>Medium</option>
         <option value="low"      <?php echo $pf==='low'?'selected':''; ?>>Low</option>
+      </select>
+      <select class="fsel" id="fsd" onchange="go()">
+        <option value="all"  <?php echo $df==='all'?'selected':''; ?>>All Units</option>
+        <option value="ITSO" <?php echo $df==='ITSO'?'selected':''; ?>>ITSO</option>
+        <option value="PMO"  <?php echo $df==='PMO'?'selected':''; ?>>PMO</option>
       </select>
       <span style="font-size:.7rem;color:var(--t3);white-space:nowrap;">
         <?php echo count($wos); ?> result<?php echo count($wos)!=1?'s':''; ?>
@@ -1072,6 +1093,7 @@ function go(){
   u.searchParams.set('status',  document.getElementById('fss').value);
   u.searchParams.set('priority',document.getElementById('fsp').value);
   u.searchParams.set('search',  document.getElementById('fsq').value);
+  const fsd=document.getElementById('fsd'); if(fsd) u.searchParams.set('dept', fsd.value);
   location.href=u.toString();
 }
 let dbt; function debounceGo(){clearTimeout(dbt);dbt=setTimeout(go,500);}
