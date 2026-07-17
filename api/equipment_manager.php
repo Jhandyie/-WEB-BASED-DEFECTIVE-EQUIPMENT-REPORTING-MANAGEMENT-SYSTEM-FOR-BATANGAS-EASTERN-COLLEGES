@@ -214,6 +214,18 @@ class FastEquipmentManager {
         
         $stmt->execute();
         $stmt->close();
+        // Categorize the equipment by unit (ITSO for computers/network, PMO otherwise).
+        if (function_exists('classifyDepartmentByEquipment')) {
+            $unit = classifyDepartmentByEquipment(
+                (string)($equipmentData['equipment_id'] ?? ''),
+                (string)($equipmentData['equipment_name'] ?? ''),
+                '',
+                (string)($equipmentData['location'] ?? '')
+            );
+            if ($us = $conn->prepare("UPDATE equipment SET unit = ? WHERE equipment_id = ?")) {
+                $us->bind_param("ss", $unit, $equipmentData['equipment_id']); $us->execute(); $us->close();
+            }
+        }
         $conn->close();
     }
 }

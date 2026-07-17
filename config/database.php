@@ -1019,6 +1019,28 @@ function adminUnitForUser(string $userId): string {
 }
 
 /**
+ * The unit ("PMO" or "ITSO") responsible for a piece of equipment. Reads the stored
+ * equipment.unit; if unset, classifies it live (computers/network → ITSO, facilities → PMO).
+ */
+function equipmentUnit(string $equipmentId): string {
+    $equipmentId = trim($equipmentId);
+    if ($equipmentId === '') return 'PMO';
+    try {
+        if (isPgSqlDriver()) {
+            $pdo = getPgsqlPdoConnection();
+            $st = $pdo->prepare("SELECT unit FROM public.equipment WHERE equipment_id = :id LIMIT 1");
+            $st->execute(['id' => $equipmentId]); $u = strtoupper(trim((string)$st->fetchColumn()));
+        } else {
+            $conn = getDBConnection();
+            $st = $conn->prepare("SELECT unit FROM equipment WHERE equipment_id = ? LIMIT 1");
+            if ($st) { $st->bind_param('s', $equipmentId); $st->execute(); $r = $st->get_result()->fetch_assoc(); $u = strtoupper(trim((string)($r['unit'] ?? ''))); } else { $u = ''; }
+        }
+        if ($u === 'ITSO' || $u === 'PMO') return $u;
+    } catch (\Throwable $e) {}
+    return classifyDepartmentByEquipment($equipmentId); // fall back to live classification
+}
+
+/**
  * Save a reporter's self-provided contact details back onto their profile so the admin sees them
  * in User Management. Updates an existing BEC directory record and/or a registered user account
  * that matches the email. Only fills provided values; never creates a new record. Non-fatal.

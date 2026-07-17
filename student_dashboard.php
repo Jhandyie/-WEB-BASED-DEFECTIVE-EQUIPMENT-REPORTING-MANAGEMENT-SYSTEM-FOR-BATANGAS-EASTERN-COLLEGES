@@ -287,6 +287,11 @@ function createStudentManualEquipment($conn, string $name, string $category, str
         $stmt->bind_param("sssiss", $equipmentId, $finalAssetTag, $name, $categoryId, $description, $location);
         if ($stmt->execute()) {
             $stmt->close();
+            // Categorize the new equipment by unit (ITSO for computers/network, PMO otherwise).
+            $unit = classifyDepartmentByEquipment($equipmentId, $name, $category, $location);
+            if ($us = $conn->prepare("UPDATE equipment SET unit = ? WHERE equipment_id = ?")) {
+                $us->bind_param("ss", $unit, $equipmentId); $us->execute(); $us->close();
+            }
             return [
                 'id' => $equipmentId,
                 'name' => $name,
@@ -556,6 +561,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'equipment_id' => trim($_POST['equipment_id']),
                 'equipment_name' => trim((string)($_POST['equipment_name'] ?? '')),
                 'location' => trim((string)($_POST['location'] ?? '')),
+                'department_assigned' => equipmentUnit(trim((string)($_POST['equipment_id'] ?? ''))),
                 'reported_by' => getGuestReporterId(),
                 'reporter_name' => $student_name,
                 'reporter_email' => $student_email,

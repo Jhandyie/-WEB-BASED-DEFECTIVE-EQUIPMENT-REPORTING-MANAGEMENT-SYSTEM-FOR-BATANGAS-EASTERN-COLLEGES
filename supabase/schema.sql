@@ -63,6 +63,7 @@ create table if not exists public.equipment (
   description text,
   location varchar(200),
   department varchar(120),
+  unit varchar(8),  -- responsible unit: 'PMO' | 'ITSO' (auto-classified from type)
   status text not null default 'available' check (status in ('available','reserved','in_use','in-use','maintenance','under_maintenance','defective','faulty','retired','deleted')),
   condition_status text default 'good' check (condition_status in ('excellent','good','fair','poor','damaged')),
   condition text,
