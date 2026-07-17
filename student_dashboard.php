@@ -579,6 +579,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$saved) {
                 $error = 'We could not save your report right now. Please try again.';
             } else {
+                // Save the reporter's self-provided details onto their profile (visible to admin).
+                becSyncReporterProfile($student_email, $reporterDepartment, $reporterCourse, $reporterPhone);
+
                 notifyAdminsOfStudentReport(
                     $conn,
                     $ticket,

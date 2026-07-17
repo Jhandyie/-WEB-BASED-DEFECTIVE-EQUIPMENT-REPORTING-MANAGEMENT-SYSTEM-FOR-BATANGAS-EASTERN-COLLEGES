@@ -375,17 +375,21 @@ try {
             $ut = strtolower(trim((string)($bd['user_type'] ?? 'student')));
             if (!in_array($ut, ['student','faculty','staff'], true)) { $ut = 'student'; }
             $entry = [
-                'user_id'      => (string)($bd['student_number'] ?: ($bd['employee_number'] ?: ('DIR-'.($bd['id'] ?? '')))),
-                'fullname'     => (string)($bd['full_name'] ?? ''),
-                'email'        => (string)($bd['email'] ?? ''),
-                'role'         => $ut,           // student | faculty | staff
-                'department'   => (string)($bd['department'] ?? ''),
-                'status'       => 'active',
-                'report_count' => (int)($bd['report_count'] ?? 0),
-                'active_tasks' => 0,
-                'created_at'   => $bd['imported_at'] ?? null,
-                'phone'        => '',
-                'is_directory' => true,          // read-only marker
+                'user_id'         => (string)($bd['student_number'] ?: ($bd['employee_number'] ?: ('DIR-'.($bd['id'] ?? '')))),
+                'fullname'        => (string)($bd['full_name'] ?? ''),
+                'email'           => (string)($bd['email'] ?? ''),
+                'role'            => $ut,           // student | faculty | staff
+                'department'      => (string)($bd['department'] ?? ''),
+                'status'          => 'active',
+                'report_count'    => (int)($bd['report_count'] ?? 0),
+                'active_tasks'    => 0,
+                'created_at'      => $bd['imported_at'] ?? null,
+                'phone'           => (string)($bd['phone'] ?? ''),
+                'program'         => (string)($bd['program'] ?? ''),
+                'employee_number' => (string)($bd['employee_number'] ?? ''),
+                'student_number'  => (string)($bd['student_number'] ?? ''),
+                'user_type'       => $ut,
+                'is_directory'    => true,          // read-only marker
             ];
             // Respect the active role filter and search box.
             if ($rf !== 'all' && $rf !== $ut && !($rf === 'reporter' && in_array($ut, ['student','faculty','staff'], true))) { continue; }
@@ -1584,15 +1588,27 @@ function openProfile(u){
   pb.innerHTML = roleBadge(u.role) + (u.is_directory?'<span class="bdg" style="background:rgba(8,145,178,.12);color:#0891B2;">Directory</span>':'');
   document.getElementById('profSubtitle').textContent = (u.email||'') + ' · Joined ' + fmtDate(u.created_at);
   // rows
-  const rows=[
-    ['Email',       escH(u.email||'—')],
-    ['Phone',       escH(u.phone||'—')],
-    ['Department',  deptBadge(u.department||'')],
-    ['Role',        roleBadge(u.role||'')],
-    ['Reports Filed', `<span style="font-family:'Outfit',sans-serif;font-weight:800;font-size:.9rem;color:var(--m3);">${u.report_count||0}</span>`],
-    ['Active Tasks', `<span style="font-family:'Outfit',sans-serif;font-weight:800;font-size:.9rem;">${u.active_tasks||0}</span>`],
-    ['Created', fmtDate(u.created_at)],
-  ];
+  const rows=[];
+  const has = (v) => v!==undefined && v!==null && String(v).trim()!=='' ;
+  const add = (k,v) => { if (has(v)) rows.push([k, escH(String(v))]); };
+  const addHtml = (k,v) => { if (v) rows.push([k, v]); };
+  add('Full Name', u.fullname);
+  add('Email', u.email);
+  add('Phone', u.phone);
+  add('Contact No.', u.contact_number);
+  if (has(u.department)) addHtml('Department', deptBadge(u.department));
+  add('Course / Program', u.program || u.course);
+  addHtml('Role', roleBadge(u.role||''));
+  add('User Type', u.user_type);
+  add('Student No.', u.student_number);
+  add('Employee No.', u.employee_number);
+  add('Specialization', u.specialization);
+  add('Position', u.position);
+  add('Account ID', u.user_id);
+  add('Status', u.status);
+  rows.push(['Reports Filed', `<span style="font-family:'Outfit',sans-serif;font-weight:800;font-size:.9rem;color:var(--m3);">${u.report_count||0}</span>`]);
+  if (!u.is_directory) rows.push(['Active Tasks', `<span style="font-family:'Outfit',sans-serif;font-weight:800;font-size:.9rem;">${u.active_tasks||0}</span>`]);
+  addHtml('Created', fmtDate(u.created_at));
   document.getElementById('profRows').innerHTML = rows.map(([k,v])=>
     `<div class="dr"><div class="dk">${k}</div><div class="dv">${v}</div></div>`
   ).join('');

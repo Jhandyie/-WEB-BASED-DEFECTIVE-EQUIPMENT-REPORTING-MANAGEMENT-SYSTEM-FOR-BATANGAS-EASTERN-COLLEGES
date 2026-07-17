@@ -1018,6 +1018,39 @@ function adminUnitForUser(string $userId): string {
     return $unit;
 }
 
+/**
+ * Save a reporter's self-provided contact details back onto their profile so the admin sees them
+ * in User Management. Updates an existing BEC directory record and/or a registered user account
+ * that matches the email. Only fills provided values; never creates a new record. Non-fatal.
+ */
+function becSyncReporterProfile(string $email, string $department = '', string $course = '', string $phone = ''): void {
+    $email = strtolower(trim($email));
+    if ($email === '' || !isPgSqlDriver()) return;
+    $department = trim($department); $course = trim($course); $phone = trim($phone);
+    if ($department === '' && $course === '' && $phone === '') return;
+    try {
+        $pdo = getPgsqlPdoConnection();
+        // 1) BEC directory record (where guest reporters live)
+        $sets = []; $p = ['e' => $email];
+        if ($phone !== '')      { $sets[] = 'phone = :ph';   $p['ph'] = $phone; }
+        if ($department !== '') { $sets[] = 'department = :d'; $p['d'] = $department; }
+        if ($course !== '')     { $sets[] = 'program = :c';   $p['c'] = $course; }
+        if ($sets) {
+            $st = $pdo->prepare('UPDATE public.bec_directory SET ' . implode(', ', $sets) . ' WHERE lower(email) = :e');
+            $st->execute($p);
+        }
+        // 2) Registered user account with the same email (if the columns exist)
+        $cols = getTableColumns('users');
+        $usets = []; $up = ['e' => $email];
+        if ($phone !== '' && isset($cols['phone']))           { $usets[] = 'phone = :ph';   $up['ph'] = $phone; }
+        if ($department !== '' && isset($cols['department']))  { $usets[] = 'department = :d'; $up['d'] = $department; }
+        if ($usets) {
+            $st2 = $pdo->prepare('UPDATE public.users SET ' . implode(', ', $usets) . ' WHERE lower(email) = :e');
+            $st2->execute($up);
+        }
+    } catch (\Throwable $e) { /* non-fatal — profile sync must never block a report */ }
+}
+
 function inferDefectReportPhotoPaths(array $report) {
     $photos = [];
 
