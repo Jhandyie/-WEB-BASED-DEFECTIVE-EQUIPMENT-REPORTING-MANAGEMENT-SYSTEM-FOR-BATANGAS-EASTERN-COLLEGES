@@ -131,14 +131,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (function_exists('userExistsByUsername')) { $baseU = $username; $n = 1; while (userExistsByUsername($username)) { $username = $baseU . $n; $n++; } }
             $token = bin2hex(random_bytes(24));
             $placeholder = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
-            $expires = date('Y-m-d H:i:s', time() + 72 * 3600); // 3-day link
-
+            // Expiry on the DB clock (3-day link) so it can't be skewed by a PHP/DB timezone gap.
             $stmt = $pdo->prepare("INSERT INTO {$usersTable}
                 (user_id, username, password, fullname, email, role, status, department, specialization, position, invite_token, invite_expires_at, created_at)
-                VALUES (:uid,:un,:pw,:fn,:em,'technician','invited',:dept,:spec,:pos,:tok,:exp, now())");
+                VALUES (:uid,:un,:pw,:fn,:em,'technician','invited',:dept,:spec,:pos,:tok, now() + interval '72 hours', now())");
             $ok = $stmt->execute([
                 'uid'=>$uid,'un'=>$username,'pw'=>$placeholder,'fn'=>$fname,'em'=>$email,
-                'dept'=>$dept,'spec'=>$spec,'pos'=>$position,'tok'=>$token,'exp'=>$expires,
+                'dept'=>$dept,'spec'=>$spec,'pos'=>$position,'tok'=>$token,
             ]);
 
             if ($ok) {
@@ -148,14 +147,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $link = $baseUrl . '/technician/verify_account.php?token=' . $token;
                 $emailSent = false;
                 if (function_exists('sendEmail')) {
-                    $body = '<div style="background:#F8F3EA;padding:24px;font-family:Segoe UI,Arial,sans-serif;"><div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #E8DDD0;border-radius:14px;overflow:hidden;">'
-                        . '<div style="background:#7B1D1D;padding:18px 24px;"><div style="color:#fff;font-size:15px;font-weight:700;">Batangas Eastern Colleges</div><div style="color:#E9C77B;font-size:11px;letter-spacing:.5px;text-transform:uppercase;">Property Management Office — Technician Onboarding</div></div>'
-                        . '<div style="padding:24px;"><h2 style="margin:0 0 8px;color:#7B1D1D;font-size:19px;">You\'ve been invited as a Technician</h2>'
-                        . '<p style="margin:0 0 16px;color:#5C3838;font-size:14px;line-height:1.6;">Hello ' . htmlspecialchars($fname, ENT_QUOTES) . ',<br><br>The PMO has invited you to join the BEC Equipment Reporting System as a technician. To activate your account, verify your identity and set your password using the secure link below. This link expires in 3 days.</p>'
-                        . '<a href="' . htmlspecialchars($link, ENT_QUOTES) . '" style="display:inline-block;background:#7B1D1D;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:700;font-size:14px;">Verify & Activate Account</a>'
-                        . '<p style="margin:18px 0 0;color:#9E8070;font-size:12px;line-height:1.6;">If the button does not work, copy this link into your browser:<br>' . htmlspecialchars($link, ENT_QUOTES) . '</p></div>'
-                        . '<div style="background:#FAF7F0;padding:14px 24px;border-top:1px solid #E8DDD0;color:#9E8070;font-size:11px;text-align:center;">If you did not expect this invitation, you can ignore this email.</div></div></div>';
-                    try { $emailSent = sendEmail($email, 'BEC Technician Account Invitation', $body, null, 'admin'); } catch (\Throwable $e) {}
+                    // Role summary rows (only render what was provided)
+                    $roleRows = '';
+                    $roleRows .= '<tr><td style="padding:6px 0;color:#9E8070;width:130px;">Role</td><td style="padding:6px 0;color:#1C1008;font-weight:600;">Maintenance Technician</td></tr>';
+                    if ($position !== '') $roleRows .= '<tr><td style="padding:6px 0;color:#9E8070;">Position</td><td style="padding:6px 0;color:#1C1008;font-weight:600;">' . htmlspecialchars($position, ENT_QUOTES) . '</td></tr>';
+                    if ($dept !== '')     $roleRows .= '<tr><td style="padding:6px 0;color:#9E8070;">Unit / Department</td><td style="padding:6px 0;color:#1C1008;font-weight:600;">' . htmlspecialchars($dept, ENT_QUOTES) . '</td></tr>';
+                    if ($spec !== '')     $roleRows .= '<tr><td style="padding:6px 0;color:#9E8070;">Specialization</td><td style="padding:6px 0;color:#1C1008;font-weight:600;">' . htmlspecialchars($spec, ENT_QUOTES) . '</td></tr>';
+
+                    $body = '<div style="background:#F4EFE6;padding:28px 16px;font-family:Segoe UI,Helvetica,Arial,sans-serif;">'
+                        . '<div style="max-width:600px;margin:0 auto;background:#fff;border:1px solid #E8DDD0;border-radius:16px;overflow:hidden;box-shadow:0 2px 6px rgba(44,10,10,.06);">'
+                        // Letterhead
+                        . '<div style="background:linear-gradient(135deg,#4A0E0E,#7B1D1D);padding:26px 30px;">'
+                        .   '<div style="color:#fff;font-size:17px;font-weight:700;letter-spacing:.2px;">Batangas Eastern Colleges</div>'
+                        .   '<div style="color:#E9C77B;font-size:11px;letter-spacing:1.2px;text-transform:uppercase;margin-top:3px;">Property Management Office</div>'
+                        .   '<div style="color:rgba(255,255,255,.6);font-size:10.5px;font-style:italic;margin-top:8px;">Beacons of Education, Molders of Educators &middot; Est. 1940</div>'
+                        . '</div>'
+                        . '<div style="height:3px;background:linear-gradient(90deg,#4A0E0E,#7B1D1D 55%,#C9960C);"></div>'
+                        // Body
+                        . '<div style="padding:30px;">'
+                        .   '<div style="font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#C9960C;">Technician Account Invitation</div>'
+                        .   '<h2 style="margin:6px 0 16px;color:#1C1008;font-size:21px;font-weight:700;">Welcome to the PMO maintenance team</h2>'
+                        .   '<p style="margin:0 0 16px;color:#5C3838;font-size:14px;line-height:1.7;">Dear ' . htmlspecialchars($fname, ENT_QUOTES) . ',</p>'
+                        .   '<p style="margin:0 0 18px;color:#5C3838;font-size:14px;line-height:1.7;">On behalf of the <strong>Property Management Office of Batangas Eastern Colleges</strong>, we are pleased to invite you to join our maintenance team on the college\'s Defective Equipment Reporting &amp; Maintenance Management System. In this role you will receive assigned repair tasks, record your work, and help keep our campus facilities safe and fully operational for the entire BEC community.</p>'
+                        // Role card
+                        .   '<div style="background:#FAF7F0;border:1px solid #EDE3D3;border-radius:12px;padding:16px 20px;margin:0 0 20px;">'
+                        .     '<table style="width:100%;border-collapse:collapse;font-size:13px;">' . $roleRows . '</table>'
+                        .   '</div>'
+                        .   '<p style="margin:0 0 12px;color:#5C3838;font-size:14px;line-height:1.7;">To activate your account, please verify your identity and set your own password using the secure button below:</p>'
+                        .   '<div style="text-align:center;margin:22px 0;">'
+                        .     '<a href="' . htmlspecialchars($link, ENT_QUOTES) . '" style="display:inline-block;background:linear-gradient(135deg,#4A0E0E,#7B1D1D);color:#fff;text-decoration:none;padding:14px 34px;border-radius:9px;font-weight:700;font-size:14.5px;box-shadow:0 4px 12px rgba(74,14,14,.25);">Verify &amp; Activate My Account</a>'
+                        .   '</div>'
+                        .   '<p style="margin:0 0 4px;color:#9E8070;font-size:12px;line-height:1.6;">If the button does not work, copy and paste this link into your browser:</p>'
+                        .   '<p style="margin:0 0 20px;word-break:break-all;"><a href="' . htmlspecialchars($link, ENT_QUOTES) . '" style="color:#7B1D1D;font-size:12px;">' . htmlspecialchars($link, ENT_QUOTES) . '</a></p>'
+                        .   '<div style="background:#FFFBEF;border:1px solid rgba(201,150,12,.35);border-left:4px solid #C9960C;border-radius:8px;padding:12px 16px;color:#5C3838;font-size:12.5px;line-height:1.6;">'
+                        .     '<strong style="color:#8A6400;">For your security:</strong> this invitation link is valid for <strong>3 days</strong> and can be used only once. Choose a strong password of at least 8 characters. Never share this link or your password with anyone.'
+                        .   '</div>'
+                        .   '<p style="margin:22px 0 0;color:#5C3838;font-size:14px;line-height:1.7;">We look forward to working with you.</p>'
+                        .   '<p style="margin:14px 0 0;color:#1C1008;font-size:14px;line-height:1.6;">Warm regards,<br><strong>Property Management Office</strong><br><span style="color:#9E8070;font-size:13px;">Batangas Eastern Colleges</span></p>'
+                        . '</div>'
+                        // Footer
+                        . '<div style="background:#4A0E0E;padding:16px 30px;color:rgba(255,255,255,.7);font-size:11px;line-height:1.6;">'
+                        .   'This is an official, automated message from the BEC Property Management Office. If you did not expect this invitation, please disregard this email &mdash; no account will be activated without the link above.'
+                        . '</div>'
+                        . '</div></div>';
+                    try { $emailSent = sendEmail($email, 'Your BEC Technician Account Invitation — Property Management Office', $body, null, 'admin'); } catch (\Throwable $e) {}
                 }
                 logActivity($admin_id, 'admin', 'technician.invite', "Invited technician $fname <$email> (ID: $uid)");
                 $_SESSION['flash'] = ['ok', $emailSent
