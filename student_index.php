@@ -173,6 +173,9 @@ body::after {
 /* form eyebrow + trust strip */
 .panel-eyebrow { display: inline-flex; align-items: center; gap: .5rem; margin-bottom: .7rem; font-size: .64rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.6px; color: var(--maroon); }
 .panel-eyebrow .pe-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 3px var(--maroon-soft); }
+.safety-note { display: flex; align-items: flex-start; gap: .6rem; background: #FFF6F5; border: 1px solid #F3D2CD; border-left: 3px solid #C0392B; border-radius: 10px; padding: .7rem .9rem; margin-bottom: 1rem; font-size: .73rem; color: var(--ink2); line-height: 1.55; }
+.safety-note i { color: #C0392B; font-size: .82rem; margin-top: .1rem; flex-shrink: 0; }
+.safety-note strong { color: #96271B; }
 .trust-strip { display: flex; flex-wrap: wrap; justify-content: center; gap: .4rem 1.1rem; margin-bottom: 1rem; }
 .trust-strip span { display: inline-flex; align-items: center; gap: .35rem; font-size: .66rem; color: var(--ink3); font-weight: 500; }
 .trust-strip i { color: var(--gold); font-size: .62rem; }
@@ -671,6 +674,10 @@ body::after {
       <a href="public_reports.php" class="action-btn">
         <i class="fas fa-table-list"></i>View all reports
       </a>
+    </div>
+    <div class="safety-note">
+      <i class="fas fa-triangle-exclamation"></i>
+      <span><strong>Safety first.</strong> For urgent hazards that put people at risk — live electrical faults, fire, gas, or water leaks — contact the PMO or campus security in person or by phone <em>immediately</em>. Use this portal for non-emergency equipment concerns.</span>
     </div>
     <div class="trust-strip">
       <span><i class="fas fa-lock"></i> Confidential</span>
