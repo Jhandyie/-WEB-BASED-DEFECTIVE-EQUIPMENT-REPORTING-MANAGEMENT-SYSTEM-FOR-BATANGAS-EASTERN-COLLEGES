@@ -123,6 +123,15 @@
       .form-note { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); text-align: center; }
       .form-note p { font-size: .8rem; color: var(--ink3); margin: 0; }
       .form-note strong { color: var(--maroon); font-weight: 600; }
+      .help-toggle { background: none; border: none; color: var(--maroon); font-weight: 600; font-size: .8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-family: inherit; padding: 4px; }
+      .help-toggle i { font-size: .78rem; transition: transform .2s; }
+      .help-toggle[aria-expanded="true"] i.chev { transform: rotate(180deg); }
+      .help-toggle:hover { text-decoration: underline; }
+      .help-panel { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; text-align: left; animation: helpIn .2s ease; }
+      @keyframes helpIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+      .help-panel .hp-item { font-size: .76rem; color: var(--ink3); line-height: 1.5; display: flex; align-items: flex-start; gap: 8px; padding: 9px 12px; background: rgba(123,29,29,.04); border-radius: 10px; border: 1px solid var(--border); }
+      .help-panel .hp-item i { color: var(--maroon); margin-top: 2px; flex-shrink: 0; font-size: .74rem; }
+      .help-panel .hp-item strong { color: var(--maroon); font-weight: 600; }
 
       .auth-foot {
         background: var(--field); border-top: 1px solid var(--border); padding: 12px 28px; text-align: center;
@@ -195,7 +204,13 @@
         </form>
 
         <div class="form-note">
-          <p>Technician accounts are created by the Property Management Office.</p>
+          <button type="button" class="help-toggle" id="helpToggle" aria-expanded="false" aria-controls="helpPanel">
+            <i class="fas fa-circle-question"></i> Trouble signing in? <i class="fas fa-chevron-down chev"></i>
+          </button>
+          <div class="help-panel" id="helpPanel" hidden>
+            <div class="hp-item"><i class="fas fa-key"></i><span>Forgot your password? Use <strong>Forgot password?</strong> above to reset it by email.</span></div>
+            <div class="hp-item"><i class="fas fa-user-shield"></i><span>No account yet? Technician accounts are created by the <strong>Property Management Office</strong>.</span></div>
+          </div>
         </div>
       </div>
 
@@ -308,6 +323,17 @@
                 setLoading(false);
             }
         }
+
+        // "Trouble signing in?" — reveal quick self-help tips (no external contact details).
+        (function () {
+            var t = document.getElementById('helpToggle'), p = document.getElementById('helpPanel');
+            if (!t || !p) return;
+            t.addEventListener('click', function () {
+                var open = p.hidden;
+                p.hidden = !open;
+                t.setAttribute('aria-expanded', open ? 'true' : 'false');
+            });
+        })();
     </script>
 <script src="../assets/page_loader.js"></script>
 </body>
