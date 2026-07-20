@@ -1336,6 +1336,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 </script>
 <?php require_once __DIR__ . '/includes/csrf_inject.php'; ?>
 <script src="assets/sidebar_autohide.js" defer></script>
+<script src="assets/search_premium.js"></script>
 <script src="assets/table_paginate.js" defer></script>
 <script src="assets/date_picker.js"></script>
 <?php require_once __DIR__ . '/includes/admin_assistant.php'; ?>
