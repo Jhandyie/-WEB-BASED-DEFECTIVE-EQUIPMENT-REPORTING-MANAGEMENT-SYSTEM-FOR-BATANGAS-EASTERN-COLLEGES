@@ -1109,7 +1109,7 @@ textarea.fc{resize:vertical;min-height:72px;}
         <h3><i class="fas fa-database"></i> Inventory Totals</h3>
         <form method="POST" action="inventory_functions.php" enctype="multipart/form-data" style="display:flex;align-items:center;gap:.5rem;margin:0;">
           <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(function_exists('csrf_token') ? csrf_token() : ''); ?>">
-          <input type="file" name="inventory_xlsx" accept=".xlsx" required style="font-size:.72rem;max-width:220px;">
+          <input type="file" name="inventory_xlsx" accept=".xlsx" required data-premium-upload data-hint="Excel .xlsx file">
           <button type="submit" class="btn btn-green btn-sm"><i class="fas fa-file-excel"></i> Upload Inventory Excel</button>
         </form>
       </div>
@@ -1887,6 +1887,7 @@ function printQR(){
 </script>
 <?php require_once __DIR__ . '/includes/csrf_inject.php'; ?>
 <script src="assets/sidebar_autohide.js" defer></script>
+<script src="assets/file_upload_premium.js"></script>
 <?php require_once __DIR__ . '/includes/admin_assistant.php'; ?>
 <?php require __DIR__ . '/includes/site_transitions.php'; ?>
 </body>

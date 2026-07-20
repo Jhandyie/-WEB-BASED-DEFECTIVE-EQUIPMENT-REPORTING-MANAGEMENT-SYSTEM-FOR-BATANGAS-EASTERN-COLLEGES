@@ -786,9 +786,15 @@ body.modal-open .bell-fab{display:none;}
 .photo-drop-label{font-weight:700;font-size:.82rem;color:var(--ink);}
 .photo-hint{font-size:.68rem;color:var(--ink3);}
 .photo-input{position:absolute;width:1px;height:1px;opacity:0;}
+.photo-drop.drag{border-color:var(--maroon);background:var(--field);border-style:solid;}
+.photo-count{font-size:.66rem;font-weight:700;color:var(--green);margin-top:6px;display:none;}
+.photo-count.on{display:block;}
 .photo-preview{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
-.photo-preview .pchip{width:54px;height:54px;border-radius:10px;overflow:hidden;border:1px solid var(--bdr);}
+.photo-preview .pchip{position:relative;width:54px;height:54px;border-radius:10px;overflow:hidden;border:1px solid var(--bdr);}
 .photo-preview .pchip img{width:100%;height:100%;object-fit:cover;}
+.photo-preview .pchip .pchip-x{position:absolute;top:2px;right:2px;width:16px;height:16px;border:none;border-radius:50%;
+  background:rgba(20,6,6,.72);color:#fff;font-size:.56rem;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;line-height:1;}
+.photo-preview .pchip .pchip-x:hover{background:#DC2626;}
 .photo-drop.has-files{border-style:solid;border-color:var(--green);background:var(--green-soft);}
 .photo-drop.has-files i{color:var(--green);}
 
@@ -1305,8 +1311,9 @@ body.modal-open{overflow:hidden;}
                       <input type="file" class="photo-input" name="before_photos[]" accept="image/*" multiple>
                       <i class="fas fa-camera"></i>
                       <span class="photo-drop-label">Before photos</span>
-                      <span class="photo-hint">Tap to capture or choose</span>
+                      <span class="photo-hint">Tap, capture, or drag &amp; drop</span>
                     </label>
+                    <div class="photo-count"></div>
                     <div class="photo-preview"></div>
                   </div>
                   <div class="photo-field">
@@ -1314,8 +1321,9 @@ body.modal-open{overflow:hidden;}
                       <input type="file" class="photo-input" name="during_photos[]" accept="image/*" multiple>
                       <i class="fas fa-camera"></i>
                       <span class="photo-drop-label">During photos</span>
-                      <span class="photo-hint">Tap to capture or choose</span>
+                      <span class="photo-hint">Tap, capture, or drag &amp; drop</span>
                     </label>
+                    <div class="photo-count"></div>
                     <div class="photo-preview"></div>
                   </div>
                   <div class="photo-field">
@@ -1323,8 +1331,9 @@ body.modal-open{overflow:hidden;}
                       <input type="file" class="photo-input" name="after_photos[]" accept="image/*" multiple>
                       <i class="fas fa-camera"></i>
                       <span class="photo-drop-label">After photos</span>
-                      <span class="photo-hint">Tap to capture or choose</span>
+                      <span class="photo-hint">Tap, capture, or drag &amp; drop</span>
                     </label>
+                    <div class="photo-count"></div>
                     <div class="photo-preview"></div>
                   </div>
                 </div>
@@ -1742,26 +1751,93 @@ document.querySelectorAll('[data-chipfield]').forEach(function (cf) {
   }, true);
 });
 
-/* Photo capture previews */
-document.addEventListener('change', function (e) {
-  const inp = e.target;
-  if (!inp || !inp.classList || !inp.classList.contains('photo-input')) return;
-  const field = inp.closest('.photo-field');
-  const drop = inp.closest('.photo-drop');
-  const prev = field ? field.querySelector('.photo-preview') : null;
-  if (!prev) return;
-  prev.innerHTML = '';
-  const files = Array.from(inp.files || []);
-  if (drop) drop.classList.toggle('has-files', files.length > 0);
-  files.slice(0, 8).forEach(function (file) {
-    if (!file.type || file.type.indexOf('image/') !== 0) return;
-    const chip = document.createElement('span'); chip.className = 'pchip';
-    const img = document.createElement('img'); img.alt = '';
-    img.src = URL.createObjectURL(file);
-    img.onload = function () { URL.revokeObjectURL(img.src); };
-    chip.appendChild(img); prev.appendChild(chip);
+/* Photo capture previews — drag & drop, count, per-photo remove.
+   Each field keeps its own file store; we re-sync the native input via
+   DataTransfer so removals stick and normal multipart submission is unchanged. */
+(function () {
+  var stores = new WeakMap(); // input -> [File]
+
+  function human(b){ return b < 1048576 ? (b/1024).toFixed(0)+' KB' : (b/1048576).toFixed(1)+' MB'; }
+
+  function sync(inp) {
+    var list = stores.get(inp) || [];
+    try { var dt = new DataTransfer(); list.forEach(function (f) { dt.items.add(f); }); inp.files = dt.files; } catch (_) {}
+  }
+
+  function render(inp) {
+    var field = inp.closest('.photo-field'); if (!field) return;
+    var drop = inp.closest('.photo-drop');
+    var prev = field.querySelector('.photo-preview');
+    var count = field.querySelector('.photo-count');
+    var list = stores.get(inp) || [];
+    prev.innerHTML = '';
+    var total = 0;
+    list.forEach(function (file, idx) {
+      total += file.size;
+      var chip = document.createElement('span'); chip.className = 'pchip';
+      var img = document.createElement('img'); img.alt = '';
+      img.src = URL.createObjectURL(file);
+      img.onload = function () { URL.revokeObjectURL(img.src); };
+      var x = document.createElement('button');
+      x.type = 'button'; x.className = 'pchip-x'; x.setAttribute('aria-label', 'Remove photo');
+      x.innerHTML = '<i class="fas fa-xmark"></i>';
+      x.dataset.i = idx;
+      chip.appendChild(img); chip.appendChild(x); prev.appendChild(chip);
+    });
+    if (drop) drop.classList.toggle('has-files', list.length > 0);
+    if (count) {
+      if (list.length) { count.textContent = list.length + ' photo' + (list.length > 1 ? 's' : '') + ' · ' + human(total); count.classList.add('on'); }
+      else { count.textContent = ''; count.classList.remove('on'); }
+    }
+  }
+
+  function addFiles(inp, fileList) {
+    var list = stores.get(inp) || [];
+    Array.from(fileList).forEach(function (file) {
+      if (!file.type || file.type.indexOf('image/') !== 0) return;
+      if (list.some(function (f) { return f.name === file.name && f.size === file.size; })) return;
+      list.push(file);
+    });
+    stores.set(inp, list);
+    sync(inp);
+    render(inp);
+  }
+
+  // native picker change
+  document.addEventListener('change', function (e) {
+    var inp = e.target;
+    if (!inp || !inp.classList || !inp.classList.contains('photo-input')) return;
+    if (inp.__internalSync) { inp.__internalSync = false; return; }
+    addFiles(inp, inp.files);
   });
-});
+
+  // remove one photo
+  document.addEventListener('click', function (e) {
+    var x = e.target.closest('.pchip-x'); if (!x) return;
+    e.preventDefault();
+    var field = x.closest('.photo-field'); if (!field) return;
+    var inp = field.querySelector('.photo-input');
+    var list = stores.get(inp) || [];
+    var i = parseInt(x.dataset.i, 10);
+    if (i >= 0 && i < list.length) { list.splice(i, 1); stores.set(inp, list); inp.__internalSync = true; sync(inp); render(inp); }
+  });
+
+  // drag & drop onto the label
+  document.addEventListener('dragover', function (e) {
+    var drop = e.target.closest && e.target.closest('.photo-drop'); if (!drop) return;
+    e.preventDefault(); drop.classList.add('drag');
+  });
+  document.addEventListener('dragleave', function (e) {
+    var drop = e.target.closest && e.target.closest('.photo-drop'); if (!drop) return;
+    drop.classList.remove('drag');
+  });
+  document.addEventListener('drop', function (e) {
+    var drop = e.target.closest && e.target.closest('.photo-drop'); if (!drop) return;
+    e.preventDefault(); drop.classList.remove('drag');
+    var inp = drop.querySelector('.photo-input');
+    if (inp && e.dataTransfer && e.dataTransfer.files) addFiles(inp, e.dataTransfer.files);
+  });
+})();
 </script>
 <script>
 /* PWA: register the service worker (installable technician app) */

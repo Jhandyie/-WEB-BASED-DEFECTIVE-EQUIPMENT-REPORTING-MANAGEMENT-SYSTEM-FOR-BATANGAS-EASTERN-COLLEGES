@@ -156,7 +156,7 @@ try {
         <?php if (!extension_loaded('zip')): ?><br><i class="fas fa-circle-info"></i> Tip: In Excel choose <strong>File → Save As → CSV</strong>, then upload that file.<?php endif; ?></p>
         <form method="POST" enctype="multipart/form-data" class="uprow">
           <input type="hidden" name="action" value="import">
-          <input type="file" name="directory_file" accept=".csv,.txt,.xlsx" required>
+          <input type="file" name="directory_file" accept=".csv,.txt,.xlsx" required data-premium-upload data-hint="CSV, TXT or XLSX">
           <button class="btn m" type="submit"><i class="fas fa-upload"></i> Import</button>
           <a class="btn ghost" href="?template=1"><i class="fas fa-download"></i> Download Template</a>
           <?php if ($total > 0): ?>
@@ -200,6 +200,7 @@ try {
 <?php require_once __DIR__ . '/includes/csrf_inject.php'; ?>
 <script src="assets/sidebar_autohide.js" defer></script>
 <script src="assets/table_paginate.js" defer></script>
+<script src="assets/file_upload_premium.js"></script>
 <?php require_once __DIR__ . '/includes/admin_assistant.php'; ?>
 <?php require __DIR__ . '/includes/site_transitions.php'; ?>
 </body>
