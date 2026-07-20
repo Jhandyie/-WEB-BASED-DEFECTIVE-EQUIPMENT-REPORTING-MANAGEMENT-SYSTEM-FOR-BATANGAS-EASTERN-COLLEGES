@@ -82,8 +82,10 @@ function verifyLogin() {
         exit();
     }
 
-    // Throttle brute-force: max 6 attempts per IP+email per 15 minutes.
+    // Throttle brute-force: 6 attempts per IP+email, plus a broad 20/IP cap across all emails
+    // (stops credential spraying — trying many different technician emails from one machine).
     try {
+        RateLimiter::enforce('tech_login_ip:' . RateLimiter::clientIp(), 20, 900);
         RateLimiter::enforce('tech_login:' . RateLimiter::clientIp() . ':' . strtolower($email), 6, 900);
     } catch (Exception $__rl) {
         http_response_code(429);
