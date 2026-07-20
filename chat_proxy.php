@@ -491,6 +491,70 @@ function chatBuildActions(string $text, string $lang, bool $suggest = false, boo
     return array_slice($filtered, 0, 3);
 }
 
+/**
+ * Built-in Batangas Eastern Colleges knowledge — accurate institutional facts so Becca can
+ * answer history/about questions without any external API. Sources: bec.edu.ph, Wikipedia.
+ */
+function chatBecKnowledge(string $q, string $lang): ?array
+{
+    // Only engage when the message is clearly about the school itself (not equipment/tracking).
+    // Ambiguous words like "location/colors/when" are handled in the sub-branches below, once
+    // we already know the question is school-related — never in this gate.
+    if (!preg_match('/\b(bec|batangas eastern|beacon|kasaysayan|history|hist[oó]rya|founded|foundation|establish(ed|ment)?|itinatag|nagtatag|founder|nagtayo|motto|sagisag|mission|misyon|vision|bisyon|about (the )?(bec|school|college)|tell me about (the )?(bec|school|college)|(this|the) (school|college|institution))\b/iu', $q)) {
+        return null;
+    }
+    $en = $lang !== 'fil';
+    $chips = chatChipSet($lang, ['submit', 'track', 'report_projector']);
+
+    // Founders
+    if (preg_match('/\b(founder|who (founded|started|established)|sino( ang)? (nagtatag|nagtayo|founder))\b/iu', $q)) {
+        return ['reply' => $en
+            ? "Batangas Eastern Colleges was founded by **Mercedes Salud de Villa** and **Iñigo Javier** in **1940**. It opened as *Bolbok Institute*, later became *Batangas Eastern Academy*, and adopted the name *Batangas Eastern Colleges* in 2008. It was the first high school in San Juan, Batangas. 🎓"
+            : "Itinatag ang Batangas Eastern Colleges nina **Mercedes Salud de Villa** at **Iñigo Javier** noong **1940**. Nagbukas ito bilang *Bolbok Institute*, naging *Batangas Eastern Academy*, at ginamit ang pangalang *Batangas Eastern Colleges* noong 2008. Ito ang unang high school sa San Juan, Batangas. 🎓",
+            'suggest' => false, 'chips' => $chips];
+    }
+    // Founding year / general history
+    if (preg_match('/\b(found|foundation|establish|itinatag|kasaysayan|history|hist[oó]rya|anong taon|what year|when)\b/iu', $q)) {
+        return ['reply' => $en
+            ? "**Batangas Eastern Colleges** was founded in **1940** — first classes began **June 12, 1940** with 112 students. Founded by Mercedes Salud de Villa and Iñigo Javier, it grew from *Bolbok Institute* → *Batangas Eastern Academy* → *Batangas Eastern Colleges* (2008). Its college division was re-established in **2003**, and today it runs a complete system: Pre-School, Grade School, Junior & Senior High, College, and a Technical-Vocational Center. 🏫"
+            : "Itinatag ang **Batangas Eastern Colleges** noong **1940** — nagsimula ang unang klase **Hunyo 12, 1940** na may 112 mag-aaral. Itinatag nina Mercedes Salud de Villa at Iñigo Javier, lumago ito mula *Bolbok Institute* → *Batangas Eastern Academy* → *Batangas Eastern Colleges* (2008). Muling itinatag ang college division noong **2003**, at ngayon ay kumpleto na ang sistema: Pre-School, Grade School, Junior & Senior High, Kolehiyo, at Technical-Vocational Center. 🏫",
+            'suggest' => false, 'chips' => $chips];
+    }
+    // Motto / Beacon identity
+    if (preg_match('/\b(motto|sagisag|beacon|slogan)\b/iu', $q)) {
+        return ['reply' => $en
+            ? "BEC's guiding words are **\u{201C}Beacons of Education, Molders of Educators.\u{201D}** Its symbol is the **Beacon** — a light guiding learners — which is why students and alumni are called *Beacons*. 💡"
+            : "Ang gabay na salita ng BEC ay **\u{201C}Beacons of Education, Molders of Educators.\u{201D}** Ang sagisag nito ay ang **Beacon** — ilaw na gumagabay sa mag-aaral — kaya tinatawag na *Beacons* ang mga estudyante at alumni. 💡",
+            'suggest' => false, 'chips' => $chips];
+    }
+    // Colors
+    if (preg_match('/\b(colou?rs?|kulay)\b/iu', $q)) {
+        return ['reply' => $en
+            ? "BEC's official colors are **maroon and gold** — the same maroon and gold you see across this Property Management Office system. ❤️\u{1F49B}"
+            : "Ang opisyal na kulay ng BEC ay **maroon at ginto (gold)** — ang parehong maroon at gold na makikita sa buong sistemang ito ng Property Management Office. ❤️\u{1F49B}",
+            'suggest' => false, 'chips' => $chips];
+    }
+    // Mission / Vision
+    if (preg_match('/\b(mission|misyon|vision|bisyon)\b/iu', $q)) {
+        return ['reply' => $en
+            ? "**Vision:** to be a premier institution of learning that becomes a blessing in prospering the lives of its stakeholders.\n**Mission:** to guide and mentor individuals by instilling life in education with a compassionate heart and devotion for excellence and service."
+            : "**Vision:** maging premier na institusyon ng edukasyon na nagiging biyaya sa pag-unlad ng buhay ng mga stakeholder nito.\n**Mission:** gabayan at turuan ang mga indibidwal sa pamamagitan ng edukasyong may pusong maawon at debosyon para sa kahusayan at serbisyo.",
+            'suggest' => false, 'chips' => $chips];
+    }
+    // Location / address (safe here — the message is already gated to a school question)
+    if (preg_match('/\b(address|located|location|saan|nasaan|where)\b/iu', $q)) {
+        return ['reply' => $en
+            ? "Batangas Eastern Colleges is at **02 Javier Street, Poblacion, San Juan, Batangas 4226**, Philippines. 📍"
+            : "Matatagpuan ang Batangas Eastern Colleges sa **02 Javier Street, Poblacion, San Juan, Batangas 4226**, Pilipinas. 📍",
+            'suggest' => false, 'chips' => $chips];
+    }
+    // General "about BEC"
+    return ['reply' => $en
+        ? "**Batangas Eastern Colleges (BEC)** is a private, non-sectarian school in **San Juan, Batangas**, founded in **1940** — the first high school in the town. Known as the *Beacons* (colors maroon & gold), it offers Pre-School through College plus a Technical-Vocational Center. This system is the **Property Management Office's** channel for reporting and resolving defective campus equipment. What would you like to do? 🙂"
+        : "Ang **Batangas Eastern Colleges (BEC)** ay isang pribado at non-sectarian na paaralan sa **San Juan, Batangas**, itinatag noong **1940** — ang unang high school sa bayan. Kilala bilang *Beacons* (kulay maroon at gold), nag-aalok ito mula Pre-School hanggang Kolehiyo at may Technical-Vocational Center. Ang sistemang ito ay ang channel ng **Property Management Office** para sa pag-report at pag-ayos ng sirang kagamitan sa campus. Ano ang gusto mong gawin? 🙂",
+        'suggest' => false, 'chips' => $chips];
+}
+
 function chatBuildLocalReply(string $text, string $lang, array $snapshot, ?array $report = null, array $analytics = []): array
 {
     $q = strtolower(trim($text));
@@ -516,6 +580,12 @@ function chatBuildLocalReply(string $text, string $lang, array $snapshot, ?array
             'suggest' => false,
             'chips' => chatChipSet($lang, ['report_projector', 'computer', 'ac', 'track']),
         ];
+    }
+
+    // Built-in BEC history / institutional knowledge (no external API needed).
+    $bec = chatBecKnowledge($q, $lang);
+    if ($bec !== null) {
+        return $bec;
     }
 
     if (preg_match('/\b(how many|ilan|stats|summary|reports today|system status|current reports)\b/i', $text)) {
