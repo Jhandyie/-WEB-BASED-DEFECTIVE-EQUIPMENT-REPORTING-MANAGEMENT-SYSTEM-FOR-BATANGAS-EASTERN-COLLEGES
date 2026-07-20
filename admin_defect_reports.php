@@ -840,6 +840,35 @@ textarea.fc{resize:vertical;min-height:70px;}
 .fg2 > .fg{min-width:0;}
 .af-actions{display:flex;gap:.45rem;flex-wrap:wrap;align-items:center;}
 .af-actions .btn{min-width:0;max-width:100%;white-space:normal;}
+/* ── Review / Route panel ─────────────────────────── */
+.af-review{background:var(--s1);border:1.5px solid var(--bdr);border-radius:var(--r2);
+  padding:1.15rem 1.2rem;margin-top:.875rem;}
+.rv-head{display:flex;gap:.75rem;align-items:flex-start;margin-bottom:1rem;}
+.rv-ic{flex-shrink:0;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;
+  background:linear-gradient(135deg,#166534,#22C55E);color:#fff;font-size:1.02rem;
+  box-shadow:0 5px 12px rgba(22,101,52,.24);}
+.rv-hx{min-width:0;}
+.rv-title{font-family:'Outfit',sans-serif;font-size:.98rem;font-weight:800;color:var(--t1);line-height:1.2;}
+.rv-desc{font-size:.73rem;color:var(--t3);line-height:1.55;margin-top:.28rem;}
+.fhint{font-size:.66rem;color:var(--t3);margin-top:.05rem;line-height:1.4;}
+.fl .opt{color:var(--t3);font-weight:600;text-transform:none;letter-spacing:0;font-size:.6rem;}
+.prio-seg{display:grid;grid-template-columns:repeat(4,1fr);gap:.32rem;}
+.prio-opt{padding:.46rem .2rem;border:1.5px solid var(--bdr);background:var(--s2);border-radius:var(--r1);
+  font-size:.7rem;font-weight:700;color:var(--t2);cursor:pointer;font-family:'DM Sans',sans-serif;
+  transition:transform .12s,border-color .16s,background .16s,color .16s;text-align:center;line-height:1;}
+.prio-opt:hover{border-color:var(--t3);}
+.prio-opt.on{color:#fff;border-color:transparent;transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.14);}
+.prio-opt[data-v=low].on{background:#16A34A;}
+.prio-opt[data-v=medium].on{background:#D97706;}
+.prio-opt[data-v=high].on{background:#EA580C;}
+.prio-opt[data-v=critical].on{background:#DC2626;}
+.rv-actions{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.35rem;}
+.rv-actions .btn{white-space:nowrap;}
+.rv-amber{background:#C9960C;color:#fff;border:none;}
+.rv-amber:hover{background:#b3860a;}
+.rv-rejbtn{margin-left:auto;color:#DC2626;}
+.rv-rejbtn:hover{background:#FEF2F2;border-color:#FCA5A5;}
+@media(max-width:520px){.rv-rejbtn{margin-left:0;}}
 .mfoot{padding:.8rem 1.55rem 1.25rem;border-top:1px solid var(--bdr);
   display:flex;justify-content:flex-end;gap:.45rem;flex-wrap:wrap;background:var(--s2);
   border-radius:0 0 var(--r4) var(--r4);}
@@ -1377,41 +1406,54 @@ textarea.fc{resize:vertical;min-height:70px;}
 
         <!-- ── ACTION FORMS ────────────────────────── -->
         <?php if(in_array($vr['status'], ['reported','pmo_review'], true)): ?>
-        <!-- APPROVE -->
-        <div class="af af-approve" id="approveAf">
-          <div class="af-title"><i class="fas fa-check-circle"></i> <?php echo $vr['status']==='reported' ? 'New Report — Acknowledge & Review' : 'Received by PMO — Review'; ?></div>
-          <form method="POST" action="?view_id=<?php echo $vr['report_id'];?>&view=<?php echo $vw;?>">
+        <!-- REVIEW / ROUTE -->
+        <?php
+          $rvNew     = ($vr['status'] === 'reported');
+          $rvDeptDef = strtoupper(trim((string)($vr['department_assigned'] ?? ''))) ?: $adminUnit;
+          $rvPrioDef = strtolower(trim((string)($vr['priority'] ?? '')));
+        ?>
+        <div class="af af-review" id="approveAf">
+          <div class="rv-head">
+            <span class="rv-ic"><i class="fas fa-clipboard-check"></i></span>
+            <div class="rv-hx">
+              <div class="rv-title"><?php echo $rvNew ? 'Acknowledge &amp; Review' : 'Review &amp; Route Report'; ?></div>
+              <div class="rv-desc">Confirm the responsible unit and how urgent the repair is, then <strong>approve</strong> to send it for technician assignment — or reject it with a reason.</div>
+            </div>
+          </div>
+          <form method="POST" action="?view_id=<?php echo $vr['report_id'];?>&view=<?php echo $vw;?>" onsubmit="return rvValidate(this);">
             <input type="hidden" name="report_id" value="<?php echo esc($vr['report_id']);?>">
             <div class="fg2">
               <div class="fg">
-                <label class="fl">Department <span>*</span></label>
+                <label class="fl">Responsible Unit <span>*</span></label>
                 <select name="department_assigned" class="fc" required>
-                  <option value="">Select…</option>
-                  <option value="ITSO">ITSO — IT & Labs</option>
-                  <option value="PMO">PMO — Physical Maint.</option>
+                  <option value="">Select unit…</option>
+                  <option value="PMO"  <?php echo $rvDeptDef==='PMO'  ? 'selected' : ''; ?>>PMO — Physical maintenance</option>
+                  <option value="ITSO" <?php echo $rvDeptDef==='ITSO' ? 'selected' : ''; ?>>ITSO — IT, labs &amp; network</option>
                 </select>
+                <div class="fhint">Which office will carry out the repair.</div>
               </div>
               <div class="fg">
                 <label class="fl">Priority <span>*</span></label>
-                <select name="priority_level" class="fc" required>
-                  <option value="">Select…</option>
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="critical">Critical</option>
-                </select>
+                <div class="prio-seg" role="group" aria-label="Priority level">
+                  <button type="button" class="prio-opt" data-v="low">Low</button>
+                  <button type="button" class="prio-opt" data-v="medium">Medium</button>
+                  <button type="button" class="prio-opt" data-v="high">High</button>
+                  <button type="button" class="prio-opt" data-v="critical">Critical</button>
+                </div>
+                <input type="hidden" name="priority_level" id="prioVal" value="<?php echo esc($rvPrioDef); ?>">
+                <div class="fhint">How urgent this repair is.</div>
               </div>
             </div>
             <div class="fg">
-              <label class="fl">Admin Notes</label>
-              <textarea name="admin_notes" class="fc" placeholder="Instructions or observations…"></textarea>
+              <label class="fl">Admin Notes <span class="opt">optional</span></label>
+              <textarea name="admin_notes" class="fc" placeholder="Instructions for the technician, observations, or context…"></textarea>
             </div>
-            <div class="af-actions">
-              <?php if($vr['status']==='reported'): ?>
-              <button type="submit" name="action" value="mark_received" class="btn btn-sm" style="background:#C9960C;color:#fff;border:none;" onclick="return confirm('Confirm Report Receipt\n\nYou are about to acknowledge that the Property Management Office has officially received this maintenance report for evaluation.\n\nThis will:\n• Update the report status to Received by PMO\n• Record the acknowledgement timestamp and your name\n• Notify the reporter by email and in-app\n• Update the tracking timeline and audit log\n\nProceed?');"><i class="fas fa-inbox"></i> Mark as Received</button>
+            <div class="rv-actions">
+              <?php if($rvNew): ?>
+              <button type="submit" name="action" value="mark_received" class="btn btn-sm rv-amber" onclick="return confirm('Confirm Report Receipt\n\nYou are about to acknowledge that the Property Management Office has officially received this maintenance report for evaluation.\n\nThis will:\n• Update the report status to Received by PMO\n• Record the acknowledgement timestamp and your name\n• Notify the reporter by email and in-app\n• Update the tracking timeline and audit log\n\nProceed?');"><i class="fas fa-inbox"></i> Mark as Received</button>
               <?php endif; ?>
-              <button type="submit" name="action" value="approve" class="btn btn-maroon btn-sm"><i class="fas fa-check"></i> <?php echo $vr['status']==='reported' ? 'Direct Approve' : 'Approve'; ?></button>
-              <button type="button" class="btn btn-ghost btn-sm" onclick="toggleReject()"><i class="fas fa-times"></i> Reject Instead</button>
+              <button type="submit" name="action" value="approve" class="btn btn-green btn-sm"><i class="fas fa-check"></i> <?php echo $rvNew ? 'Approve Directly' : 'Approve'; ?></button>
+              <button type="button" class="btn btn-ghost btn-sm rv-rejbtn" onclick="toggleReject()"><i class="fas fa-ban"></i> Reject…</button>
             </div>
           </form>
         </div>
@@ -1560,6 +1602,26 @@ function toggleReject() {
   ap.style.opacity = show ? '.45' : '1';
 }
 function retProg() { document.getElementById('retFrm')?.submit(); }
+
+/* ── REVIEW PANEL: priority segmented control + guard ─ */
+function rvInitPrio() {
+  const seg = document.querySelector('.prio-seg');
+  if (!seg) return;
+  const hidden = document.getElementById('prioVal');
+  const paint = (v) => seg.querySelectorAll('.prio-opt').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  seg.querySelectorAll('.prio-opt').forEach(b => {
+    b.addEventListener('click', () => { hidden.value = b.dataset.v; paint(b.dataset.v); });
+  });
+  if (hidden.value) paint(hidden.value);
+}
+function rvValidate(form) {
+  const d = form.querySelector('[name=department_assigned]');
+  const p = document.getElementById('prioVal');
+  if (d && !d.value) { alert('Please select the responsible unit — PMO or ITSO.'); d.focus(); return false; }
+  if (p && !p.value) { alert('Please choose a priority level for this repair.'); return false; }
+  return true;
+}
+document.addEventListener('DOMContentLoaded', rvInitPrio);
 
 /* ── LIGHTBOX ─────────────────────────────────────── */
 function openLb(src) {
