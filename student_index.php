@@ -855,7 +855,8 @@ function chipLabel(key, currentLang = lang) {
     computer: { en: "Computer won't start", fil: 'Hindi nagbubukas ang computer' },
     ac: { en: 'AC not cooling', fil: 'Hindi lumalamig ang aircon' },
     submit: { en: 'How do I submit a report?', fil: 'Paano mag-report?' },
-    timeline: { en: 'How long are repairs?', fil: 'Gaano katagal ang repair?' }
+    timeline: { en: 'How long are repairs?', fil: 'Gaano katagal ang repair?' },
+    about_bec: { en: 'About BEC', fil: 'Tungkol sa BEC' }
   };
   return labels[key]?.[currentLang] || labels[key]?.en || key;
 }
@@ -879,7 +880,7 @@ function greet() {
   const msg = currentLang === 'fil'
     ? `Kumusta! 👋 Ako si ${persona.name}, ang inyong BEC Support AI. Parang katuwang ninyo ako dito — tutulungan ko kayo sa mga sirang kagamitan, pag-submit ng defect report, at troubleshooting. Ano ang maitutulong ko sa inyo ngayon?`
     : `Hi there! 👋 I'm ${persona.name}, your BEC Support AI. Think of me as your go-to buddy for equipment hiccups — broken gear, defect reports, and quick troubleshooting. What's giving you trouble today?`;
-  const chips = chipSet(['report_projector', 'track', 'computer', 'ac', 'submit', 'timeline'], currentLang);
+  const chips = chipSet(['report_projector', 'track', 'submit', 'about_bec'], currentLang);
   addMsg('b', msg, chips, false, [
     { label: actionLabel('create', currentLang), href: 'student_dashboard.php', icon: 'fa-plus' },
     { label: actionLabel('tracker', currentLang), href: 'track_report.php', icon: 'fa-search' },

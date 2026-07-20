@@ -437,6 +437,10 @@ function chatChipLabel(string $key, string $lang): string
             'en' => 'How long are repairs?',
             'fil' => 'Gaano katagal ang repair?',
         ],
+        'about_bec' => [
+            'en' => 'About BEC',
+            'fil' => 'Tungkol sa BEC',
+        ],
     ];
 
     return $labels[$key][$lang] ?? ($labels[$key]['en'] ?? $key);
