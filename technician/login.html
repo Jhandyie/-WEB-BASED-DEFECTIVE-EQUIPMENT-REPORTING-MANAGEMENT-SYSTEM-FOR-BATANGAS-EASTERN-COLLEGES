@@ -123,6 +123,14 @@
       .form-note { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); text-align: center; }
       .form-note p { font-size: .8rem; color: var(--ink3); margin: 0; }
       .form-note strong { color: var(--maroon); font-weight: 600; }
+      .contact-pmo { color: var(--maroon); font-weight: 600; text-decoration: none; cursor: pointer; border-bottom: 1px dotted rgba(123,29,29,.45); }
+      .contact-pmo:hover { border-bottom-style: solid; }
+      .pmo-contact { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; align-items: center; animation: pmoIn .2s ease; }
+      @keyframes pmoIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+      .pmo-contact a { display: inline-flex; align-items: center; gap: 8px; font-size: .82rem; font-weight: 600; color: var(--maroon); text-decoration: none; padding: 7px 14px; border: 1px solid rgba(123,29,29,.2); border-radius: 999px; background: rgba(123,29,29,.05); transition: background .15s, border-color .15s; }
+      .pmo-contact a:hover { background: rgba(123,29,29,.1); border-color: rgba(123,29,29,.4); }
+      .pmo-contact a i { font-size: .78rem; }
+      .pmo-contact .pmo-hint { font-size: .72rem; color: var(--ink3); font-weight: 500; padding: 0; border: none; background: none; }
 
       .auth-foot {
         background: var(--field); border-top: 1px solid var(--border); padding: 12px 28px; text-align: center;
@@ -195,7 +203,12 @@
         </form>
 
         <div class="form-note">
-          <p>No account? <strong>Contact the Property Management Office.</strong></p>
+          <p>No account? <a href="#" id="contactPmoLink" class="contact-pmo" role="button" aria-expanded="false" aria-controls="pmoContact">Contact the Property Management Office</a></p>
+          <div class="pmo-contact" id="pmoContact" hidden>
+            <span class="pmo-hint">Technicians are added by the PMO. Reach out to request an account:</span>
+            <a href="mailto:info@bec.edu.ph?subject=Technician%20Account%20Request%20%E2%80%94%20BEC%20PMO&amp;body=Hello%20PMO%2C%0A%0AI%20would%20like%20to%20request%20a%20technician%20account%20for%20the%20Equipment%20Reporting%20System.%0A%0AName%3A%0APosition%2FUnit%3A%0A%0AThank%20you."><i class="fas fa-envelope"></i> info@bec.edu.ph</a>
+            <a href="tel:0435753616"><i class="fas fa-phone"></i> 043-575-3616 (ext. 215)</a>
+          </div>
         </div>
       </div>
 
@@ -308,6 +321,19 @@
                 setLoading(false);
             }
         }
+
+        // "Contact the Property Management Office" — reveal actionable email/phone.
+        (function () {
+            var link = document.getElementById('contactPmoLink');
+            var panel = document.getElementById('pmoContact');
+            if (!link || !panel) return;
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                var open = panel.hidden;
+                panel.hidden = !open;
+                link.setAttribute('aria-expanded', open ? 'true' : 'false');
+            });
+        })();
     </script>
 <script src="../assets/page_loader.js"></script>
 </body>
