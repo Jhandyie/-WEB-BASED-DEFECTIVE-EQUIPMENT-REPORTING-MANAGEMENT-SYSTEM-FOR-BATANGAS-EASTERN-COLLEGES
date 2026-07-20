@@ -49,20 +49,35 @@
       /* mobile off-canvas */
       '@media(max-width:860px){' +
         '#sb{transform:translateX(-100%);}' +
-        'body.becMobileOpen #sb{transform:translateX(0);box-shadow:0 0 50px rgba(0,0,0,.45);z-index:1200;}' +
-        'body.becMobileOpen #becScrim{display:block;}' +
-        '#becSbToggle{position:fixed;top:12px;left:12px;z-index:1300;display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:11px;background:#7B1D1D;color:#fff;border:1px solid rgba(201,150,12,.5);box-shadow:0 4px 14px rgba(44,10,10,.3);cursor:pointer;font-size:1.05rem;}' +
+        'body.becReady #sb{transition:transform .32s cubic-bezier(.4,0,.2,1);}' +
+        'body.becMobileOpen #sb{transform:translateX(0);box-shadow:0 0 60px rgba(0,0,0,.5);z-index:1200;}' +
+        'body.becMobileOpen{overflow:hidden;}' +   /* lock background scroll while drawer is open */
+        '#becSbToggle{position:fixed;top:12px;left:12px;z-index:1300;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:13px;background:linear-gradient(135deg,#7B1D1D,#4A0E0E);color:#fff;border:1px solid rgba(201,150,12,.5);box-shadow:0 4px 16px rgba(44,10,10,.34);cursor:pointer;transition:transform .16s ease,box-shadow .18s ease;}' +
+        '#becSbToggle:active{transform:scale(.9);}' +
+        'body.becMobileOpen #becSbToggle{box-shadow:0 4px 22px rgba(44,10,10,.5);}' +
+        /* three-bar hamburger that morphs into an X when the drawer opens */
+        '#becSbToggle .becHamb{position:relative;width:20px;height:14px;display:block;}' +
+        '#becSbToggle .becHamb span{position:absolute;left:0;width:100%;height:2px;background:#fff;border-radius:2px;transition:transform .3s cubic-bezier(.4,0,.2,1),opacity .2s ease,top .3s cubic-bezier(.4,0,.2,1);}' +
+        '#becSbToggle .becHamb span:nth-child(1){top:0;}' +
+        '#becSbToggle .becHamb span:nth-child(2){top:6px;}' +
+        '#becSbToggle .becHamb span:nth-child(3){top:12px;}' +
+        'body.becMobileOpen #becSbToggle .becHamb span:nth-child(1){top:6px;transform:rotate(45deg);}' +
+        'body.becMobileOpen #becSbToggle .becHamb span:nth-child(2){opacity:0;transform:translateX(-8px);}' +
+        'body.becMobileOpen #becSbToggle .becHamb span:nth-child(3){top:6px;transform:rotate(-45deg);}' +
       '}' +
       '.mob-tog{display:none!important;}' +
-      '#becScrim{display:none;position:fixed;inset:0;background:rgba(20,5,5,.4);z-index:1100;}';
+      /* scrim fades + blurs in instead of snapping on */
+      '#becScrim{position:fixed;inset:0;background:rgba(20,5,5,.45);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);z-index:1100;opacity:0;visibility:hidden;transition:opacity .3s ease,visibility .3s ease;}' +
+      'body.becMobileOpen #becScrim{opacity:1;visibility:visible;}';
     document.head.appendChild(style);
 
-    /* mobile hamburger (hidden on desktop via CSS) */
+    /* mobile hamburger (hidden on desktop via CSS) — CSS bars morph into an X */
     var btn = document.createElement('button');
     btn.id = 'becSbToggle';
     btn.type = 'button';
     btn.setAttribute('aria-label', 'Open menu');
-    btn.innerHTML = '<i class="fas fa-bars"></i>';
+    btn.setAttribute('aria-expanded', 'false');
+    btn.innerHTML = '<span class="becHamb"><span></span><span></span><span></span></span>';
     body.appendChild(btn);
 
     /* mobile scrim */
@@ -70,12 +85,21 @@
     scrim.id = 'becScrim';
     body.appendChild(scrim);
 
-    btn.addEventListener('click', function () { body.classList.toggle('becMobileOpen'); });
-    scrim.addEventListener('click', function () { body.classList.remove('becMobileOpen'); });
+    function syncBtn(open) {
+      btn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    function closeMobile() { body.classList.remove('becMobileOpen'); syncBtn(false); }
+
+    btn.addEventListener('click', function () { syncBtn(body.classList.toggle('becMobileOpen')); });
+    scrim.addEventListener('click', closeMobile);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && body.classList.contains('becMobileOpen')) closeMobile();
+    });
 
     /* close mobile drawer after tapping a link */
     SB.addEventListener('click', function (e) {
-      if (isMobile() && e.target.closest('a')) { body.classList.remove('becMobileOpen'); }
+      if (isMobile() && e.target.closest('a')) { closeMobile(); }
     });
 
     /* desktop: hover the rail to expand it as an overlay */
@@ -86,7 +110,7 @@
 
     /* leaving mobile width should drop the mobile-open state */
     mq.addEventListener('change', function () {
-      body.classList.remove('becMobileOpen');
+      closeMobile();
       SB.classList.remove('becPeek');
     });
 
