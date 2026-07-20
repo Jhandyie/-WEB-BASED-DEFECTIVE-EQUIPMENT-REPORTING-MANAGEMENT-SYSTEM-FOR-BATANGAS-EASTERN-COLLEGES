@@ -24,12 +24,10 @@ html{scrollbar-gutter:stable;font-size:106.25%;} /* global ~+6% readability bump
 .pl-logo img{width:100%;height:100%;object-fit:cover;display:block;}
 .pl-text{color:rgba(255,255,255,.85);font-family:'DM Sans',sans-serif;font-size:.74rem;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;}
 @keyframes plSpin{to{transform:rotate(360deg);}}
-/* opacity-only page fade — NO transform on <body>, so it never becomes a
-   containing block for the fixed loader (which would shift its center). */
-@media (prefers-reduced-motion: no-preference){
-  body.page-fade{animation:pageFadeIn .45s ease both;}
-  @keyframes pageFadeIn{from{opacity:0;}to{opacity:1;}}
-}
+/* NOTE: the incoming page is intentionally NOT opacity-faded. A body fade
+   added from this end-of-<body> include runs after first paint, which makes
+   the page flash off then back on. The navigation loader overlay already
+   covers the transition, so the destination page simply stays visible. */
 @media (prefers-reduced-motion: reduce){ .pl-ring{animation:none;} }
 </style>
 
@@ -51,7 +49,6 @@ html{scrollbar-gutter:stable;font-size:106.25%;} /* global ~+6% readability bump
   // Make the loader a direct child of <body> so position:fixed is ALWAYS relative
   // to the viewport (never trapped inside a transformed / overflow-hidden wrapper).
   if (loader && loader.parentNode !== document.body) { document.body.appendChild(loader); }
-  document.body.classList.add('page-fade');
   // Reset the loader whenever a page is shown (covers back/forward cache too).
   window.addEventListener('pageshow', function () { if (loader) loader.classList.remove('show'); });
 

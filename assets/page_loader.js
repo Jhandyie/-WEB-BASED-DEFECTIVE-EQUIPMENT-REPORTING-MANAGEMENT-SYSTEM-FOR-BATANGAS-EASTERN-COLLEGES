@@ -32,7 +32,9 @@
     ".pl-logo img{width:100%;height:100%;object-fit:cover;display:block;}" +
     ".pl-text{color:rgba(255,255,255,.85);font-family:'DM Sans',sans-serif;font-size:.74rem;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;}" +
     "@keyframes plSpin{to{transform:rotate(360deg);}}" +
-    "@media(prefers-reduced-motion:no-preference){body.page-fade{animation:pageFadeIn .45s ease both;}@keyframes pageFadeIn{from{opacity:0;}to{opacity:1;}}}" +
+    // No body opacity fade: added from a late-loading script it runs after first
+    // paint and makes the page flash off then on. The loader overlay covers the
+    // transition; the page simply stays visible.
     "@media(prefers-reduced-motion:reduce){.pl-ring{animation:none;}}";
   var st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);
 
@@ -52,7 +54,6 @@
         '<div class="pl-text">Loading&hellip;</div>' +
       '</div>';
     document.body.appendChild(loader);
-    document.body.classList.add('page-fade');
 
     window.addEventListener('pageshow', function () { if (loader) loader.classList.remove('show'); });
     document.addEventListener('click', function (e) {
