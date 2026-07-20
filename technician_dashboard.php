@@ -616,6 +616,7 @@ body.modal-open .bell-fab{display:none;}
 /* Installable-app prompt */
 /* Compact PWA action chips (buttons only) — sit neatly on desktop and stretch on mobile */
 .pwa-bar{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin:0 0 14px;}
+.pwa-bar[hidden]{display:none;}
 .pwa-chip{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:.6rem 1.1rem;border:none;border-radius:999px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:700;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.15);transition:transform .12s,filter .12s;}
 .pwa-chip i{font-size:.9rem;}
 .pwa-chip:hover{filter:brightness(1.08);transform:translateY(-1px);}

@@ -901,6 +901,7 @@ textarea.fc{resize:vertical;min-height:70px;}
 .empty{text-align:center;padding:3rem 1.5rem;color:var(--t3);}
 .empty i{font-size:2.5rem;display:block;margin-bottom:.75rem;opacity:.22;}
 .rpager{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;padding:.85rem 1rem;border-top:1px solid var(--bdr);}
+.rpager[hidden]{display:none;}
 .rpager .rp-info{font-size:.78rem;color:var(--t3);}
 .rpager .rp-btns{display:flex;gap:.3rem;flex-wrap:wrap;}
 .rpager button{min-width:32px;height:32px;padding:0 .55rem;border:1px solid var(--bdr);background:#fff;color:var(--t2);border-radius:8px;font-size:.8rem;font-weight:700;cursor:pointer;transition:all .15s;}

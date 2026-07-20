@@ -128,6 +128,7 @@
       .help-toggle[aria-expanded="true"] i.chev { transform: rotate(180deg); }
       .help-toggle:hover { text-decoration: underline; }
       .help-panel { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; text-align: left; animation: helpIn .2s ease; }
+      .help-panel[hidden] { display: none; }
       @keyframes helpIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
       .help-panel .hp-item { font-size: .76rem; color: var(--ink3); line-height: 1.5; display: flex; align-items: flex-start; gap: 8px; padding: 9px 12px; background: rgba(123,29,29,.04); border-radius: 10px; border: 1px solid var(--border); }
       .help-panel .hp-item i { color: var(--maroon); margin-top: 2px; flex-shrink: 0; font-size: .74rem; }
