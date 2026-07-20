@@ -43,8 +43,8 @@
   .tia-row.u .tia-b{background:#7B1D1D;color:#fff;border-bottom-right-radius:4px;}
   .tia-b b,.tia-b strong{color:inherit;font-weight:700;}
   .tia-chips{display:flex;flex-wrap:wrap;gap:.35rem;padding:.5rem .9rem;border-top:1px solid #E2D9CC;background:#fff;flex-shrink:0;}
-  .tia-chip{font-size:.7rem;padding:.3rem .6rem;border-radius:20px;border:1.5px solid #E2D9CC;background:#fff;color:#5C3838;cursor:pointer;font-family:inherit;}
-  .tia-chip:hover{border-color:#7B1D1D;color:#7B1D1D;background:#FBF4F4;}
+  .tia-chip{font-size:.72rem;padding:.34rem .72rem;border-radius:18px;border:1px solid rgba(123,29,29,.18);background:rgba(123,29,29,.05);color:#7B1D1D;cursor:pointer;font-family:inherit;font-weight:600;transition:all .15s;}
+  .tia-chip:hover{border-color:#7B1D1D;color:#7B1D1D;background:#FBF4F4;transform:translateY(-1px);box-shadow:0 2px 8px rgba(123,29,29,.12);}
   .tia-inp{display:flex;gap:.5rem;padding:.7rem .8rem;border-top:1px solid #E2D9CC;background:#fff;flex-shrink:0;}
   .tia-inp textarea{flex:1;border:1.5px solid #E2D9CC;border-radius:11px;padding:.6rem .8rem;font:inherit;font-size:16px;resize:none;max-height:90px;outline:none;}
   .tia-inp textarea:focus{border-color:#7B1D1D;box-shadow:0 0 0 3px rgba(123,29,29,.09);}

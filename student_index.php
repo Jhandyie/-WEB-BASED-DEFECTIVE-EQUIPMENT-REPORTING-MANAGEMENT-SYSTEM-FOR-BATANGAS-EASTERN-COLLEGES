@@ -423,12 +423,13 @@ body::after {
 @keyframes db { 0%,80%,100%{opacity:.2;transform:scale(.85)} 40%{opacity:1;transform:scale(1)} }
 .chips { display: flex; flex-wrap: wrap; gap: .32rem; margin-top: .48rem; }
 .chip {
-  font-size: .7rem; padding: .26rem .68rem; border-radius: 20px;
-  border: 1.5px solid var(--border); background: var(--surface);
-  color: var(--ink2); cursor: pointer; font-family: 'DM Sans', sans-serif;
-  font-weight: 500; transition: all .14s; white-space: nowrap;
+  font-size: .72rem; padding: .34rem .74rem; border-radius: 18px;
+  border: 1px solid rgba(123,29,29,.18); background: rgba(123,29,29,.05);
+  color: var(--maroon); cursor: pointer; font-family: 'DM Sans', sans-serif;
+  font-weight: 600; transition: all .15s; white-space: nowrap;
+  text-transform: none; letter-spacing: 0; line-height: 1.25;
 }
-.chip:hover { border-color: var(--maroon); color: var(--maroon); background: var(--maroon-soft); transform: translateY(-1px); }
+.chip:hover { border-color: var(--maroon); color: var(--maroon); background: var(--maroon-soft); transform: translateY(-1px); box-shadow: 0 2px 8px rgba(123,29,29,.12); }
 .rcard {
   margin-top: .52rem; padding: .62rem .78rem; border-radius: 10px;
   background: var(--gold-bg); border: 1px solid rgba(201,150,12,.2);
