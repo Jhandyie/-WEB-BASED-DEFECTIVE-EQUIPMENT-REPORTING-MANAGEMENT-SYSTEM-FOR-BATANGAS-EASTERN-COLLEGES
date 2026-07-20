@@ -615,9 +615,9 @@
 
                 if (data.success) {
                     triggerSuccessAll();
-                    showMessage('success', 'Access granted!', 'otpMessage');
                     document.getElementById('otpVerifyBtn').classList.add('complete');
-                    setTimeout(() => { window.location.href = '../admin_dashboard.php'; }, 1500);
+                    AuthLoader.show('Access granted', 'Loading your dashboard…');
+                    setTimeout(() => { window.location.href = '../admin_dashboard.php'; }, 1400);
                 } else {
                     showMessage('error', data.message || 'Invalid or expired OTP', 'otpMessage');
                     triggerShakeAll();
@@ -847,5 +847,6 @@
         }
     </script>
 <script src="../assets/page_loader.js"></script>
+<script src="../assets/auth_loader.js"></script>
 </body>
 </html>

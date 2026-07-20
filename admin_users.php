@@ -60,6 +60,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (strlen($pass) < 8) $errors[] = 'Password must be at least 8 characters.';
         if ($pass !== $pass2) $errors[] = 'Passwords do not match.';
         if (!in_array($role, $assignableRoles, true)) $errors[] = 'Selected role is not supported by the current database setup.';
+        // An Administrator must be scoped to a unit (PMO or ITSO) — it drives their dashboard.
+        if ($role === 'admin') {
+            $du = strtoupper($dept);
+            if (strpos($du, 'PMO') === false && strpos($du, 'ITSO') === false) {
+                $errors[] = 'Select the unit this Administrator will oversee — PMO or ITSO.';
+            }
+        }
 
         // Check duplicate email
         if (userExistsByEmail($email)) $errors[] = 'Email address is already registered.';
@@ -218,6 +225,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Valid email is required.';
         if ($uid === $admin_id && $role !== 'admin') $errors[] = 'You cannot change your own admin role.';
         if (!in_array($role, $assignableRoles, true)) $errors[] = 'Selected role is not supported by the current database setup.';
+        if ($role === 'admin') {
+            $du = strtoupper($dept);
+            if (strpos($du, 'PMO') === false && strpos($du, 'ITSO') === false) {
+                $errors[] = 'Select the unit this Administrator will oversee — PMO or ITSO.';
+            }
+        }
 
         // Check email duplicate (excluding self)
         if (userExistsByEmail($email, $uid)) $errors[] = 'Email already used by another user.';
@@ -1190,7 +1203,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
       <button class="mx" onclick="document.getElementById('createMo').classList.remove('open')"><i class="fas fa-times"></i></button>
     </div>
     <div class="mb">
-      <form method="POST" action="admin_users.php" id="createForm">
+      <form method="POST" action="admin_users.php" id="createForm" onsubmit="return deptGuard('cuRole','cuDeptTxt');">
         <input type="hidden" name="action" value="create">
         <div class="fg2">
           <div class="fg">
@@ -1205,7 +1218,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         <div class="fg2">
           <div class="fg">
             <label class="fl">Role <span>*</span></label>
-            <select name="role" class="fc" required>
+            <select name="role" id="cuRole" class="fc" required onchange="deptRoleSync('cuRole','cuDeptSel','cuDeptStar','cuDeptHint')">
               <?php foreach($assignableRoleMeta as $roleValue => $roleLabel): ?>
                 <option value="<?php echo esc($roleValue); ?>" <?php echo in_array($roleValue, $assignableRoles, true) ? '' : 'disabled'; ?>>
                   <?php echo esc($roleLabel . (in_array($roleValue, $assignableRoles, true) ? '' : ' (DB setup needed)')); ?>
@@ -1214,8 +1227,22 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
             </select>
           </div>
           <div class="fg">
-            <label class="fl">Department</label>
-            <input type="text" name="department" class="fc" placeholder="e.g. ITSO, PMO, CCS…">
+            <label class="fl">Unit / Department <span id="cuDeptStar" style="display:none;">*</span></label>
+            <select id="cuDeptSel" class="fc" onchange="deptPick('cuDeptSel','cuDeptTxt',this.value)">
+              <option value="">Select…</option>
+              <optgroup label="Admin / Technician unit">
+                <option value="PMO">PMO — Property Management Office</option>
+                <option value="ITSO">ITSO — Information Technology Services Office</option>
+              </optgroup>
+              <optgroup label="Academic / Office">
+                <option value="CCS">CCS</option>
+                <option value="Administration">Administration</option>
+                <option value="Maintenance Department">Maintenance Department</option>
+              </optgroup>
+              <option value="__other">Other…</option>
+            </select>
+            <input type="text" name="department" id="cuDeptTxt" class="fc" placeholder="Type the department…" maxlength="100" style="margin-top:.4rem;display:none;">
+            <p id="cuDeptHint" style="font-size:.72rem;color:var(--t3,#9A7A7A);margin:.4rem 0 0;line-height:1.5;display:none;"><i class="fas fa-circle-info"></i> For an <strong>Administrator</strong> this sets which dashboard they oversee — pick <strong>PMO</strong> or <strong>ITSO</strong>.</p>
           </div>
         </div>
         <div class="fg">
@@ -1311,7 +1338,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
       <button class="mx" onclick="document.getElementById('editMo').classList.remove('open')"><i class="fas fa-times"></i></button>
     </div>
     <div class="mb">
-      <form method="POST" action="admin_users.php" id="editForm">
+      <form method="POST" action="admin_users.php" id="editForm" onsubmit="return deptGuard('eRole','eDept');">
         <input type="hidden" name="action" value="edit">
         <input type="hidden" name="user_id" id="eUid">
         <div class="fg2">
@@ -1327,7 +1354,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         <div class="fg2">
           <div class="fg">
             <label class="fl">Role <span>*</span></label>
-            <select name="role" id="eRole" class="fc" required>
+            <select name="role" id="eRole" class="fc" required onchange="deptRoleSync('eRole','eDeptSel','eDeptStar','eDeptHint')">
               <?php foreach($assignableRoleMeta as $roleValue => $roleLabel): ?>
                 <option value="<?php echo esc($roleValue); ?>" <?php echo in_array($roleValue, $assignableRoles, true) ? '' : 'disabled'; ?>>
                   <?php echo esc($roleLabel . (in_array($roleValue, $assignableRoles, true) ? '' : ' (DB setup needed)')); ?>
@@ -1338,8 +1365,22 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         </div>
         <div class="fg2">
           <div class="fg">
-            <label class="fl">Department</label>
-            <input type="text" name="department" id="eDept" class="fc" placeholder="e.g. ITSO, PMO…">
+            <label class="fl">Unit / Department <span id="eDeptStar" style="display:none;">*</span></label>
+            <select id="eDeptSel" class="fc" onchange="deptPick('eDeptSel','eDept',this.value)">
+              <option value="">Select…</option>
+              <optgroup label="Admin / Technician unit">
+                <option value="PMO">PMO — Property Management Office</option>
+                <option value="ITSO">ITSO — Information Technology Services Office</option>
+              </optgroup>
+              <optgroup label="Academic / Office">
+                <option value="CCS">CCS</option>
+                <option value="Administration">Administration</option>
+                <option value="Maintenance Department">Maintenance Department</option>
+              </optgroup>
+              <option value="__other">Other…</option>
+            </select>
+            <input type="text" name="department" id="eDept" class="fc" placeholder="Type the department…" maxlength="100" style="margin-top:.4rem;display:none;">
+            <p id="eDeptHint" style="font-size:.72rem;color:var(--t3,#9A7A7A);margin:.4rem 0 0;line-height:1.5;display:none;"><i class="fas fa-circle-info"></i> For an <strong>Administrator</strong> this sets which dashboard they oversee — pick <strong>PMO</strong> or <strong>ITSO</strong>.</p>
           </div>
           <div class="fg">
             <label class="fl">Phone</label>
@@ -1602,12 +1643,48 @@ function openEdit(u){
   document.getElementById('eFname').value = u.fullname||'';
   document.getElementById('eEmail').value = u.email||'';
   document.getElementById('eRole').value  = u.role||'reporter';
-  document.getElementById('eDept').value  = u.department||'';
+  deptLoad('eDeptSel','eDept', u.department||'');
+  deptRoleSync('eRole','eDeptSel','eDeptStar','eDeptHint');
   document.getElementById('ePhone').value = u.phone||'';
   document.getElementById('epw').value    = '';
   document.getElementById('estr').style.width='0';
   document.getElementById('editSubtitle').textContent = 'Editing: ' + (u.fullname||'User');
   document.getElementById('editMo').classList.add('open');
+}
+
+/* ─── UNIT / DEPARTMENT PICKER ──────────────────────── */
+// Select drives the hidden text field that actually submits (name="department").
+function deptPick(selId, txtId, val){
+  var txt=document.getElementById(txtId);
+  if(val==='__other'){ txt.style.display=''; txt.value=''; txt.focus(); }
+  else { txt.style.display='none'; txt.value=val; }
+}
+// Reverse-sync: put an existing value into the select, or fall to "Other…".
+function deptLoad(selId, txtId, val){
+  var sel=document.getElementById(selId), txt=document.getElementById(txtId);
+  val=(val||'').trim();
+  var match=false;
+  for(var i=0;i<sel.options.length;i++){ if(sel.options[i].value===val){ match=true; break; } }
+  if(val===''){ sel.value=''; txt.style.display='none'; txt.value=''; }
+  else if(match){ sel.value=val; txt.style.display='none'; txt.value=val; }
+  else { sel.value='__other'; txt.style.display=''; txt.value=val; }
+}
+// When the role is Administrator, the unit is required and must be PMO/ITSO.
+function deptRoleSync(roleId, selId, starId, hintId){
+  var role=(document.getElementById(roleId)||{}).value||'';
+  var isAdmin=(role==='admin');
+  var star=document.getElementById(starId), hint=document.getElementById(hintId);
+  if(star) star.style.display=isAdmin?'':'none';
+  if(hint) hint.style.display=isAdmin?'':'none';
+}
+// Block submit if an Administrator has no PMO/ITSO unit set.
+function deptGuard(roleId, txtId){
+  var role=(document.getElementById(roleId)||{}).value||'';
+  if(role!=='admin') return true;
+  var dept=((document.getElementById(txtId)||{}).value||'').toUpperCase();
+  if(dept.indexOf('PMO')!==-1 || dept.indexOf('ITSO')!==-1) return true;
+  alert('Please choose the unit this Administrator will oversee — PMO or ITSO.');
+  return false;
 }
 
 /* ─── PROFILE MODAL ─────────────────────────────────── */

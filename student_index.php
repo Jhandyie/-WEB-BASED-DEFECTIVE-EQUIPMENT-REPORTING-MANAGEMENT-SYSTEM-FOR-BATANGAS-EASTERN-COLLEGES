@@ -634,7 +634,7 @@ body::after {
       <?php echo htmlspecialchars($error); ?>
     </div>
     <?php endif; ?>
-    <form method="POST" action="">
+    <form method="POST" action="" id="signinForm" onsubmit="if(window.AuthLoader)AuthLoader.show('Signing you in…','Preparing your report portal…');">
       <input type="hidden" name="eq" value="<?php echo htmlspecialchars($eq, ENT_QUOTES); ?>">
       <?php if ($eq !== ''): ?><div class="notice" style="margin-bottom:.6rem;"><i class="fas fa-qrcode"></i> <span>You scanned an equipment QR — it will be pre-selected after you sign in.</span></div><?php endif; ?>
       <div class="fg">
@@ -1229,5 +1229,6 @@ function escAttr(s) { return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39
 <?php require __DIR__ . '/includes/site_reveal.php'; ?>
 <?php require __DIR__ . '/includes/site_transitions.php'; ?>
 <script src="assets/input_guard.js" defer></script>
+<script src="assets/auth_loader.js"></script>
 </body>
 </html>

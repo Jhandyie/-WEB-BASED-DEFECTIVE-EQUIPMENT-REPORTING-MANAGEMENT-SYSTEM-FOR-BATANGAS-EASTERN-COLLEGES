@@ -284,8 +284,8 @@
                 const data = await res.json();
 
                 if (data.success) {
-                    showMsg('success', 'Login successful! Redirecting…');
-                    setTimeout(() => { window.location.href = '../technician_dashboard.php'; }, 1000);
+                    AuthLoader.show('Welcome back!', 'Opening your workspace…');
+                    setTimeout(() => { window.location.href = '../technician_dashboard.php'; }, 1100);
                 } else {
                     showMsg('error', data.message || 'Invalid email or password. Please try again.');
                     setLoading(false);
@@ -336,5 +336,6 @@
         })();
     </script>
 <script src="../assets/page_loader.js"></script>
+<script src="../assets/auth_loader.js"></script>
 </body>
 </html>
