@@ -703,11 +703,11 @@ body::after {
 
     <div class="ch">
       <div class="ch-av">
-        <img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="BEC Support AI" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:50%">
+        <img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="Becca — BEC Support AI" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:50%">
         <div class="ch-av-dot"></div>
       </div>
       <div class="ch-info">
-        <div class="ch-name">BEC Support AI</div>
+        <div class="ch-name">Becca <span style="font-weight:500;opacity:.75;font-size:.82em;">· BEC Support AI</span></div>
         <div class="ch-status">Online &middot; Ready to help</div>
       </div>
       <div class="ch-btns">
