@@ -235,14 +235,6 @@ a { text-decoration: none; color: inherit; }
 /* ══ PORTALS ══ */
 .portal-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1rem; }
 .portal-grid--single { grid-template-columns: minmax(0, 460px); justify-content: center; }
-/* Discreet staff sign-in row under the reporter portal card */
-.staff-access { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: .55rem 1rem; margin-top: 1.15rem; font-size: .78rem; color: var(--ink3); }
-.staff-access .sa-label { display: inline-flex; align-items: center; gap: .4rem; font-weight: 600; }
-.staff-access .sa-label i { color: var(--gold); font-size: .72rem; }
-.staff-access a { display: inline-flex; align-items: center; gap: .38rem; color: var(--maroon); font-weight: 600; text-decoration: none; padding: .3rem .68rem; border: 1px solid rgba(123,29,29,.18); border-radius: 999px; background: rgba(123,29,29,.04); transition: background .15s, border-color .15s; }
-.staff-access a:hover { background: rgba(123,29,29,.09); border-color: rgba(123,29,29,.35); }
-.staff-access a i { font-size: .68rem; }
-.staff-access .sa-sep { width: 4px; height: 4px; border-radius: 50%; background: var(--border); }
 .portal-card { position: relative; display: flex; flex-direction: column; background: var(--surface);
   border: 1px solid var(--border); border-radius: 18px; padding: 1.8rem 1.6rem; box-shadow: var(--shadow);
   transition: transform .22s cubic-bezier(.22,1,.36,1), box-shadow .22s, border-color .22s; overflow: hidden; }
@@ -261,15 +253,23 @@ a { text-decoration: none; color: inherit; }
 
 /* ══ MODULES / CAPABILITIES ══ */
 .mod-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+.mod-card { position: relative; overflow: hidden; display: flex; gap: .9rem; align-items: flex-start; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 1.3rem 1.3rem; box-shadow: 0 2px 8px rgba(44,10,10,.05);
+  transition: transform .26s cubic-bezier(.22,1,.36,1), box-shadow .26s, border-color .26s; }
+.mod-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px;
+  background: linear-gradient(90deg, var(--maroon-d), var(--maroon) 60%, var(--gold)); transform: scaleX(0); transform-origin: left; transition: transform .3s ease; }
+.mod-card::after { content: ''; position: absolute; top: -30px; right: -30px; width: 96px; height: 96px; border-radius: 50%; background: var(--maroon); opacity: 0; transition: opacity .3s, transform .3s; }
+.mod-card:hover { transform: translateY(-5px); border-color: rgba(123,29,29,.2); box-shadow: 0 14px 30px rgba(74,14,14,.13); }
+.mod-card:hover::before { transform: scaleX(1); }
+.mod-card:hover::after { opacity: .05; transform: scale(1.4); }
 .mod-card.feat { grid-column: span 2; background: linear-gradient(135deg, var(--surface) 55%, var(--maroon-soft)); border-color: rgba(123,29,29,.16); }
-.mod-card.feat .mod-ic { background: linear-gradient(135deg, var(--maroon-d), var(--maroon)); color: #fff; border-color: transparent; }
-.mod-card { display: flex; gap: .9rem; align-items: flex-start; background: var(--surface); border: 1px solid var(--border);
-  border-radius: 14px; padding: 1.2rem 1.25rem; box-shadow: 0 2px 8px rgba(44,10,10,.05);
-  transition: transform .2s, box-shadow .2s, border-color .2s; }
-.mod-card:hover { transform: translateY(-3px); border-color: rgba(123,29,29,.2); box-shadow: 0 8px 20px rgba(74,14,14,.10); }
-.mod-ic { width: 42px; height: 42px; border-radius: 11px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-  font-size: 1.05rem; color: var(--maroon); background: var(--maroon-soft); border: 1px solid rgba(123,29,29,.14); }
-.mod-tx b { display: block; font-size: .95rem; font-weight: 700; color: var(--ink); margin-bottom: .2rem; letter-spacing: -.01em; }
+.mod-card.feat .mod-ic { background: linear-gradient(135deg, var(--maroon-d), var(--maroon)); color: #fff; border-color: transparent; box-shadow: 0 4px 12px rgba(123,29,29,.28); }
+.mod-ic { position: relative; z-index: 1; width: 46px; height: 46px; border-radius: 13px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; color: var(--maroon); background: var(--maroon-soft); border: 1px solid rgba(123,29,29,.14); box-shadow: 0 3px 0 rgba(74,14,14,.06);
+  transition: transform .26s, background .26s, color .26s, border-color .26s; }
+.mod-card:hover .mod-ic { transform: rotate(-8deg) scale(1.1); background: linear-gradient(135deg, var(--maroon-d), var(--maroon)); color: #fff; border-color: transparent; }
+.mod-tx { position: relative; z-index: 1; }
+.mod-tx b { display: block; font-size: .97rem; font-weight: 700; color: var(--ink); margin-bottom: .25rem; letter-spacing: -.01em; }
 .mod-tx span { display: block; font-size: .8rem; line-height: 1.55; color: var(--ink2); }
 @media (max-width: 900px) { .mod-grid { grid-template-columns: repeat(2, 1fr); } .mod-card.feat { grid-column: span 2; } }
 @media (max-width: 640px) { .mod-grid { grid-template-columns: 1fr; } .mod-card.feat { grid-column: auto; } }
@@ -557,12 +557,6 @@ a { text-decoration: none; color: inherit; }
           <p class="pc-desc">For students, faculty, and staff — file a defect report with your official BEC email and track it through to resolution.</p>
           <span class="pc-enter">Enter portal <i class="fas fa-arrow-right"></i></span>
         </a>
-      </div>
-      <div class="staff-access">
-        <span class="sa-label"><i class="fas fa-user-shield"></i> BEC personnel?</span>
-        <a href="technician/login.html"><i class="fas fa-screwdriver-wrench"></i> Technician sign-in</a>
-        <span class="sa-sep"></span>
-        <a href="admin/admin_login_otp.html"><i class="fas fa-building-shield"></i> PMO / ITSO admin sign-in</a>
       </div>
     </div>
   </section>
