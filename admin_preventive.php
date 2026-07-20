@@ -115,19 +115,25 @@ $presets   = pmFrequencyPresets();
   .flash.ok{background:#E9F9EF;border:1px solid #b6e6c6;color:var(--success);}
   .flash.err{background:#FEF2F2;border:1px solid #FECACA;color:var(--danger);}
   /* Stat cards */
-  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:.9rem;margin-bottom:1.4rem;}
-  .stat{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1rem 1.15rem;display:flex;align-items:center;gap:.95rem;box-shadow:0 1px 2px rgba(44,10,10,.05);transition:transform .18s,box-shadow .18s;}
-  .stat:hover{transform:translateY(-2px);box-shadow:0 10px 26px rgba(44,10,10,.1);}
-  .stat .ic{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:1.15rem;flex-shrink:0;}
-  .stat .n{font-size:1.8rem;font-weight:800;line-height:1;color:var(--ink);}
-  .stat .l{font-size:.65rem;text-transform:uppercase;letter-spacing:.5px;color:var(--ink3);font-weight:700;margin-top:.3rem;}
-  .stat.s-m .ic{background:rgba(123,29,29,.1);color:var(--m);} .stat.s-m .n{color:var(--m);}
-  .stat.s-a .ic{background:rgba(201,150,12,.16);color:#B45309;}
-  .stat.s-a.warn .ic{background:#FEF2F2;color:var(--danger);} .stat.s-a.warn .n{color:var(--danger);}
-  .stat.s-g .ic{background:#E9F9EF;color:var(--success);} .stat.s-g .n{color:var(--success);}
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem;}
+  .stat{position:relative;overflow:hidden;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.15rem 1.3rem;display:flex;align-items:center;gap:1rem;box-shadow:0 1px 2px rgba(44,10,10,.05);transition:transform .26s cubic-bezier(.4,0,.2,1),box-shadow .26s;cursor:default;}
+  .stat::before{content:'';position:absolute;top:-24px;right:-24px;width:90px;height:90px;border-radius:50%;background:var(--sk,var(--m));opacity:.05;transition:transform .3s,opacity .3s;}
+  .stat::after{content:'';position:absolute;left:0;bottom:0;width:100%;height:3px;background:var(--sk,var(--m));transform:scaleX(0);transform-origin:left;transition:transform .32s;}
+  .stat:hover{transform:translateY(-4px);box-shadow:0 12px 30px rgba(44,10,10,.12);}
+  .stat:hover::before{transform:scale(1.5);opacity:.09;}
+  .stat:hover::after{transform:scaleX(1);}
+  .stat .ic{position:relative;z-index:1;width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;box-shadow:0 3px 0 rgba(0,0,0,.07);transition:transform .26s;}
+  .stat:hover .ic{transform:rotate(-8deg) scale(1.12);}
+  .stat .n{position:relative;z-index:1;font-family:'Outfit',sans-serif;font-size:2rem;font-weight:800;line-height:1;color:var(--ink);}
+  .stat .l{position:relative;z-index:1;font-size:.62rem;text-transform:uppercase;letter-spacing:.6px;color:var(--ink3);font-weight:700;margin-top:.35rem;}
+  .stat.s-m{--sk:var(--m);} .stat.s-m .ic{background:rgba(123,29,29,.1);color:var(--m);} .stat.s-m .n{color:var(--m);}
+  .stat.s-a{--sk:#D97706;} .stat.s-a .ic{background:rgba(201,150,12,.16);color:#B45309;}
+  .stat.s-a.warn{--sk:var(--danger);} .stat.s-a.warn .ic{background:#FEF2F2;color:var(--danger);} .stat.s-a.warn .n{color:var(--danger);}
+  .stat.s-g{--sk:var(--success);} .stat.s-g .ic{background:#E9F9EF;color:var(--success);} .stat.s-g .n{color:var(--success);}
   /* Panels */
   .panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.3rem;margin-bottom:1.4rem;box-shadow:0 1px 2px rgba(44,10,10,.05);}
-  .panel h2{margin:0 0 1rem;font-size:1rem;color:var(--m);display:flex;align-items:center;gap:.55rem;padding-bottom:.8rem;border-bottom:1px solid var(--border);}
+  .panel h2{margin:0 0 1rem;font-size:1rem;color:var(--ink);display:flex;align-items:center;gap:.6rem;padding-bottom:.8rem;border-bottom:1px solid var(--border);}
+  .panel h2 > i{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,rgba(123,29,29,.1),rgba(201,150,12,.12));color:var(--m);display:inline-flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0;}
   .panel h2 .count{margin-left:auto;font-size:.66rem;font-weight:700;color:var(--ink3);background:#f4ede1;border:1px solid var(--border);border-radius:999px;padding:.18rem .65rem;text-transform:none;letter-spacing:0;}
   /* Form */
   .fgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;}
@@ -157,6 +163,11 @@ $presets   = pmFrequencyPresets();
   .prio{display:inline-block;font-size:.6rem;font-weight:800;padding:.2rem .5rem;border-radius:6px;text-transform:uppercase;letter-spacing:.3px;}
   .prio.critical{background:#FEF2F2;color:#991B1B;}.prio.high{background:#FFF7ED;color:#C2410C;}.prio.medium{background:#FFFBEB;color:#92600A;}.prio.low{background:#F0FDF4;color:#166534;}
   .due-soon{color:var(--danger);font-weight:800;}
+  .due-badge{display:inline-block;margin-top:.28rem;font-size:.58rem;font-weight:800;padding:.15rem .48rem;border-radius:6px;letter-spacing:.2px;text-transform:uppercase;}
+  .due-badge.over{background:#FEF2F2;color:#991B1B;}
+  .due-badge.soon{background:#FFFBEB;color:#92600A;}
+  .due-badge.far{background:#F0FDF4;color:#166534;}
+  .due-badge.paused{background:#F1F1F1;color:#8A8A8A;}
   .empty{text-align:center;color:var(--ink3);padding:2.5rem 1rem;}
   .empty i{color:var(--g);opacity:.75;}
   .iact{background:#fff;border:1px solid var(--border);border-radius:9px;width:34px;height:34px;cursor:pointer;color:var(--ink2);transition:all .15s;}
@@ -236,7 +247,18 @@ $presets   = pmFrequencyPresets();
                 <td><strong><?php echo pm_e($s['title']); ?></strong></td>
                 <td><?php echo pm_e($s['equipment_name'] ?: $s['equipment_id']); ?><?php echo $s['location']?'<br><span style="color:#9E8070;font-size:.72rem;">'.pm_e($s['location']).'</span>':''; ?></td>
                 <td><?php echo (int)$s['frequency_days']; ?> days</td>
-                <td class="<?php echo ($soon && $s['status']==='active')?'due-soon':''; ?>"><?php echo pm_e(date('M j, Y', $due)); ?></td>
+                <td class="<?php echo ($soon && $s['status']==='active')?'due-soon':''; ?>">
+                  <?php echo pm_e(date('M j, Y', $due)); ?>
+                  <?php
+                    $dd = (int)floor(($due - strtotime('today')) / 86400);
+                    if ($s['status'] !== 'active') { $bc='paused'; $bt='Paused'; }
+                    elseif ($dd < 0)  { $bc='over'; $bt='Overdue '.abs($dd).'d'; }
+                    elseif ($dd === 0){ $bc='over'; $bt='Due today'; }
+                    elseif ($dd <= 7) { $bc='soon'; $bt='In '.$dd.'d'; }
+                    else              { $bc='far';  $bt='In '.$dd.'d'; }
+                  ?>
+                  <br><span class="due-badge <?php echo $bc; ?>"><?php echo $bt; ?></span>
+                </td>
                 <td><span class="prio <?php echo pm_e(strtolower((string)$s['priority'])); ?>"><?php echo pm_e(ucfirst((string)$s['priority'])); ?></span></td>
                 <td><span class="pill <?php echo $s['status']==='active'?'active':'paused'; ?>"><?php echo pm_e($s['status']); ?></span></td>
                 <td style="white-space:nowrap;">
