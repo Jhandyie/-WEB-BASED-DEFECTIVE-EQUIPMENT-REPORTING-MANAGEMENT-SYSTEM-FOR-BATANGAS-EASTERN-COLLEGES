@@ -33,7 +33,9 @@ try {
   .aia-fab .aia-ic img{width:100%;height:100%;object-fit:cover;display:block;}
   .aia-fab .aia-ic::after{content:'';position:absolute;top:-1px;right:-1px;width:12px;height:12px;border-radius:50%;background:#F0C040;border:2px solid #2D0505;box-shadow:0 0 0 0 rgba(240,192,64,.7);animation:aiaPulse 2.2s infinite;}
   @keyframes aiaPulse{0%{box-shadow:0 0 0 0 rgba(240,192,64,.6);}70%{box-shadow:0 0 0 8px rgba(240,192,64,0);}100%{box-shadow:0 0 0 0 rgba(240,192,64,0);}}
-  @media(max-width:560px){.aia-fab b,.aia-fab span{display:none;}.aia-fab{padding:.5rem;right:1rem;bottom:5rem;}}
+  @media(max-width:560px){.aia-fab b,.aia-fab span{display:none;}.aia-fab{padding:.5rem;right:1rem;bottom:5rem;}
+    .aia-overlay{padding:0;align-items:flex-end;justify-content:center;}
+    .aia-panel{max-width:100%;width:100%;height:90vh;max-height:90vh;border-radius:20px 20px 0 0;}}
   .aia-overlay{position:fixed;inset:0;z-index:9991;background:rgba(20,5,5,.45);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);display:flex;align-items:flex-end;justify-content:flex-end;padding:1.25rem;opacity:0;pointer-events:none;transition:opacity .2s;}
   .aia-overlay.open{opacity:1;pointer-events:all;}
   .aia-panel{width:100%;max-width:400px;height:600px;max-height:calc(100vh - 2.5rem);background:rgba(255,255,255,.85);-webkit-backdrop-filter:blur(22px) saturate(1.2);backdrop-filter:blur(22px) saturate(1.2);border-radius:22px;border:1px solid rgba(255,255,255,.6);box-shadow:0 20px 60px rgba(44,10,10,.32),0 4px 14px rgba(44,10,10,.14),inset 0 0 0 1px rgba(255,255,255,.3);display:flex;flex-direction:column;overflow:hidden;transform:translateY(20px) scale(.98);opacity:0;transition:transform .26s cubic-bezier(.22,1,.36,1),opacity .2s;font-family:'DM Sans','Outfit',sans-serif;}

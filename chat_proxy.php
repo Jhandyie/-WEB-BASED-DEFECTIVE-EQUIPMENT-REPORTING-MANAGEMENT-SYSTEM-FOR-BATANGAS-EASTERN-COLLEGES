@@ -552,6 +552,13 @@ function chatBecKnowledge(string $q, string $lang): ?array
             : "Matatagpuan ang Batangas Eastern Colleges sa **02 Javier Street, Poblacion, San Juan, Batangas 4226**, Pilipinas. 📍",
             'suggest' => false, 'chips' => $chips];
     }
+    // Programs / courses offered
+    if (preg_match('/\b(programs?|courses?|offer|kurso|degree|strand|senior high|tech.?voc|college course)\b/iu', $q)) {
+        return ['reply' => $en
+            ? "BEC offers a complete education ladder:\n- **Basic Ed** — Pre-School, Grade School, Junior High\n- **Senior High** — STEM, ABM, HUMSS, and TVL (Home Economics, ICT)\n- **College** — Teacher Education, Business (Accountancy, Accounting Information Systems, Business Administration) and Computer Studies (BS Information Systems)\n- **Technical-Vocational Center** — Computer Systems Servicing, Cookery, Bartending, Housekeeping and more (NC II/III) 📚"
+            : "Kumpleto ang alok ng BEC:\n- **Basic Ed** — Pre-School, Grade School, Junior High\n- **Senior High** — STEM, ABM, HUMSS, at TVL (Home Economics, ICT)\n- **Kolehiyo** — Teacher Education, Business, at Computer Studies (BS Information Systems)\n- **Technical-Vocational Center** — Computer Systems Servicing, Cookery, Bartending, Housekeeping at iba pa (NC II/III) 📚",
+            'suggest' => false, 'chips' => $chips];
+    }
     // General "about BEC"
     return ['reply' => $en
         ? "**Batangas Eastern Colleges (BEC)** is a private, non-sectarian school in **San Juan, Batangas**, founded in **1940** — the first high school in the town. Known as the *Beacons* (colors maroon & gold), it offers Pre-School through College plus a Technical-Vocational Center. This system is the **Property Management Office's** channel for reporting and resolving defective campus equipment. What would you like to do? 🙂"

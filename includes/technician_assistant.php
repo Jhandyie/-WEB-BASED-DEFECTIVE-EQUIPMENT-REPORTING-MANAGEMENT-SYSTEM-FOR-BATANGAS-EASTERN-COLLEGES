@@ -22,6 +22,8 @@
   .tia-overlay.open{opacity:1;pointer-events:all;}
   .tia-panel{width:100%;max-width:400px;height:600px;max-height:calc(100vh - 2.5rem);background:rgba(255,255,255,.85);-webkit-backdrop-filter:blur(22px) saturate(1.2);backdrop-filter:blur(22px) saturate(1.2);border-radius:22px;border:1px solid rgba(255,255,255,.6);box-shadow:0 20px 60px rgba(44,10,10,.32),0 4px 14px rgba(44,10,10,.14);display:flex;flex-direction:column;overflow:hidden;transform:translateY(20px) scale(.98);opacity:0;transition:transform .26s cubic-bezier(.22,1,.36,1),opacity .2s;font-family:'DM Sans',sans-serif;}
   .tia-overlay.open .tia-panel{transform:none;opacity:1;}
+  @media(max-width:560px){.tia-overlay{padding:0;align-items:flex-end;justify-content:center;}
+    .tia-panel{max-width:100%;width:100%;height:90vh;max-height:90vh;border-radius:20px 20px 0 0;}}
   .tia-head{background:linear-gradient(135deg,#2D0505,#7B1D1D);color:#fff;padding:.9rem 1rem;display:flex;align-items:center;gap:.65rem;flex-shrink:0;border-bottom:2px solid rgba(201,150,12,.5);}
   .tia-av{width:40px;height:40px;border-radius:50%;overflow:hidden;background:#fff;border:1.5px solid rgba(201,150,12,.6);box-shadow:0 0 14px rgba(201,150,12,.4);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .tia-av img{width:100%;height:100%;object-fit:cover;display:block;}
