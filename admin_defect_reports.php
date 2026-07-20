@@ -741,7 +741,7 @@ body{
 body:has(.mo.open){overflow:hidden;}
 .mo.open{display:flex;animation:moFade .18s ease;}
 @keyframes moFade{from{opacity:0}to{opacity:1}}
-.mw{background:var(--s1);border-radius:var(--r4);width:100%;max-width:700px;
+.mw{background:var(--s1);border-radius:var(--r4);width:100%;max-width:840px;
   box-shadow:var(--sh3);animation:mUp .28s cubic-bezier(.4,0,.2,1);
   border:1px solid var(--bdr);margin:auto;}
 @keyframes mUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
@@ -757,10 +757,25 @@ body:has(.mo.open){overflow:hidden;}
   width:110px;height:110px;border-radius:50%;
   background:rgba(212,160,23,.08);pointer-events:none;
   animation:sealSpin 18s linear infinite;}
-.mhd-t{position:relative;z-index:1;}
-.mhd-t h2{font-family:'Outfit',sans-serif;font-size:1.05rem;font-weight:800;color:#fff;}
-.mhd-t .mid{font-family:'Outfit',sans-serif;font-size:.85rem;font-weight:800;
-  color:var(--g3);margin-top:.22rem;display:flex;align-items:center;gap:.28rem;}
+.mhd-t{position:relative;z-index:1;min-width:0;}
+.mhd-eyebrow{font-family:'Outfit',sans-serif;font-size:.72rem;font-weight:700;
+  color:var(--g3);display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;letter-spacing:.02em;}
+.mhd-eyebrow .dot{opacity:.5;color:rgba(255,255,255,.4);}
+.mhd-eyebrow .when{color:rgba(255,255,255,.55);font-weight:600;}
+.mhd-t h2{font-family:'Outfit',sans-serif;font-size:1.32rem;font-weight:800;color:#fff;
+  margin-top:.3rem;line-height:1.2;overflow-wrap:anywhere;}
+.mhd-pills{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.6rem;}
+.mhd-pills .bdg{background:rgba(255,255,255,.14);color:#fff;backdrop-filter:blur(2px);}
+.mhd-pills .bdg::before{background:currentColor;}
+.mhd-pills .b-crit{color:#FED7AA;}
+.mhd-pills .b-hi{color:#FDE68A;}
+.mhd-pills .b-med{color:#BFDBFE;}
+.mhd-pills .b-lo{color:#BBF7D0;}
+.mhd-pills .b-pend{color:#FDE68A;}
+.mhd-pills .b-prog{color:#BFDBFE;}
+.mhd-pills .b-prog2{color:#DDD6FE;}
+.mhd-pills .b-done{color:#BBF7D0;}
+.mhd-pills .b-rej{color:#FECDD3;}
 .mhd-t p{font-size:.7rem;color:rgba(255,255,255,.42);margin-top:.1rem;}
 .mx{width:27px;height:27px;background:rgba(255,255,255,.1);border:none;border-radius:50%;
   color:rgba(255,255,255,.6);font-size:.82rem;cursor:pointer;
@@ -780,10 +795,38 @@ body:has(.mo.open){overflow:hidden;}
 .det-k{width:110px;flex-shrink:0;font-size:.63rem;font-weight:800;
   text-transform:uppercase;letter-spacing:.6px;color:var(--t3);padding-top:.08rem;}
 .det-v{font-size:.81rem;color:var(--t1);flex:1;line-height:1.5;}
-.desc-box{background:var(--s2);border:1.5px solid var(--bdr);border-radius:var(--r1);
-  padding:.6rem .75rem;font-size:.79rem;line-height:1.6;color:var(--t1);}
+.desc-box{background:var(--s2);border:1.5px solid var(--bdr);border-left:3px solid var(--m3);
+  border-radius:var(--r1);padding:.7rem .85rem;font-size:.81rem;line-height:1.65;color:var(--t1);}
 .notes-box{background:var(--gp);border:1px solid rgba(212,160,23,.25);
   border-radius:var(--r1);padding:.58rem .72rem;font-size:.78rem;line-height:1.55;color:var(--t2);}
+
+/* Section labels (icon + uppercase caption) reused across the details modal */
+.sec-lbl{font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;
+  color:var(--t3);margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem;}
+.sec-lbl i{color:var(--m3);font-size:.7rem;}
+
+/* Scannable icon-tile fact grid (replaces the plain key/value list) */
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:1.15rem;}
+.info-tile{display:flex;gap:.6rem;align-items:flex-start;background:var(--s2);
+  border:1px solid var(--bdr);border-radius:var(--r1);padding:.62rem .75rem;min-width:0;
+  transition:border-color .16s;}
+.info-tile:hover{border-color:#D8CCBD;}
+.info-tile.wide{grid-column:1/-1;}
+.info-ic{flex-shrink:0;width:30px;height:30px;border-radius:9px;
+  background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:.74rem;}
+.info-ic.muted{background:var(--s1);color:var(--t3);border:1.5px solid var(--bdr);}
+.info-b{min-width:0;flex:1;}
+.info-l{font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.55px;
+  color:var(--t3);margin-bottom:.16rem;}
+.info-v{font-size:.79rem;color:var(--t1);font-weight:600;line-height:1.42;word-break:break-word;}
+.info-v a{color:var(--m3);text-decoration:none;}
+.info-v a:hover{text-decoration:underline;}
+.info-v.muted{color:var(--t3);font-weight:500;}
+
+/* Workflow progress card wrapper */
+.wf-card{background:var(--s2);border:1px solid var(--bdr);border-radius:var(--r2);
+  padding:.9rem 1rem 1rem;margin-bottom:1.15rem;}
 
 /* Photo preview */
 .photo-wrap{border-radius:var(--r2);overflow:hidden;border:2px solid var(--bdr);
@@ -917,6 +960,7 @@ textarea.fc{resize:vertical;min-height:70px;}
 @media(max-width:768px){.sb{transform:translateX(-100%);}.sb.open{transform:translateX(0);}
   .wrap{margin-left:0;}.pg{padding:1rem;}.mob-tog{display:flex;}
   .kanban{grid-template-columns:1fr;}.sums{grid-template-columns:1fr 1fr;}}
+@media(max-width:480px){.info-grid{grid-template-columns:1fr;}.prio-seg{grid-template-columns:1fr 1fr;}}
 
 /* stagger entrance */
 .scard{animation:scIn .32s ease both;}
@@ -1217,9 +1261,16 @@ textarea.fc{resize:vertical;min-height:70px;}
     <!-- Header -->
     <div class="mhd">
       <div class="mhd-t">
-        <h2><i class="fas fa-file-alt" style="margin-right:.3rem;opacity:.7;"></i>Report Details</h2>
-        <div class="mid"><i class="fas fa-hashtag" style="font-size:.72rem;"></i><?php echo esc($vr['report_id']); ?></div>
-        <p>Submitted <?php echo date('F j, Y \a\t g:i A',strtotime($vr['report_date'])); ?></p>
+        <div class="mhd-eyebrow">
+          <span><i class="fas fa-hashtag" style="font-size:.66rem;"></i> <?php echo esc($vr['report_id']); ?></span>
+          <span class="dot">&bull;</span>
+          <span class="when"><i class="fas fa-clock" style="font-size:.66rem;"></i> <?php echo date('M j, Y \a\t g:i A',strtotime($vr['report_date'])); ?></span>
+        </div>
+        <h2><?php echo esc($vr['equipment_name']); ?></h2>
+        <div class="mhd-pills">
+          <span class="bdg b-<?php echo prCls($vr['priority']); ?>"><?php echo prLbl($vr['priority']); ?> Priority</span>
+          <span class="bdg b-<?php echo stCls($vr['status']); ?>"><?php echo stLbl($vr['status']); ?></span>
+        </div>
       </div>
       <button class="mx" onclick="closeDet()"><i class="fas fa-times"></i></button>
     </div>
@@ -1228,31 +1279,49 @@ textarea.fc{resize:vertical;min-height:70px;}
     <div class="m2col">
       <!-- LEFT: Report info -->
       <div class="mleft">
-        <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:.7rem;">Report Information</div>
+        <div class="sec-lbl"><i class="fas fa-circle-info"></i> Report Information</div>
 
-        <div class="det-row"><div class="det-k">Equipment</div><div class="det-v"><strong><?php echo esc($vr['equipment_name']); ?></strong></div></div>
-        <div class="det-row"><div class="det-k">Asset Tag</div><div class="det-v"><?php echo esc($vr['asset_tag']); ?></div></div>
-        <div class="det-row"><div class="det-k">Location</div><div class="det-v"><?php echo esc($vr['location']); ?></div></div>
-        <div class="det-row"><div class="det-k">Reported By</div><div class="det-v"><?php echo esc($vr['reporter_name']); ?></div></div>
-        <?php if (!empty($vr['reporter_email'])): ?>
-        <div class="det-row"><div class="det-k">Contact</div><div class="det-v"><a href="mailto:<?php echo esc($vr['reporter_email']); ?>"><?php echo esc($vr['reporter_email']); ?></a></div></div>
-        <?php endif; ?>
-        <?php if (!empty($vr['reporter_department'])): ?>
-        <div class="det-row"><div class="det-k">Department</div><div class="det-v"><?php echo esc($vr['reporter_department']); ?></div></div>
-        <?php endif; ?>
-        <?php if (!empty($vr['reporter_course'])): ?>
-        <div class="det-row"><div class="det-k">Course / Program</div><div class="det-v"><?php echo esc($vr['reporter_course']); ?></div></div>
-        <?php endif; ?>
-        <div class="det-row"><div class="det-k">Priority</div><div class="det-v"><span class="bdg b-<?php echo prCls($vr['priority']); ?>"><?php echo prLbl($vr['priority']); ?></span></div></div>
-        <div class="det-row"><div class="det-k">Status</div><div class="det-v"><span class="bdg b-<?php echo stCls($vr['status']); ?>"><?php echo stLbl($vr['status']); ?></span></div></div>
+        <div class="info-grid">
+          <div class="info-tile">
+            <div class="info-ic"><i class="fas fa-tag"></i></div>
+            <div class="info-b"><div class="info-l">Asset Tag</div><div class="info-v"><?php echo esc($vr['asset_tag']); ?></div></div>
+          </div>
+          <div class="info-tile">
+            <div class="info-ic"><i class="fas fa-user"></i></div>
+            <div class="info-b"><div class="info-l">Reported By</div><div class="info-v"><?php echo esc($vr['reporter_name']); ?></div></div>
+          </div>
+          <div class="info-tile wide">
+            <div class="info-ic"><i class="fas fa-location-dot"></i></div>
+            <div class="info-b"><div class="info-l">Location</div><div class="info-v"><?php echo esc($vr['location']); ?></div></div>
+          </div>
+          <?php if (!empty($vr['reporter_email'])): ?>
+          <div class="info-tile">
+            <div class="info-ic"><i class="fas fa-envelope"></i></div>
+            <div class="info-b"><div class="info-l">Contact</div><div class="info-v"><a href="mailto:<?php echo esc($vr['reporter_email']); ?>"><?php echo esc($vr['reporter_email']); ?></a></div></div>
+          </div>
+          <?php endif; ?>
+          <?php if (!empty($vr['reporter_department'])): ?>
+          <div class="info-tile">
+            <div class="info-ic"><i class="fas fa-sitemap"></i></div>
+            <div class="info-b"><div class="info-l">Department</div><div class="info-v"><?php echo esc($vr['reporter_department']); ?></div></div>
+          </div>
+          <?php endif; ?>
+          <?php if (!empty($vr['reporter_course'])): ?>
+          <div class="info-tile">
+            <div class="info-ic"><i class="fas fa-graduation-cap"></i></div>
+            <div class="info-b"><div class="info-l">Course / Program</div><div class="info-v"><?php echo esc($vr['reporter_course']); ?></div></div>
+          </div>
+          <?php endif; ?>
+        </div>
+
         <?php
           $__sIdx = ['reported'=>0,'pmo_review'=>1,'ready_for_assignment'=>2,'assigned'=>3,'accepted'=>4,'in_progress'=>5,'waiting_for_materials'=>5,'for_replacement'=>5,'completed'=>6,'verified'=>7,'closed'=>7];
           $__cur = $__sIdx[strtolower((string)$vr['status'])] ?? 0;
           $__rej = strtolower((string)$vr['status']) === 'rejected';
           $__steps = $__rej ? ['Submitted','Received by PMO','Rejected'] : ['Submitted','Received by PMO','Approved','Assigned','Received by Tech','In Progress','Completed','Closed'];
         ?>
-        <div class="det-row" style="grid-column:1/-1;display:block;">
-          <div class="det-k" style="margin-bottom:.55rem;">Workflow Progress</div>
+        <div class="wf-card">
+          <div class="sec-lbl" style="margin-bottom:.7rem;"><i class="fas fa-route"></i> Workflow Progress</div>
           <div style="display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding:.25rem .1rem .1rem;">
             <?php foreach($__steps as $__i=>$__lbl):
               $__rejStep = $__rej && $__i === 2;
@@ -1271,40 +1340,44 @@ textarea.fc{resize:vertical;min-height:70px;}
             <?php endforeach; ?>
           </div>
         </div>
-        <div class="det-row">
-          <div class="det-k">Department</div>
-          <div class="det-v">
-            <?php $dp=$vr['department_assigned']??'';
-            if($dp==='ITSO') echo '<span class="dept-itso"><i class="fas fa-laptop-code"></i> ITSO</span>';
-            elseif($dp==='PMO') echo '<span class="dept-pmo"><i class="fas fa-building"></i> PMO</span>';
-            else echo '<span class="dept-none">Not assigned yet</span>'; ?>
+
+        <?php $dp=$vr['department_assigned']??''; $techAssigned = !empty($vr['technician_name']) && strtolower(trim((string)$vr['technician_name'])) !== 'unassigned'; ?>
+        <div class="info-grid">
+          <div class="info-tile">
+            <div class="info-ic<?php echo $dp===''?' muted':''; ?>"><i class="fas fa-building-shield"></i></div>
+            <div class="info-b"><div class="info-l">Responsible Unit</div><div class="info-v<?php echo $dp===''?' muted':''; ?>">
+              <?php if($dp==='ITSO') echo '<span class="dept-itso"><i class="fas fa-laptop-code"></i> ITSO</span>';
+              elseif($dp==='PMO') echo '<span class="dept-pmo"><i class="fas fa-building"></i> PMO</span>';
+              else echo 'Not assigned yet'; ?>
+            </div></div>
+          </div>
+          <div class="info-tile">
+            <div class="info-ic<?php echo !$techAssigned?' muted':''; ?>"><i class="fas fa-user-gear"></i></div>
+            <div class="info-b"><div class="info-l">Assigned Technician</div><div class="info-v<?php echo !$techAssigned?' muted':''; ?>"><?php echo $techAssigned ? esc($vr['technician_name']) : 'Unassigned'; ?></div></div>
           </div>
         </div>
-        <div class="det-row"><div class="det-k">Assigned To</div><div class="det-v"><?php echo esc($vr['technician_name']); ?></div></div>
 
-        <div style="margin-top:.875rem;">
-          <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:.4rem;">Issue Description</div>
+        <div style="margin-top:.3rem;">
+          <div class="sec-lbl"><i class="fas fa-align-left"></i> Issue Description</div>
           <div class="desc-box"><?php echo nl2br(esc($vr['issue_description']??'—')); ?></div>
         </div>
 
         <?php if(!empty($vr['admin_notes'])): ?>
-        <div style="margin-top:.75rem;">
-          <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:.4rem;">Admin Notes</div>
+        <div style="margin-top:.85rem;">
+          <div class="sec-lbl"><i class="fas fa-note-sticky"></i> Admin Notes</div>
           <div class="notes-box"><?php echo nl2br(esc($vr['admin_notes'])); ?></div>
         </div>
-        <?php endif; ?>        <!-- Photo -->
+        <?php endif; ?>
         <?php if(!empty($vr['pmo_notes'])): ?>
-        <div style="margin-top:.75rem;">
-          <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:.4rem;">PMO Notes</div>
+        <div style="margin-top:.85rem;">
+          <div class="sec-lbl"><i class="fas fa-note-sticky"></i> PMO Notes</div>
           <div class="notes-box"><?php echo nl2br(esc($vr['pmo_notes'])); ?></div>
         </div>
         <?php endif; ?>
         <!-- Photo -->
         <?php $vrPhotoList = !empty($vr['photo_urls']) ? $vr['photo_urls'] : (!empty($vr['photo_url']) ? [$vr['photo_url']] : []); if(!empty($vrPhotoList)): ?>
-        <div style="margin-top:.875rem;">
-          <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:.4rem;">
-            <i class="fas fa-camera" style="color:var(--m3);"></i> Photo Evidence
-          </div>
+        <div style="margin-top:.95rem;">
+          <div class="sec-lbl"><i class="fas fa-camera"></i> Photo Evidence</div>
           <div class="photo-wrap" onclick="openLb('<?php echo esc($vrPhotoList[0]); ?>')">
             <img id="mainRptPhoto" src="<?php echo esc($vrPhotoList[0]); ?>" alt="Defect photo">
             <div class="photo-hint"><i class="fas fa-expand-alt"></i></div>
@@ -1319,10 +1392,8 @@ textarea.fc{resize:vertical;min-height:70px;}
         </div>
         <?php endif; ?>
         <?php if(!empty($vr['video_urls'])): ?>
-        <div style="margin-top:.875rem;">
-          <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:.4rem;">
-            <i class="fas fa-video" style="color:var(--m3);"></i> Video Evidence
-          </div>
+        <div style="margin-top:.95rem;">
+          <div class="sec-lbl"><i class="fas fa-video"></i> Video Evidence</div>
           <?php foreach($vr['video_urls'] as $vv): ?>
           <video src="<?php echo esc($vv); ?>" controls preload="metadata" playsinline style="width:100%;max-height:340px;border-radius:10px;border:2px solid var(--bdr);background:#000;margin-bottom:.5rem;"></video>
           <?php endforeach; ?>
@@ -1333,7 +1404,7 @@ textarea.fc{resize:vertical;min-height:70px;}
       <!-- RIGHT: Timeline + Actions -->
       <div class="mright">
         <!-- Progress Timeline -->
-        <div style="font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--t3);margin-bottom:.625rem;">Progress Timeline</div>
+        <div class="sec-lbl" style="margin-bottom:.7rem;"><i class="fas fa-timeline"></i> Progress Timeline</div>
         <div class="tl">
           <?php
           $st = $vr['status'];
