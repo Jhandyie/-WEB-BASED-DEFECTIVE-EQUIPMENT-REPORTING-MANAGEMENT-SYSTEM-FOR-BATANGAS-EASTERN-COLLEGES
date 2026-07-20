@@ -157,12 +157,13 @@
 @keyframes db { 0%,80%,100%{opacity:.2;transform:scale(.85)} 40%{opacity:1;transform:scale(1)} }
 .chips { display: flex; flex-wrap: wrap; gap: .32rem; margin-top: .48rem; }
 .chip {
-  font-size: .7rem; padding: .26rem .68rem; border-radius: 20px;
-  border: 1.5px solid var(--border); background: var(--surface);
-  color: var(--ink2); cursor: pointer; font-family: 'DM Sans', sans-serif;
-  font-weight: 500; transition: all .14s; white-space: nowrap;
+  font-size: .72rem; padding: .34rem .74rem; border-radius: 18px;
+  border: 1px solid rgba(123,29,29,.18); background: rgba(123,29,29,.05);
+  color: var(--maroon); cursor: pointer; font-family: 'DM Sans', sans-serif;
+  font-weight: 600; transition: all .15s; white-space: nowrap;
+  text-transform: none; letter-spacing: 0; line-height: 1.25;
 }
-.chip:hover { border-color: var(--maroon); color: var(--maroon); background: var(--maroon-soft); transform: translateY(-1px); }
+.chip:hover { border-color: var(--maroon); color: var(--maroon); background: var(--maroon-soft); transform: translateY(-1px); box-shadow: 0 2px 8px rgba(123,29,29,.12); }
 .rcard {
   margin-top: .52rem; padding: .62rem .78rem; border-radius: 10px;
   background: var(--gold-bg); border: 1px solid rgba(201,150,12,.2);
@@ -237,7 +238,7 @@
         <div class="ch-av-dot"></div>
       </div>
       <div class="ch-info">
-        <div class="ch-name">BEC Support AI</div>
+        <div class="ch-name">Becca <span style="font-weight:500;opacity:.75;font-size:.82em;">· BEC Support AI</span></div>
         <div class="ch-status">Online &middot; Ready to help</div>
       </div>
       <div class="ch-btns">
@@ -384,7 +385,8 @@ function chipLabel(key, currentLang = lang) {
     computer: { en: "Computer won't start", fil: 'Hindi nagbubukas ang computer' },
     ac: { en: 'AC not cooling', fil: 'Hindi lumalamig ang aircon' },
     submit: { en: 'How do I submit a report?', fil: 'Paano mag-report?' },
-    timeline: { en: 'How long are repairs?', fil: 'Gaano katagal ang repair?' }
+    timeline: { en: 'How long are repairs?', fil: 'Gaano katagal ang repair?' },
+    about_bec: { en: 'About BEC', fil: 'Tungkol sa BEC' }
   };
   return labels[key]?.[currentLang] || labels[key]?.en || key;
 }
@@ -408,7 +410,7 @@ function greet() {
   const msg = currentLang === 'fil'
     ? `Kumusta! 👋 Ako si ${persona.name}, ang inyong BEC Support AI. Parang katuwang ninyo ako dito — tutulungan ko kayo sa mga sirang kagamitan, pag-submit ng defect report, at troubleshooting. Ano ang maitutulong ko sa inyo ngayon?`
     : `Hi there! 👋 I'm ${persona.name}, your BEC Support AI. Think of me as your go-to buddy for equipment hiccups — broken gear, defect reports, and quick troubleshooting. What's giving you trouble today?`;
-  const chips = chipSet(['report_projector', 'track', 'computer', 'ac', 'submit', 'timeline'], currentLang);
+  const chips = chipSet(['report_projector', 'track', 'submit', 'about_bec'], currentLang);
   addMsg('b', msg, chips, false, [
     { label: actionLabel('create', currentLang), href: 'student_dashboard.php', icon: 'fa-plus' },
     { label: actionLabel('tracker', currentLang), href: 'track_report.php', icon: 'fa-search' },
