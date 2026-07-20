@@ -943,14 +943,18 @@ textarea.fc{resize:vertical;min-height:70px;}
 /* ── EMPTY ───────────────────────────────────────────── */
 .empty{text-align:center;padding:3rem 1.5rem;color:var(--t3);}
 .empty i{font-size:2.5rem;display:block;margin-bottom:.75rem;opacity:.22;}
-.rpager{display:flex;align-items:center;justify-content:space-between;gap:.75rem;flex-wrap:wrap;padding:.85rem 1rem;border-top:1px solid var(--bdr);}
+.rpager{display:flex;align-items:center;justify-content:space-between;gap:.85rem;flex-wrap:wrap;padding:.9rem 1rem;border-top:1px solid var(--bdr);}
 .rpager[hidden]{display:none;}
-.rpager .rp-info{font-size:.78rem;color:var(--t3);}
-.rpager .rp-btns{display:flex;gap:.3rem;flex-wrap:wrap;}
-.rpager button{min-width:32px;height:32px;padding:0 .55rem;border:1px solid var(--bdr);background:#fff;color:var(--t2);border-radius:8px;font-size:.8rem;font-weight:700;cursor:pointer;transition:all .15s;}
-.rpager button:hover:not(:disabled){border-color:var(--m3);color:var(--m3);}
-.rpager button.on{background:linear-gradient(135deg,#4A0E0E,#7B1D1D);color:#fff;border-color:transparent;}
-.rpager button:disabled{opacity:.45;cursor:default;}
+.rpager .rp-info{font-size:.78rem;color:var(--t3);font-weight:600;}
+.rpager .rp-info b{color:var(--t1);font-weight:800;}
+.rpager .rp-btns{display:inline-flex;align-items:center;gap:.25rem;flex-wrap:wrap;padding:.28rem;background:var(--s2);border:1px solid var(--bdr);border-radius:999px;}
+.rpager .rp-gap{padding:0 .1rem;color:var(--t3);font-size:.85rem;font-weight:800;user-select:none;align-self:center;opacity:.6;}
+.rpager button{display:inline-flex;align-items:center;justify-content:center;min-width:2rem;height:2rem;padding:0 .6rem;border:none;background:transparent;color:var(--t2);border-radius:999px;font-size:.8rem;font-weight:700;cursor:pointer;line-height:1;transition:color .16s,background .16s,box-shadow .16s,transform .16s;}
+.rpager button:hover:not(:disabled):not(.on){background:var(--s1);color:var(--m3);box-shadow:0 1px 5px rgba(0,0,0,.09);transform:translateY(-1px);}
+.rpager button.on{background:linear-gradient(135deg,#4A0E0E,#7B1D1D);color:#fff;box-shadow:0 3px 9px rgba(123,29,29,.34);transform:translateY(-1px);}
+.rpager button.rp-nav{width:2rem;min-width:2rem;padding:0;font-size:1rem;color:var(--t3);}
+.rpager button.rp-nav:hover:not(:disabled){color:var(--m3);}
+.rpager button:disabled{opacity:.35;cursor:default;box-shadow:none;transform:none;}
 
 /* ── RESPONSIVE ──────────────────────────────────────── */
 @media(max-width:1400px){.sums{grid-template-columns:repeat(4,1fr);}
@@ -1938,11 +1942,16 @@ function runAdvancedExport(format){
   function render() {
     rows.forEach(function (r, i) { r.style.display = (Math.floor(i / PER) + 1 === cur) ? '' : 'none'; });
     var start = (cur - 1) * PER + 1, end = Math.min(cur * PER, rows.length), btns = '';
-    for (var p = 1; p <= pages; p++) { btns += '<button type="button" data-p="' + p + '"' + (p === cur ? ' class="on"' : '') + '>' + p + '</button>'; }
+    function nbtn(p){ return '<button type="button" data-p="' + p + '"' + (p === cur ? ' class="on"' : '') + '>' + p + '</button>'; }
+    // window the numbered buttons (with ellipsis) so long lists stay compact
+    var lo = Math.max(1, cur - 2), hi = Math.min(pages, cur + 2);
+    if (lo > 1) { btns += nbtn(1) + (lo > 2 ? '<span class="rp-gap">…</span>' : ''); }
+    for (var p = lo; p <= hi; p++) { btns += nbtn(p); }
+    if (hi < pages) { btns += (hi < pages - 1 ? '<span class="rp-gap">…</span>' : '') + nbtn(pages); }
     pager.innerHTML =
-      '<span class="rp-info">Showing ' + start + '–' + end + ' of ' + rows.length + ' reports</span>' +
-      '<div class="rp-btns"><button type="button" data-p="prev"' + (cur === 1 ? ' disabled' : '') + '>‹ Prev</button>' +
-      btns + '<button type="button" data-p="next"' + (cur === pages ? ' disabled' : '') + '>Next ›</button></div>';
+      '<span class="rp-info">Showing <b>' + start + '–' + end + '</b> of <b>' + rows.length + '</b> reports</span>' +
+      '<div class="rp-btns"><button type="button" class="rp-nav" data-p="prev" aria-label="Previous page"' + (cur === 1 ? ' disabled' : '') + '>‹</button>' +
+      btns + '<button type="button" class="rp-nav" data-p="next" aria-label="Next page"' + (cur === pages ? ' disabled' : '') + '>›</button></div>';
     pager.hidden = false;
   }
   pager.addEventListener('click', function (e) {

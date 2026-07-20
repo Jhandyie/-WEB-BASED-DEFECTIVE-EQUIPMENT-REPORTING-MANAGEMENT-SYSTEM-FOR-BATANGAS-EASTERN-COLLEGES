@@ -18,19 +18,25 @@
     if (document.getElementById(STYLE_ID)) return;
     var css =
       '.tp-pager{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;' +
-      'gap:.75rem;margin:1rem .1rem .25rem;font-family:inherit;}' +
+      'gap:.85rem;margin:1.1rem .1rem .3rem;font-family:inherit;}' +
       '.tp-pager .tp-info{font-size:.76rem;color:var(--t3,#6b7280);font-weight:600;letter-spacing:.01em;}' +
-      '.tp-pager .tp-btns{display:flex;flex-wrap:wrap;align-items:center;gap:.28rem;}' +
-      '.tp-pager .tp-gap{padding:0 .15rem;color:var(--t4,#9ca3af);font-size:.8rem;user-select:none;}' +
-      '.tp-pager button{display:inline-flex;align-items:center;justify-content:center;min-width:2.1rem;' +
-      'height:2.1rem;padding:0 .62rem;border:1px solid var(--bdr,#e5e7eb);background:var(--card,#fff);' +
+      '.tp-pager .tp-info b{color:var(--t1,#1f2937);font-weight:800;}' +
+      // the numbered buttons + nav sit inside a soft inset "rail"
+      '.tp-pager .tp-btns{display:inline-flex;flex-wrap:wrap;align-items:center;gap:.25rem;' +
+      'padding:.28rem;background:var(--s2,#f6f4f0);border:1px solid var(--bdr,#e5e7eb);border-radius:999px;}' +
+      '.tp-pager .tp-gap{padding:0 .1rem;color:var(--t4,#9ca3af);font-size:.85rem;font-weight:800;user-select:none;align-self:center;}' +
+      '.tp-pager button{display:inline-flex;align-items:center;justify-content:center;min-width:2rem;' +
+      'height:2rem;padding:0 .6rem;border:none;background:transparent;' +
       'color:var(--t2,#374151);border-radius:999px;cursor:pointer;font-size:.78rem;font-weight:700;' +
-      'line-height:1;transition:color .14s,background .14s,border-color .14s,box-shadow .14s,transform .14s;}' +
-      '.tp-pager button:hover:not(:disabled):not(.on){border-color:var(--m3,#7a1220);color:var(--m3,#7a1220);' +
-      'background:var(--m1,#fdf2f3);transform:translateY(-1px);}' +
-      '.tp-pager button.on{background:var(--m3,#7a1220);border-color:var(--m3,#7a1220);color:#fff;' +
-      'box-shadow:0 2px 8px rgba(122,18,32,.28);}' +
-      '.tp-pager button:disabled{opacity:.4;cursor:default;}' +
+      'line-height:1;transition:color .16s,background .16s,box-shadow .16s,transform .16s;}' +
+      '.tp-pager button:hover:not(:disabled):not(.on){background:var(--s1,#fff);color:var(--m3,#7a1220);' +
+      'box-shadow:0 1px 5px rgba(0,0,0,.09);transform:translateY(-1px);}' +
+      '.tp-pager button.on{background:linear-gradient(135deg,var(--m4,#4A0E0E),var(--m3,#7a1220));color:#fff;' +
+      'box-shadow:0 3px 9px rgba(122,18,32,.34);transform:translateY(-1px);}' +
+      // circular chevron nav buttons
+      '.tp-pager button.tp-nav{min-width:2rem;width:2rem;padding:0;font-size:1rem;color:var(--t3,#6b7280);}' +
+      '.tp-pager button.tp-nav:hover:not(:disabled){color:var(--m3,#7a1220);}' +
+      '.tp-pager button:disabled{opacity:.35;cursor:default;box-shadow:none;transform:none;}' +
       '@media(max-width:640px){.tp-pager{justify-content:center;}.tp-pager .tp-info{width:100%;text-align:center;}}';
     var s = document.createElement('style');
     s.id = STYLE_ID;
@@ -69,9 +75,9 @@
       for (var p = lo; p <= hi; p++) { btns += btn(p); }
       if (hi < pages) { btns += (hi < pages - 1 ? '<span class="tp-gap">…</span>' : '') + btn(pages); }
       pager.innerHTML =
-        '<span class="tp-info">Showing ' + start + '–' + end + ' of ' + rows.length + ' ' + noun + '</span>' +
-        '<div class="tp-btns"><button type="button" data-p="prev"' + (cur === 1 ? ' disabled' : '') + '>‹ Prev</button>' +
-        btns + '<button type="button" data-p="next"' + (cur === pages ? ' disabled' : '') + '>Next ›</button></div>';
+        '<span class="tp-info">Showing <b>' + start + '–' + end + '</b> of <b>' + rows.length + '</b> ' + noun + '</span>' +
+        '<div class="tp-btns"><button type="button" class="tp-nav" data-p="prev" aria-label="Previous page"' + (cur === 1 ? ' disabled' : '') + '>‹</button>' +
+        btns + '<button type="button" class="tp-nav" data-p="next" aria-label="Next page"' + (cur === pages ? ' disabled' : '') + '>›</button></div>';
     }
     function btn(p) { return '<button type="button" data-p="' + p + '"' + (p === cur ? ' class="on"' : '') + '>' + p + '</button>'; }
 
