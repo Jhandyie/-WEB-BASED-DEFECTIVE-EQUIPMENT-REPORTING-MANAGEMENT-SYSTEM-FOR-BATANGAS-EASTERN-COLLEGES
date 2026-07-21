@@ -67,6 +67,20 @@ function actTone(string $a): array {
     if (str_contains($a, 'complete') || str_contains($a, 'verif') || str_contains($a, 'approve')) return ['#1A7A33', '#EEF7F0'];
     return ['#7B1D1D', 'rgba(123,29,29,.08)'];
 }
+function auInitials(string $n): string {
+    $n = trim($n); if ($n === '' || $n === 'System') return 'SY';
+    $p = preg_split('/\s+/', $n);
+    if (count($p) >= 2) return strtoupper(mb_substr($p[0], 0, 1) . mb_substr($p[count($p) - 1], 0, 1));
+    return strtoupper(mb_substr($n, 0, 2));
+}
+function auAvatar(string $role): string {
+    $map = [
+        'admin' => 'linear-gradient(135deg,#7B1D1D,#C53030)', 'technician' => 'linear-gradient(135deg,#1D4ED8,#60A5FA)',
+        'pmo' => 'linear-gradient(135deg,#92400E,#F59E0B)', 'reporter' => 'linear-gradient(135deg,#7C3AED,#A78BFA)',
+        'student' => 'linear-gradient(135deg,#0891B2,#22D3EE)',
+    ];
+    return $map[strtolower(trim($role))] ?? 'linear-gradient(135deg,#6B7280,#9CA3AF)';
+}
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -88,33 +102,45 @@ function actTone(string $a): array {
   .top a.back{margin-left:auto;color:#fff;text-decoration:none;font-size:.82rem;border:1px solid rgba(255,255,255,.3);padding:7px 14px;border-radius:8px;}
   .top a.back:hover{background:rgba(255,255,255,.1);}
   .wrap{max-width:none;margin:0;padding:24px 28px 60px;} /* full-width desktop view */
-  .head h2{font-family:'Fraunces',serif;font-size:1.5rem;}
-  .head p{font-size:.86rem;color:var(--ink3);margin-top:3px;}
+  .head h2{font-family:'Fraunces',serif;font-size:1.5rem;display:flex;align-items:center;gap:.6rem;}
+  .head h2 .h2-ic{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,rgba(123,29,29,.1),rgba(201,150,12,.14));color:var(--maroon);display:inline-flex;align-items:center;justify-content:center;font-size:.9rem;}
+  .head p{font-size:.86rem;color:var(--ink3);margin-top:5px;}
   .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:16px 0;}
   .chips{display:flex;gap:8px;flex-wrap:wrap;}
-  .chip{padding:7px 14px;border-radius:20px;border:1px solid var(--border);background:#fff;color:var(--ink2);font-size:.8rem;font-weight:600;text-decoration:none;display:inline-flex;gap:6px;align-items:center;}
-  .chip.on{background:var(--maroon);color:#fff;border-color:var(--maroon);}
+  .chip{padding:7px 14px;border-radius:20px;border:1.5px solid var(--border);background:#fff;color:var(--ink2);font-size:.8rem;font-weight:600;text-decoration:none;display:inline-flex;gap:7px;align-items:center;transition:transform .16s,border-color .16s,color .16s,box-shadow .16s;}
+  .chip i{font-size:.72rem;color:var(--ink3);transition:color .16s;}
+  .chip:hover{transform:translateY(-1px);border-color:var(--maroon);color:var(--maroon);box-shadow:0 3px 10px rgba(74,14,14,.08);}
+  .chip:hover i{color:var(--maroon);}
+  .chip.on{background:linear-gradient(135deg,var(--maroon-d),var(--maroon));color:#fff;border-color:transparent;box-shadow:0 4px 12px rgba(123,29,29,.28);}
+  .chip.on i{color:var(--gold);}
   form.search{position:relative;margin-left:auto;flex:0 1 300px;min-width:200px;}
-  form.search i{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:.78rem;}
-  form.search input{width:100%;padding:.55rem .8rem .55rem 2rem;border:1.5px solid var(--border);border-radius:10px;background:#fff;font-size:.84rem;}
-  form.search input:focus{outline:none;border-color:var(--maroon);box-shadow:0 0 0 3px rgba(123,29,29,.08);}
+  form.search i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--ink3);font-size:.78rem;transition:color .16s;}
+  form.search:focus-within i{color:var(--maroon);}
+  form.search input{width:100%;padding:.55rem .9rem .55rem 2.1rem;border:1.5px solid var(--border);border-radius:999px;background:#fff;font-size:.84rem;transition:border-color .16s,box-shadow .16s;}
+  form.search input:focus{outline:none;border-color:var(--maroon);box-shadow:0 0 0 4px rgba(123,29,29,.1);}
   .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;box-shadow:0 1px 2px rgba(28,16,8,.04);}
   table{width:100%;border-collapse:collapse;font-size:.82rem;}
   th{text-align:left;background:var(--field);color:var(--ink2);padding:10px 14px;font-size:.68rem;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);}
   td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top;}
-  tr:hover td{background:#FDFBF7;}
-  .act{display:inline-block;padding:.24rem .6rem;border-radius:14px;font-size:.68rem;font-weight:700;}
-  .who b{display:block;font-size:.8rem;}
-  .who span{font-size:.66rem;color:var(--ink3);text-transform:uppercase;letter-spacing:.4px;}
+  tbody tr{transition:background .12s;}
+  tr:hover td{background:#FDF7EE;}
+  .act{display:inline-flex;align-items:center;gap:.38rem;padding:.26rem .62rem;border-radius:14px;font-size:.68rem;font-weight:700;white-space:nowrap;}
+  .act::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0;}
+  .who{display:flex;gap:.55rem;align-items:center;}
+  .wav{width:32px;height:32px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:'Outfit',sans-serif;font-weight:800;font-size:.68rem;color:#fff;box-shadow:0 2px 5px rgba(28,16,8,.14);}
+  .wt b{display:block;font-size:.8rem;}
+  .wt span{font-size:.62rem;color:var(--ink3);text-transform:uppercase;letter-spacing:.4px;}
   .det{color:var(--ink2);line-height:1.5;max-width:420px;}
   .ip{font-size:.7rem;color:var(--ink3);white-space:nowrap;}
   .when{white-space:nowrap;font-size:.76rem;color:var(--ink2);}
   .empty{text-align:center;padding:48px 20px;color:var(--ink3);}
   .empty i{font-size:2rem;color:var(--border);display:block;margin-bottom:10px;}
   .pager{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;background:var(--field);border-top:1px solid var(--border);font-size:.78rem;color:var(--ink3);}
-  .pager .pg{display:flex;gap:6px;}
-  .pager a,.pager span.cur{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;padding:0 8px;border-radius:8px;border:1px solid var(--border);background:#fff;color:var(--ink2);text-decoration:none;font-weight:600;}
-  .pager span.cur{background:var(--maroon);color:#fff;border-color:var(--maroon);}
+  .pager b{color:var(--ink);font-weight:800;}
+  .pager .pg{display:inline-flex;gap:4px;padding:4px;background:#fff;border:1px solid var(--border);border-radius:999px;}
+  .pager a,.pager span.cur{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;padding:0 9px;border-radius:999px;border:none;background:transparent;color:var(--ink2);text-decoration:none;font-weight:700;transition:background .16s,color .16s,box-shadow .16s,transform .16s;}
+  .pager a:hover{background:var(--field);color:var(--maroon);box-shadow:0 1px 5px rgba(0,0,0,.08);transform:translateY(-1px);}
+  .pager span.cur{background:linear-gradient(135deg,var(--maroon-d),var(--maroon));color:#fff;box-shadow:0 3px 9px rgba(123,29,29,.3);}
   /* Persistent admin sidebar (canonical) */
   :root{ --sb:262px; --m1:#2D0505; --g2:#D4A017; --g3:#F0C040; --r1:8px; --r2:12px; }
   .sb{position:fixed;left:0;top:0;width:var(--sb);height:100vh;background:linear-gradient(168deg,#1E0202 0%,#350808 38%,#4A0E0E 68%,#3A0808 100%);display:flex;flex-direction:column;z-index:400;overflow:hidden;box-shadow:5px 0 30px rgba(45,5,5,.38);transition:transform .32s cubic-bezier(.4,0,.2,1);}
@@ -166,7 +192,7 @@ function actTone(string $a): array {
 
   <div class="wrap">
     <div class="head">
-      <h2>Audit Log</h2>
+      <h2><span class="h2-ic"><i class="fas fa-clipboard-list"></i></span> Audit Log</h2>
       <p>Every recorded action in the system — sign-ins, report workflow, budget decisions, and account changes. Read-only.</p>
     </div>
 
@@ -200,7 +226,7 @@ function actTone(string $a): array {
           ?>
           <tr>
             <td class="when"><?php echo adt2((string)($r['created_at'] ?? '')); ?></td>
-            <td class="who"><b><?php echo ae2((string)$r['actor_name']); ?></b><span><?php echo ae2((string)($r['actor_role'] ?? '')); ?></span></td>
+            <td><div class="who"><span class="wav" style="background:<?php echo auAvatar((string)($r['actor_role'] ?? '')); ?>;"><?php echo ae2(auInitials((string)$r['actor_name'])); ?></span><div class="wt"><b><?php echo ae2((string)$r['actor_name']); ?></b><span><?php echo ae2((string)($r['actor_role'] ?? '') ?: 'system'); ?></span></div></div></td>
             <td><span class="act" style="color:<?php echo $fg; ?>;background:<?php echo $bg; ?>;"><?php echo ae2($action ?: '—'); ?></span></td>
             <td class="det"><?php echo ae2($details ?: '—'); ?></td>
             <td class="ip"><?php echo ae2((string)($r['ip_address'] ?? '—')); ?></td>
@@ -210,7 +236,7 @@ function actTone(string $a): array {
       </table>
       </div>
       <div class="pager">
-        <span><?php echo number_format($total); ?> entr<?php echo $total === 1 ? 'y' : 'ies'; ?> · page <?php echo $page; ?> of <?php echo $pages; ?></span>
+        <span><b><?php echo number_format($total); ?></b> entr<?php echo $total === 1 ? 'y' : 'ies'; ?> · page <b><?php echo $page; ?></b> of <b><?php echo $pages; ?></b></span>
         <div class="pg">
           <?php
             $mk = fn(int $p) => '?cat=' . urlencode($cat) . ($q !== '' ? '&q=' . urlencode($q) : '') . '&page=' . $p;
