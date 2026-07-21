@@ -479,6 +479,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Please enter a valid 11-digit mobile number (numbers only), e.g. 09171234567.';
     }
 
+    // Operational impact — a required triage signal the PMO uses to prioritise.
+    $stillUsable = trim((string)($_POST['still_usable'] ?? ''));
+    if (!$error && !in_array($stillUsable, ['Yes', 'Partially', 'No'], true)) {
+        $error = 'Please indicate whether the equipment is still usable.';
+    }
+
     // Duplicate guard: this equipment may already have an open report.
     $duplicateFound = null;
     if (!$error && empty($_POST['duplicate_override']) && function_exists('findOpenReportForEquipment')) {
@@ -569,6 +575,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'reporter_course' => $reporterCourse,
                 'issue_description' => trim($_POST['defect_description']),
                 'priority' => $reportPriority,
+                'usable_status' => $stillUsable,
                 'status' => 'reported',
             ];
 

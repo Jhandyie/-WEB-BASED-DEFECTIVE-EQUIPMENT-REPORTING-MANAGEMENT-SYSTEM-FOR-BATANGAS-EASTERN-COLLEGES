@@ -1294,6 +1294,21 @@ textarea.fc{resize:vertical;min-height:70px;}
             <div class="info-ic"><i class="fas fa-user"></i></div>
             <div class="info-b"><div class="info-l">Reported By</div><div class="info-v"><?php echo esc($vr['reporter_name']); ?></div></div>
           </div>
+          <?php
+            $us = trim((string)($vr['usable_status'] ?? ''));
+            if ($us !== ''):
+              $usMap = [
+                'Yes'       => ['#16A34A', 'fa-circle-check',          'Yes — still usable'],
+                'Partially' => ['#D97706', 'fa-triangle-exclamation',  'Partially usable'],
+                'No'        => ['#DC2626', 'fa-circle-xmark',          'No — completely broken'],
+              ];
+              $u = $usMap[$us] ?? ['#8A7466', 'fa-circle-question', esc($us)];
+          ?>
+          <div class="info-tile">
+            <div class="info-ic" style="background:<?php echo $u[0]; ?>;"><i class="fas <?php echo $u[1]; ?>"></i></div>
+            <div class="info-b"><div class="info-l">Still Usable?</div><div class="info-v" style="color:<?php echo $u[0]; ?>;font-weight:700;"><?php echo $u[2]; ?></div></div>
+          </div>
+          <?php endif; ?>
           <div class="info-tile wide">
             <div class="info-ic"><i class="fas fa-location-dot"></i></div>
             <div class="info-b"><div class="info-l">Location</div><div class="info-v"><?php echo esc($vr['location']); ?></div></div>
