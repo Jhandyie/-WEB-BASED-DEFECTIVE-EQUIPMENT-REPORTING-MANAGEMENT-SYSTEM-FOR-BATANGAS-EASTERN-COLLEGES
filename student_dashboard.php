@@ -1474,8 +1474,25 @@ html { scroll-behavior: smooth; }
           <i class="fas fa-building-columns fi-icon"></i>
           <select name="reporter_department" id="rDept" class="fsel" required>
             <option value="" disabled <?php echo empty($_POST['reporter_department']) ? 'selected' : ''; ?>>Select your department…</option>
-            <?php foreach (array_keys($becPrograms) as $dept): ?>
-              <option value="<?php echo htmlspecialchars($dept, ENT_QUOTES); ?>" <?php echo (($_POST['reporter_department'] ?? '') === $dept) ? 'selected' : ''; ?>><?php echo htmlspecialchars($dept); ?></option>
+            <?php
+              // Group departments into labelled optgroups so the native mobile picker is easy to scan.
+              $__deptGroups = ['Basic Education'=>[], 'Higher Education'=>[], 'Technical-Vocational'=>[], 'Administrative'=>[], 'Other'=>[]];
+              foreach (array_keys($becPrograms) as $__d) {
+                  $__l = strtolower($__d);
+                  if (strpos($__l, 'college') !== false)                                            $__deptGroups['Higher Education'][] = $__d;
+                  elseif (strpos($__l, 'technical') !== false || strpos($__l, 'vocational') !== false) $__deptGroups['Technical-Vocational'][] = $__d;
+                  elseif (strpos($__l, 'administrative') !== false || strpos($__l, 'office') !== false) $__deptGroups['Administrative'][] = $__d;
+                  elseif (strpos($__l, 'school') !== false || strpos($__l, 'grade') !== false)         $__deptGroups['Basic Education'][] = $__d;
+                  else                                                                                 $__deptGroups['Other'][] = $__d;
+              }
+              $__depSel = $_POST['reporter_department'] ?? '';
+              foreach ($__deptGroups as $__grp => $__depts):
+                  if (!$__depts) continue; ?>
+              <optgroup label="<?php echo htmlspecialchars($__grp); ?>">
+                <?php foreach ($__depts as $__dept): ?>
+                <option value="<?php echo htmlspecialchars($__dept, ENT_QUOTES); ?>"<?php echo ($__depSel === $__dept) ? ' selected' : ''; ?>><?php echo htmlspecialchars($__dept); ?></option>
+                <?php endforeach; ?>
+              </optgroup>
             <?php endforeach; ?>
           </select>
         </div>
