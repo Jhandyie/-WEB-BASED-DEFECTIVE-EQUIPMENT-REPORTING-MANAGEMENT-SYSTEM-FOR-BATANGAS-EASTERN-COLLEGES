@@ -250,6 +250,20 @@ a { text-decoration: none; color: inherit; }
   font-size: .85rem; font-weight: 700; color: var(--maroon); }
 .pc-enter i { transition: transform .2s; }
 .portal-card:hover .pc-enter i { transform: translateX(4px); }
+/* Get-started split CTA: portal card + numbered how-it-works steps */
+.cta-portal { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.05fr); gap: 1.4rem; align-items: stretch; max-width: 900px; margin: 0 auto; }
+.cta-portal .cta-main { justify-content: center; }
+.cta-steps { list-style: none; display: flex; flex-direction: column; gap: .7rem; margin: 0; padding: 0; }
+.cta-steps li { display: flex; gap: .85rem; align-items: flex-start; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 1rem 1.1rem; transition: transform .22s cubic-bezier(.22,1,.36,1), border-color .22s, box-shadow .22s; }
+.cta-steps li:hover { transform: translateX(5px); border-color: rgba(123,29,29,.2); box-shadow: 0 6px 16px rgba(74,14,14,.08); }
+.cs-n { width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  font-family: 'Outfit', sans-serif; font-weight: 800; font-size: .85rem; color: #fff;
+  background: linear-gradient(135deg, var(--maroon-d), var(--maroon)); box-shadow: 0 3px 8px rgba(123,29,29,.25); }
+.cs-tx b { display: block; font-size: .9rem; font-weight: 700; color: var(--ink); }
+.cs-tx span { display: block; font-size: .8rem; line-height: 1.5; color: var(--ink2); margin-top: .15rem; }
+.cs-tx strong { color: var(--maroon); font-weight: 700; }
+@media (max-width: 760px) { .cta-portal { grid-template-columns: 1fr; } }
 
 /* ══ MODULES / CAPABILITIES ══ */
 .mod-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
@@ -557,13 +571,18 @@ a { text-decoration: none; color: inherit; }
         <h2 class="sec-title">Report equipment to the <em>PMO</em></h2>
         <p class="sec-sub">Sign in with your official Batangas Eastern Colleges email to file a defect report and follow it through to resolution.</p>
       </div>
-      <div class="portal-grid portal-grid--single">
-        <a class="portal-card" href="student_index.php">
+      <div class="cta-portal">
+        <a class="portal-card cta-main" href="student_index.php">
           <div class="pc-ic"><i class="fas fa-user-graduate"></i></div>
           <div class="pc-title">Reporter Portal</div>
           <p class="pc-desc">For students, faculty, and staff — file a defect report with your official BEC email and track it through to resolution.</p>
           <span class="pc-enter">Enter portal <i class="fas fa-arrow-right"></i></span>
         </a>
+        <ul class="cta-steps">
+          <li><span class="cs-n">1</span><div class="cs-tx"><b>Sign in with your BEC email</b><span>Use your official <strong>@bec.edu.ph</strong> account — no separate registration needed.</span></div></li>
+          <li><span class="cs-n">2</span><div class="cs-tx"><b>Describe the problem</b><span>Add the equipment, location, priority, and attach photo or video evidence.</span></div></li>
+          <li><span class="cs-n">3</span><div class="cs-tx"><b>Track it to resolution</b><span>Get email updates as the PMO reviews, assigns, and completes the repair.</span></div></li>
+        </ul>
       </div>
     </div>
   </section>
