@@ -912,6 +912,10 @@ body::after {
   background:rgba(123,29,29,.08);border-radius:4px;padding:.1rem .35rem;
   flex-shrink:0;
 }
+/* clean 2-line row: name + single-line truncated location (no runaway wrapping) */
+.eq-body { display:flex;flex-direction:column;min-width:0;flex:1;gap:.05rem; }
+.eq-name { font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.eq-loc  { font-size:.72rem;color:#9E8070;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
 .eq-empty { padding:.75rem .85rem;font-size:.82rem;color:var(--ink3);text-align:center; }
 .eq-manual {
   padding:.7rem .85rem;border-top:1px solid var(--border);
@@ -933,10 +937,10 @@ body::after {
   display:flex;flex-direction:column;gap:.08rem;min-width:0;
 }
 .loc-name {
-  font-weight:600;color:var(--ink);overflow-wrap:anywhere;
+  font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .loc-sub {
-  font-size:.68rem;color:var(--ink3);overflow-wrap:anywhere;
+  font-size:.68rem;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 
 /* ── USABLE TOGGLE ── */
@@ -1809,9 +1813,10 @@ function renderDropdown(query) {
     html += `<div class="eq-group-label">${escapeHtml(cat)}</div>`;
     items.forEach((item) => {
       const itemIndex = equipData.indexOf(item);
-      const safeLocation = item.location ? ` <span style="color:#9E8070;">• ${escapeHtml(item.location)}</span>` : '';
+      const locLine = item.location ? `<span class="eq-loc">${escapeHtml(item.location)}</span>` : '';
       html += `<div class="eq-item" data-index="${itemIndex}">
-        <span class="eq-id">${escapeHtml(item.id)}</span>${escapeHtml(item.name)}${safeLocation}
+        <span class="eq-id">${escapeHtml(item.id)}</span>
+        <span class="eq-body"><span class="eq-name">${escapeHtml(item.name)}</span>${locLine}</span>
       </div>`;
     });
   }
