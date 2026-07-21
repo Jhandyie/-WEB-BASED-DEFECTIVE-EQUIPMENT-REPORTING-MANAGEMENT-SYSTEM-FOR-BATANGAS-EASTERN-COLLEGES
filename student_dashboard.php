@@ -1635,6 +1635,7 @@ html { scroll-behavior: smooth; }
         <div class="photo-sub">JPG, PNG, WEBP — up to <strong>10 photos</strong>, max 10MB each</div>
         <div class="photo-meta" id="photo-meta"></div>
       </div>
+      <div class="cam-row"><button type="button" class="cam-trigger" data-camera="photo" data-camera-target="#photo-input"><i class="fas fa-camera"></i> Take a photo</button></div>
       <div class="photo-grid" id="photo-grid"></div>
 
       <div class="photo-zone" id="video-zone" style="margin-top:1rem;">
@@ -1644,6 +1645,7 @@ html { scroll-behavior: smooth; }
         <div class="photo-sub">MP4, WEBM, MOV — up to <strong>2 videos</strong>, max 20MB each</div>
         <div class="photo-meta" id="video-meta"></div>
       </div>
+      <div class="cam-row"><button type="button" class="cam-trigger" data-camera="video" data-camera-target="#video-input"><i class="fas fa-video"></i> Record a video</button></div>
       <div class="photo-grid" id="video-grid"></div>
     </div>
 
@@ -2321,5 +2323,6 @@ window.addEventListener('DOMContentLoaded', function () {
 </script>
 <?php require __DIR__ . '/includes/site_transitions.php'; ?>
 <script src="assets/input_guard.js" defer></script>
+<script src="assets/camera_capture.js"></script>
 </body>
 </html>
