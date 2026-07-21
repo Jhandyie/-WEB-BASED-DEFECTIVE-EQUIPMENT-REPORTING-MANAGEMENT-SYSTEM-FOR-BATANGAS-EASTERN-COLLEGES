@@ -1171,8 +1171,18 @@ body::after {
   .steps { gap:0;padding:.5rem .75rem; }
   .step span { display:none; }
   .step-connector { width:16px; }
-  .submit-row { flex-direction:column; }
-  .btn-submit,.btn-cancel { width:100%;justify-content:center; }
+  /* Thumb-zone sticky submit bar — always reachable on the long form */
+  .submit-row {
+    position:fixed;left:0;right:0;bottom:0;z-index:80;margin:0;
+    flex-direction:row;flex-wrap:nowrap;align-items:stretch;gap:.5rem;
+    padding:.6rem .8rem calc(.6rem + env(safe-area-inset-bottom,0px));
+    background:rgba(255,255,255,.92);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+    border-top:1px solid var(--border);box-shadow:0 -6px 22px rgba(74,14,14,.1);
+  }
+  .btn-submit { flex:1;min-width:0;width:auto;padding:.9rem 1rem;box-shadow:0 3px 0 var(--maroon-dd); }
+  .btn-cancel { flex:0 0 auto;width:auto;padding:.9rem 1.05rem;justify-content:center; }
+  .btn-cancel .bc-txt { display:none; }        /* icon-only Back to keep the bar tidy */
+  .page { padding-bottom:5.5rem; }             /* clear the fixed bar */
   .topbar {
     flex-direction: column;
     align-items: stretch;
@@ -1659,15 +1669,15 @@ html { scroll-behavior: smooth; }
     </div>
 
     <!-- ── SUBMIT ── -->
+    <?php if (!empty($duplicateFound)): ?>
+    <label class="dup-override" style="display:flex;align-items:flex-start;gap:.6rem;margin:0 0 1rem;padding:.8rem 1rem;border-radius:12px;background:#FFF7E6;border:1.5px solid #F0D79A;font-size:.86rem;color:#5C3838;cursor:pointer;line-height:1.5;">
+      <input type="checkbox" name="duplicate_override" value="1" required style="width:17px;height:17px;flex-shrink:0;margin-top:.15rem;accent-color:#7B1D1D;">
+      <span><strong style="color:#1C1008;">This is a separate issue</strong> on the same equipment — not the one already reported in
+      <strong><?php echo htmlspecialchars((string)$duplicateFound['report_id']); ?></strong>. Submit as a new report.</span>
+    </label>
+    <?php endif; ?>
     <div class="submit-row">
-      <a href="student_index.php" class="btn-cancel"><i class="fas fa-arrow-left" style="margin-right:.4rem;font-size:.8rem"></i>Back</a>
-      <?php if (!empty($duplicateFound)): ?>
-      <label style="display:flex;align-items:flex-start;gap:.6rem;margin:0 0 .9rem;padding:.8rem 1rem;border-radius:12px;background:#FFF7E6;border:1.5px solid #F0D79A;font-size:.86rem;color:#5C3838;cursor:pointer;line-height:1.5;">
-        <input type="checkbox" name="duplicate_override" value="1" required style="width:17px;height:17px;flex-shrink:0;margin-top:.15rem;accent-color:#7B1D1D;">
-        <span><strong style="color:#1C1008;">This is a separate issue</strong> on the same equipment — not the one already reported in
-        <strong><?php echo htmlspecialchars((string)$duplicateFound['report_id']); ?></strong>. Submit as a new report.</span>
-      </label>
-      <?php endif; ?>
+      <a href="student_index.php" class="btn-cancel"><i class="fas fa-arrow-left" style="font-size:.8rem"></i><span class="bc-txt">Back</span></a>
       <button type="submit" class="btn-submit">
         Submit Report
         <span class="btn-arrow"><i class="fas fa-paper-plane"></i></span>
