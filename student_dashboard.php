@@ -1190,6 +1190,12 @@ body::after {
   .user-chip {
     justify-content: flex-start;
   }
+  /* Comfortable 44px+ tap targets on phones */
+  .eq-item,.loc-item { min-height:46px; padding-top:.72rem; padding-bottom:.72rem; }
+  .eq-item:active,.loc-item:active { background:var(--maroon-soft); }
+  .usable-label { min-height:50px; padding:.6rem; font-size:.82rem; }
+  .fi,.fsel { min-height:48px; }
+  .cam-trigger { min-height:48px; }
 }
 
 @media(max-width:480px){
