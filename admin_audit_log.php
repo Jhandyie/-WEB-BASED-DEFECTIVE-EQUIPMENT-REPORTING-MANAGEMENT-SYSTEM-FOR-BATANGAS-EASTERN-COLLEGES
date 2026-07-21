@@ -18,13 +18,28 @@ $cat  = trim((string)($_GET['cat'] ?? 'all'));
 $page = max(1, (int)($_GET['page'] ?? 1));
 $per  = 50;
 
+/* The action code lands in different columns depending on which logger wrote
+   the row — sometimes user_role, sometimes action_type, occasionally action
+   (there are two logActivity() definitions with different column orders). Match
+   and search across all of them so the filters/search work regardless. */
+$HAY      = "(COALESCE(a.action,'') || ' ' || COALESCE(a.user_role,'') || ' ' || COALESCE(a.action_type,''))";
+$HAY_FULL = "($HAY || ' ' || COALESCE(a.action_description,'') || ' ' || COALESCE(a.details,'') || ' ' || COALESCE(a.user_id,'') || ' ' || COALESCE(u.fullname,''))";
+$ilike = static function (string $hay, array $pats): string {
+    return '(' . implode(' OR ', array_map(static fn($p) => $hay . " ILIKE '" . str_replace("'", "''", $p) . "'", $pats)) . ')';
+};
+$catPat = [
+    'auth'    => ['%login%', '%otp%', '%auth.%', '%logout%'],
+    'report'  => ['%report%', '%defect%', '%assign%', '%task.%'],
+    'budget'  => ['%budget%'],
+    'account' => ['%account%', '%user.%', '%register%', '%invite%', '%directory%'],
+];
 $cats = [
-    'all'     => ['All',            'fa-layer-group', ''],
-    'auth'    => ['Logins',         'fa-right-to-bracket', "(a.action ILIKE 'login%' OR a.action ILIKE '%otp%' OR a.action ILIKE 'auth%' OR a.action ILIKE '%logout%')"],
-    'report'  => ['Reports',        'fa-clipboard-list', "(a.action ILIKE 'report%' OR a.action ILIKE '%defect%' OR a.action ILIKE '%assign%')"],
-    'budget'  => ['Budget',         'fa-coins', "a.action ILIKE 'budget%'"],
-    'account' => ['Accounts',       'fa-users', "(a.action ILIKE 'user%' OR a.action ILIKE 'account%')"],
-    'other'   => ['Other',          'fa-ellipsis', "NOT (a.action ILIKE 'login%' OR a.action ILIKE '%otp%' OR a.action ILIKE 'auth%' OR a.action ILIKE '%logout%' OR a.action ILIKE 'report%' OR a.action ILIKE '%defect%' OR a.action ILIKE '%assign%' OR a.action ILIKE 'budget%' OR a.action ILIKE 'user%' OR a.action ILIKE 'account%')"],
+    'all'     => ['All',      'fa-layer-group',      ''],
+    'auth'    => ['Logins',   'fa-right-to-bracket', $ilike($HAY, $catPat['auth'])],
+    'report'  => ['Reports',  'fa-clipboard-list',   $ilike($HAY, $catPat['report'])],
+    'budget'  => ['Budget',   'fa-coins',            $ilike($HAY, $catPat['budget'])],
+    'account' => ['Accounts', 'fa-users',            $ilike($HAY, $catPat['account'])],
+    'other'   => ['Other',    'fa-ellipsis',         'NOT (' . implode(' OR ', array_map(static fn($p) => $ilike($HAY, $p), $catPat)) . ')'],
 ];
 if (!isset($cats[$cat])) { $cat = 'all'; }
 
@@ -35,7 +50,7 @@ try {
     $where = [];
     $args = [];
     if ($q !== '') {
-        $where[] = "(a.action ILIKE :q OR a.details ILIKE :q OR a.user_id ILIKE :q OR u.fullname ILIKE :q)";
+        $where[] = "$HAY_FULL ILIKE :q";
         $args['q'] = '%' . $q . '%';
     }
     if ($cats[$cat][2] !== '') { $where[] = $cats[$cat][2]; }
@@ -72,6 +87,30 @@ function auInitials(string $n): string {
     $p = preg_split('/\s+/', $n);
     if (count($p) >= 2) return strtoupper(mb_substr($p[0], 0, 1) . mb_substr($p[count($p) - 1], 0, 1));
     return strtoupper(mb_substr($n, 0, 2));
+}
+/* Pull the action code, human message, and actor role out of a row regardless
+   of which logging convention wrote it. */
+function auResolve(array $r): array {
+    $roleWords = ['admin','reporter','technician','system','pmo','student','dean','finance','handler','faculty','staff'];
+    $ac = trim((string)($r['action'] ?? ''));
+    $ur = trim((string)($r['user_role'] ?? ''));
+    $at = trim((string)($r['action_type'] ?? ''));
+    $ad = trim((string)($r['action_description'] ?? ''));
+    $de = trim((string)($r['details'] ?? ''));
+    // Action code: explicit action, else user_role when it's a code (not a plain role word), else action_type.
+    $code = $ac;
+    if ($code === '') {
+        if ($ur !== '' && !in_array(strtolower($ur), $roleWords, true)) $code = $ur;
+        elseif ($at !== '') $code = $at;
+        elseif ($ur !== '') $code = $ur;
+    }
+    // Message: explicit details/description, else action_type when it isn't the code itself.
+    $msg = $de !== '' ? $de : $ad;
+    if ($msg === '' && $at !== '' && $at !== $code) $msg = $at;
+    // Actor role: prefer the joined users.role, else user_role when it's actually a role word.
+    $role = trim((string)($r['actor_role'] ?? ''));
+    if ($role === '' && $ur !== '' && in_array(strtolower($ur), $roleWords, true)) $role = $ur;
+    return [$code !== '' ? $code : '—', $msg, $role];
 }
 function auAvatar(string $role): string {
     $map = [
@@ -213,20 +252,19 @@ function auAvatar(string $role): string {
       <?php if (!empty($err)): ?>
         <div class="empty"><i class="fas fa-triangle-exclamation"></i><div>Could not read the audit log: <?php echo ae2($err); ?></div></div>
       <?php elseif (!$rows): ?>
-        <div class="empty"><i class="fas fa-shield-halved"></i><strong>No matching entries.</strong><div><?php echo $q !== '' ? 'Try a different search.' : 'Actions will appear here as the system is used.'; ?></div></div>
+        <div class="empty"><i class="fas fa-shield-halved"></i><strong>No matching entries.</strong><div><?php echo ($q !== '' || $cat !== 'all') ? 'No entries match this filter — try “All” or a different search.' : 'Actions will appear here as the system is used.'; ?></div></div>
       <?php else: ?>
       <div style="overflow-x:auto;">
       <table>
         <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Details</th><th>IP</th></tr></thead>
         <tbody>
           <?php foreach ($rows as $r):
-            $action = trim((string)($r['action'] ?? ($r['action_type'] ?? '')));
-            $details = trim((string)($r['details'] ?? ($r['action_description'] ?? '')));
+            [$action, $details, $roleLbl] = auResolve($r);
             [$fg,$bg] = actTone($action);
           ?>
           <tr>
             <td class="when"><?php echo adt2((string)($r['created_at'] ?? '')); ?></td>
-            <td><div class="who"><span class="wav" style="background:<?php echo auAvatar((string)($r['actor_role'] ?? '')); ?>;"><?php echo ae2(auInitials((string)$r['actor_name'])); ?></span><div class="wt"><b><?php echo ae2((string)$r['actor_name']); ?></b><span><?php echo ae2((string)($r['actor_role'] ?? '') ?: 'system'); ?></span></div></div></td>
+            <td><div class="who"><span class="wav" style="background:<?php echo auAvatar($roleLbl); ?>;"><?php echo ae2(auInitials((string)$r['actor_name'])); ?></span><div class="wt"><b><?php echo ae2((string)$r['actor_name']); ?></b><span><?php echo ae2($roleLbl ?: 'system'); ?></span></div></div></td>
             <td><span class="act" style="color:<?php echo $fg; ?>;background:<?php echo $bg; ?>;"><?php echo ae2($action ?: '—'); ?></span></td>
             <td class="det"><?php echo ae2($details ?: '—'); ?></td>
             <td class="ip"><?php echo ae2((string)($r['ip_address'] ?? '—')); ?></td>
