@@ -287,13 +287,20 @@ a { text-decoration: none; color: inherit; }
 .about-eyebrow { font-size: .64rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.6px; color: var(--gold); margin-bottom: .8rem; }
 .about h2 { font-family: 'Fraunces', serif; font-weight: 700; font-size: 1.9rem; line-height: 1.2; letter-spacing: -.02em; margin-bottom: .9rem; }
 .about p { font-size: .92rem; line-height: 1.75; color: rgba(255,255,255,.78); }
-.about-points { display: flex; flex-direction: column; gap: .85rem; }
-.about-point { display: flex; gap: .8rem; align-items: flex-start; }
-.ap-ic { width: 50px; height: 50px; border-radius: 13px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-  font-size: 1.5rem; background: rgba(201,150,12,.16); border: 1px solid rgba(201,150,12,.3); color: var(--gold); }
+.about-points { display: flex; flex-direction: column; gap: .7rem; }
+.about-point { display: flex; gap: .85rem; align-items: flex-start; padding: .9rem 1rem; border-radius: 14px;
+  background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.08);
+  transition: transform .24s cubic-bezier(.22,1,.36,1), background .24s, border-color .24s; }
+.about-point:hover { transform: translateX(5px); background: rgba(255,255,255,.08); border-color: rgba(201,150,12,.38); }
+.ap-ic { width: 46px; height: 46px; border-radius: 13px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 1.15rem; color: var(--gold);
+  background: linear-gradient(135deg, rgba(201,150,12,.32), rgba(201,150,12,.1));
+  border: 1px solid rgba(201,150,12,.32); box-shadow: 0 4px 14px rgba(201,150,12,.14);
+  transition: transform .24s; }
+.about-point:hover .ap-ic { transform: scale(1.1) rotate(-6deg); }
 .ap-ic i { display: block; line-height: 1; }
-.about-point b { display: block; font-size: .9rem; font-weight: 600; color: #fff; }
-.about-point span { display: block; font-size: .78rem; line-height: 1.5; color: rgba(255,255,255,.62); margin-top: .12rem; }
+.about-point b { display: block; font-size: .9rem; font-weight: 700; color: #fff; }
+.about-point span { display: block; font-size: .78rem; line-height: 1.5; color: rgba(255,255,255,.66); margin-top: .15rem; }
 
 /* ══ PUBLIC REPORTS PREVIEW ══ */
 .rep-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
