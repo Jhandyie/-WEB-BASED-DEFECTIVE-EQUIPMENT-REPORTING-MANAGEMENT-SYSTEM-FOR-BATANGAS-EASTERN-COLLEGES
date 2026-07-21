@@ -17,14 +17,21 @@
   if (window.__becCamera) return; window.__becCamera = true;
 
   var CSS = ''
-    + '.cam-trigger{display:inline-flex;align-items:center;gap:.45rem;padding:.5rem .9rem;border-radius:10px;cursor:pointer;'
-    +   'font-family:inherit;font-size:.8rem;font-weight:600;border:1.5px solid var(--maroon,#7B1D1D);'
-    +   'background:var(--maroon,#7B1D1D);color:#fff;transition:filter .15s,transform .12s;}'
-    + '.cam-trigger:hover{filter:brightness(1.08);}'
-    + '.cam-trigger:active{transform:translateY(1px);}'
-    + '.cam-trigger i{font-size:.85rem;}'
-    + '.cam-trigger.ghost{background:transparent;color:var(--maroon,#7B1D1D);}'
-    + '.cam-row{display:flex;justify-content:center;gap:.55rem;margin:.65rem 0 .2rem;flex-wrap:wrap;}';
+    // full-width, matches the drop zone above it, so it reads as an intentional alternative
+    + '.cam-row{display:flex;margin:.35rem 0 .2rem;}'
+    + '.cam-trigger{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;width:100%;'
+    +   'padding:.68rem 1rem;border-radius:12px;cursor:pointer;font-family:inherit;font-size:.82rem;font-weight:700;'
+    +   'border:1.5px solid var(--maroon,#7B1D1D);background:var(--maroon-soft,rgba(123,29,29,.07));color:var(--maroon,#7B1D1D);'
+    +   'transition:background .16s,color .16s,transform .12s,box-shadow .16s;}'
+    + '.cam-trigger:hover{background:var(--maroon,#7B1D1D);color:#fff;transform:translateY(-1px);box-shadow:0 5px 14px rgba(123,29,29,.22);}'
+    + '.cam-trigger:active{transform:translateY(0);box-shadow:none;}'
+    + '.cam-trigger i{font-size:.9rem;}'
+    // "or" divider that separates the drop zone from the camera button
+    + '.cam-sep{display:flex;align-items:center;gap:.7rem;margin:.75rem 0;color:var(--ink3,#8A7466);'
+    +   'font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;}'
+    + '.cam-sep::before,.cam-sep::after{content:"";flex:1;height:1px;background:var(--border,#E2D9CC);}'
+    // compact variant for the technician\x27s tight 3-column photo fields
+    + '.cam-trigger.compact{padding:.5rem .7rem;font-size:.76rem;border-radius:10px;}';
   var st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
 
   /* append a captured File to the target input, keeping existing files, then fire change */

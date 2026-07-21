@@ -1313,7 +1313,7 @@ body.modal-open{overflow:hidden;}
                       <span class="photo-drop-label">Before photos</span>
                       <span class="photo-hint">Tap, capture, or drag &amp; drop</span>
                     </label>
-                    <div class="cam-row"><button type="button" class="cam-trigger ghost" data-camera="photo" data-camera-target='[name="before_photos[]"]'><i class="fas fa-camera"></i> Take photo</button></div>
+                    <div class="cam-row"><button type="button" class="cam-trigger compact" data-camera="photo" data-camera-target='[name="before_photos[]"]'><i class="fas fa-camera"></i> Take photo</button></div>
                     <div class="photo-count"></div>
                     <div class="photo-preview"></div>
                   </div>
@@ -1324,7 +1324,7 @@ body.modal-open{overflow:hidden;}
                       <span class="photo-drop-label">During photos</span>
                       <span class="photo-hint">Tap, capture, or drag &amp; drop</span>
                     </label>
-                    <div class="cam-row"><button type="button" class="cam-trigger ghost" data-camera="photo" data-camera-target='[name="during_photos[]"]'><i class="fas fa-camera"></i> Take photo</button></div>
+                    <div class="cam-row"><button type="button" class="cam-trigger compact" data-camera="photo" data-camera-target='[name="during_photos[]"]'><i class="fas fa-camera"></i> Take photo</button></div>
                     <div class="photo-count"></div>
                     <div class="photo-preview"></div>
                   </div>
@@ -1335,7 +1335,7 @@ body.modal-open{overflow:hidden;}
                       <span class="photo-drop-label">After photos</span>
                       <span class="photo-hint">Tap, capture, or drag &amp; drop</span>
                     </label>
-                    <div class="cam-row"><button type="button" class="cam-trigger ghost" data-camera="photo" data-camera-target='[name="after_photos[]"]'><i class="fas fa-camera"></i> Take photo</button></div>
+                    <div class="cam-row"><button type="button" class="cam-trigger compact" data-camera="photo" data-camera-target='[name="after_photos[]"]'><i class="fas fa-camera"></i> Take photo</button></div>
                     <div class="photo-count"></div>
                     <div class="photo-preview"></div>
                   </div>
