@@ -123,31 +123,44 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
   .top a.back{margin-left:auto;color:#fff;text-decoration:none;font-size:.82rem;border:1px solid rgba(255,255,255,.3);padding:7px 14px;border-radius:8px;}
   .top a.back:hover{background:rgba(255,255,255,.1);}
   .wrap{max-width:none;margin:0;padding:24px 28px 60px;}
-  .head h2{font-family:'Fraunces',serif;font-size:1.5rem;}
-  .head p{font-size:.86rem;color:var(--ink3);margin-top:3px;max-width:760px;}
+  .head h2{font-family:'Fraunces',serif;font-size:1.5rem;display:flex;align-items:center;gap:.6rem;}
+  .head h2 .h2-ic{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,rgba(123,29,29,.1),rgba(201,150,12,.14));color:var(--maroon);display:inline-flex;align-items:center;justify-content:center;font-size:.9rem;}
+  .head p{font-size:.86rem;color:var(--ink3);margin-top:5px;max-width:760px;}
   .flash{margin:16px 0;padding:12px 16px;border-radius:10px;font-size:.86rem;display:flex;gap:10px;align-items:flex-start;line-height:1.5;}
   .flash.ok{background:#EEF7F0;border:1px solid #BFE3C8;color:#1A5A2A;}
   .flash.err{background:#FDECEC;border:1px solid #F3C0C0;color:#8A1C1C;}
   .flash i{margin-top:2px;}
-  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin:18px 0;}
-  .stat{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;box-shadow:0 1px 2px rgba(28,16,8,.04);}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin:18px 0;}
+  .stat{position:relative;overflow:hidden;display:flex;gap:14px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px 18px;box-shadow:0 1px 2px rgba(28,16,8,.04);transition:transform .26s cubic-bezier(.4,0,.2,1),box-shadow .26s;}
+  .stat::before{content:'';position:absolute;top:-24px;right:-24px;width:88px;height:88px;border-radius:50%;background:var(--sk,var(--maroon));opacity:.05;transition:transform .3s,opacity .3s;}
+  .stat::after{content:'';position:absolute;left:0;bottom:0;width:100%;height:3px;background:var(--sk,var(--maroon));transform:scaleX(0);transform-origin:left;transition:transform .32s;}
+  .stat:hover{transform:translateY(-4px);box-shadow:0 12px 28px rgba(28,16,8,.1);}
+  .stat:hover::before{transform:scale(1.5);opacity:.09;}
+  .stat:hover::after{transform:scaleX(1);}
+  .stat .s-ic{position:relative;z-index:1;width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:1.15rem;flex-shrink:0;box-shadow:0 3px 0 rgba(0,0,0,.06);transition:transform .26s;}
+  .stat:hover .s-ic{transform:rotate(-8deg) scale(1.1);}
+  .stat .s-tx{position:relative;z-index:1;min-width:0;}
+  .stat.s-m{--sk:var(--maroon);} .stat.s-m .s-ic{background:rgba(123,29,29,.1);color:var(--maroon);}
+  .stat.s-a{--sk:#1D4ED8;} .stat.s-a .s-ic{background:#E8EFFF;color:#1D4ED8;}
+  .stat.s-g{--sk:var(--success);} .stat.s-g .s-ic{background:#EEF7F0;color:var(--success);}
   .stat .lbl{font-size:.66rem;text-transform:uppercase;letter-spacing:.6px;color:var(--ink3);font-weight:700;}
-  .stat .val{font-family:'Fraunces',serif;font-size:1.4rem;margin-top:4px;color:var(--ink);}
+  .stat .val{font-family:'Fraunces',serif;font-size:1.4rem;margin-top:4px;color:var(--ink);line-height:1.1;}
   .stat .sub{font-size:.72rem;color:var(--ink3);margin-top:2px;}
   .grid{display:grid;grid-template-columns:1.4fr 1fr;gap:18px;align-items:start;}
   @media(max-width:960px){ .grid{grid-template-columns:1fr;} }
   .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 2px rgba(28,16,8,.04);overflow:hidden;}
   .card .ch{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
   .card .ch h3{font-family:'Fraunces',serif;font-size:1.05rem;}
-  .card .ch .ci{width:34px;height:34px;border-radius:9px;background:var(--field);display:flex;align-items:center;justify-content:center;color:var(--maroon);}
+  .card .ch .ci{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,rgba(123,29,29,.1),rgba(201,150,12,.14));display:flex;align-items:center;justify-content:center;color:var(--maroon);font-size:.92rem;flex-shrink:0;}
   .card .cb{padding:16px 18px;}
   .card .cb p{font-size:.83rem;color:var(--ink2);line-height:1.55;margin-bottom:12px;}
-  .btn{display:inline-flex;align-items:center;gap:8px;padding:.6rem 1.15rem;border-radius:10px;border:1px solid var(--maroon);background:var(--maroon);color:#fff;font-size:.85rem;font-weight:600;cursor:pointer;text-decoration:none;font-family:'DM Sans',sans-serif;}
-  .btn:hover{background:#611616;}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:.6rem 1.15rem;border-radius:10px;border:1px solid var(--maroon);background:var(--maroon);color:#fff;font-size:.85rem;font-weight:600;cursor:pointer;text-decoration:none;font-family:'DM Sans',sans-serif;transition:transform .15s,background .15s,box-shadow .15s;}
+  .btn:hover{background:#611616;transform:translateY(-1px);box-shadow:0 6px 16px rgba(74,14,14,.22);}
+  .btn:active{transform:translateY(0);}
   .btn.ghost{background:#fff;color:var(--ink2);border-color:var(--border);}
-  .btn.ghost:hover{background:var(--field);}
+  .btn.ghost:hover{background:var(--field);color:var(--maroon);border-color:var(--maroon);box-shadow:0 3px 10px rgba(74,14,14,.1);}
   .btn.danger{background:var(--danger);border-color:var(--danger);}
-  .btn.danger:hover{background:#8A1C1C;}
+  .btn.danger:hover{background:#8A1C1C;box-shadow:0 6px 16px rgba(180,35,24,.24);}
   .btn.sm{padding:.4rem .7rem;font-size:.76rem;border-radius:8px;}
   table{width:100%;border-collapse:collapse;font-size:.82rem;}
   th{text-align:left;background:var(--field);color:var(--ink2);padding:10px 14px;font-size:.66rem;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);}
@@ -216,7 +229,7 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
 
   <div class="wrap">
     <div class="head">
-      <h2>Backup &amp; Data Recovery</h2>
+      <h2><span class="h2-ic"><i class="fas fa-shield-halved"></i></span> Backup &amp; Data Recovery</h2>
       <p>Protects the system against data loss. An automated daily backup produces a compressed snapshot of every database table; you can also back up on demand, download any snapshot, and recover records from one if data is accidentally deleted or corrupted.</p>
     </div>
 
@@ -228,9 +241,9 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
     <?php endif; ?>
 
     <div class="stats">
-      <div class="stat"><div class="lbl">Snapshots stored</div><div class="val"><?php echo count($backups); ?></div><div class="sub"><?php echo bsize($totalBytes); ?> on disk</div></div>
-      <div class="stat"><div class="lbl">Latest snapshot</div><div class="val" style="font-size:1rem;"><?php echo $lastRun ? bdt($lastRun) : '—'; ?></div><div class="sub"><?php echo $lastRun ? 'most recent backup' : 'no backups yet'; ?></div></div>
-      <div class="stat"><div class="lbl">Automated schedule</div><div class="val" style="font-size:1rem;">Daily</div><div class="sub">Windows Task Scheduler</div></div>
+      <div class="stat s-m"><div class="s-ic"><i class="fas fa-database"></i></div><div class="s-tx"><div class="lbl">Snapshots stored</div><div class="val"><?php echo count($backups); ?></div><div class="sub"><?php echo bsize($totalBytes); ?> on disk</div></div></div>
+      <div class="stat s-a"><div class="s-ic"><i class="fas fa-clock-rotate-left"></i></div><div class="s-tx"><div class="lbl">Latest snapshot</div><div class="val" style="font-size:1rem;"><?php echo $lastRun ? bdt($lastRun) : '—'; ?></div><div class="sub"><?php echo $lastRun ? 'most recent backup' : 'no backups yet'; ?></div></div></div>
+      <div class="stat s-g"><div class="s-ic"><i class="fas fa-calendar-check"></i></div><div class="s-tx"><div class="lbl">Automated schedule</div><div class="val" style="font-size:1rem;">Daily</div><div class="sub">Windows Task Scheduler</div></div></div>
     </div>
 
     <div class="grid">
