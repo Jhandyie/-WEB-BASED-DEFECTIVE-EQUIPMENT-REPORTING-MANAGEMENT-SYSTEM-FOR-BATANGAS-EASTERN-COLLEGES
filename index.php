@@ -216,14 +216,14 @@ a { text-decoration: none; color: inherit; }
 
 /* ══ CREDIBILITY STRIP ══ */
 .cred { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: rgba(255,255,255,.5); }
-.cred-in { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .6rem 1.5rem; padding: 1rem 1.5rem; }
+.cred-in { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .6rem 1.5rem; padding: .65rem 1.5rem; }
 .cred-item { display: inline-flex; align-items: center; gap: .5rem; font-size: .73rem; font-weight: 600; color: var(--ink2); text-transform: uppercase; letter-spacing: .8px; }
 .cred-item i { color: var(--gold); font-size: .82rem; }
 .cred-sep { width: 4px; height: 4px; border-radius: 50%; background: var(--border); }
 @media (max-width: 640px) {
   /* keep the wrapped, centered, dot-separated layout (like desktop),
      just tighter so it reads cleanly on phones/tablets */
-  .cred-in { gap: .5rem .95rem; padding: 1rem 1.1rem; }
+  .cred-in { gap: .5rem .95rem; padding: .6rem 1.1rem; }
   .cred-item { font-size: .7rem; letter-spacing: .4px; }
   .cred-item i { font-size: .82rem; }
 }
