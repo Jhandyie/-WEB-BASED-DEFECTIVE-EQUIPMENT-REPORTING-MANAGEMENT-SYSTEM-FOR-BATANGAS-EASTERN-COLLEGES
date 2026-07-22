@@ -454,7 +454,20 @@ a { text-decoration: none; color: inherit; }
 .faq-a { padding: 0 1.2rem 1.15rem 3.9rem; font-size: .88rem; line-height: 1.7; color: var(--ink2); }
 .faq-a a { color: var(--maroon); font-weight: 700; text-decoration: underline; }
 .faq-a strong { color: var(--ink); }
-@media (max-width: 640px) { .faq-a { padding-left: 1.2rem; } }
+.faq-toggle { display: none; }
+@media (max-width: 640px) {
+  .faq-a { padding-left: 1.2rem; }
+  /* top 3 questions first; the rest behind a premium expander */
+  .faq-wrap:not(.expanded) .faq-item.faq-more { display: none; }
+  .faq-toggle { display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
+    margin: .2rem auto 0; padding: .7rem 1.4rem; min-height: 44px; border-radius: 999px;
+    background: var(--surface); border: 1.5px solid var(--border); color: var(--maroon);
+    font-family: 'DM Sans', sans-serif; font-size: .84rem; font-weight: 700; cursor: pointer;
+    box-shadow: 0 2px 8px rgba(44,10,10,.05); transition: border-color .2s, box-shadow .2s; }
+  .faq-toggle:hover { border-color: rgba(123,29,29,.3); box-shadow: 0 6px 16px rgba(74,14,14,.1); }
+  .faq-toggle i { font-size: .72rem; transition: transform .25s; }
+  .faq-wrap.expanded .faq-toggle i { transform: rotate(180deg); }
+}
 
 /* (footer styles: see includes/site_footer.php) */
 
@@ -477,7 +490,15 @@ a { text-decoration: none; color: inherit; }
   .hero h1 { font-size: 1.7rem; line-height: 1.2; max-width: none; }
   .hero-sub { font-size: .88rem; margin-bottom: 1.4rem; }
   .hero-eyebrow { font-size: .58rem; padding: .36rem .8rem; margin-bottom: 1rem; }
-  .rep-grid { grid-template-columns: 1fr; }
+  /* recent public reports: compact 2x2 mini-cards instead of a tall single column */
+  .rep-grid { grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: .6rem; }
+  .rep-card { padding: .75rem .8rem .85rem; border-radius: 12px; min-width: 0; overflow: hidden; }
+  .rc-top { margin-bottom: .45rem; gap: .3rem; }
+  .rc-id { font-size: .6rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .badge { font-size: .54rem; padding: .18rem .45rem; flex-shrink: 0; }
+  .rc-eq { font-size: .86rem; margin-bottom: .3rem; }
+  .rc-meta { font-size: .68rem; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rc-date { font-size: .62rem; margin-top: .4rem; }
   .sec-title { font-size: 1.35rem; }
   .btn { width: 100%; justify-content: center; padding: .82rem 1.4rem; font-size: .9rem; }
   .hero-cta { flex-direction: column; }
@@ -802,11 +823,11 @@ a { text-decoration: none; color: inherit; }
           <summary><span class="fq-ic"><i class="fas fa-qrcode"></i></span> What's the fastest way to report?<i class="fas fa-chevron-down fq-ch"></i></summary>
           <div class="faq-a"><strong>Scan the QR sticker</strong> on the equipment — the report form opens with that exact unit already selected. Just describe the problem and submit. No sticker? Use <a href="student_index.php">Report defective equipment</a> and search for the item.</div>
         </details>
-        <details class="faq-item">
+        <details class="faq-item faq-more">
           <summary><span class="fq-ic"><i class="fas fa-route"></i></span> How do I follow up on my report?<i class="fas fa-chevron-down fq-ch"></i></summary>
           <div class="faq-a">You get a <strong>ticket number</strong> on screen and by email the moment you submit. Enter it on the <a href="track_report.php">Track Report</a> page anytime to see the live status — and you'll receive an email at every stage: received, approved, technician assigned, and repaired. Once fixed, we'll ask you to confirm the issue is really resolved.</div>
         </details>
-        <details class="faq-item">
+        <details class="faq-item faq-more">
           <summary><span class="fq-ic"><i class="fas fa-stopwatch"></i></span> How fast will it be repaired?<i class="fas fa-chevron-down fq-ch"></i></summary>
           <div class="faq-a"><?php
             require_once __DIR__ . '/config/sla.php';
@@ -814,11 +835,26 @@ a { text-decoration: none; color: inherit; }
             $faqD = static fn($h) => rtrim(rtrim(number_format($h / 24, 1), '0'), '.');
           ?>Every report gets a priority with a target timeline: <strong>critical ≈ <?php echo $faqD($faqH['critical']); ?> day(s)</strong>, high ≈ <?php echo $faqD($faqH['high']); ?> days, medium ≈ <?php echo $faqD($faqH['medium']); ?> days, and low ≈ <?php echo $faqD($faqH['low']); ?> days. Reports that pass their target are automatically escalated to the PMO.</div>
         </details>
-        <details class="faq-item">
+        <details class="faq-item faq-more">
           <summary><span class="fq-ic"><i class="fas fa-user-shield"></i></span> Is my information safe?<i class="fas fa-chevron-down fq-ch"></i></summary>
           <div class="faq-a">Yes. Your name, email, and report details are used <strong>solely for maintenance and follow-ups</strong>, in line with the <strong>Data Privacy Act of 2012 (RA 10173)</strong> — you give explicit consent at sign-in. Publicly visible reports show only the equipment and status, never your personal details.</div>
         </details>
+        <button class="faq-toggle" type="button" id="faqToggle" aria-expanded="false">
+          <i class="fas fa-chevron-down"></i> <span>More questions</span>
+        </button>
       </div>
+      <script>
+      (function () {
+        var t = document.getElementById('faqToggle');
+        if (!t) return;
+        t.addEventListener('click', function () {
+          var wrap = t.closest('.faq-wrap');
+          var open = wrap.classList.toggle('expanded');
+          t.setAttribute('aria-expanded', open ? 'true' : 'false');
+          t.querySelector('span').textContent = open ? 'Show fewer' : 'More questions';
+        });
+      })();
+      </script>
     </div>
   </section>
 
