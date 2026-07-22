@@ -221,10 +221,15 @@ a { text-decoration: none; color: inherit; }
 .cred-item i { color: var(--gold); font-size: .82rem; }
 .cred-sep { width: 4px; height: 4px; border-radius: 50%; background: var(--border); }
 @media (max-width: 640px) {
+  /* keep the wrapped, centered, dot-separated layout (like desktop),
+     just tighter so it reads cleanly on phones/tablets */
+  .cred-in { gap: .5rem .95rem; padding: 1rem 1.1rem; }
+  .cred-item { font-size: .7rem; letter-spacing: .4px; }
+  .cred-item i { font-size: .82rem; }
+}
+/* very narrow phones: items stack one-per-row, so drop the trailing dots */
+@media (max-width: 479px) {
   .cred-sep { display: none; }
-  .cred-in { flex-direction: column; align-items: center; justify-content: center; gap: .7rem; padding: 1.1rem 1.25rem; }
-  .cred-item { width: auto; justify-content: center; text-align: center; gap: .55rem; font-size: .74rem; letter-spacing: .6px; }
-  .cred-item i { font-size: .88rem; flex-shrink: 0; }
 }
 
 /* ══ SECTION SCAFFOLD ══ */
