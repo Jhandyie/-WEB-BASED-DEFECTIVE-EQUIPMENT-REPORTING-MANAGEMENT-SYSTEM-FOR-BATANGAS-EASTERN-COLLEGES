@@ -8,11 +8,11 @@
  * Optional ?report=<ID> pre-fills the project reference from a defect report.
  */
 require_once __DIR__ . '/includes/session_bootstrap.php';
-startRoleSession('technician');
+// Usable by the technician and by admins — pick whichever session is present.
+startRoleSession(isset($_COOKIE['BECSESSID_ADMIN']) ? 'admin' : 'technician');
 require_once __DIR__ . '/includes/auth.php';
-require_once __DIR__ . '/includes/technician_guard.php';
 require_once __DIR__ . '/config/database.php';
-requireRole('technician');
+requireRole('technician'); // admins bypass this in requireRole()
 
 function ce_e($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 

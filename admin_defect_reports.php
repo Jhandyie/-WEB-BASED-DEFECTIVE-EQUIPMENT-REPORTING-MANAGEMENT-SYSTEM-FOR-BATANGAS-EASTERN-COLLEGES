@@ -1602,6 +1602,9 @@ textarea.fc{resize:vertical;min-height:70px;}
 
     <div class="mfoot">
       <button class="btn btn-ghost btn-sm" onclick="closeDet()">Close</button>
+      <?php if (in_array($vr['status'], ['completed','verified','closed'], true)): ?>
+      <a href="technician_service_report.php?report=<?php echo urlencode($vr['report_id']);?>" target="_blank" rel="noopener" class="btn btn-ghost btn-sm"><i class="fas fa-file-lines"></i> Service Report</a>
+      <?php endif; ?>
       <?php if ($vr['status'] === 'completed'): ?>
       <!-- always-visible shortcut; submits the Verify form in the right pane -->
       <button type="submit" form="verifyForm" class="btn btn-green btn-sm"
