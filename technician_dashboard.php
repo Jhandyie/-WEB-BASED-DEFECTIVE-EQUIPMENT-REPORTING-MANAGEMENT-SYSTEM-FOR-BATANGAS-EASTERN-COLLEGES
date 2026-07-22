@@ -1275,7 +1275,6 @@ body.modal-open{overflow:hidden;}
                 <div class="fs"><span class="fs-num">1</span><span class="fs-tx"><strong><?php echo $techIsItso ? 'Timing' : 'Timing &amp; Cost'; ?></strong><span>Pre-filled from when you pressed Start — adjust only if needed</span></span></div>
                 <div class="fgrid">
                   <div><label>Date started</label><input type="datetime-local" name="date_started" value="<?php echo $started ? date('Y-m-d\TH:i', $started) : ''; ?>"></div>
-                  <div><label>Repair duration</label><input type="text" name="repair_duration" placeholder="Leave blank — computed automatically"></div>
                   <?php if (!$techIsItso): ?>
                   <div><label>Estimated cost — repair &amp; maintenance</label>
                     <div class="money-in"><span class="cur">₱</span>
