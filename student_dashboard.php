@@ -729,10 +729,12 @@ body::after {
   flex-shrink:0;
 }
 .logout-link {
-  margin-left:.35rem;color:var(--ink3);font-size:.7rem;
-  text-decoration:none;transition:color .15s;
+  margin-left:.35rem;color:var(--ink3);font-size:.9rem;
+  text-decoration:none;transition:color .15s,background .15s;
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:44px;min-height:44px;border-radius:10px;
 }
-.logout-link:hover{color:var(--maroon);}
+.logout-link:hover{color:var(--maroon);background:var(--maroon-soft);}
 
 /* ── PAGE HEADER ── */
 .page-header {
@@ -1039,7 +1041,7 @@ body::after {
 .fstep.on .fs-n{background:linear-gradient(135deg,#4A0E0E,#7B1D1D);color:#fff;box-shadow:0 3px 8px rgba(74,14,14,.3);}
 .fstep.done .fs-n{background:linear-gradient(135deg,#1A7A33,#2FA455);color:#fff;}
 .fstep.done{color:#1A7A33;}
-@media(max-width:640px){.fsteps{top:.4rem;}.fstep{font-size:.68rem;padding:.45rem .6rem;}.fstep .fs-lbl{display:none;}.fstep.on .fs-lbl{display:inline;}}
+@media(max-width:640px){.fsteps{top:.4rem;}.fstep{font-size:.68rem;padding:.45rem .7rem;min-height:44px;justify-content:center;}.fstep .fs-lbl{display:none;}.fstep.on .fs-lbl{display:inline;}}
 
 /* inline required-field warnings */
 .f-err{border-color:#DC2626 !important;background:#FFF8F8 !important;box-shadow:0 0 0 3px rgba(220,38,38,.12) !important;animation:fShake .3s ease;}
@@ -1246,11 +1248,13 @@ body::after {
   }
 
   .page-sub,
-  .ro-value,
-  .fi,
-  .fsel,
-  .fta {
+  .ro-value {
     font-size: .82rem;
+  }
+  /* Keep form controls at 16px on phones so iOS Safari doesn't zoom in
+     when a field is focused. Never drop inputs below 16px. */
+  .fi, .fsel, .fta {
+    font-size: 16px;
   }
 
   .steps {

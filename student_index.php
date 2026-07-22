@@ -519,6 +519,12 @@ body::after {
   .shell { border-radius: 20px; }
   /* compact brand header so the form is reachable without a full-screen scroll */
   .brand { padding: 1.4rem 1.3rem 1.3rem; }
+  /* keep the header tidy: less letter-spacing + a compact Home button so
+     the college name and subtitle don't wrap awkwardly beside it */
+  .brand-top { gap: .6rem; }
+  .brand-top strong { font-size: .9rem; line-height: 1.2; }
+  .brand-top span { letter-spacing: .7px; font-size: .58rem; }
+  .brand-home { padding: .5rem .74rem; font-size: .75rem; min-height: 38px; }
   .brand-hero { margin-top: 1rem; }
   .brand-tag { font-size: .58rem; padding: .28rem .6rem; margin-bottom: .7rem; }
   .brand-hero h2 { font-size: 1.35rem; }
