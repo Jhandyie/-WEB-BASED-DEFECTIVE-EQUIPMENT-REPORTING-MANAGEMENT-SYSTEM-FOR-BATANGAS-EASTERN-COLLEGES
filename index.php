@@ -471,20 +471,23 @@ a { text-decoration: none; color: inherit; }
     url('assets/Landing Page Background.jpg') center 40% / cover no-repeat,
     url('assets/bec background (2).png') center / cover no-repeat; }
   .hero-content { max-width: 100%; }
-  .hero h1 { font-size: 2.15rem; }
-  .hero-sub { font-size: .96rem; margin-bottom: 1.5rem; }
+  /* calmer type scale on phones — the long headline was overwhelming at 2.15rem */
+  .hero h1 { font-size: 1.7rem; line-height: 1.2; max-width: none; }
+  .hero-sub { font-size: .88rem; margin-bottom: 1.4rem; }
+  .hero-eyebrow { font-size: .58rem; padding: .36rem .8rem; margin-bottom: 1rem; }
   .rep-grid { grid-template-columns: 1fr; }
-  .sec-title { font-size: 1.6rem; }
-  .btn { width: 100%; justify-content: center; }
+  .sec-title { font-size: 1.35rem; }
+  .btn { width: 100%; justify-content: center; padding: .82rem 1.4rem; font-size: .9rem; }
   .hero-cta { flex-direction: column; }
 
   /* ── tighter rhythm = less scrolling on phones (mockups kept) ── */
   .section { padding: 2.3rem 0; }
   .sec-head { margin-bottom: 1.5rem; }
-  .sec-sub { font-size: .9rem; }
+  .sec-sub { font-size: .86rem; }
   .container { padding: 0 1.1rem; }
   .about { padding: 2rem 1.4rem; margin: 0; }
-  .about h2 { font-size: 1.5rem; }
+  .about h2 { font-size: 1.3rem; }
+  .about p { font-size: .86rem; }
   /* full-label pills — exactly 2 on top + 1 centered below.
      Font scales with the viewport so the pair always fits, as big as possible. */
   .hero .container { padding-left: .9rem; padding-right: .9rem; }
