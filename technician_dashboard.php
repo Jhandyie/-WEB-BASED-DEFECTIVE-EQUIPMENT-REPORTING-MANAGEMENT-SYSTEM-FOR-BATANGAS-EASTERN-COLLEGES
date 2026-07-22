@@ -768,6 +768,10 @@ body.modal-open .bell-fab{display:none;}
 .money-in{position:relative;}
 .money-in .cur{position:absolute;left:.85rem;top:50%;transform:translateY(-50%);color:var(--ink3);font-weight:700;font-size:.95rem;pointer-events:none;}
 .money-in input{padding-left:1.9rem !important;}
+.cost-sheet-link{display:inline-flex;align-items:center;gap:.55rem;margin:.1rem 0 .3rem;padding:.62rem .95rem;border-radius:10px;border:1.5px dashed rgba(201,150,12,.5);background:linear-gradient(135deg,rgba(201,150,12,.06),rgba(123,29,29,.04));color:var(--maroon);font-size:.82rem;font-weight:700;text-decoration:none;transition:transform .16s,border-color .16s,background .16s;flex-wrap:wrap;}
+.cost-sheet-link span{font-weight:600;color:var(--ink3);font-size:.74rem;}
+.cost-sheet-link i{color:var(--gold);}
+.cost-sheet-link:hover{border-color:var(--gold);background:linear-gradient(135deg,rgba(201,150,12,.12),rgba(123,29,29,.07));transform:translateY(-1px);}
 .form textarea{min-height:92px;resize:vertical;line-height:1.55;}
 .form input:focus,.form textarea:focus{outline:none;border-color:var(--maroon);box-shadow:0 0 0 3px rgba(123,29,29,.08);}
 .fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;}
@@ -1284,6 +1288,11 @@ body.modal-open{overflow:hidden;}
                   </div>
                   <?php endif; ?>
                 </div>
+                <?php if (!$techIsItso): ?>
+                <a href="technician_cost_estimate.php?report=<?php echo $rid_e; ?>" target="_blank" rel="noopener" class="cost-sheet-link">
+                  <i class="fas fa-file-invoice-dollar"></i> Prepare a detailed cost estimate <span>(materials + labor + miscellaneous — printable)</span>
+                </a>
+                <?php endif; ?>
                 <div class="fs"><span class="fs-num">2</span><span class="fs-tx"><strong>Diagnosis &amp; Work Done</strong><span>Only these two are required — the rest is optional detail</span></span></div>
                 <label>Diagnosis <em class="req">*</em></label>
                 <textarea name="diagnosis" placeholder="What was found to be wrong?" data-req="Diagnosis"></textarea>
