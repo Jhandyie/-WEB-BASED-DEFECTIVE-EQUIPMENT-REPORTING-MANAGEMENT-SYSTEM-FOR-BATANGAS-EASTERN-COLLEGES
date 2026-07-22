@@ -892,6 +892,29 @@ a { text-decoration: none; color: inherit; }
   }
 })();
 </script>
+<!-- ══ BACK TO TOP ══ -->
+<style>
+#toTop{position:fixed;right:1.35rem;bottom:1.35rem;z-index:9996;width:48px;height:48px;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  background:linear-gradient(135deg,var(--maroon-d),var(--maroon));color:#fff;border:1px solid rgba(201,150,12,.4);
+  box-shadow:0 8px 24px rgba(74,14,14,.32),0 0 0 1px rgba(255,255,255,.06) inset;
+  opacity:0;visibility:hidden;transform:translateY(14px) scale(.9);pointer-events:none;
+  transition:opacity .28s ease,transform .28s cubic-bezier(.22,1,.36,1),visibility .28s,box-shadow .2s;}
+#toTop.show{opacity:1;visibility:visible;transform:none;pointer-events:auto;}
+#toTop:hover{box-shadow:0 12px 30px rgba(74,14,14,.42),0 0 20px rgba(201,150,12,.35);transform:translateY(-3px);}
+#toTop:active{transform:translateY(0);}
+#toTop i{font-size:1rem;color:#F0C040;}
+@media(max-width:560px){#toTop{width:46px;height:46px;right:1rem;bottom:1.2rem;}}
+</style>
+<button id="toTop" type="button" aria-label="Back to top"><i class="fas fa-arrow-up"></i></button>
+<script>(function(){
+  var b=document.getElementById('toTop');if(!b)return;
+  var reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function t(){b.classList.toggle('show',(window.pageYOffset||document.documentElement.scrollTop||0)>560);}
+  window.addEventListener('scroll',t,{passive:true});t();
+  b.addEventListener('click',function(){window.scrollTo({top:0,behavior:reduce?'auto':'smooth'});});
+})();</script>
+
 <?php require __DIR__ . '/includes/site_transitions.php'; ?>
 <?php require __DIR__ . '/includes/becca_widget.php'; ?>
 </body>
