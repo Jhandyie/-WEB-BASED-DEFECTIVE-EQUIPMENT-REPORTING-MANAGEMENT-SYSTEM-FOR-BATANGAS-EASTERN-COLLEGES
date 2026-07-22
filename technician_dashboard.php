@@ -893,23 +893,6 @@ body.modal-open{overflow:hidden;}
   .facts{grid-template-columns:1fr;}
 }
 
-/* ── Budget: existing-request status ── */
-.br-existing{background:#fff;border:1px solid var(--bdr);border-left:4px solid var(--gold);border-radius:var(--r2);padding:12px 14px;margin-bottom:14px;}
-.br-existing-title{display:flex;align-items:center;gap:.5rem;font-size:.8rem;font-weight:700;color:var(--ink2);margin-bottom:8px;}
-.br-existing-title i{color:var(--green);}
-.br-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:7px 0;border-top:1px dashed var(--bdr);font-size:.76rem;}
-.br-row:first-of-type{border-top:none;}
-.br-id{font-weight:800;color:var(--maroon);}
-.br-id i{color:var(--gold);margin-right:3px;}
-.br-amt{font-family:'Outfit',sans-serif;font-weight:800;color:var(--ink);}
-.br-st{padding:.2rem .55rem;border-radius:14px;font-weight:700;font-size:.64rem;}
-.br-st.wait{background:var(--amber-soft);color:var(--amber);}
-.br-st.ok{background:var(--green-soft);color:var(--green);}
-.br-st.bad{background:var(--danger-soft);color:var(--danger);}
-.br-fin{color:#1D4ED8;font-weight:600;font-size:.7rem;}
-.br-when{margin-left:auto;color:var(--ink3);font-size:.68rem;}
-.fin-note{display:flex;align-items:flex-start;gap:.55rem;margin-top:.9rem;padding:10px 12px;border-radius:11px;background:var(--amber-soft);border:1px solid #F0D79A;font-size:.78rem;color:var(--ink2);line-height:1.5;}
-.fin-note i{color:var(--amber);margin-top:.15rem;}
 .add-row{display:inline-flex;align-items:center;gap:.45rem;margin-top:2px;padding:.5rem .9rem;border-radius:10px;border:1.5px dashed var(--bdr);background:#fff;color:var(--maroon);font-size:.78rem;font-weight:700;cursor:pointer;transition:all .15s;}
 .add-row:hover{border-color:var(--maroon);background:var(--maroon-soft);}
 .row-del{width:36px;height:36px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;border-radius:9px;border:1.5px solid var(--bdr);background:#fff;color:#9E8070;font-size:.8rem;cursor:pointer;transition:all .15s;}
@@ -978,8 +961,6 @@ body.modal-open{overflow:hidden;}
 @keyframes axSlide{0%,100%{transform:translateX(-5px);opacity:.75;}50%{transform:translateX(6px);opacity:1;}}
 .axl.ax-replace .axl-core i{animation:axSpin2 1.1s linear infinite;}
 @keyframes axSpin2{to{transform:rotate(360deg);}}
-.axl.ax-budget .axl-core i{animation:axCoin 1s ease-in-out infinite;}
-@keyframes axCoin{0%,100%{transform:translateY(0) scale(1);}30%{transform:translateY(-9px) scale(1.06);}55%{transform:translateY(2px) scale(.95);}}
 .axl.ax-complete .axl-core i{animation:axStamp 1.2s ease-in-out infinite;}
 @keyframes axStamp{0%,100%{transform:scale(1);}30%{transform:scale(1.28);}45%{transform:scale(.94);}60%{transform:scale(1.06);}}
 .axl.ax-notif .axl-core i{transform-origin:50% 0;animation:axBell 1s ease-in-out infinite;}

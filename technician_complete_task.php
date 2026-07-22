@@ -90,9 +90,6 @@ $work_performed    = trim((string)($_POST['work_performed'] ?? $_POST['repair_su
 $parts_replaced    = trim((string)($_POST['parts_replaced'] ?? ''));
 $tools_used        = trim((string)($_POST['tools_used'] ?? ''));
 $materials_used    = trim((string)($_POST['materials_used'] ?? ''));
-$findings          = trim((string)($_POST['findings'] ?? ''));
-$recommendations   = trim((string)($_POST['recommendations'] ?? ''));
-$completion_notes  = trim((string)($_POST['completion_notes'] ?? ''));
 $repair_duration   = trim((string)($_POST['repair_duration'] ?? ''));
 $repair_cost       = (float)($_POST['repair_cost'] ?? 0);
 $estimated_cost    = (float)($_POST['estimated_cost'] ?? 0);
@@ -132,9 +129,6 @@ try {
             parts_replaced = ?,
             tools_used = ?,
             materials_used = ?,
-            findings = ?,
-            recommendations = ?,
-            completion_notes = ?,
             repair_duration = ?,
             repair_cost = ?,
             estimated_cost = ?,
@@ -156,10 +150,10 @@ try {
     $est_str     = number_format($estimated_cost, 2, '.', '');
 
     $stmt->bind_param(
-        'ssssssssssssssssssss',
+        'sssssssssssssssss',
         $date_started, $diagnosis, $actions_performed, $repair_procedures, $work_performed,
-        $parts_replaced, $tools_used, $materials_used, $findings, $recommendations,
-        $completion_notes, $repair_duration, $cost_str, $est_str,
+        $parts_replaced, $tools_used, $materials_used,
+        $repair_duration, $cost_str, $est_str,
         $before_json, $during_json, $after_json, $work_json,
         $report_id, $technician_id
     );
