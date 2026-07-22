@@ -731,8 +731,8 @@ body::after {
 .logout-link {
   margin-left:.35rem;color:var(--ink3);font-size:.9rem;
   text-decoration:none;transition:color .15s,background .15s;
-  display:inline-flex;align-items:center;justify-content:center;
-  min-width:44px;min-height:44px;border-radius:10px;
+  display:inline-flex;align-items:center;justify-content:center;gap:.45rem;
+  min-width:44px;min-height:44px;border-radius:10px;padding:0 .5rem;
 }
 .logout-link:hover{color:var(--maroon);background:var(--maroon-soft);}
 
@@ -1399,8 +1399,7 @@ html { scroll-behavior: smooth; }
     </div>
     <div class="user-chip">
       <div class="user-avatar"><?php echo strtoupper(substr($student_name,0,1)); ?></div>
-      <?php echo htmlspecialchars($student_name); ?>
-      <a href="student_dashboard.php?logout=1" class="logout-link" title="Sign out"><i class="fas fa-sign-out-alt"></i></a>
+      <a href="student_dashboard.php?logout=1" class="logout-link" title="Sign out"><i class="fas fa-sign-out-alt"></i> Sign out</a>
     </div>
   </div>
 
