@@ -485,14 +485,16 @@ a { text-decoration: none; color: inherit; }
   .container { padding: 0 1.1rem; }
   .about { padding: 2rem 1.4rem; margin: 0; }
   .about h2 { font-size: 1.5rem; }
-  /* full-label pills — exactly 2 on top + 1 centered below */
-  .hero .container { padding-left: 1.1rem; padding-right: 1.1rem; }
-  .hero-pills { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem .35rem;
-    padding-top: 1.1rem; justify-items: center; }
-  .hpill { font-size: .57rem; padding: .4rem .5rem; white-space: nowrap; gap: .3rem;
-    letter-spacing: 0; justify-content: center; width: 100%; }
-  .hpill:nth-child(3) { grid-column: 1 / -1; width: auto; padding: .4rem .9rem; }
-  .hpill i { font-size: .54rem; }
+  /* full-label pills — exactly 2 on top + 1 centered below.
+     Font scales with the viewport so the pair always fits, as big as possible. */
+  .hero .container { padding-left: .9rem; padding-right: .9rem; }
+  .hero-pills { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem .35rem;
+    padding-top: 1.15rem; justify-items: center; }
+  .hpill { font-size: clamp(.55rem, 2.42vw, .7rem); padding: .48rem .5rem; white-space: nowrap;
+    gap: .3rem; letter-spacing: 0; justify-content: center; width: 100%;
+    border-color: rgba(255,255,255,.34); }
+  .hpill:nth-child(3) { grid-column: 1 / -1; width: auto; padding: .48rem 1.05rem; }
+  .hpill i { font-size: .92em; }
 }
 </style>
 </head>
