@@ -70,6 +70,8 @@ try {
   .aia-dots span:nth-child(2){animation-delay:.2s;}.aia-dots span:nth-child(3){animation-delay:.4s;}
   @keyframes aiaDot{0%,80%,100%{opacity:.2;}40%{opacity:1;}}
   @media(prefers-reduced-motion:reduce){.aia-fab,.aia-fab .aia-ic::after{animation:none;}}
+  /* comfortable tap targets on phones (after base rules so it wins) */
+  @media(max-width:560px){.aia-x{width:46px;height:46px;}.aia-chip{min-height:46px;}.aia-send{width:46px;height:46px;}}
 </style>
 
 <style>

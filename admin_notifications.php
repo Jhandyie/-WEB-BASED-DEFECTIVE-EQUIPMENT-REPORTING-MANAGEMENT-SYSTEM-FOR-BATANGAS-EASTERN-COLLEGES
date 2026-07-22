@@ -477,6 +477,20 @@ textarea.fc{resize:vertical;min-height:88px;}
 /* ── RESPONSIVE ───────────────────────────────────── */
 @media(max-width:1100px){.main-grid{grid-template-columns:1fr;}.side-panel{position:static;}}
 @media(max-width:768px){.sb{transform:translateX(-100%);}.sb.open{transform:translateX(0);}.wrap{margin-left:0;}.pg{padding:1rem;}.mob-tog{display:flex;}.sum-strip{grid-template-columns:1fr 1fr;}.fg2{grid-template-columns:1fr;}}
+/* Mobile: keep the top bar from overflowing + comfortable 44px tap targets */
+@media(max-width:560px){
+  .topbar{padding:0 .85rem;}
+  .tb-r{gap:.4rem;}
+  /* top-bar action buttons become icon-only so they fit (still fully functional) */
+  .tb-r .btn-sm{font-size:0;padding:0;width:44px;height:44px;justify-content:center;}
+  .tb-r .btn-sm i{font-size:.95rem;margin:0;}
+  .unread-badge{white-space:nowrap;}
+  /* filter + action controls to 44px */
+  .fsi,.fsel{min-height:44px;}
+  .btn-sm{min-height:44px;}
+  .na-btn{min-height:44px;min-width:44px;}   /* per-notification mark-read / delete */
+  .pgn-btn{min-height:44px;min-width:44px;display:inline-flex;align-items:center;justify-content:center;}
+}
 </style>
 </head>
 <body>
