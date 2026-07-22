@@ -728,6 +728,13 @@ body.modal-open .bell-fab{display:none;}
 .sec-h{margin-bottom:10px;}
 .sec-h small{display:block;font-size:.6rem;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--gold);margin-bottom:2px;}
 .sec-h h3{font-size:1.02rem;color:var(--ink);}
+/* Collapsible reference sections — tap the header to hide/show, cuts scrolling */
+.sec.collapsible > .sec-h{cursor:pointer;position:relative;padding-right:26px;user-select:none;-webkit-tap-highlight-color:transparent;}
+.sec.collapsible > .sec-h::after{content:"\f078";font-family:"Font Awesome 6 Free";font-weight:900;position:absolute;right:2px;top:50%;transform:translateY(-50%);font-size:.72rem;color:var(--ink3);transition:transform .22s,color .15s;}
+.sec.collapsible > .sec-h:hover::after{color:var(--maroon);}
+.sec.collapsed > .sec-h::after{transform:translateY(-50%) rotate(-90deg);}
+.sec.collapsed > .sec-h{margin-bottom:0;}
+.sec.collapsed > :not(.sec-h){display:none!important;}
 .copy{font-size:.87rem;line-height:1.7;color:var(--ink2);}
 .facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;}
 .facts>div{padding:10px 12px;border-radius:11px;border:1px solid var(--bdr);background:#fff;}
@@ -2067,6 +2074,32 @@ if ('serviceWorker' in navigator) {
 })();
 </script>
 <?php require_once __DIR__ . '/includes/csrf_inject.php'; ?>
+<script>
+/* Collapsible workspace reference sections — tap a header to hide/show it.
+   Secondary sections start collapsed to cut the initial scroll; action forms
+   (.sec-form) are never collapsible. */
+(function () {
+  var startCollapsed = ['Assignment Instructions', 'Latest Technician Notes', 'Video Evidence'];
+  document.querySelectorAll('.sec:not(.sec-form)').forEach(function (sec) {
+    var h = sec.querySelector('.sec-h');
+    if (!h) return;
+    sec.classList.add('collapsible');
+    var title = ((h.querySelector('h3') || {}).textContent || '').trim();
+    if (startCollapsed.indexOf(title) !== -1) sec.classList.add('collapsed');
+    h.setAttribute('role', 'button');
+    h.setAttribute('tabindex', '0');
+    h.setAttribute('aria-expanded', sec.classList.contains('collapsed') ? 'false' : 'true');
+    function toggle() {
+      var collapsed = sec.classList.toggle('collapsed');
+      h.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+    }
+    h.addEventListener('click', toggle);
+    h.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+    });
+  });
+})();
+</script>
 <script src="assets/camera_capture.js"></script>
 <?php require __DIR__ . '/includes/technician_assistant.php'; ?>
 <?php require __DIR__ . '/includes/site_transitions.php'; ?>
