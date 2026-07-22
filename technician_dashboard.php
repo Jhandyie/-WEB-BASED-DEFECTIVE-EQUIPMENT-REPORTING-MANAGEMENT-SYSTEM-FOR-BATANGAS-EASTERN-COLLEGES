@@ -709,6 +709,8 @@ body.modal-open .bell-fab{display:none;}
 .ws-head-tags{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
 .ws-head-tags .badge{background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.2);}
 .ws-head-tags .badge.sla.overdue{background:rgba(220,38,38,.35);border-color:rgba(255,255,255,.3);}
+.ws-head-tags .ws-srv{background:var(--gold);color:#3a2600;border-color:transparent;text-decoration:none;cursor:pointer;font-weight:800;min-height:44px;display:inline-flex;align-items:center;gap:.4rem;transition:filter .15s,transform .12s;}
+.ws-head-tags .ws-srv:hover{filter:brightness(1.08);transform:translateY(-1px);}
 
 /* Workflow stepper */
 .steps{display:flex;align-items:flex-start;justify-content:space-between;gap:4px;padding:18px 22px 12px;background:linear-gradient(180deg,rgba(74,14,14,.05),transparent);}
@@ -1186,6 +1188,9 @@ body.modal-open{overflow:hidden;}
             <div class="ws-head-tags">
               <?php if ($started && in_array($st, ['in_progress','waiting_for_materials','for_replacement'], true)): ?><span class="badge timer rep-timer" data-started="<?php echo $started; ?>"><i class="fas fa-stopwatch"></i> —</span><?php endif; ?>
               <?php if ($due !== null): ?><span class="badge sla sla-chip" data-due="<?php echo $due; ?>"><i class="fas fa-gauge-high"></i> —</span><?php endif; ?>
+              <?php if (in_array($st, ['completed','verified','closed'], true)): ?>
+              <a class="badge ws-srv" href="technician_service_report.php?report=<?php echo $rid_e; ?>" target="_blank" rel="noopener"><i class="fas fa-file-lines"></i> Service Report</a>
+              <?php endif; ?>
             </div>
           </div>
 
