@@ -317,14 +317,16 @@ a { text-decoration: none; color: inherit; }
   transition: transform .24s cubic-bezier(.22,1,.36,1), background .24s, border-color .24s; }
 .about-point:hover { transform: translateX(5px); background: rgba(255,255,255,.08); border-color: rgba(201,150,12,.38); }
 .ap-ic { width: 48px; height: 48px; border-radius: 13px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-  font-size: 1.2rem; color: #FCE0A0;
-  background: linear-gradient(140deg, rgba(201,150,12,.55), rgba(201,150,12,.18));
-  border: 1px solid rgba(240,192,64,.5); box-shadow: 0 4px 16px rgba(201,150,12,.22), inset 0 1px 0 rgba(255,255,255,.15);
-  transition: transform .24s, background .24s; }
-.about-point:hover .ap-ic { transform: scale(1.1) rotate(-6deg); background: linear-gradient(140deg, rgba(240,192,64,.7), rgba(201,150,12,.3)); }
-.ap-ic i { display: block; line-height: 1; text-shadow: 0 1px 3px rgba(0,0,0,.35); }
-.about-point b { display: block; font-size: .9rem; font-weight: 700; color: #fff; }
-.about-point span { display: block; font-size: .78rem; line-height: 1.5; color: rgba(255,255,255,.66); margin-top: .15rem; }
+  font-size: 1.15rem; color: #2D0505;
+  background: linear-gradient(140deg, #F0C040, var(--gold));
+  border: 1px solid rgba(255,255,255,.25); box-shadow: 0 4px 16px rgba(201,150,12,.3);
+  transition: transform .24s, filter .24s; }
+.about-point:hover .ap-ic { transform: scale(1.1) rotate(-6deg); filter: brightness(1.08); }
+.ap-ic i { display: block; line-height: 1; }
+/* scope to the text column only — a bare `.about-point span` also hits the
+   .ap-ic icon tile (it's a span) and breaks its flex centering */
+.about-point > div b { display: block; font-size: .9rem; font-weight: 700; color: #fff; }
+.about-point > div span { display: block; font-size: .78rem; line-height: 1.5; color: rgba(255,255,255,.66); margin-top: .15rem; }
 
 /* ══ PUBLIC REPORTS PREVIEW ══ */
 .rep-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
@@ -488,6 +490,16 @@ a { text-decoration: none; color: inherit; }
   .about { padding: 2rem 1.4rem; margin: 0; }
   .about h2 { font-size: 1.3rem; }
   .about p { font-size: .86rem; }
+  /* mockup floating chips: keep them clear of the mockup's title bar */
+  .dash-notif { font-size: .68rem; padding: .4rem .65rem; }
+  .dash-notif.n1 { top: -14px; right: 0; }
+  .dash-notif.n2 { bottom: -10px; left: 0; }
+  /* compact capability cards — same content, less height */
+  .mod-card { padding: .95rem 1rem; gap: .75rem; border-radius: 14px; }
+  .mod-ic { width: 40px; height: 40px; font-size: .95rem; border-radius: 11px; }
+  .mod-tx b { font-size: .9rem; margin-bottom: .15rem; }
+  .mod-tx span { font-size: .76rem; }
+  .mod-grid { gap: .65rem; }
   /* full-label pills — exactly 2 on top + 1 centered below.
      Font scales with the viewport so the pair always fits, as big as possible. */
   .hero .container { padding-left: .9rem; padding-right: .9rem; }
