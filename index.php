@@ -511,10 +511,9 @@ a { text-decoration: none; color: inherit; }
         <a class="btn btn-ghost" href="track_report.php"><i class="fas fa-magnifying-glass"></i> Track a report</a>
       </div>
       <div class="hero-pills">
-        <span class="hpill"><i class="fas fa-id-card"></i> Official BEC access</span>
-        <span class="hpill"><i class="fas fa-envelope"></i> Email confirmation</span>
-        <span class="hpill"><i class="fas fa-route"></i> Tracked end-to-end</span>
-        <span class="hpill"><i class="fas fa-user-shield"></i> Privacy-protected</span>
+        <span class="hpill"><i class="fas fa-certificate"></i> Official institutional system</span>
+        <span class="hpill"><i class="fas fa-building-columns"></i> Property Management Office</span>
+        <span class="hpill"><i class="fas fa-shield-halved"></i> Secure OTP-protected access</span>
       </div>
       </div>
     </div>
@@ -523,12 +522,6 @@ a { text-decoration: none; color: inherit; }
   <!-- ══ CREDIBILITY STRIP ══ -->
   <div class="cred">
     <div class="container cred-in">
-      <span class="cred-item"><i class="fas fa-certificate"></i> Official institutional system</span>
-      <span class="cred-sep"></span>
-      <span class="cred-item"><i class="fas fa-building-columns"></i> Property Management Office</span>
-      <span class="cred-sep"></span>
-      <span class="cred-item"><i class="fas fa-shield-halved"></i> Secure OTP-protected access</span>
-      <span class="cred-sep"></span>
       <span class="cred-item"><i class="fas fa-award"></i> Batangas Eastern Colleges · Est. 1940</span>
     </div>
   </div>
