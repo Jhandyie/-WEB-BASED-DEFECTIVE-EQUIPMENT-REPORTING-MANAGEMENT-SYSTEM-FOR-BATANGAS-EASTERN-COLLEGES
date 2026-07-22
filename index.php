@@ -485,7 +485,11 @@ a { text-decoration: none; color: inherit; }
   .container { padding: 0 1.1rem; }
   .about { padding: 2rem 1.4rem; margin: 0; }
   .about h2 { font-size: 1.5rem; }
-  .hero-pills { gap: .4rem; padding-top: 1.1rem; }
+  /* keep the 3 trust pills on one horizontal row (swipeable) instead of stacking */
+  .hero-pills { gap: .45rem; padding-top: 1.1rem; flex-wrap: nowrap; overflow-x: auto;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom: .2rem; }
+  .hero-pills::-webkit-scrollbar { display: none; }
+  .hpill { flex-shrink: 0; }
 }
 </style>
 </head>
@@ -873,12 +877,15 @@ a { text-decoration: none; color: inherit; }
 <script>
 (function () {
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Skip the hero parallax on touch devices — moving the background image on
+  // every scroll frame looks laggy/juddery on phones.
+  var noParallax = reduce || window.matchMedia('(pointer: coarse)').matches;
   var bar = document.getElementById('scrollProg');
   var hero = document.querySelector('.hero');
   function onScroll() {
     var y = window.pageYOffset || document.documentElement.scrollTop || 0;
     if (bar) { var docH = document.documentElement.scrollHeight - window.innerHeight; bar.style.transform = 'scaleX(' + (docH > 0 ? Math.min(y / docH, 1) : 0).toFixed(4) + ')'; }
-    if (hero && !reduce) { hero.style.setProperty('--hero-par', Math.min(y * 0.15, 60).toFixed(1) + 'px'); }
+    if (hero && !noParallax) { hero.style.setProperty('--hero-par', Math.min(y * 0.15, 60).toFixed(1) + 'px'); }
   }
   window.addEventListener('scroll', onScroll, { passive: true });
   window.addEventListener('resize', onScroll, { passive: true });
