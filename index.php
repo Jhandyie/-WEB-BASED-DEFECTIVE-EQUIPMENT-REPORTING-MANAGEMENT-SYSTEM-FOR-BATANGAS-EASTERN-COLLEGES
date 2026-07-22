@@ -455,18 +455,30 @@ a { text-decoration: none; color: inherit; }
   .hero h1 { font-size: 2.5rem; }
 }
 @media (max-width: 640px) {
-  .hero { min-height: auto; padding: 3.2rem 0 2.8rem; }
+  .hero { min-height: auto; padding: 2.8rem 0 2.4rem; }
   .hero::before { background:
     linear-gradient(180deg, rgba(38,4,4,.86) 0%, rgba(45,5,5,.78) 45%, rgba(74,14,14,.9) 100%),
     url('assets/Landing Page Background.jpg') center 40% / cover no-repeat,
     url('assets/bec background (2).png') center / cover no-repeat; }
   .hero-content { max-width: 100%; }
   .hero h1 { font-size: 2.15rem; }
-  .hero-sub { font-size: .96rem; }
+  .hero-sub { font-size: .96rem; margin-bottom: 1.5rem; }
   .rep-grid { grid-template-columns: 1fr; }
   .sec-title { font-size: 1.6rem; }
   .btn { width: 100%; justify-content: center; }
   .hero-cta { flex-direction: column; }
+
+  /* ── tighter rhythm + fewer heavy visuals = less scrolling on phones ── */
+  .section { padding: 2.3rem 0; }
+  .sec-head { margin-bottom: 1.5rem; }
+  .sec-sub { font-size: .9rem; }
+  .container { padding: 0 1.1rem; }
+  /* drop the purely decorative mockups on mobile; keep their value-prop copy */
+  .showcase-visual, .becca-visual { display: none; }
+  .showcase-in, .becca-in { gap: 0; }
+  .about { padding: 2rem 1.4rem; margin: 0; }
+  .about h2 { font-size: 1.5rem; }
+  .hero-pills { gap: .4rem; padding-top: 1.1rem; }
 }
 </style>
 </head>
@@ -621,15 +633,15 @@ a { text-decoration: none; color: inherit; }
           </div>
           <div class="about-points">
             <div class="about-point">
-              <span class="ap-ic"><i class="fas fa-clipboard-check"></i></span>
+              <span class="ap-ic"><i class="fas fa-shield-halved"></i></span>
               <div><b>Verification &amp; approval</b><span>Every report is reviewed by the PMO before work begins.</span></div>
             </div>
             <div class="about-point">
-              <span class="ap-ic"><i class="fas fa-people-carry-box"></i></span>
+              <span class="ap-ic"><i class="fas fa-user-gear"></i></span>
               <div><b>Technician assignment</b><span>Cases are routed to the right personnel with balanced workloads.</span></div>
             </div>
             <div class="about-point">
-              <span class="ap-ic"><i class="fas fa-chart-line"></i></span>
+              <span class="ap-ic"><i class="fas fa-timeline"></i></span>
               <div><b>Accountability &amp; tracking</b><span>Status, history, and resolution are recorded end-to-end.</span></div>
             </div>
           </div>
