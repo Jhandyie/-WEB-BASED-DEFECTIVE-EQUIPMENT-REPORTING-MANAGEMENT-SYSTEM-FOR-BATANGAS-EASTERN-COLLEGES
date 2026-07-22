@@ -198,6 +198,7 @@ a { text-decoration: none; color: inherit; }
 .hpill { display: inline-flex; align-items: center; gap: .4rem; padding: .4rem .85rem; border-radius: 20px;
   background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.28); font-size: .72rem; font-weight: 600; color: #fff; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
 .hpill i { color: var(--gold); font-size: .68rem; }
+.hpill .ps { display: none; }   /* short label — mobile only */
 
 /* ══ SCROLL-REVEAL + 3D TILT (subtle, professional) ══ */
 .reveal { opacity: 0; transform: translateY(26px); transition: opacity .6s cubic-bezier(.22,1,.36,1), transform .6s cubic-bezier(.22,1,.36,1); }
@@ -485,11 +486,13 @@ a { text-decoration: none; color: inherit; }
   .container { padding: 0 1.1rem; }
   .about { padding: 2rem 1.4rem; margin: 0; }
   .about h2 { font-size: 1.5rem; }
-  /* keep the 3 trust pills on one horizontal row (swipeable) instead of stacking */
-  .hero-pills { gap: .45rem; padding-top: 1.1rem; flex-wrap: nowrap; overflow-x: auto;
-    scrollbar-width: none; -webkit-overflow-scrolling: touch; padding-bottom: .2rem; }
-  .hero-pills::-webkit-scrollbar { display: none; }
-  .hpill { flex-shrink: 0; }
+  /* 3 trust pills sized to fit one row — no wrap, no swipe */
+  .hero-pills { gap: .4rem; padding-top: 1.1rem; flex-wrap: nowrap; }
+  .hpill { flex: 1 1 0; min-width: 0; justify-content: center; gap: .3rem;
+    font-size: .64rem; padding: .42rem .45rem; white-space: nowrap; }
+  .hpill i { font-size: .58rem; }
+  .hpill .pf { display: none; }
+  .hpill .ps { display: inline; }
 }
 </style>
 </head>
@@ -515,9 +518,9 @@ a { text-decoration: none; color: inherit; }
         <a class="btn btn-ghost" href="track_report.php"><i class="fas fa-magnifying-glass"></i> Track a report</a>
       </div>
       <div class="hero-pills">
-        <span class="hpill"><i class="fas fa-certificate"></i> Official institutional system</span>
-        <span class="hpill"><i class="fas fa-building-columns"></i> Property Management Office</span>
-        <span class="hpill"><i class="fas fa-shield-halved"></i> Secure OTP-protected access</span>
+        <span class="hpill"><i class="fas fa-certificate"></i> <span class="pf">Official institutional system</span><span class="ps">Official system</span></span>
+        <span class="hpill"><i class="fas fa-building-columns"></i> <span class="pf">Property Management Office</span><span class="ps">PMO-managed</span></span>
+        <span class="hpill"><i class="fas fa-shield-halved"></i> <span class="pf">Secure OTP-protected access</span><span class="ps">OTP-secured</span></span>
       </div>
       </div>
     </div>
