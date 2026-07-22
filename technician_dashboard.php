@@ -881,6 +881,12 @@ body.modal-open{overflow:hidden;}
   .ws-head-tags{justify-content:flex-start;}
   .actions button{flex:1 1 100%;justify-content:center;min-height:48px;}
   .facts{grid-template-columns:1fr 1fr;}
+  /* Comfortable 44px+ tap targets for field technicians on phones */
+  .tb-btn{width:44px;height:44px;}
+  .pwa-chip{min-height:44px;}
+  .chip{min-height:44px;}
+  .ws-back{width:44px;height:44px;}
+  .cam-trigger.compact{min-height:44px;}
 }
 @media(max-width:420px){
   .frow{grid-template-columns:1fr;}

@@ -54,6 +54,8 @@
   .tia-dots span:nth-child(2){animation-delay:.2s;}.tia-dots span:nth-child(3){animation-delay:.4s;}
   @keyframes tiaDot{0%,80%,100%{opacity:.2;}40%{opacity:1;}}
   @media(max-width:640px){.tia-overlay{padding:0;align-items:flex-end;justify-content:center;}.tia-panel{max-width:100%;border-radius:20px 20px 0 0;height:88vh;max-height:88vh;}}
+  /* comfortable tap targets on phones (placed after the base rules so it wins) */
+  @media(max-width:560px){.tia-x{width:46px;height:46px;}.tia-chip{min-height:46px;}.tia-send{width:46px;height:46px;}}
 </style>
 
 <button class="tia-fab" id="tiaFab" type="button" aria-label="Open BECCA AI technician assistant" title="BECCA AI">
