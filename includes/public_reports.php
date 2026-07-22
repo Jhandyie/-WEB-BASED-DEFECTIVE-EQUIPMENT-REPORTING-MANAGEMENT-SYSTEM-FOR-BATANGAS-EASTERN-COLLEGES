@@ -429,6 +429,10 @@ td:last-child{padding-right:1.25rem;}
   h1{font-size:1.45rem;}
   .toolbar{flex-direction:column;align-items:stretch;}
   .detail-grid{grid-template-columns:1fr;}
+  /* 16px inputs (no iOS zoom) + 44px tap targets */
+  .search-input,.filter-sel{font-size:16px;}
+  .filter-sel{min-height:44px;}
+  .pg-btn{min-height:44px;display:inline-flex;align-items:center;justify-content:center;}
 }
 </style>
 </head>

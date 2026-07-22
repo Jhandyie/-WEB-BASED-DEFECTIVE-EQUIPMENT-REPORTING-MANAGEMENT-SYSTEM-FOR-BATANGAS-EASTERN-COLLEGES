@@ -431,7 +431,7 @@ form{display:flex;gap:.7rem;flex-wrap:wrap}
 .fu-flash{display:flex;align-items:center;gap:.5rem;padding:.6rem .8rem;border-radius:10px;font-size:.82rem;font-weight:600;margin-bottom:.8rem}
 .fu-flash.ok{background:#F0FDF4;color:#166534;border:1px solid #bbf7d0}
 .fu-flash.err{background:#FEF7ED;color:#9A3412;border:1px solid #fed7aa}
-@media (max-width:600px){.grid{grid-template-columns:1fr}h1{font-size:1.45rem}body{padding:.9rem}.mini-row{grid-template-columns:1fr}.mini-date{text-align:left}.track-hero{flex-wrap:wrap}.th-prog{order:3;width:100%;display:flex;align-items:center;justify-content:center;gap:.6rem}.th-ring{margin:0}}
+@media (max-width:600px){.grid{grid-template-columns:1fr}h1{font-size:1.45rem}body{padding:.9rem}.mini-row{grid-template-columns:1fr}.mini-date{text-align:left}.track-hero{flex-wrap:wrap}.th-prog{order:3;width:100%;display:flex;align-items:center;justify-content:center;gap:.6rem}.th-ring{margin:0}.input{font-size:16px}}
 html{scroll-behavior:smooth}
 .item{transition:box-shadow .18s,transform .18s,border-color .18s}
 .item:hover{box-shadow:0 8px 22px rgba(123,29,29,.08);transform:translateY(-2px);border-color:rgba(201,150,12,.4)}
