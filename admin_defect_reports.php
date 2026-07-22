@@ -1602,6 +1602,7 @@ textarea.fc{resize:vertical;min-height:70px;}
 
     <div class="mfoot">
       <button class="btn btn-ghost btn-sm" onclick="closeDet()">Close</button>
+      <a href="defect_report_ticket.php?report=<?php echo urlencode($vr['report_id']);?>" target="_blank" rel="noopener" class="btn btn-ghost btn-sm"><i class="fas fa-ticket"></i> Print Ticket</a>
       <?php if (in_array($vr['status'], ['completed','verified','closed'], true)): ?>
       <a href="technician_service_report.php?report=<?php echo urlencode($vr['report_id']);?>" target="_blank" rel="noopener" class="btn btn-ghost btn-sm"><i class="fas fa-file-lines"></i> Service Report</a>
       <?php endif; ?>
