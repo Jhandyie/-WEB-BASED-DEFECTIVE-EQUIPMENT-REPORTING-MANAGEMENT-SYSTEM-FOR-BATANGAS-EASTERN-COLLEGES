@@ -198,7 +198,6 @@ a { text-decoration: none; color: inherit; }
 .hpill { display: inline-flex; align-items: center; gap: .4rem; padding: .4rem .85rem; border-radius: 20px;
   background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.28); font-size: .72rem; font-weight: 600; color: #fff; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
 .hpill i { color: var(--gold); font-size: .68rem; }
-.hpill .ps { display: none; }   /* short label — mobile only */
 
 /* ══ SCROLL-REVEAL + 3D TILT (subtle, professional) ══ */
 .reveal { opacity: 0; transform: translateY(26px); transition: opacity .6s cubic-bezier(.22,1,.36,1), transform .6s cubic-bezier(.22,1,.36,1); }
@@ -486,13 +485,14 @@ a { text-decoration: none; color: inherit; }
   .container { padding: 0 1.1rem; }
   .about { padding: 2rem 1.4rem; margin: 0; }
   .about h2 { font-size: 1.5rem; }
-  /* 3 trust pills sized to fit one row — no wrap, no swipe */
-  .hero-pills { gap: .4rem; padding-top: 1.1rem; flex-wrap: nowrap; }
-  .hpill { flex: 1 1 0; min-width: 0; justify-content: center; gap: .3rem;
-    font-size: .64rem; padding: .42rem .45rem; white-space: nowrap; }
-  .hpill i { font-size: .58rem; }
-  .hpill .pf { display: none; }
-  .hpill .ps { display: inline; }
+  /* full-label pills — exactly 2 on top + 1 centered below */
+  .hero .container { padding-left: 1.1rem; padding-right: 1.1rem; }
+  .hero-pills { display: grid; grid-template-columns: 1fr 1fr; gap: .4rem .35rem;
+    padding-top: 1.1rem; justify-items: center; }
+  .hpill { font-size: .57rem; padding: .4rem .5rem; white-space: nowrap; gap: .3rem;
+    letter-spacing: 0; justify-content: center; width: 100%; }
+  .hpill:nth-child(3) { grid-column: 1 / -1; width: auto; padding: .4rem .9rem; }
+  .hpill i { font-size: .54rem; }
 }
 </style>
 </head>
@@ -518,9 +518,9 @@ a { text-decoration: none; color: inherit; }
         <a class="btn btn-ghost" href="track_report.php"><i class="fas fa-magnifying-glass"></i> Track a report</a>
       </div>
       <div class="hero-pills">
-        <span class="hpill"><i class="fas fa-certificate"></i> <span class="pf">Official institutional system</span><span class="ps">Official system</span></span>
-        <span class="hpill"><i class="fas fa-building-columns"></i> <span class="pf">Property Management Office</span><span class="ps">PMO-managed</span></span>
-        <span class="hpill"><i class="fas fa-shield-halved"></i> <span class="pf">Secure OTP-protected access</span><span class="ps">OTP-secured</span></span>
+        <span class="hpill"><i class="fas fa-certificate"></i> Official institutional system</span>
+        <span class="hpill"><i class="fas fa-building-columns"></i> Property Management Office</span>
+        <span class="hpill"><i class="fas fa-shield-halved"></i> Secure OTP-protected access</span>
       </div>
       </div>
     </div>
