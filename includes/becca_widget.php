@@ -317,27 +317,39 @@ const memory = {
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
 /* ── Keep the panel above the on-screen keyboard (mobile) ──
-   vh/dvh units don't shrink when the keyboard opens, so the input
-   ends up hidden beneath it. We size the sheet to the *visual*
-   viewport (the area above the keyboard) instead. */
+   vh/dvh units don't shrink when the keyboard opens, so the input ends up
+   hidden beneath it. We pin the overlay to the *visual* viewport (the area
+   above the keyboard) so the bottom-anchored sheet — and its input — stay
+   visible. NOTE: the overlay is `inset:0`, so we must clear right/bottom to
+   `auto`, otherwise top+bottom both being set makes the browser ignore our
+   height and stretch it full-height (the original bug). */
+function resetOverlayBox(overlay, modal) {
+  overlay.style.top = overlay.style.left = '';
+  overlay.style.right = overlay.style.bottom = '';
+  overlay.style.width = overlay.style.height = '';
+  if (modal) modal.style.height = '';
+}
 function fitToKeyboard() {
   const vv = window.visualViewport;
   const overlay = document.getElementById('chatOverlay');
   const modal = document.getElementById('chatModal');
   if (!vv || !overlay || !modal || !overlay.classList.contains('open')) return;
-  if (window.innerWidth > 767) {                 // desktop: leave the CSS alone
-    overlay.style.top = overlay.style.height = modal.style.height = '';
-    return;
-  }
+  if (window.innerWidth > 767) { resetOverlayBox(overlay, modal); return; } // desktop: leave CSS alone
+
   const keyboardOpen = (window.innerHeight - vv.height) > 120;
   if (keyboardOpen) {
-    overlay.style.top = vv.offsetTop + 'px';
+    // anchor the overlay to exactly the visible area above the keyboard
+    overlay.style.top    = vv.offsetTop + 'px';
+    overlay.style.left   = vv.offsetLeft + 'px';
+    overlay.style.right  = 'auto';
+    overlay.style.bottom = 'auto';           // <-- critical: let height win
+    overlay.style.width  = vv.width + 'px';
     overlay.style.height = vv.height + 'px';
-    modal.style.height = vv.height + 'px';
+    modal.style.height   = vv.height + 'px';
     const box = document.getElementById('msgs');
-    if (box) box.scrollTop = box.scrollHeight;    // keep latest message visible
+    if (box) box.scrollTop = box.scrollHeight; // keep latest message visible
   } else {
-    overlay.style.top = overlay.style.height = modal.style.height = '';
+    resetOverlayBox(overlay, modal);
   }
 }
 if (window.visualViewport) {
@@ -350,14 +362,16 @@ function openChat() {
   document.getElementById('chatOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
   if (!greeted) { greeted = true; greet(); }
-  setTimeout(() => { document.getElementById('ci').focus(); fitToKeyboard(); }, 300);
+  const ci = document.getElementById('ci');
+  // re-fit whenever the field gains focus (keyboard shows a moment later)
+  ci.addEventListener('focus', function () { setTimeout(fitToKeyboard, 250); });
+  setTimeout(() => { ci.focus(); fitToKeyboard(); }, 300);
 }
 function closeChat() {
   const overlay = document.getElementById('chatOverlay');
   overlay.classList.remove('open');
   document.body.style.overflow = '';
-  overlay.style.top = overlay.style.height = ''; // reset keyboard sizing
-  document.getElementById('chatModal').style.height = '';
+  resetOverlayBox(overlay, document.getElementById('chatModal')); // clear keyboard sizing
 }
 function overlayClick(e) {
   if (e.target === document.getElementById('chatOverlay')) closeChat();
