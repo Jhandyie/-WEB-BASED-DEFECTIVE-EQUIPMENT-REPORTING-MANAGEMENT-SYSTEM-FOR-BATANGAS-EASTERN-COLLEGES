@@ -764,6 +764,10 @@ body.modal-open .bell-fab{display:none;}
 /* Forms — landing-style fields + 3D buttons */
 .form label{display:block;font-size:.7rem;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--ink2);margin:.85rem 0 .3rem;}
 .form input,.form textarea{width:100%;padding:.68rem .85rem;border:1.5px solid var(--bdr);border-radius:11px;background:#fff;font-size:16px;color:var(--ink);transition:border-color .15s,box-shadow .15s;}
+/* Currency field: ₱ prefix inside the input */
+.money-in{position:relative;}
+.money-in .cur{position:absolute;left:.85rem;top:50%;transform:translateY(-50%);color:var(--ink3);font-weight:700;font-size:.95rem;pointer-events:none;}
+.money-in input{padding-left:1.9rem !important;}
 .form textarea{min-height:92px;resize:vertical;line-height:1.55;}
 .form input:focus,.form textarea:focus{outline:none;border-color:var(--maroon);box-shadow:0 0 0 3px rgba(123,29,29,.08);}
 .fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;}
@@ -1273,8 +1277,12 @@ body.modal-open{overflow:hidden;}
                   <div><label>Date started</label><input type="datetime-local" name="date_started" value="<?php echo $started ? date('Y-m-d\TH:i', $started) : ''; ?>"></div>
                   <div><label>Repair duration</label><input type="text" name="repair_duration" placeholder="Leave blank — computed automatically"></div>
                   <?php if (!$techIsItso): ?>
-                  <div><label>Estimated cost — repair &amp; maintenance (₱)</label><input type="number" step="0.01" min="0" inputmode="decimal" name="estimated_cost" placeholder="0.00"></div>
-                  <div><label>Actual cost — tallied by you (₱)</label><input type="number" step="0.01" min="0" inputmode="decimal" name="repair_cost" placeholder="0.00"></div>
+                  <div><label>Estimated cost — repair &amp; maintenance</label>
+                    <div class="money-in"><span class="cur">₱</span>
+                      <input type="text" inputmode="decimal" name="estimated_cost" placeholder="0.00" autocomplete="off"
+                        pattern="\d{1,9}(\.\d{1,2})?" title="Amount in pesos, up to 2 decimals (e.g. 1500.00)"
+                        oninput="this.value=this.value.replace(/[^0-9.]/g,'').replace(/(\d*\.\d{0,2}).*/,'$1');"></div>
+                  </div>
                   <?php endif; ?>
                 </div>
                 <div class="fs"><span class="fs-num">2</span><span class="fs-tx"><strong>Diagnosis &amp; Work Done</strong><span>Only these two are required — the rest is optional detail</span></span></div>
