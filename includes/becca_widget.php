@@ -218,7 +218,8 @@
 
 @media (max-width: 767px) {
   #chatOverlay { align-items: flex-end; justify-content: center; padding: 0; }
-  #chatModal { max-width: 100%; width: 100%; border-radius: 20px 20px 0 0; height: 88vh; max-height: 88vh; }
+  /* dvh handles the URL bar; JS (visualViewport) handles the on-screen keyboard */
+  #chatModal { max-width: 100%; width: 100%; border-radius: 20px 20px 0 0; height: 88vh; height: 88dvh; max-height: 88dvh; }
 }
 </style>
 
@@ -315,16 +316,48 @@ const memory = {
 /* pick a random variant so replies never feel scripted */
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 
+/* ── Keep the panel above the on-screen keyboard (mobile) ──
+   vh/dvh units don't shrink when the keyboard opens, so the input
+   ends up hidden beneath it. We size the sheet to the *visual*
+   viewport (the area above the keyboard) instead. */
+function fitToKeyboard() {
+  const vv = window.visualViewport;
+  const overlay = document.getElementById('chatOverlay');
+  const modal = document.getElementById('chatModal');
+  if (!vv || !overlay || !modal || !overlay.classList.contains('open')) return;
+  if (window.innerWidth > 767) {                 // desktop: leave the CSS alone
+    overlay.style.top = overlay.style.height = modal.style.height = '';
+    return;
+  }
+  const keyboardOpen = (window.innerHeight - vv.height) > 120;
+  if (keyboardOpen) {
+    overlay.style.top = vv.offsetTop + 'px';
+    overlay.style.height = vv.height + 'px';
+    modal.style.height = vv.height + 'px';
+    const box = document.getElementById('msgs');
+    if (box) box.scrollTop = box.scrollHeight;    // keep latest message visible
+  } else {
+    overlay.style.top = overlay.style.height = modal.style.height = '';
+  }
+}
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', fitToKeyboard);
+  window.visualViewport.addEventListener('scroll', fitToKeyboard);
+}
+
 /* open / close */
 function openChat() {
   document.getElementById('chatOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
   if (!greeted) { greeted = true; greet(); }
-  setTimeout(() => document.getElementById('ci').focus(), 300);
+  setTimeout(() => { document.getElementById('ci').focus(); fitToKeyboard(); }, 300);
 }
 function closeChat() {
-  document.getElementById('chatOverlay').classList.remove('open');
+  const overlay = document.getElementById('chatOverlay');
+  overlay.classList.remove('open');
   document.body.style.overflow = '';
+  overlay.style.top = overlay.style.height = ''; // reset keyboard sizing
+  document.getElementById('chatModal').style.height = '';
 }
 function overlayClick(e) {
   if (e.target === document.getElementById('chatOverlay')) closeChat();

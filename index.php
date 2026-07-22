@@ -306,13 +306,13 @@ a { text-decoration: none; color: inherit; }
   background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.08);
   transition: transform .24s cubic-bezier(.22,1,.36,1), background .24s, border-color .24s; }
 .about-point:hover { transform: translateX(5px); background: rgba(255,255,255,.08); border-color: rgba(201,150,12,.38); }
-.ap-ic { width: 46px; height: 46px; border-radius: 13px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-  font-size: 1.15rem; color: var(--gold);
-  background: linear-gradient(135deg, rgba(201,150,12,.32), rgba(201,150,12,.1));
-  border: 1px solid rgba(201,150,12,.32); box-shadow: 0 4px 14px rgba(201,150,12,.14);
-  transition: transform .24s; }
-.about-point:hover .ap-ic { transform: scale(1.1) rotate(-6deg); }
-.ap-ic i { display: block; line-height: 1; }
+.ap-ic { width: 48px; height: 48px; border-radius: 13px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem; color: #FCE0A0;
+  background: linear-gradient(140deg, rgba(201,150,12,.55), rgba(201,150,12,.18));
+  border: 1px solid rgba(240,192,64,.5); box-shadow: 0 4px 16px rgba(201,150,12,.22), inset 0 1px 0 rgba(255,255,255,.15);
+  transition: transform .24s, background .24s; }
+.about-point:hover .ap-ic { transform: scale(1.1) rotate(-6deg); background: linear-gradient(140deg, rgba(240,192,64,.7), rgba(201,150,12,.3)); }
+.ap-ic i { display: block; line-height: 1; text-shadow: 0 1px 3px rgba(0,0,0,.35); }
 .about-point b { display: block; font-size: .9rem; font-weight: 700; color: #fff; }
 .about-point span { display: block; font-size: .78rem; line-height: 1.5; color: rgba(255,255,255,.66); margin-top: .15rem; }
 
@@ -468,14 +468,11 @@ a { text-decoration: none; color: inherit; }
   .btn { width: 100%; justify-content: center; }
   .hero-cta { flex-direction: column; }
 
-  /* ── tighter rhythm + fewer heavy visuals = less scrolling on phones ── */
+  /* ── tighter rhythm = less scrolling on phones (mockups kept) ── */
   .section { padding: 2.3rem 0; }
   .sec-head { margin-bottom: 1.5rem; }
   .sec-sub { font-size: .9rem; }
   .container { padding: 0 1.1rem; }
-  /* drop the purely decorative mockups on mobile; keep their value-prop copy */
-  .showcase-visual, .becca-visual { display: none; }
-  .showcase-in, .becca-in { gap: 0; }
   .about { padding: 2rem 1.4rem; margin: 0; }
   .about h2 { font-size: 1.5rem; }
   .hero-pills { gap: .4rem; padding-top: 1.1rem; }
