@@ -433,6 +433,24 @@ td:last-child{padding-right:1.25rem;}
   .search-input,.filter-sel{font-size:16px;}
   .filter-sel{min-height:44px;}
   .pg-btn{min-height:44px;display:inline-flex;align-items:center;justify-content:center;}
+
+  /* ── turn the 8-column table into tappable cards (no sideways scroll) ── */
+  .table-wrap{background:transparent;border:none;box-shadow:none;border-radius:0;overflow:visible;}
+  .table-scroll{overflow-x:visible;}
+  table{min-width:0;width:100%;}
+  thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);}
+  tbody{display:block;}
+  tr{display:block;background:var(--s);border:1px solid var(--b);border-radius:14px;
+    box-shadow:var(--sh);margin-bottom:.75rem;padding:.35rem .2rem;}
+  td{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:.25rem .9rem;
+    padding:.5rem .85rem;border:none;border-bottom:1px solid var(--b);text-align:right;max-width:none !important;}
+  tr td:last-child{border-bottom:none;}
+  td::before{content:attr(data-label);font-weight:700;color:var(--k3);font-size:.64rem;
+    text-transform:uppercase;letter-spacing:.5px;text-align:left;flex-shrink:0;}
+  td .equip-cat,td .date-ago{width:100%;text-align:right;}
+  td[data-label="Ticket"]{background:var(--maroon-soft,rgba(123,29,29,.05));border-radius:12px 12px 0 0;}
+  td[data-label="Ticket"] .ticket-cell{font-weight:800;}
+  td[data-label="Issue"]>div{width:100%;text-align:left;margin-top:.2rem;}
 }
 </style>
 </head>
@@ -537,21 +555,21 @@ td:last-child{padding-right:1.25rem;}
         <tbody>
           <?php foreach($reports as $r): ?>
           <tr onclick="openModal(<?= htmlspecialchars(json_encode($r), ENT_QUOTES) ?>)">
-            <td><div class="ticket-cell"><?= htmlspecialchars($r['ticket']) ?></div></td>
-            <td>
+            <td data-label="Ticket"><div class="ticket-cell"><?= htmlspecialchars($r['ticket']) ?></div></td>
+            <td data-label="Equipment">
               <div class="equip-name"><?= htmlspecialchars($r['equipment_name']) ?></div>
               <div class="equip-cat"><?= htmlspecialchars($r['category']) ?></div>
             </td>
-            <td>
+            <td data-label="Location">
               <div class="loc-main"><?= htmlspecialchars(public_location_label($r['location'] ?? '')) ?></div>
             </td>
-            <td><span class="badge <?= severity_class($r['severity']) ?>"><?= htmlspecialchars(priority_label($r['severity'])) ?></span></td>
-            <td><span class="badge <?= status_class($r['status']) ?>"><?= htmlspecialchars(status_label($r['status'])) ?></span></td>
-            <td><span class="badge <?= equipment_status_class($r['equipment_status'] ?? '') ?>"><?= htmlspecialchars(equipment_status_label($r['equipment_status'] ?? '')) ?></span></td>
-            <td style="max-width:260px;">
+            <td data-label="Priority"><span class="badge <?= severity_class($r['severity']) ?>"><?= htmlspecialchars(priority_label($r['severity'])) ?></span></td>
+            <td data-label="Status"><span class="badge <?= status_class($r['status']) ?>"><?= htmlspecialchars(status_label($r['status'])) ?></span></td>
+            <td data-label="Equipment status"><span class="badge <?= equipment_status_class($r['equipment_status'] ?? '') ?>"><?= htmlspecialchars(equipment_status_label($r['equipment_status'] ?? '')) ?></span></td>
+            <td data-label="Issue" style="max-width:260px;">
               <div style="line-height:1.45;color:var(--k2);"><?= htmlspecialchars(public_issue_summary($r['defect_description'] ?? '')) ?></div>
             </td>
-            <td>
+            <td data-label="Submitted">
               <div class="date-main"><?= date('M j, Y', strtotime($r['created_at'])) ?></div>
               <div class="date-ago"><?= ago($r['created_at']) ?></div>
             </td>

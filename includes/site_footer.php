@@ -31,7 +31,12 @@ $bsfYear = date('Y');
 .bsfoot-div{height:1px;background:rgba(255,255,255,.12);margin:1.8rem 0 1.1rem;}
 .bsfoot-note{font-size:.72rem;line-height:1.7;color:rgba(255,255,255,.45);text-align:center;}
 @media(max-width:900px){.bsfoot-cols{grid-template-columns:1fr 1fr;gap:1.6rem;}}
-@media(max-width:640px){.bsfoot-cols{grid-template-columns:1fr;gap:1.6rem;}}
+@media(max-width:640px){
+  .bsfoot-cols{grid-template-columns:1fr;gap:1.6rem;}
+  /* roomier tap targets for the footer nav links on phones */
+  .bsfoot-col ul{gap:.15rem;}
+  .bsfoot-col ul a{display:inline-block;padding:.5rem 0;}
+}
 </style>
 <footer class="bsfoot">
   <div class="bsfoot-in">
