@@ -897,7 +897,11 @@ body.modal-open{overflow:hidden;}
   .modal{padding:0;}
   .modal-dialog{width:100%;height:100dvh;max-height:100dvh;border-radius:0;}
   .ws-head{flex-wrap:wrap;}
-  .ws-head-tags{justify-content:flex-start;}
+  /* keep the title on the back-button row with full width; drop the SLA /
+     overdue tags to their own line so the title stops breaking mid-word */
+  .ws-head-copy{flex:1 1 auto;}
+  .ws-head-tags{flex:1 1 100%;order:3;justify-content:flex-start;margin-top:2px;}
+  .ws-title{overflow-wrap:break-word;}   /* break long names at word bounds, not mid-word */
   .actions button{flex:1 1 100%;justify-content:center;min-height:48px;}
   .facts{grid-template-columns:1fr 1fr;}
   /* Comfortable 44px+ tap targets for field technicians on phones */
@@ -906,6 +910,8 @@ body.modal-open{overflow:hidden;}
   .chip{min-height:44px;}
   .ws-back{width:44px;height:44px;}
   .cam-trigger.compact{min-height:44px;}
+  /* 16px so iOS Safari doesn't zoom when the search field is focused */
+  .search input{font-size:16px;min-height:44px;}
   /* Completion report: pin the primary submit to the thumb zone (only present while a task is completable) */
   .cmp-actions{position:fixed;left:0;right:0;bottom:0;z-index:70;margin:0;
     padding:.65rem .85rem calc(.65rem + env(safe-area-inset-bottom,0px));
