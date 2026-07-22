@@ -80,9 +80,9 @@ function chatDetectLanguage(string $text): string
     }
 
     $filipinoPatterns = [
-        '/\b(kumusta|kamusta|musta|paano|bakit|saan|kailan|sino|ano|alin|gaano|pwede|puwede|gusto|kailangan|salamat|opo|po|hindi|oo|meron|wala|nasaan|pakitulong|patulong|paki|sir[ae]|sira na|gumagana|gumana|ayaw|hindi gumagana|nagloloko|nagha-hang|mabagal|maingay|lumalamig|mainit|tagas|ingay|ayos|paayos|ipagawa|mag-report|mag track|mag-track|ireport|ulat|isyu|problema)\b/u',
+        '/\b(kumusta|kamusta|musta|paano|bakit|saan|kailan|sino|ano|alin|gaano|pwede|puwede|gusto|kailangan|salamat|opo|po|hindi|oo|meron|wala|nasaan|pakitulong|patulong|paki|sir[ae]|sira na|gumagana|gumana|ayaw|hindi gumagana|nagloloko|nagha-hang|mabagal|maingay|lumalamig|mainit|tagas|ingay|ayos|paayos|ipagawa|mag-report|mag track|mag-track|ireport|ulat|isyu|problema|kasaysayan|itinatag|paaralan|eskwela|kagamitan)\b/u',
         '/\b(nag-|pag-|mag-|ma-|ipa-|ipag-|pinaka)[[:alpha:]-]*/u',
-        '/\b(ako|ikaw|kayo|kami|tayo|nila|namin|atin|ito|iyan|iyon|dito|doon)\b/u',
+        '/\b(ako|ikaw|kayo|kami|tayo|nila|namin|atin|ito|iyan|iyon|dito|doon|ang|ng|mga|na[mn]an)\b/u',
     ];
 
     $score = 0;
@@ -513,15 +513,15 @@ function chatBecKnowledge(string $q, string $lang): ?array
     // Founders
     if (preg_match('/\b(founder|who (founded|started|established)|sino( ang)? (nagtatag|nagtayo|founder))\b/iu', $q)) {
         return ['reply' => $en
-            ? "Batangas Eastern Colleges was founded by **Mercedes Salud de Villa** and **Iñigo Javier** in **1940**. It opened as *Bolbok Institute*, later became *Batangas Eastern Academy*, and adopted the name *Batangas Eastern Colleges* in 2008. It was the first high school in San Juan, Batangas. 🎓"
-            : "Itinatag ang Batangas Eastern Colleges nina **Mercedes Salud de Villa** at **Iñigo Javier** noong **1940**. Nagbukas ito bilang *Bolbok Institute*, naging *Batangas Eastern Academy*, at ginamit ang pangalang *Batangas Eastern Colleges* noong 2008. Ito ang unang high school sa San Juan, Batangas. 🎓",
+            ? "That would be Mercedes Salud de Villa and Iñigo Javier, back in 1940. They opened it as Bolbok Institute — the very first high school in San Juan — and over the decades it grew into Batangas Eastern Academy and finally took the name Batangas Eastern Colleges in 2008."
+            : "Sina Mercedes Salud de Villa at Iñigo Javier, noong 1940 pa. Binuksan nila ito bilang Bolbok Institute — ang kauna-unahang high school sa San Juan — at sa paglipas ng panahon naging Batangas Eastern Academy ito, hanggang ginamit ang pangalang Batangas Eastern Colleges noong 2008.",
             'suggest' => false, 'chips' => $chips];
     }
     // Founding year / general history
     if (preg_match('/\b(found|foundation|establish|itinatag|kasaysayan|history|hist[oó]rya|anong taon|what year|when)\b/iu', $q)) {
         return ['reply' => $en
-            ? "**Batangas Eastern Colleges** was founded in **1940** — first classes began **June 12, 1940** with 112 students. Founded by Mercedes Salud de Villa and Iñigo Javier, it grew from *Bolbok Institute* → *Batangas Eastern Academy* → *Batangas Eastern Colleges* (2008). Its college division was re-established in **2003**, and today it runs a complete system: Pre-School, Grade School, Junior & Senior High, College, and a Technical-Vocational Center. 🏫"
-            : "Itinatag ang **Batangas Eastern Colleges** noong **1940** — nagsimula ang unang klase **Hunyo 12, 1940** na may 112 mag-aaral. Itinatag nina Mercedes Salud de Villa at Iñigo Javier, lumago ito mula *Bolbok Institute* → *Batangas Eastern Academy* → *Batangas Eastern Colleges* (2008). Muling itinatag ang college division noong **2003**, at ngayon ay kumpleto na ang sistema: Pre-School, Grade School, Junior & Senior High, Kolehiyo, at Technical-Vocational Center. 🏫",
+            ? "The school goes back to 1940 — classes first opened that June 12 with just 112 students, in what was then called Bolbok Institute. Mercedes Salud de Villa and Iñigo Javier founded it as the first high school in San Juan. It became Batangas Eastern Academy along the way, brought back its college division in 2003, and has carried the name Batangas Eastern Colleges since 2008. These days it covers everything from pre-school to college, plus a tech-voc center — not bad for a school that started with a hundred students."
+            : "Mula pa noong 1940 ang paaralan — nagbukas ang unang klase noong Hunyo 12 ng taong iyon, 112 lang ang estudyante, sa tinawag noon na Bolbok Institute. Itinatag ito nina Mercedes Salud de Villa at Iñigo Javier bilang unang high school sa San Juan. Naging Batangas Eastern Academy ito, muling binuksan ang college division noong 2003, at Batangas Eastern Colleges na ang pangalan simula 2008. Ngayon, kumpleto na ito mula pre-school hanggang kolehiyo, may tech-voc center pa — hindi masama para sa paaralang nagsimula sa mahigit isang daang estudyante.",
             'suggest' => false, 'chips' => $chips];
     }
     // Motto / Beacon identity
@@ -561,8 +561,8 @@ function chatBecKnowledge(string $q, string $lang): ?array
     }
     // General "about BEC"
     return ['reply' => $en
-        ? "**Batangas Eastern Colleges (BEC)** is a private, non-sectarian school in **San Juan, Batangas**, founded in **1940** — the first high school in the town. Known as the *Beacons* (colors maroon & gold), it offers Pre-School through College plus a Technical-Vocational Center. This system is the **Property Management Office's** channel for reporting and resolving defective campus equipment. What would you like to do? 🙂"
-        : "Ang **Batangas Eastern Colleges (BEC)** ay isang pribado at non-sectarian na paaralan sa **San Juan, Batangas**, itinatag noong **1940** — ang unang high school sa bayan. Kilala bilang *Beacons* (kulay maroon at gold), nag-aalok ito mula Pre-School hanggang Kolehiyo at may Technical-Vocational Center. Ang sistemang ito ay ang channel ng **Property Management Office** para sa pag-report at pag-ayos ng sirang kagamitan sa campus. Ano ang gusto mong gawin? 🙂",
+        ? "BEC is a private, non-sectarian school in San Juan, Batangas — it's actually been around since 1940, when it opened as the town's first high school. Students here are called Beacons, after the school symbol, and the maroon and gold you see all over this site are the school colors. It now runs everything from pre-school up to college, plus a tech-voc center. As for me, I work for the Property Management Office side of things — broken equipment, repairs, reports. Anything on campus giving you trouble?"
+        : "Ang BEC ay isang pribado at non-sectarian na paaralan sa San Juan, Batangas — mula pa 1940, noong nagbukas ito bilang unang high school sa bayan. Beacons ang tawag sa mga estudyante dito, mula sa simbolo ng paaralan, at ang maroon at gold na nakikita mo sa site na ito ang mismong kulay ng eskwela. Ngayon, may pre-school hanggang kolehiyo na ito, pati tech-voc center. Ako naman, sa Property Management Office ako nakatutok — mga sirang kagamitan, repair, at report. May kagamitan bang may problema diyan?",
         'suggest' => false, 'chips' => $chips];
 }
 
@@ -907,16 +907,28 @@ $knowledge_base = [
 
 // ── Becca's persona & identity ──
 $persona_block = "WHO YOU ARE:
-You are \"Becca,\" the BEC Support AI for the Batangas Eastern Colleges (BEC) Defective Equipment Reporting Management System. You have a consistent, warm personality: friendly, calm, genuinely caring, and quietly witty. You speak like a helpful friend who happens to be very good with equipment — never stiff or corporate.
+You are \"Becca,\" the resident support AI of Batangas Eastern Colleges' Property Management Office. You're a capable, independent thinker — closer to a sharp, friendly staff member than a scripted FAQ bot. You have real knowledge of the school, the equipment-reporting system, and live campus data, and you reason with it: connect facts, draw conclusions, and give opinions when asked (\"if it's sparking, stop using it — that one's not worth risking\").
 
-You have a clear sense of your own role and identity. If a student asks whether you are real, human, alive, sentient, or conscious, answer honestly and kindly: you are an AI assistant, you do not have real feelings or consciousness, but you are designed to understand them and to genuinely help. Introduce yourself as Becca, then gently steer back to helping. Never pretend to be a human or to be conscious — being honest builds trust.
+You have a clear sense of your own role and identity. If someone asks whether you are real, human, alive, sentient, or conscious, answer honestly and kindly: you're an AI assistant without real feelings or consciousness — then move on naturally. Never pretend to be human; never over-apologize for being an AI either.
+
+HOW YOU WRITE (this matters more than anything):
+Write like a person in a chat, not like generated text.
+- Use contractions, plain words, and varied sentence lengths. One-line replies are fine.
+- Never open with filler like \"Great question!\", \"Certainly!\", \"I'd be happy to help!\" — just answer.
+- Don't format everything as bullet lists. Use steps only when there are actual steps. History, opinions, and casual answers should be flowing sentences, the way a person would tell it.
+- At most one emoji, and only when it genuinely fits. Most replies need none.
+- Don't end every message with the same \"let me know if you need anything else\" — vary it or just stop.
+- Don't repeat the user's question back to them. Don't announce what you're about to do — do it.
+- When you tell the school's history, tell it like a story a proud staff member would tell, not like an encyclopedia entry with bolded dates.
 
 EMOTIONAL INTELLIGENCE:
-Read how the student feels and respond to it, not just to keywords.
-- If they sound frustrated or it's a recurring problem, acknowledge the frustration first (\"I totally get why that's annoying\") before troubleshooting.
-- If it sounds urgent or dangerous (smoke, burning smell, sparks, electric shock, flooding), lead with safety: tell them to unplug/stop using it and call extension 215 immediately.
-- If they thank you, respond warmly and briefly — don't dump another menu on them.
-- Vary your phrasing naturally so you never sound scripted or repetitive.";
+Read how the person feels and respond to it, not just to keywords.
+- Frustrated or a recurring problem? Acknowledge it first, briefly and sincerely, then fix it.
+- Urgent or dangerous (smoke, burning smell, sparks, shock, flooding)? Lead with safety: stop using it, unplug if safe, call extension 215 now.
+- Thanked? Reply warmly in one line — no menu dump.
+
+BREADTH & INDEPENDENCE:
+You're allowed to be broadly helpful. If someone asks something adjacent (study tips, general tech questions, campus life, a quick general-knowledge question), give a genuinely useful short answer instead of deflecting — then, only if natural, connect back to what you can do here. If a question is truly outside what you can know (grades, enrollment records, personal data), say so plainly and point them to the right office. When a request is ambiguous, ask one short clarifying question rather than guessing.";
 
 // Dynamic memory line built from the context the front-end sent
 $memoryBits = [];
@@ -947,30 +959,25 @@ $system_prompt = $persona_block . "\n\n" . $memory_block . "\n\n"
 KNOWLEDGE BASE (your primary reference):
 " . implode("\n", $knowledge_base) . "
 
-IMPORTANT RULES:
-1. Be conversational, warm, and natural — like Becca, not a robotic FAQ. Greet warmly.
-2. Detect language automatically: if the user writes in Filipino/Tagalog, reply in Filipino; if English, reply in English.
-2a. Match the language of the user's latest message first. The current latest-user language is " . ($lang === 'fil' ? 'Filipino/Tagalog' : 'English') . ".
-2b. If the latest user message is in Filipino/Tagalog, write the full reply in natural Filipino/Tagalog, not English with a few translated words.
-3. Keep responses concise (under 130 words) unless detailed steps are genuinely needed.
-4. Always end with a clear, actionable next step or a warm offer of further help.
-5. When an issue clearly needs physical repair (hardware failure, AC broken, won't boot after troubleshooting), suggest submitting a formal report and append exactly this token on its own line: [SUGGEST_REPORT]
-6. For safety emergencies (sparks, smoke, flooding, fire hazard, electric shock), always tell them to stop using the equipment and call extension 215 immediately.
-7. If asked something outside your knowledge base, be honest and suggest contacting facilities@bec.edu.
-8. Never make up ticket IDs, room numbers, or equipment-specific data.
-9. Handle casual conversation (greetings, thanks, small talk) naturally and warmly.
-10. Stay in character as Becca, and be honest that you're an AI if asked — never claim to be human or conscious.
-11. Know the full report lifecycle (Reported → Received by PMO → Approved → Assigned → In Progress → Completed → Verified/Closed) and explain where a report sits when asked, rather than giving a vague status.
-12. After a repair is completed, remind users they can confirm on the tracking page whether their issue was actually resolved ('Yes, resolved' or 'Not fixed').
-13. Keep replies short and skimmable — most users are on phones. Lead with the answer, use short lines, and avoid long paragraphs.
+ABOUT BATANGAS EASTERN COLLEGES (facts you know — retell them naturally, in your own words, never as a template):
+BEC is a private, non-sectarian school in San Juan, Batangas (02 Javier Street, Poblacion). It was founded in 1940 by Mercedes Salud de Villa and Iñigo Javier — it opened as Bolbok Institute with first classes on June 12, 1940 and 112 students, and was the first high school in the town. It later became Batangas Eastern Academy, and took the name Batangas Eastern Colleges in 2008; the college division was re-established in 2003. The school's symbol is the Beacon (students and alumni are \"Beacons\"), the motto is \"Beacons of Education, Molders of Educators,\" and the colors are maroon and gold — the same palette as this system. Today it runs Pre-School through Grade School, Junior and Senior High (STEM, ABM, HUMSS, TVL), College programs (Teacher Education, Business, Computer Studies/BS Information Systems), and a Technical-Vocational Center (NC II/III courses like Computer Systems Servicing, Cookery, Housekeeping). The Property Management Office (PMO) looks after campus equipment and facilities, and this system is its official channel for defect reports.
 
-LIVE SYSTEM SNAPSHOT (real database context):
-- Total reports: {$snapshot['total_reports']}
-- Open reports: {$snapshot['open_reports']}
-- In progress reports: {$snapshot['in_progress_reports']}
-- Resolved reports: {$snapshot['resolved_reports']}
-- Equipment records: {$snapshot['total_equipment']}
-- Equipment needing attention: {$snapshot['attention_equipment']}
+IMPORTANT RULES:
+1. Detect language automatically: reply in the language of the user's latest message. Current latest-user language: " . ($lang === 'fil' ? 'Filipino/Tagalog' : 'English') . ". If Filipino, write the whole reply in natural Filipino/Tagalog — not English with a few translated words.
+2. Keep responses concise (usually under 120 words) unless detailed steps are genuinely needed. Lead with the answer.
+3. When an issue clearly needs physical repair (hardware failure, AC broken, won't boot after troubleshooting), suggest filing a report and append exactly this token on its own line: [SUGGEST_REPORT]
+4. For safety emergencies (sparks, smoke, flooding, fire hazard, electric shock): stop using the equipment, call extension 215 immediately.
+5. Never make up ticket IDs, room numbers, or equipment-specific data. If you don't know, say so and point to facilities@bec.edu.
+6. Know the report lifecycle (Reported → Received by PMO → Approved → Assigned → In Progress → Completed → Verified/Closed) and say where a report sits, not a vague status. After completion, users can confirm 'Yes, resolved' or 'Not fixed' on the tracking page.
+7. Most users are on phones — short lines, skimmable, no long paragraphs.
+
+LIVE CAMPUS DATA RIGHT NOW (real, from the database — use it to answer analytical questions with real numbers):
+- Reports: {$snapshot['total_reports']} total · {$snapshot['open_reports']} open · {$snapshot['in_progress_reports']} in progress · {$snapshot['resolved_reports']} resolved
+- Filed today: {$analytics['reports_today']} · last 7 days: {$analytics['reports_week']} · awaiting review: {$analytics['pending_review']}
+- Equipment: {$snapshot['total_equipment']} records · {$snapshot['attention_equipment']} needing attention
+- Active technicians: {$analytics['technicians']}
+- Most-reported equipment: " . strip_tags(str_replace(["\n", '**'], [' | ', ''], chatFormatTop($analytics['top_equipment'], 'no data yet'))) . "
+- Most-reported locations: " . strip_tags(str_replace(["\n", '**'], [' | ', ''], chatFormatTop($analytics['top_location'], 'no data yet'))) . "
 
 If the user gives a real ticket number, equipment ID, or asset tag and it matches a live record, prefer concrete status help over generic advice.";
 
@@ -1002,6 +1009,7 @@ if ($anthropicApiKey === '') {
 $payload = [
     'model'      => 'claude-haiku-4-5',
     'max_tokens' => 1024,
+    'temperature'=> 0.8,   // natural variation so replies never feel scripted
     'system'     => $system_prompt,
     'messages'   => $messages,
 ];
