@@ -714,12 +714,15 @@ body::after {
 .user-chip {
   display:flex;align-items:center;gap:.5rem;
   background:var(--surface);border:1px solid var(--border);
-  border-radius:40px;padding:.35rem .75rem .35rem .45rem;
+  border-radius:40px;padding:.35rem .5rem .35rem .45rem;
   box-shadow:var(--shadow-sm);
-  font-size:.76rem;color:var(--ink2);
+  font-size:.8rem;color:var(--ink2);
   max-width:100%;
   min-width:0;
-  overflow-wrap:anywhere;
+}
+.user-chip .user-name {
+  flex:1;min-width:0;font-weight:600;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .user-avatar {
   width:26px;height:26px;border-radius:50%;
@@ -729,10 +732,10 @@ body::after {
   flex-shrink:0;
 }
 .logout-link {
-  margin-left:.35rem;color:var(--ink3);font-size:.9rem;
+  margin-left:auto;flex-shrink:0;color:var(--ink3);font-size:.9rem;
   text-decoration:none;transition:color .15s,background .15s;
-  display:inline-flex;align-items:center;justify-content:center;gap:.45rem;
-  min-width:44px;min-height:44px;border-radius:10px;padding:0 .5rem;
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:40px;min-height:40px;border-radius:50%;
 }
 .logout-link:hover{color:var(--maroon);background:var(--maroon-soft);}
 
@@ -1399,7 +1402,8 @@ html { scroll-behavior: smooth; }
     </div>
     <div class="user-chip">
       <div class="user-avatar"><?php echo strtoupper(substr($student_name,0,1)); ?></div>
-      <a href="student_dashboard.php?logout=1" class="logout-link" title="Sign out"><i class="fas fa-sign-out-alt"></i> Sign out</a>
+      <span class="user-name"><?php echo htmlspecialchars($student_name); ?></span>
+      <a href="student_dashboard.php?logout=1" class="logout-link" title="Sign out"><i class="fas fa-sign-out-alt"></i></a>
     </div>
   </div>
 
