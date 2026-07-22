@@ -220,7 +220,12 @@ a { text-decoration: none; color: inherit; }
 .cred-item { display: inline-flex; align-items: center; gap: .5rem; font-size: .73rem; font-weight: 600; color: var(--ink2); text-transform: uppercase; letter-spacing: .8px; }
 .cred-item i { color: var(--gold); font-size: .82rem; }
 .cred-sep { width: 4px; height: 4px; border-radius: 50%; background: var(--border); }
-@media (max-width: 640px) { .cred-sep { display: none; } }
+@media (max-width: 640px) {
+  .cred-sep { display: none; }
+  .cred-in { flex-direction: column; align-items: center; justify-content: center; gap: .7rem; padding: 1.1rem 1.25rem; }
+  .cred-item { width: auto; justify-content: center; text-align: center; gap: .55rem; font-size: .74rem; letter-spacing: .6px; }
+  .cred-item i { font-size: .88rem; flex-shrink: 0; }
+}
 
 /* ══ SECTION SCAFFOLD ══ */
 .section { padding: 3.6rem 0; }
@@ -494,8 +499,8 @@ a { text-decoration: none; color: inherit; }
     <div class="container">
       <div class="hero-content">
       <span class="hero-eyebrow"><i class="fas fa-building-shield"></i> Batangas Eastern Colleges · Property Management Office</span>
-      <h1>Defective Equipment Reporting, <em>handled by the PMO</em></h1>
-      <p class="hero-sub">The official channel of Batangas Eastern Colleges for reporting, tracking, and resolving campus equipment concerns — verified and managed end-to-end by the Property Management Office.</p>
+      <h1>Defective Equipment Reporting &amp; Maintenance Management, <em>handled by the PMO</em></h1>
+      <p class="hero-sub">The official Batangas Eastern Colleges channel for reporting, tracking, and resolving campus equipment concerns — verified and managed end-to-end by the Property Management Office.</p>
       <div class="hero-cta">
         <a class="btn btn-primary" href="student_index.php">Report defective equipment <span class="btn-arrow"><i class="fas fa-arrow-right"></i></span></a>
         <a class="btn btn-ghost" href="track_report.php"><i class="fas fa-magnifying-glass"></i> Track a report</a>

@@ -125,6 +125,14 @@ body::after {
   mask-image: radial-gradient(ellipse 90% 70% at 28% 18%, #000 0%, transparent 75%);
 }
 .brand-top { position: relative; z-index: 1; display: flex; align-items: center; gap: .75rem; }
+.brand-home { margin-left: auto; display: inline-flex; align-items: center; gap: .42rem; flex-shrink: 0;
+  padding: .58rem .92rem; min-height: 42px; border-radius: 11px; white-space: nowrap;
+  background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.26); color: #fff;
+  font-size: .8rem; font-weight: 600; text-decoration: none;
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+  transition: background .16s, transform .16s, border-color .16s; }
+.brand-home:hover { background: rgba(255,255,255,.22); border-color: rgba(255,255,255,.45); transform: translateY(-1px); }
+.brand-home i { color: #F0C040; font-size: .82rem; }
 .brand-seal {
   width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0; background: #fff;
   display: flex; align-items: center; justify-content: center; overflow: hidden;
@@ -596,6 +604,7 @@ body::after {
         <strong>Batangas Eastern Colleges</strong>
         <span>Property Management Office</span>
       </div>
+      <a class="brand-home" href="index.php"><i class="fas fa-house"></i> Home</a>
     </div>
     <div class="brand-hero">
       <span class="brand-tag"><i class="fas fa-building-shield"></i> Property Management Office · Official Portal</span>
