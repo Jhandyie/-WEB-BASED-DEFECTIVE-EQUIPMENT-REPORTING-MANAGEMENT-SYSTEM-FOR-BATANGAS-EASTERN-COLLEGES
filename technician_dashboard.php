@@ -887,6 +887,13 @@ body.modal-open{overflow:hidden;}
   .chip{min-height:44px;}
   .ws-back{width:44px;height:44px;}
   .cam-trigger.compact{min-height:44px;}
+  /* Completion report: pin the primary submit to the thumb zone (only present while a task is completable) */
+  .cmp-actions{position:fixed;left:0;right:0;bottom:0;z-index:70;margin:0;
+    padding:.65rem .85rem calc(.65rem + env(safe-area-inset-bottom,0px));
+    background:rgba(255,255,255,.94);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+    border-top:1px solid var(--bdr);box-shadow:0 -6px 22px rgba(45,5,5,.12);}
+  .cmp-actions .b4{width:100%;flex:1 1 100%;justify-content:center;min-height:50px;}
+  .sec-form{padding-bottom:4.75rem;}   /* clear the fixed bar so the last fields aren't hidden */
 }
 @media(max-width:420px){
   .frow{grid-template-columns:1fr;}
@@ -1327,7 +1334,7 @@ body.modal-open{overflow:hidden;}
                     <div class="photo-preview"></div>
                   </div>
                 </div>
-                <div class="actions">
+                <div class="actions cmp-actions">
                   <button class="b4" type="submit"><i class="fas fa-clipboard-check"></i> Submit Completion Report</button>
                 </div>
               </form>
