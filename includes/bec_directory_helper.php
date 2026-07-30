@@ -220,6 +220,44 @@ function becdir_email_exists(string $email): bool {
     } catch (\Throwable $e) { return false; }
 }
 
+/**
+ * True when the email belongs to a system account (admin, PMO, technician,
+ * faculty…).
+ *
+ * Staff hold BEC accounts but are not necessarily listed in the imported
+ * student directory, so checking the directory alone locked every technician
+ * and admin out of filing a report — even though they are exactly the people
+ * most likely to notice broken equipment.
+ */
+function becdir_is_system_user(string $email): bool {
+    $email = strtolower(trim($email));
+    if ($email === '') return false;
+    try {
+        $st = getPgsqlPdoConnection()->prepare(
+            "SELECT 1 FROM public.users
+             WHERE lower(email) = ?
+               AND COALESCE(status, 'active') NOT IN ('deleted', 'inactive')
+             LIMIT 1");
+        $st->execute([$email]);
+        return (bool) $st->fetchColumn();
+    } catch (\Throwable $e) { return false; }
+}
+
+/** The person's name on file, from the directory or their system account. */
+function becdir_known_name(string $email): string {
+    $email = strtolower(trim($email));
+    if ($email === '') return '';
+    $row = becdir_lookup($email);
+    if ($row && trim((string)($row['full_name'] ?? '')) !== '') {
+        return trim((string)$row['full_name']);
+    }
+    try {
+        $st = getPgsqlPdoConnection()->prepare("SELECT fullname FROM public.users WHERE lower(email) = ? LIMIT 1");
+        $st->execute([$email]);
+        return trim((string)$st->fetchColumn());
+    } catch (\Throwable $e) { return ''; }
+}
+
 /** Fetch a directory record by email (or null). */
 function becdir_lookup(string $email): ?array {
     $email = strtolower(trim($email));

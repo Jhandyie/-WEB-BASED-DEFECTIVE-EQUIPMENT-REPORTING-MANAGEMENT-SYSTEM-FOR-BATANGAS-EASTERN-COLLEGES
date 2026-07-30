@@ -20,7 +20,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Please enter both your name and email address.';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = 'Please enter a valid email address.';
-    } elseif ($dirCount > 0 && !becdir_email_exists($emailLower)) {
+    } elseif ($dirCount > 0 && !becdir_email_exists($emailLower)
+              && !(function_exists('becdir_is_system_user') && becdir_is_system_user($emailLower))) {
+        // Staff (PMO, technicians, faculty) hold BEC accounts without always
+        // appearing in the imported student directory. They are among the most
+        // likely people to spot broken equipment, so a system account counts
+        // as valid identification here just as a directory entry does.
         $error = 'This email is not registered under the official Batangas Eastern Colleges directory.';
     } elseif ($dirCount === 0 && substr($emailLower, -strlen($allowedDomain)) !== $allowedDomain) {
         $error = 'Only official BEC accounts are allowed. Please use your Batangas Eastern Colleges email ending in @bec.edu.ph.';

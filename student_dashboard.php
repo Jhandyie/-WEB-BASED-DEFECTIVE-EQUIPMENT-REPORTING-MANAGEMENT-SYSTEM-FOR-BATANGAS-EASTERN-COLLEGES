@@ -1494,7 +1494,7 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
       <div class="fg" style="margin-top:.85rem;">
-        <label class="fl">Department / Academic Unit <span style="color:var(--maroon);">*</span></label>
+        <label class="fl" for="rDept">Department / Academic Unit <span style="color:var(--maroon);">*</span></label>
         <div class="fi-wrap">
           <i class="fas fa-building-columns fi-icon"></i>
           <select name="reporter_department" id="rDept" class="fsel" required>
@@ -1523,7 +1523,7 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
       <div class="fg" style="margin-top:.85rem;">
-        <label class="fl">Course / Program / Grade Level <span id="rCourseOpt" style="color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(select a department first)</span></label>
+        <label class="fl" for="rCourse">Course / Program / Grade Level <span id="rCourseOpt" style="color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(select a department first)</span></label>
         <div class="fi-wrap">
           <i class="fas fa-graduation-cap fi-icon"></i>
           <select name="reporter_course" id="rCourse" class="fsel" disabled>
@@ -1532,7 +1532,7 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
       <div style="margin-top:.85rem;">
-        <label class="fl">Contact Number <span style="color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+        <label class="fl" for="rPhone">Contact Number <span style="color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
         <div class="fi-wrap">
           <i class="fas fa-phone fi-icon"></i>
           <input type="tel" name="student_phone" id="rPhone" class="fi" placeholder="e.g. 09171234567"
@@ -1569,7 +1569,7 @@ html { scroll-behavior: smooth; }
       <div class="form-grid">
         <!-- Equipment search -->
         <div class="fg" style="grid-column:1/-1">
-          <label class="fl">Equipment Name <span class="req">*</span></label>
+          <label class="fl" for="equip-search">Equipment Name <span class="req">*</span></label>
           <div class="equip-wrap">
             <div class="fi-wrap">
               <i class="fas fa-search fi-icon"></i>
@@ -1587,7 +1587,7 @@ html { scroll-behavior: smooth; }
 
         <!-- Category -->
         <div class="fg">
-          <label class="fl">Category <span class="req">*</span></label>
+          <label class="fl" for="cat-display">Category <span class="req">*</span></label>
           <div class="fi-wrap fi-wrap-sel">
             <i class="fas fa-tag fi-icon"></i>
             <select id="cat-display" class="fsel" required>
@@ -1603,10 +1603,10 @@ html { scroll-behavior: smooth; }
 
         <!-- Asset Tag -->
         <div class="fg">
-          <label class="fl">Asset Tag / Equipment ID <span style="color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(if visible)</span></label>
+          <label class="fl" for="assetTag">Asset Tag / Equipment ID <span style="color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(if visible)</span></label>
           <div class="fi-wrap">
             <i class="fas fa-barcode fi-icon"></i>
-            <input type="text" name="asset_tag" class="fi" placeholder="e.g. BEC-LAB2-PC05" maxlength="40"
+            <input type="text" name="asset_tag" id="assetTag" class="fi" placeholder="e.g. BEC-LAB2-PC05" maxlength="40"
               value="<?php echo htmlspecialchars($_POST['asset_tag'] ?? ''); ?>">
           </div>
           <div class="fi-hint"><i class="fas fa-info-circle"></i> Auto-filled when you select an inventory item, or type it manually if visible.</div>
@@ -1625,7 +1625,7 @@ html { scroll-behavior: smooth; }
       </div>
       <div class="form-grid">
         <div class="fg">
-          <label class="fl">Location <span class="req">*</span></label>
+          <label class="fl" for="location-search">Location <span class="req">*</span></label>
           <div class="equip-wrap">
             <div class="fi-wrap">
               <i class="fas fa-map-marker-alt fi-icon"></i>
@@ -1654,18 +1654,18 @@ html { scroll-behavior: smooth; }
       <div class="form-grid">
         <!-- Defect description -->
         <div class="fg" style="grid-column:1/-1">
-          <label class="fl">Description of Defect <span class="req">*</span></label>
-          <textarea name="defect_description" class="fta" rows="4" maxlength="1500"
+          <label class="fl" for="defectDesc">Description of Defect <span class="req">*</span></label>
+          <textarea name="defect_description" id="defectDesc" class="fta" rows="4" maxlength="1500"
             placeholder="Describe what's wrong with the equipment. Include any error messages, sounds, or behaviors you observed…" required><?php echo htmlspecialchars($_POST['defect_description'] ?? ''); ?></textarea>
           <div class="fi-hint"><i class="fas fa-pen"></i> Be as specific as possible — this helps technicians diagnose faster.</div>
         </div>
 
         <!-- Date/Time issue noticed -->
         <div class="fg">
-          <label class="fl">Date & Time Issue Noticed <span class="req">*</span></label>
+          <label class="fl" for="issueDate">Date & Time Issue Noticed <span class="req">*</span></label>
           <div class="fi-wrap">
             <i class="fas fa-calendar fi-icon"></i>
-            <input type="datetime-local" name="issue_date" class="fi" required
+            <input type="datetime-local" name="issue_date" id="issueDate" class="fi" required
               value="<?php echo htmlspecialchars($_POST['issue_date'] ?? date('Y-m-d\TH:i')); ?>">
           </div>
         </div>
@@ -1698,7 +1698,7 @@ html { scroll-behavior: smooth; }
       </div>
 
       <div class="photo-zone" id="photo-zone">
-        <input type="file" name="photos[]" id="photo-input" accept="image/jpeg,image/png,image/webp" multiple>
+        <input type="file" name="photos[]" id="photo-input" aria-label="Upload photos of the defective equipment" accept="image/jpeg,image/png,image/webp" multiple>
         <div class="photo-icon"><i class="fas fa-cloud-upload-alt"></i></div>
         <div class="photo-title">Drag &amp; drop photos here, or tap to choose</div>
         <div class="photo-sub">JPG, PNG, WEBP — up to <strong>10 photos</strong>, max 10MB each</div>
@@ -1709,7 +1709,7 @@ html { scroll-behavior: smooth; }
       <div class="photo-grid" id="photo-grid"></div>
 
       <div class="photo-zone" id="video-zone" style="margin-top:1.25rem;">
-        <input type="file" name="videos[]" id="video-input" accept="video/mp4,video/webm,video/quicktime" multiple>
+        <input type="file" name="videos[]" id="video-input" aria-label="Upload a short video of the problem" accept="video/mp4,video/webm,video/quicktime" multiple>
         <div class="photo-icon"><i class="fas fa-video"></i></div>
         <div class="photo-title">Add a short video (optional), or tap to choose</div>
         <div class="photo-sub">MP4, WEBM, MOV — up to <strong>2 videos</strong>, max 20MB each</div>
