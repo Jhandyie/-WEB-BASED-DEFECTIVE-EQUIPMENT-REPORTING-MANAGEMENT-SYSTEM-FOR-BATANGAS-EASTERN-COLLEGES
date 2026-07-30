@@ -45,7 +45,7 @@ $html = <<<HTML
 <title>BEC PMO — Equipment Reporting System · Demo Access</title>
 <style>
   :root{--maroon:#7B1D1D;--maroon-d:#4A0E0E;--gold:#C9960C;--ink:#1C1008;
-        --ink2:#5C3838;--ink3:#9E8070;--border:#E8DDD0;--paper:#F8F3EA;}
+        --ink2:#5C3838;--ink3:#755B4E;--border:#E8DDD0;--paper:#F8F3EA;}
   *{margin:0;padding:0;box-sizing:border-box;}
   body{font-family:'Segoe UI',Arial,Helvetica,sans-serif;color:var(--ink);
        background:#F1EEE8;display:flex;align-items:center;justify-content:center;

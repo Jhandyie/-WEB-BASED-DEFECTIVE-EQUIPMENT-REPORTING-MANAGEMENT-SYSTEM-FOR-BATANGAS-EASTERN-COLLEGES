@@ -652,7 +652,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   --gold-bg: #FFFBEF;
   --ink: #1C1008;
   --ink2: #5C3838;
-  --ink3: #9E8070;
+  --ink3: #755B4E;
   --paper: #F8F3EA;
   --surface: #FFFFFF;
   --border: #E8DDD0;

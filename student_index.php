@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   --gold-bg: #FFFBEF;
   --ink: #1C1008;
   --ink2: #5C3838;
-  --ink3: #9E8070;
+  --ink3: #755B4E;
   --paper: #F8F3EA;
   --surface: #FFFFFF;
   --border: #E8DDD0;
@@ -255,6 +255,55 @@ body::after {
 }
 .alert-err { background: #FEF2F2; border: 1px solid #FECACA; color: #991B1B; }
 .alert i { font-size: .8rem; margin-top: .1rem; flex-shrink: 0; }
+
+/* ── Data Privacy Notice: short consent line + expandable full text ──
+   The full notice used to sit open above the submit button, pushing it off
+   screen on a phone. The summary carries the consent; the panel holds the
+   detail for anyone who wants it. */
+.pv-block {
+  margin: .9rem 0 1rem; border-radius: 12px;
+  background: #FBF8F1; border: 1px solid var(--border); overflow: hidden;
+}
+.pv-consent {
+  display: flex; align-items: flex-start; gap: .6rem;
+  padding: .75rem .9rem .6rem;
+  font-size: .74rem; color: var(--ink2); line-height: 1.6; cursor: pointer;
+}
+.pv-consent input {
+  width: 16px; height: 16px; flex-shrink: 0; margin-top: .15rem; accent-color: #7B1D1D;
+}
+.pv-consent strong { color: var(--ink); }
+.pv-toggle {
+  display: flex; align-items: center; gap: .45rem; width: 100%;
+  padding: .5rem .9rem .68rem; background: none; border: none;
+  font-family: 'DM Sans', sans-serif; font-size: .7rem; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase;
+  color: var(--maroon); cursor: pointer; text-align: left;
+}
+.pv-toggle .chev { margin-left: auto; font-size: .66rem; transition: transform .28s ease; }
+.pv-toggle[aria-expanded="true"] .chev { transform: rotate(180deg); }
+.pv-toggle:hover { color: var(--maroon-d); }
+.pv-toggle:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; border-radius: 8px; }
+.pv-panel {
+  max-height: 0; opacity: 0; overflow: hidden;
+  transition: max-height .34s ease, opacity .26s ease;
+}
+.pv-panel.open { max-height: 620px; opacity: 1; }
+.pv-inner {
+  padding: 0 .9rem .85rem; font-size: .72rem; color: var(--ink2); line-height: 1.65;
+  border-top: 1px solid var(--border); padding-top: .75rem; margin: 0 0 0;
+}
+.pv-inner dt {
+  font-size: .64rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--maroon); margin-top: .7rem;
+}
+.pv-inner dt:first-child { margin-top: 0; }
+.pv-inner dd { margin: .2rem 0 0; }
+.pv-inner a { color: var(--maroon); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) {
+  .pv-panel { transition: none; }
+  .pv-toggle .chev { transition: none; }
+}
 .btn-submit {
   width: 100%; margin-top: 1.4rem; padding: .88rem 1.5rem;
   background: var(--maroon-d); color: #fff; border: none; border-radius: 11px;
@@ -678,10 +727,37 @@ body::after {
         </div>
         <div class="fi-hint"><i class="fas fa-id-badge"></i> Use your official BEC account (<strong>@bec.edu.ph</strong>). Your ticket confirmation will be sent here.</div>
       </div>
-      <label class="privacy-consent" style="display:flex;align-items:flex-start;gap:.6rem;margin:.9rem 0 1rem;padding:.75rem .9rem;border-radius:12px;background:#FBF8F1;border:1px solid var(--border);font-size:.74rem;color:var(--ink2);line-height:1.6;cursor:pointer;">
-        <input type="checkbox" name="privacy_consent" value="1" required <?php echo !empty($_POST['privacy_consent']) ? 'checked' : ''; ?> style="width:16px;height:16px;flex-shrink:0;margin-top:.15rem;accent-color:#7B1D1D;">
-        <span><strong style="color:var(--ink);">Data Privacy Notice.</strong> I agree that Batangas Eastern Colleges — Property Management Office may collect and process my <strong>name, email address, and report details</strong> solely for equipment maintenance, repair follow-ups, and record-keeping, in accordance with the <strong>Data Privacy Act of 2012 (RA 10173)</strong>. Information is kept confidential and is not shared outside the institution.</span>
-      </label>
+      <div class="pv-block">
+        <label class="pv-consent">
+          <input type="checkbox" name="privacy_consent" value="1" required <?php echo !empty($_POST['privacy_consent']) ? 'checked' : ''; ?>>
+          <span><strong>Data Privacy Notice.</strong> I agree that Batangas Eastern Colleges — Property Management Office may collect and process my <strong>name, email address, and report details</strong> for equipment maintenance and record-keeping, under the <strong>Data Privacy Act of 2012 (RA 10173)</strong>.</span>
+        </label>
+        <!-- Kept outside the <label> on purpose: inside it, every click would
+             also toggle the consent checkbox. -->
+        <button type="button" class="pv-toggle" id="pvToggle" aria-expanded="false" aria-controls="pvPanel">
+          <i class="fas fa-shield-halved"></i>
+          <span id="pvToggleText">Read the full notice</span>
+          <i class="fas fa-chevron-down chev"></i>
+        </button>
+        <div class="pv-panel" id="pvPanel" role="region" aria-labelledby="pvToggle">
+          <dl class="pv-inner">
+            <dt>What we collect</dt>
+            <dd>Your full name, your official <strong>@bec.edu.ph</strong> email address, your department or course, an optional contact number, and the details and photos you attach to a report.</dd>
+
+            <dt>Why we collect it</dt>
+            <dd>To identify the reporter, verify the report against the official BEC directory, assign a technician, send you status updates and your ticket number, and keep the Property Management Office's maintenance records.</dd>
+
+            <dt>Who can see it</dt>
+            <dd>Only PMO staff and the technician assigned to your report. Your details are never shared outside the institution, sold, or used for advertising. Public report listings show the equipment and status only — never your name or email.</dd>
+
+            <dt>How long we keep it</dt>
+            <dd>Reports are retained as part of the school's equipment maintenance history. You may ask the PMO to correct your details at any time.</dd>
+
+            <dt>Your rights</dt>
+            <dd>Under RA 10173 you may access, correct, or object to the processing of your personal information, and withdraw consent. To do so, contact the Property Management Office.</dd>
+          </dl>
+        </div>
+      </div>
       <button type="submit" class="btn-submit">
         Continue to Report Submission
         <span class="btn-arrow"><i class="fas fa-arrow-right"></i></span>
@@ -1244,11 +1320,27 @@ function now() { return new Date().toLocaleTimeString('en-US', { hour: '2-digit'
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function escAttr(s) { return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
+/* Data Privacy Notice expander */
+(function () {
+  var btn = document.getElementById('pvToggle');
+  var panel = document.getElementById('pvPanel');
+  var label = document.getElementById('pvToggleText');
+  if (!btn || !panel) return;
+  btn.addEventListener('click', function () {
+    var open = panel.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (label) label.textContent = open ? 'Hide the full notice' : 'Read the full notice';
+  });
+})();
+
 </script>
 
 <?php require __DIR__ . '/includes/site_reveal.php'; ?>
 <?php require __DIR__ . '/includes/site_transitions.php'; ?>
 <script src="assets/input_guard.js" defer></script>
-<script src="assets/auth_loader.js"></script>
+<?php /* ?v=<mtime> so a changed loader reaches returning visitors: Apache sends
+         no Cache-Control for these assets, so browsers happily serve a stale
+         copy and the sign-in screen appears not to have changed at all. */ ?>
+<script src="assets/auth_loader.js?v=<?php echo @filemtime(__DIR__ . '/assets/auth_loader.js') ?: '2'; ?>"></script>
 </body>
 </html>

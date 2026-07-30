@@ -64,11 +64,26 @@ foreach (['student_index.php' => 'Reporter sign-in page',
 
 /* ── 2. No PHP errors leaking into pages ───────────────────── */
 echo "\nPage output is clean\n";
+// Match the actual SHAPE of PHP error output, not just the words. A bare
+// "Notice:" also appears in ordinary page copy — a CSS comment reading
+// "Data Privacy Notice: ..." was enough to trip the old pattern and report a
+// clean page as broken.
+// html_errors=On wraps the level and the line number in <b> tags
+// ("<b>Notice</b>:  Undefined variable ... on line <b>42</b>"), so allow tags
+// around both. Requiring the "... in <file> on line <n>" tail is what keeps
+// ordinary prose containing the word "Notice" or "Warning" from matching.
+$errorShapes = '/('
+    . '(?:Fatal error|Parse error|Warning|Notice|Deprecated)\s*(?:<\/b>)?\s*:\s*'
+    . '.{0,300}?\bin\b.{0,300}?\bon line\s*(?:<b>)?\s*\d+'
+    . '|Uncaught\s+\w*(?:Exception|Error)\b'
+    . '|SQLSTATE\['
+    . ')/s';
+
 $leaky = [];
 foreach (['index.php', 'student_index.php'] as $p) {
     [, $b] = httpGet($base . '/' . $p);
-    if (preg_match('/(Fatal error|Parse error|Warning:|Notice:|Deprecated:|Uncaught|SQLSTATE)/', $b, $m)) {
-        $leaky[] = $p . ' (' . $m[1] . ')';
+    if (preg_match($errorShapes, $b, $m)) {
+        $leaky[] = $p . ' (' . trim(substr($m[1], 0, 60)) . ')';
     }
 }
 $leaky ? $bad('PHP messages visible to visitors', implode(', ', $leaky))

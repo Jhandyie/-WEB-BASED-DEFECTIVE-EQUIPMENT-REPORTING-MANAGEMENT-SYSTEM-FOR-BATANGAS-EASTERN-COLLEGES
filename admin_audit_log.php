@@ -130,7 +130,7 @@ function auAvatar(string $role): string {
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Outfit:wght@400;500;600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
-  :root{ --maroon:#7B1D1D; --maroon-d:#4A0E0E; --gold:#C9960C; --ink:#1C1008; --ink2:#5C3838; --ink3:#8A7466; --paper:#F4F1EC; --surface:#fff; --border:#E2D9CC; --field:#FBF9F6; --danger:#B42318; --success:#1A7A33; }
+  :root{ --maroon:#7B1D1D; --maroon-d:#4A0E0E; --gold:#C9960C; --ink:#1C1008; --ink2:#5C3838; --ink3:#755B4E; --paper:#F4F1EC; --surface:#fff; --border:#E2D9CC; --field:#FBF9F6; --danger:#B42318; --success:#1A7A33; }
   *{margin:0;padding:0;box-sizing:border-box;font-family:'DM Sans',system-ui,sans-serif;}
   body{background:var(--paper);color:var(--ink);min-height:100vh;}
   .top{background:var(--maroon-d);color:#fff;padding:16px 28px;display:flex;align-items:center;gap:14px;}

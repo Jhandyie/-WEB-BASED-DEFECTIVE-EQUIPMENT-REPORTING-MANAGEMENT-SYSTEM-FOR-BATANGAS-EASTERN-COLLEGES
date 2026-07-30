@@ -59,7 +59,7 @@ if (!function_exists('becExportRef')) {
 if (!function_exists('becExportCss')) {
     function becExportCss(): string {
         return <<<'CSS'
-:root{--maroon:#7B1D1D;--maroon-d:#4A0E0E;--gold:#C9960C;--ink:#1C1008;--ink2:#5C3838;--ink3:#9E8070;--border:#E8DDD0;--paper:#F8F3EA;}
+:root{--maroon:#7B1D1D;--maroon-d:#4A0E0E;--gold:#C9960C;--ink:#1C1008;--ink2:#5C3838;--ink3:#755B4E;--border:#E8DDD0;--paper:#F8F3EA;}
 *{box-sizing:border-box;}
 html,body{margin:0;}
 body{font-family:'Segoe UI',Arial,Helvetica,sans-serif;color:var(--ink);padding:26px 30px 40px;font-size:12.5px;line-height:1.5;}
