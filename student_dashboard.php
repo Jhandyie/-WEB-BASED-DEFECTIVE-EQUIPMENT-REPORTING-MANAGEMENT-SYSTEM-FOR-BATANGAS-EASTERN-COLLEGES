@@ -3,6 +3,7 @@
 session_start();
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/mail_helper.php';
+require_once __DIR__ . '/includes/csrf.php';
 
 if (isset($_GET['logout'])) {
     unset($_SESSION['guest_name'], $_SESSION['guest_email'], $_SESSION['guest_since']);
@@ -385,6 +386,12 @@ HTML;
 
 // ── POST handler ──────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Every admin page enforces this; the public submit form was the one that
+    // did not, so another site could silently file reports as a signed-in
+    // reporter. Reported as a normal form error rather than a bare 403 page.
+    if (!csrf_check()) {
+        $error = 'Your session expired for security reasons. Please review your details and submit again.';
+    }
     $selected_equipment_id = trim((string)($_POST['equipment_id'] ?? ''));
     $postedEquipmentName = trim((string)($_POST['equipment_name'] ?? ''));
     if ($postedEquipmentName === '') {
@@ -471,6 +478,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (empty($becPrograms[$reporterDepartment])) {
             $reporterCourse = ''; // department has no specific course
         }
+    }
+
+    // The textarea carries maxlength="1500", but that is only a browser hint —
+    // a 200,000-character description was accepted and stored verbatim, which
+    // is how pasted junk ended up bloating report pages. Enforce it server-side.
+    if (!$error && mb_strlen(trim((string)($_POST['defect_description'] ?? ''))) > 1500) {
+        $error = 'Please keep the problem description under 1,500 characters.';
     }
 
     // Contact number (optional): if given, must be exactly 11 digits (numbers only).
@@ -836,7 +850,7 @@ body::after {
   background:var(--paper);border:1px solid var(--border);
   border-radius:10px;padding:.65rem .9rem;
 }
-.ro-label { font-size:.65rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:.2rem; }
+.ro-label { font-size:.72rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:.2rem; }
 .ro-value { font-size:.85rem;color:var(--ink);font-weight:500; }
 
 /* ── FORM GRID ── */
@@ -1177,8 +1191,11 @@ body::after {
   .form-grid.cols-2,.form-grid.cols-3 { grid-template-columns:1fr; }
   .reporter-grid { grid-template-columns:1fr; }
   .page-title { font-size:1.55rem; }
-  .steps { gap:0;padding:.5rem .75rem; }
-  .step span { display:none; }
+  /* Hide the 3-stage journey strip on phones. Its labels are dropped at this
+     width, which left three unlabelled circles sitting directly above the
+     labelled 5-section form stepper — two numbered rows that read as a
+     duplicate. The section stepper below carries the same progress meaning. */
+  .steps { display:none; }
   .step-connector { width:16px; }
   /* Thumb-zone sticky submit bar — always reachable on the long form */
   .submit-row {
@@ -1455,6 +1472,7 @@ html { scroll-behavior: smooth; }
   <nav class="fsteps" id="fsteps" aria-label="Report form progress"></nav>
 
   <form method="POST" enctype="multipart/form-data" id="report-form" novalidate>
+    <?php echo csrf_field(); ?>
 
     <!-- ── SECTION 1: REPORTER INFO ── -->
     <div class="section-card">
