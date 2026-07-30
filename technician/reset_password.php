@@ -14,7 +14,7 @@ $hasToken = $token !== '';
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
-  :root{--maroon:#7B1D1D;--maroon-d:#4A0E0E;--gold:#C9960C;--ink:#1C1008;--ink2:#5C3838;--ink3:#8A7466;--surface:#FFFFFF;--border:#E2D9CC;--field:#FBF9F6;--danger:#B42318;--success:#1A7A33;}
+  :root{--maroon:#7B1D1D;--maroon-d:#4A0E0E;--gold:#C9960C;--ink:#1C1008;--ink2:#5C3838;--ink3:#755B4E;--surface:#FFFFFF;--border:#E2D9CC;--field:#FBF9F6;--danger:#B42318;--success:#1A7A33;}
   *{margin:0;padding:0;box-sizing:border-box;}
   body{font-family:'DM Sans',system-ui,sans-serif;color:var(--ink);background:var(--maroon-d);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;position:relative;}
   body::before{content:'';position:fixed;inset:0;z-index:-2;background:url('../assets/bec background (2).png') center/cover no-repeat;filter:blur(5px) brightness(.9);transform:scale(1.06);}

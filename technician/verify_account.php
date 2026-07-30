@@ -84,7 +84,7 @@ function vh($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
-  :root{--m:#7B1D1D;--md:#4A0E0E;--mdd:#2D0505;--g:#C9960C;--gold-soft:#F0C040;--ink:#1C1008;--ink2:#5C3838;--ink3:#9E8070;--paper:#F8F3EA;--surface:#fff;--border:#E8DDD0;}
+  :root{--m:#7B1D1D;--md:#4A0E0E;--mdd:#2D0505;--g:#C9960C;--gold-soft:#F0C040;--ink:#1C1008;--ink2:#5C3838;--ink3:#755B4E;--paper:#F8F3EA;--surface:#fff;--border:#E8DDD0;}
   *{box-sizing:border-box}
   body{margin:0;font-family:'DM Sans',system-ui,Arial,sans-serif;color:var(--ink);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.4rem;
     background:radial-gradient(120% 90% at 100% 0%,rgba(201,150,12,.08),transparent 50%),var(--paper);}

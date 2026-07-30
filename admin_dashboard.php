@@ -94,20 +94,11 @@ function dashboardInferReportPhotos(array $row): array
         }
     }
 
-    $reportId = trim((string)($row['report_id'] ?? ''));
-    if ($reportId !== '') {
-        $searchPatterns = [
-            __DIR__ . '/uploads/reports/' . $reportId . '.*',
-            __DIR__ . '/uploads/defect_reports/' . $reportId . '.*',
-        ];
-
-        foreach ($searchPatterns as $pattern) {
-            foreach (glob($pattern) ?: [] as $match) {
-                if (is_file($match)) {
-                    $photos[] = dashboardToWebPath($match);
-                }
-            }
-        }
+    // Shared, once-per-request directory index instead of a glob per report —
+    // globbing per row made this page time out once the school had a few
+    // hundred reports on file (see becReportPhotoFiles in config/database.php).
+    foreach (becReportPhotoFiles((string)($row['report_id'] ?? '')) as $match) {
+        $photos[] = dashboardToWebPath($match);
     }
 
     $photos = array_values(array_unique(array_filter($photos, static function ($path): bool {

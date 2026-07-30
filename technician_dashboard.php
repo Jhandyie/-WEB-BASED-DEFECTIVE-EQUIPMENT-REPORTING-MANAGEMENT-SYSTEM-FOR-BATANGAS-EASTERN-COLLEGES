@@ -501,7 +501,7 @@ foreach ($notifications as $n) { $notifGroups[notifBucket((string)($n['created_d
   --maroon:#7B1D1D; --maroon-d:#4A0E0E; --maroon-dd:#2D0505;
   --maroon-soft:rgba(123,29,29,.07);
   --gold:#C9960C; --gold-2:#D4A017; --gold-bright:#F0C040;
-  --ink:#1C1008; --ink2:#5C3838; --ink3:#8A7466;
+  --ink:#1C1008; --ink2:#5C3838; --ink3:#755B4E;
   --paper:#F4F1EC; --surface:#FFFFFF; --field:#FBF9F6; --bdr:#E2D9CC;
   --blue:#1D4ED8; --blue-soft:#E8EFFF; --green:#1A7A33; --green-soft:#EEF7F0;
   --amber:#9A6A00; --amber-soft:#FFF7E6; --danger:#B42318; --danger-soft:#FDECEC;

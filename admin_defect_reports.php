@@ -345,19 +345,9 @@ function photoListFromRow($row){
       }
     }
   }
-  $reportId = trim((string)($row['report_id'] ?? ''));
-  if ($reportId !== '') {
-    foreach ([
-      __DIR__ . '/uploads/reports/' . $reportId . '.*',
-      __DIR__ . '/uploads/defect_reports/' . $reportId . '.*',
-      __DIR__ . '/uploads/defect_photos/' . $reportId . '.*',
-    ] as $pattern) {
-      foreach (glob($pattern) ?: [] as $match) {
-        if (is_file($match)) {
-          $photos[] = str_replace('\\', '/', ltrim(str_replace(__DIR__, '', $match), '\\/'));
-        }
-      }
-    }
+  // Uses the shared, once-per-request directory index (see becReportPhotoFiles).
+  foreach (becReportPhotoFiles((string)($row['report_id'] ?? '')) as $match) {
+    $photos[] = $match;
   }
   $out = [];
   foreach ($photos as $p) {

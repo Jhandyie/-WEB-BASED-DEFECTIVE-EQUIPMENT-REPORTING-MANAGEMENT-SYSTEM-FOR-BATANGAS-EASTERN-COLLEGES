@@ -110,9 +110,11 @@
   padding: .48rem .88rem; border-bottom: 1px solid var(--border);
   display: flex; align-items: center; gap: .5rem; flex-shrink: 0;
 }
-.lbar-lbl { font-size: .62rem; color: var(--ink3); text-transform: uppercase; letter-spacing: .9px; font-weight: 600; }
+.lbar-lbl { font-size: .7rem; color: var(--ink3); text-transform: uppercase; letter-spacing: .9px; font-weight: 600; }
+/* These are real controls, not labels — they were 10px with 3px of vertical
+   padding, which is both hard to read and hard to hit on a phone. */
 .lbtn {
-  padding: .2rem .62rem; border-radius: 20px; font-size: .64rem; font-weight: 600;
+  padding: .34rem .7rem; border-radius: 20px; font-size: .75rem; font-weight: 600;
   border: 1.5px solid var(--border); background: none; cursor: pointer;
   color: var(--ink3); font-family: 'DM Sans', sans-serif; transition: all .14s;
 }

@@ -40,7 +40,7 @@ $today = date('F j, Y');
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
-  :root{--maroon:#7B1D1D;--maroon-d:#4A0E0E;--gold:#C9960C;--ink:#1C1008;--ink2:#5C3838;--ink3:#8A7466;--paper:#F1EEE8;--surface:#fff;--border:#E2D9CC;--line:#D8CCBD;}
+  :root{--maroon:#7B1D1D;--maroon-d:#4A0E0E;--gold:#C9960C;--ink:#1C1008;--ink2:#5C3838;--ink3:#755B4E;--paper:#F1EEE8;--surface:#fff;--border:#E2D9CC;--line:#D8CCBD;}
   *{margin:0;padding:0;box-sizing:border-box;font-family:'DM Sans',system-ui,sans-serif;}
   body{background:var(--paper);color:var(--ink);padding:1.4rem 1rem 3rem;}
   .toolbar{max-width:820px;margin:0 auto 1rem;display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;}
