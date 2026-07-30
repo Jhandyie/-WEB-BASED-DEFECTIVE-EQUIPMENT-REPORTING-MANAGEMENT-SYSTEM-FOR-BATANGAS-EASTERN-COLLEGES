@@ -53,9 +53,26 @@ if errorlevel 1 (
     if errorlevel 2 goto :abort
 )
 
-REM ---- 3. Open the public tunnel -------------------------------
+REM ---- 3. Keep the laptop awake for the whole demo -------------
+REM Windows suspends this machine after 15 min idle on AC / 10 on battery, which
+REM would take Apache and the tunnel down mid-presentation. Held only while this
+REM window is open; nothing in the power plan is modified.
+set "KEEPAWAKE_PID=%APP_DIR%\data\keep_awake.pid"
+if exist "%KEEPAWAKE_PID%" del /q "%KEEPAWAKE_PID%" >nul 2>&1
+start "" /B powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%APP_DIR%\scripts\keep_awake.ps1" >nul 2>&1
+ping -n 3 127.0.0.1 >nul
+if exist "%KEEPAWAKE_PID%" (
+    echo  Sleep prevention: ON ^(laptop will stay awake until this window closes^)
+) else (
+    echo  NOTE: could not enable sleep prevention - set Windows sleep to "Never" manually.
+)
+echo  Reminder: keep the laptop LID OPEN. Closing it still suspends Windows.
+echo.
+
+REM ---- 4. Open the public tunnel -------------------------------
 if not exist "%NGROK%" (
     echo  ERROR: ngrok not found at %NGROK%
+    call :stopawake
     goto :abort
 )
 
@@ -74,13 +91,25 @@ echo.
 
 "%NGROK%" http --url=%DEMO_URL% 80
 
+call :stopawake
 echo.
-echo  Tunnel closed. The system is still running locally at
+echo  Tunnel closed. Sleep prevention released - normal power settings are back.
+echo  The system is still running locally at
 echo    http://localhost/-WEB-BASED/
 pause
 exit /b 0
 
+REM Stop the keep-awake helper. Windows reverts to the normal sleep timer the
+REM moment that process exits - nothing needs restoring by hand.
+:stopawake
+if exist "%KEEPAWAKE_PID%" (
+    for /f "usebackq delims=" %%P in ("%KEEPAWAKE_PID%") do taskkill /PID %%P /F >nul 2>&1
+    del /q "%KEEPAWAKE_PID%" >nul 2>&1
+)
+exit /b 0
+
 :abort
+call :stopawake
 echo.
 pause
 exit /b 1

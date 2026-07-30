@@ -71,6 +71,9 @@ data/mail_outbox/
 # Timestamp of the last SLA escalation sweep (runtime throttle state)
 data/sla_last_sweep
 
+# PID of the demo keep-awake helper (runtime only)
+data/keep_awake.pid
+
 # Heavy PNG master of the landing background (the optimized .jpg derived from it is committed)
 assets/Landing Page Background.png
 data/vapid.json
