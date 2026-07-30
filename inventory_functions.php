@@ -1272,7 +1272,7 @@ textarea.fc{resize:vertical;min-height:72px;}
                   <i class="fas fa-pen"></i>
                 </button>
                 <button class="btn bico bi-e" title="Print QR code"
-                  onclick="event.stopPropagation();openQR('<?php echo esc($e['equipment_id']);?>','<?php echo esc($e['equipment_name']);?>','<?php echo esc($e['asset_tag']??'');?>')">
+                  onclick="event.stopPropagation();openQR('<?php echo esc($e['equipment_id']);?>','<?php echo esc($e['equipment_name']);?>','<?php echo esc($e['asset_tag']??'');?>','<?php echo esc($e['location']??'');?>')">
                   <i class="fas fa-qrcode"></i>
                 </button>
                 <button class="btn bico bi-d" title="Retire / Delete"
@@ -1332,7 +1332,7 @@ textarea.fc{resize:vertical;min-height:72px;}
               <i class="fas fa-pen"></i>
             </button>
             <button class="btn btn-ghost btn-sm" title="Print QR code"
-              onclick="openQR('<?php echo esc($e['equipment_id']);?>','<?php echo esc($e['equipment_name']);?>','<?php echo esc($e['asset_tag']??'');?>')">
+              onclick="openQR('<?php echo esc($e['equipment_id']);?>','<?php echo esc($e['equipment_name']);?>','<?php echo esc($e['asset_tag']??'');?>','<?php echo esc($e['location']??'');?>')">
               <i class="fas fa-qrcode"></i>
             </button>
             <button class="btn btn-ghost btn-sm"
@@ -1863,25 +1863,91 @@ function toast(type,msg,title){
     </div>
   </div>
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<!-- Served from our own assets so equipment QR codes still generate when the
+     campus network is down or the demo laptop is offline (was a CDN script). -->
+<script src="assets/qrcode.min.js"></script>
 <script>
-function openQR(id, name, tag){
+var QR_CTX = {id:'', name:'', tag:'', loc:'', url:''};
+
+function openQR(id, name, tag, loc){
   var base = location.origin + location.pathname.replace(/[^/]*$/, '');
   var url = base + 'student_index.php?eq=' + encodeURIComponent(id);
+  QR_CTX = {id:id, name:name||id, tag:tag||'', loc:loc||'', url:url, base:base};
   var box = document.getElementById('qrBox'); box.innerHTML = '';
-  if (window.QRCode) { new QRCode(box, { text: url, width: 180, height: 180, colorDark: '#1C1008', colorLight: '#ffffff' }); }
+  // Higher error correction (H) so the label still scans after scuffs and tape.
+  if (window.QRCode) { new QRCode(box, { text: url, width: 180, height: 180, colorDark: '#1C1008', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.H }); }
   else { box.innerHTML = '<div style="font-size:.72rem;color:#b42318;max-width:160px;">QR library could not load. Link:<br>' + url + '</div>'; }
-  document.getElementById('qrName').textContent = name || id;
+  document.getElementById('qrName').textContent = QR_CTX.name;
   document.getElementById('qrTag').textContent = (tag ? 'Asset Tag: ' + tag + ' · ' : '') + id;
   document.getElementById('qrModal').style.display = 'flex';
 }
+
+/* Official BEC asset label: letterhead, seal, QR, and the asset details —
+   sized to print two-up on A4 and be taped onto the equipment itself. */
 function printQR(){
-  var img = document.querySelector('#qrBox img');
-  var src = img ? img.src : '';
-  var name = document.getElementById('qrName').textContent;
-  var tag = document.getElementById('qrTag').textContent;
+  var img = document.querySelector('#qrBox img, #qrBox canvas');
+  var src = img ? (img.tagName === 'IMG' ? img.src : img.toDataURL('image/png')) : '';
+  var esc = function(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+  var seal = QR_CTX.base + 'assets/logs.png';
+  var today = new Date().toLocaleDateString('en-PH', {year:'numeric', month:'long', day:'numeric'});
+  var row = function(k, v){ return v ? '<tr><th>' + esc(k) + '</th><td>' + esc(v) + '</td></tr>' : ''; };
+
+  var html =
+  '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Equipment QR Label — ' + esc(QR_CTX.tag || QR_CTX.id) + '</title><style>'
+  + '@page{size:A4;margin:14mm;}'
+  + '*{box-sizing:border-box;margin:0;padding:0;}'
+  + 'body{font-family:"Segoe UI",Arial,Helvetica,sans-serif;color:#1C1008;background:#fff;padding:8mm;}'
+  + '.label{width:104mm;border:1.5px solid #E8DDD0;border-radius:10px;overflow:hidden;page-break-inside:avoid;}'
+  + '.lh{display:flex;align-items:center;gap:10px;padding:9px 12px;background:#7B1D1D;color:#fff;}'
+  + '.lh img{height:34px;width:34px;object-fit:contain;background:#fff;border-radius:5px;padding:2px;}'
+  + '.lh .n{font-family:"Times New Roman",Georgia,serif;font-size:13.5px;font-weight:800;letter-spacing:.3px;line-height:1.15;}'
+  + '.lh .o{font-family:"Times New Roman",Georgia,serif;font-style:italic;font-size:10px;color:rgba(255,255,255,.82);}'
+  + '.accent{height:3px;background:linear-gradient(90deg,#4A0E0E,#7B1D1D 55%,#C9960C);}'
+  + '.title{text-align:center;font-size:10px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:#7B1D1D;padding:9px 10px 2px;}'
+  + '.sub{text-align:center;font-size:9px;color:#9E8070;padding-bottom:9px;}'
+  + '.qrwrap{text-align:center;padding:0 10px 8px;}'
+  + '.qrwrap img{width:46mm;height:46mm;border:1px solid #E8DDD0;border-radius:8px;padding:5px;}'
+  + '.scan{font-size:10.5px;font-weight:700;color:#4A0E0E;margin-top:6px;}'
+  + '.scan span{display:block;font-size:8.5px;font-weight:400;color:#9E8070;margin-top:2px;}'
+  + 'table{width:100%;border-collapse:collapse;font-size:10px;margin-top:2px;}'
+  + 'th,td{border-top:1px solid #EFE7DA;padding:5px 12px;text-align:left;vertical-align:top;}'
+  + 'th{width:34%;color:#9E8070;font-weight:700;text-transform:uppercase;letter-spacing:.4px;font-size:8.5px;}'
+  + 'td{color:#1C1008;font-weight:600;}'
+  + '.foot{display:flex;justify-content:space-between;gap:8px;font-size:8px;color:#9E8070;padding:7px 12px;background:#F8F3EA;border-top:1px solid #EFE7DA;}'
+  + '.bar{display:none;}'
+  + '@media screen{body{background:#F1EEE8;padding:22px;}.bar{display:flex;gap:8px;margin-bottom:14px;}'
+  + '.bar button{background:#7B1D1D;color:#fff;border:0;padding:9px 18px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;}'
+  + '.bar button.sec{background:#6b5b50;}}'
+  + '@media print{.bar{display:none!important;}body{padding:0;}'
+  + '.lh,.accent,.foot{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}'
+  + '</style></head><body>'
+  + '<div class="bar"><button onclick="window.print()">Print label</button>'
+  + '<button class="sec" onclick="window.close()">Close</button></div>'
+  + '<div class="label">'
+  +   '<div class="lh"><img src="' + esc(seal) + '" alt="" onerror="this.style.display=\'none\'">'
+  +     '<div><div class="n">BATANGAS EASTERN COLLEGES</div>'
+  +     '<div class="o">Property Management Office</div></div></div>'
+  +   '<div class="accent"></div>'
+  +   '<div class="title">Equipment Identification Label</div>'
+  +   '<div class="sub">Scan to report a defect for this unit</div>'
+  +   '<div class="qrwrap"><img src="' + esc(src) + '" alt="Equipment QR code">'
+  +     '<div class="scan">Point your phone camera here<span>Opens the BEC defect report form</span></div></div>'
+  +   '<table>'
+  +     row('Equipment', QR_CTX.name)
+  +     row('Asset Tag', QR_CTX.tag)
+  +     row('Equipment ID', QR_CTX.id)
+  +     row('Location', QR_CTX.loc)
+  +   '</table>'
+  +   '<div class="foot"><span>Issued ' + esc(today) + '</span>'
+  +     '<span>Do not remove &middot; Property of BEC</span></div>'
+  + '</div>'
+  + '<script>setTimeout(function(){window.print();},450);<\/script>'
+  + '</body></html>';
+
   var w = window.open('', '_blank');
-  w.document.write('<html><head><title>Equipment QR</title><style>body{font-family:Segoe UI,Arial,sans-serif;text-align:center;padding:30px;color:#1C1008}img{width:230px;height:230px}h3{margin:14px 0 2px}small{color:#777}</style></head><body><img src="' + src + '"><h3>' + name + '</h3><small>' + tag + '</small><p style="font-size:12px;color:#777">Scan to report a defect for this equipment</p><scr' + 'ipt>setTimeout(function(){window.print();},350);</scr' + 'ipt></body></html>');
+  if (!w) { alert('Please allow pop-ups to print the QR label.'); return; }
+  w.document.write(html);
   w.document.close();
 }
 </script>

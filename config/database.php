@@ -49,6 +49,61 @@ if (!function_exists('loadDatabaseEnvFile')) {
 
 loadDatabaseEnvFile();
 
+// Application timezone. Without this PHP falls back to whatever php.ini says
+// (XAMPP ships Europe/Berlin), which renders every date()/strtotime() output —
+// printed tickets, service reports, dashboards, emails — hours off from the
+// +08:00 timestamps the database stores. Pin it to the school's local time.
+date_default_timezone_set((string)(getenv('APP_TIMEZONE') ?: 'Asia/Manila'));
+
+// Never render PHP warnings/notices into the page for real users: XAMPP ships
+// display_errors=On, so a single stray notice would print raw PHP text (and file
+// paths) into the UI mid-demo. Errors are still recorded in the server log.
+// Set APP_DEBUG=true in .env to see them on screen while developing.
+if (strtolower((string)(getenv('APP_DEBUG') ?: 'false')) === 'true') {
+    ini_set('display_errors', '1');
+    error_reporting(E_ALL);
+} else {
+    ini_set('display_errors', '0');
+    error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
+}
+ini_set('log_errors', '1');
+
+if (!function_exists('becReportPhotoFiles')) {
+    /**
+     * Files on disk whose name starts with a report ID, e.g. BEC-2026-000042_1.jpg.
+     *
+     * Report listings call this once per row. Globbing the uploads folders per row
+     * meant 2-3 directory scans for every report on the page, which is what made
+     * the admin listing take ~88s at 500 reports and time out beyond that. Here we
+     * scan each folder ONCE per request and answer every later lookup from memory.
+     *
+     * @return string[] Web-relative paths, e.g. "uploads/reports/BEC-2026-000042_1.jpg"
+     */
+    function becReportPhotoFiles(string $reportId): array {
+        static $index = null;
+
+        if ($index === null) {
+            $index = [];
+            $root = dirname(__DIR__);
+            foreach (['uploads/reports', 'uploads/defect_reports', 'uploads/defect_photos'] as $rel) {
+                $dir = $root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $rel);
+                if (!is_dir($dir)) continue;
+                foreach (scandir($dir) ?: [] as $name) {
+                    if ($name === '.' || $name === '..') continue;
+                    if (!is_file($dir . DIRECTORY_SEPARATOR . $name)) continue;
+                    // Key on the filename up to the first "_" or "." — the report ID.
+                    $key = preg_split('/[_.]/', $name)[0] ?? '';
+                    if ($key === '') continue;
+                    $index[$key][] = $rel . '/' . $name;
+                }
+            }
+        }
+
+        $reportId = trim($reportId);
+        return $reportId === '' ? [] : ($index[$reportId] ?? []);
+    }
+}
+
 if (!function_exists('dbEnv')) {
     function dbEnv(string $key, $default = null) {
         $value = getenv($key);
@@ -1117,27 +1172,9 @@ function inferDefectReportPhotoPaths(array $report) {
         }
     }
 
-    $reportId = trim((string)($report['report_id'] ?? ''));
-    if ($reportId !== '') {
-        $patterns = [
-            __DIR__ . '/../uploads/reports/' . $reportId . '.*',
-            __DIR__ . '/../uploads/defect_reports/' . $reportId . '.*',
-            __DIR__ . '/../uploads/defect_photos/' . $reportId . '.*',
-        ];
-
-        foreach ($patterns as $pattern) {
-            foreach (glob($pattern) ?: [] as $file) {
-                if (!is_file($file)) {
-                    continue;
-                }
-                $realFile = realpath($file);
-                if ($realFile === false) {
-                    continue;
-                }
-                $relative = str_replace('\\', '/', str_replace(realpath(__DIR__ . '/..') . DIRECTORY_SEPARATOR, '', $realFile));
-                $photos[] = ltrim($relative, '/');
-            }
-        }
+    // Shared, once-per-request directory index instead of a glob per report.
+    foreach (becReportPhotoFiles((string)($report['report_id'] ?? '')) as $file) {
+        $photos[] = $file;
     }
 
     $photos = array_values(array_unique(array_filter($photos, static function ($path) {

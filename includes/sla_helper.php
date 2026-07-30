@@ -35,19 +35,66 @@ function slaIsOverdue(array $report): bool {
 }
 
 /**
- * Escalate any open, overdue, not-yet-escalated reports. Returns the number escalated.
+ * How many reports a single sweep may escalate, and how often a sweep may run.
+ *
+ * Both caps exist because this runs during an admin page render. Escalating one
+ * report costs ~320 ms (flag + a notification per admin + an activity row + an
+ * email to the reporter), so an uncapped sweep is O(backlog) on the page load:
+ * measured at 96 s for a 300-report backlog, and past a few thousand the page
+ * exceeded the request timeout and never rendered at all. Capped, each load pays
+ * a bounded cost and a large backlog simply drains over successive loads.
  */
-function runSlaEscalationSweep(): int {
+const SLA_MAX_ESCALATIONS_PER_RUN = 10;
+const SLA_MIN_SECONDS_BETWEEN_RUNS = 300;
+
+/** Throttle: true (and stamps the clock) only when a sweep is due. */
+function slaSweepDue(): bool {
+    $dir = __DIR__ . '/../data';
+    if (!is_dir($dir)) { @mkdir($dir, 0775, true); }
+    $stamp = $dir . '/sla_last_sweep';
+    $now = time();
+    if (is_file($stamp)) {
+        $last = (int) @file_get_contents($stamp);
+        if ($last > 0 && ($now - $last) < SLA_MIN_SECONDS_BETWEEN_RUNS) {
+            return false;
+        }
+    }
+    @file_put_contents($stamp, (string) $now, LOCK_EX);
+    return true;
+}
+
+/**
+ * Escalate open, overdue, not-yet-escalated reports. Returns the number escalated.
+ *
+ * At most SLA_MAX_ESCALATIONS_PER_RUN per call, oldest first, and at most one
+ * sweep every SLA_MIN_SECONDS_BETWEEN_RUNS. Still idempotent: each report is
+ * escalated exactly once, because sla_escalated_at is stamped before notifying.
+ */
+function runSlaEscalationSweep(bool $force = false): int {
+    if (!$force && !slaSweepDue()) { return 0; }
+
     try { $conn = getDBConnection(); } catch (\Throwable $e) { return 0; }
 
+    // Oldest first, so the most overdue reports are always escalated first.
     $res = $conn->query("SELECT report_id, status, priority, report_date, equipment_name, reported_by, reporter_email
                          FROM defect_reports
                          WHERE status NOT IN ('completed','verified','closed','rejected')
-                           AND sla_escalated_at IS NULL");
+                           AND sla_escalated_at IS NULL
+                         ORDER BY report_date ASC");
     if (!$res) return 0;
     $rows = [];
-    while ($r = $res->fetch_assoc()) { $rows[] = $r; }
+    while ($r = $res->fetch_assoc()) {
+        if (!slaIsOverdue($r)) continue;
+        $rows[] = $r;
+        if (count($rows) >= SLA_MAX_ESCALATIONS_PER_RUN) break;
+    }
     if (!$rows) return 0;
+
+    // Flag the whole batch in one statement rather than one UPDATE per report.
+    $ids = [];
+    foreach ($rows as $r) { $ids[] = "'" . $conn->real_escape_string((string)$r['report_id']) . "'"; }
+    $conn->query("UPDATE defect_reports SET sla_escalated_at = NOW()
+                  WHERE report_id IN (" . implode(',', $ids) . ") AND sla_escalated_at IS NULL");
 
     // Recipients: active admins + deans.
     $admins = [];
@@ -56,12 +103,7 @@ function runSlaEscalationSweep(): int {
 
     $count = 0;
     foreach ($rows as $r) {
-        if (!slaIsOverdue($r)) continue;
         $rid = (string)$r['report_id'];
-        $rid_e = $conn->real_escape_string($rid);
-        // Flag first so concurrent loads don't double-notify.
-        $conn->query("UPDATE defect_reports SET sla_escalated_at = NOW() WHERE report_id = '{$rid_e}' AND sla_escalated_at IS NULL");
-
         $msg = 'SLA breach: Ticket ' . $rid . ' (' . ucfirst((string)$r['priority']) . ' priority) is overdue and needs attention.';
         foreach ($admins as $aid) {
             if (function_exists('addNotification')) { try { addNotification($aid, $msg, 'sla_escalation', $rid); } catch (\Throwable $e) {} }
