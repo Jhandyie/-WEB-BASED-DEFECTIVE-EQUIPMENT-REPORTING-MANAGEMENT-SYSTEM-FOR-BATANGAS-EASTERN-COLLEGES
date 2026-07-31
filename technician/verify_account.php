@@ -30,13 +30,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $invite) {
     $fullname  = trim((string)($_POST['fullname'] ?? ''));
     $empId     = trim((string)($_POST['employee_id'] ?? ''));
     $contact   = trim((string)($_POST['contact_number'] ?? ''));
-    $dept      = trim((string)($_POST['department'] ?? ''));
+    // Never taken from the form: the PMO decides which unit a technician belongs
+    // to when the invitation is sent, so the posted value is ignored entirely.
+    $dept      = trim((string)($invite['department'] ?? ''));
     $spec      = trim((string)($_POST['specialization'] ?? ''));
     $pass      = (string)($_POST['password'] ?? '');
     $pass2     = (string)($_POST['password_confirm'] ?? '');
 
-    if ($fullname === '' || $empId === '' || $contact === '' || $dept === '' || $spec === '') {
-        $error = 'Please complete all profile fields.';
+    // Say which field is wrong rather than "complete all profile fields", and
+    // enforce the same 11-digit mobile rule the reporter form already applies.
+    if ($fullname === '') {
+        $error = 'Please enter your full name.';
+    } elseif (mb_strlen($fullname) < 2) {
+        $error = 'Please enter your complete name.';
+    } elseif ($empId === '') {
+        $error = 'Please enter your employee or ID number.';
+    } elseif (!preg_match('/^[A-Za-z0-9][A-Za-z0-9 .\-\/]{1,29}$/', $empId)) {
+        $error = 'Employee ID may use letters, numbers, spaces, dots, hyphens and slashes only (e.g. EMP-0142).';
+    } elseif ($contact === '') {
+        $error = 'Please enter your contact number.';
+    } elseif (!preg_match('/^\d{11}$/', $contact)) {
+        $error = 'Please enter a valid 11-digit mobile number (numbers only), e.g. 09171234567.';
+    } elseif ($spec === '') {
+        $error = 'Please enter your specialization.';
     } elseif (strlen($pass) < 8) {
         $error = 'Password must be at least 8 characters.';
     } elseif ($pass !== $pass2) {
@@ -129,6 +145,10 @@ function vh($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
   .fg{display:flex;flex-direction:column;gap:.32rem;}
   .fg.full{grid-column:1/-1;}
   label{font-size:.7rem;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:.4px;}
+  label .req{color:var(--maroon);margin-left:.15rem;}
+  /* Unit is assigned by the PMO, so it is shown but not editable. */
+  .ctrl input[readonly]{background:#F4F1EC;color:var(--ink2);cursor:not-allowed;}
+  .fixed-note{font-size:.66rem;color:var(--ink3);margin-top:.25rem;font-weight:500;text-transform:none;letter-spacing:0;}
   .ctrl{position:relative;display:flex;align-items:center;}
   .ctrl > i{position:absolute;left:.8rem;color:var(--ink3);font-size:.82rem;pointer-events:none;}
   input{width:100%;padding:.72rem .85rem .72rem 2.3rem;border:1.5px solid var(--border);border-radius:11px;font:inherit;font-size:.9rem;color:var(--ink);background:#fff;transition:border-color .15s,box-shadow .15s;}
@@ -220,24 +240,28 @@ function vh($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 
             <div class="divider">Your details</div>
             <div class="grid">
-              <div class="fg full"><label>Full Name</label>
-                <div class="ctrl"><i class="fas fa-user"></i><input type="text" name="fullname" value="<?php echo vh($invite['fullname'] ?? ''); ?>" placeholder="Juan D. Dela Cruz" required></div></div>
-              <div class="fg"><label>Employee ID</label>
-                <div class="ctrl"><i class="fas fa-id-badge"></i><input type="text" name="employee_id" value="<?php echo vh($_POST['employee_id'] ?? ''); ?>" placeholder="EMP-0000" required></div></div>
-              <div class="fg"><label>Contact Number</label>
-                <div class="ctrl"><i class="fas fa-phone"></i><input type="text" name="contact_number" value="<?php echo vh($_POST['contact_number'] ?? ''); ?>" placeholder="09XX XXX XXXX" required></div></div>
+              <div class="fg full"><label>Full Name <span class="req">*</span></label>
+                <div class="ctrl"><i class="fas fa-user"></i><input type="text" name="fullname" value="<?php echo vh($_POST['fullname'] ?? $invite['fullname'] ?? ''); ?>" placeholder="Juan D. Dela Cruz" maxlength="100" required></div></div>
+              <div class="fg"><label>Employee ID <span class="req">*</span></label>
+                <div class="ctrl"><i class="fas fa-id-badge"></i><input type="text" name="employee_id" value="<?php echo vh($_POST['employee_id'] ?? ''); ?>" placeholder="EMP-0000" maxlength="30" pattern="[A-Za-z0-9][A-Za-z0-9 .\-/]{1,29}" title="Your BEC employee or ID number, e.g. EMP-0142" required></div></div>
+              <div class="fg"><label>Contact Number <span class="req">*</span></label>
+                <div class="ctrl"><i class="fas fa-phone"></i><input type="tel" name="contact_number" value="<?php echo vh($_POST['contact_number'] ?? ''); ?>" placeholder="09171234567" inputmode="numeric" autocomplete="tel" maxlength="11" pattern="\d{11}" title="11-digit mobile number, numbers only (e.g. 09171234567)" required></div></div>
               <div class="fg"><label>Department</label>
-                <div class="ctrl"><i class="fas fa-building"></i><input type="text" name="department" value="<?php echo vh($invite['department'] ?? ''); ?>" placeholder="Maintenance" required></div></div>
-              <div class="fg"><label>Specialization</label>
-                <div class="ctrl"><i class="fas fa-screwdriver-wrench"></i><input type="text" name="specialization" value="<?php echo vh($invite['specialization'] ?? ''); ?>" placeholder="Electrical / HVAC" required></div></div>
+                <?php /* Assigned by the PMO when the invitation was sent. Shown for
+                         confirmation but not editable — the value saved on submit is
+                         read from the invitation, never from this field. */ ?>
+                <div class="ctrl"><i class="fas fa-building"></i><input type="text" value="<?php echo vh($invite['department'] ?? ''); ?>" readonly tabindex="-1" aria-readonly="true"></div>
+                <div class="fixed-note">Assigned by the Property Management Office</div></div>
+              <div class="fg"><label>Specialization <span class="req">*</span></label>
+                <div class="ctrl"><i class="fas fa-screwdriver-wrench"></i><input type="text" name="specialization" value="<?php echo vh($_POST['specialization'] ?? $invite['specialization'] ?? ''); ?>" placeholder="Electrical / HVAC" maxlength="80" required></div></div>
             </div>
 
             <div class="divider" style="margin-top:1.3rem;">Set your password</div>
             <div class="grid">
-              <div class="fg"><label>Password</label>
+              <div class="fg"><label>Password <span class="req">*</span></label>
                 <div class="ctrl"><i class="fas fa-lock"></i><input type="password" id="pw" name="password" minlength="8" placeholder="At least 8 characters" required>
                   <button type="button" class="toggle" data-t="pw" aria-label="Show password"><i class="fas fa-eye"></i></button></div></div>
-              <div class="fg"><label>Confirm Password</label>
+              <div class="fg"><label>Confirm Password <span class="req">*</span></label>
                 <div class="ctrl"><i class="fas fa-lock"></i><input type="password" id="pw2" name="password_confirm" minlength="8" placeholder="Re-enter password" required>
                   <button type="button" class="toggle" data-t="pw2" aria-label="Show password"><i class="fas fa-eye"></i></button></div></div>
             </div>

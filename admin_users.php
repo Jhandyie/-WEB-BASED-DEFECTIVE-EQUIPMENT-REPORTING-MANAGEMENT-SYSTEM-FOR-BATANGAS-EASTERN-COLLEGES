@@ -127,7 +127,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $errors = [];
         if (!$fname) $errors[] = 'Technician name is required.';
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'A valid email is required.';
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $errors[] = 'A valid email is required.';
+        } elseif (!str_ends_with(strtolower($email), '@bec.edu.ph')) {
+            // The reporter portal already refuses anything outside the institution;
+            // staff invitations were the one door that accepted any domain.
+            $errors[] = 'Technicians must be invited using an official @bec.edu.ph email address.';
+        }
+        // Marked required in the form, but nothing enforced it server-side, so a
+        // direct POST could create a technician with no unit at all.
+        $allowedUnits = ['PMO', 'ITSO', 'Maintenance Department'];
+        if (!in_array($dept, $allowedUnits, true)) {
+            $errors[] = 'Please choose the technician\'s unit or department.';
+        }
         if (userExistsByEmail($email)) $errors[] = 'That email is already registered.';
 
         if ($errors) {
