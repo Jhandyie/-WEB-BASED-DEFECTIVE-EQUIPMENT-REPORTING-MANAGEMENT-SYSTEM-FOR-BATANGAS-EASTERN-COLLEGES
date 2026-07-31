@@ -485,10 +485,12 @@ foreach ($notifications as $n) { $notifGroups[notifBucket((string)($n['created_d
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Outfit:wght@600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<!-- Served from this server, not a CDN: the workspace uses 58 icons and three
+     typefaces, and all of them vanished the moment the network dropped — the
+     one place a technician is most likely to be offline. The service worker
+     caches them cache-first, so an installed app keeps its icons too. -->
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <style>
 /* ============================================================================
    BEC PMO — TECHNICIAN PORTAL

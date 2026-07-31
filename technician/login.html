@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <!-- Icons and typefaces are served from this server, not a CDN. Technicians
+         sign in from the workshop floor and demos run on venue Wi-Fi; when that
+         drops, CDN-hosted assets took all 16 icons and every heading face with
+         them. Rebuild the fonts with scratchpad/getfonts.php. -->
+    <link rel="stylesheet" href="../assets/vendor/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="../assets/vendor/fonts/fonts.css" />
     <link rel="stylesheet" href="../css/typography.css" />
     <link rel="icon" type="image/png" href="../assets/logs.png" />
     <link rel="manifest" href="../manifest.webmanifest" />
@@ -40,15 +42,23 @@
         align-items: center; justify-content: center;
         padding: 24px; position: relative;
       }
-      /* Lightly blurred BEC campus background with a maroon wash */
+      /* Campus photograph, pushed well back so the card carries the screen.
+         Previously the blur was light and the wash thin, leaving strong cyan
+         foliage competing with the maroon card. Desaturating and deepening it
+         keeps the sense of place without the colour clash. */
       body::before {
         content: ''; position: fixed; inset: 0; z-index: -2;
         background: url('../assets/bec background (2).png') center center / cover no-repeat;
-        filter: blur(5px) brightness(.9); transform: scale(1.06);
+        filter: blur(9px) saturate(.42) brightness(.62) contrast(.95);
+        transform: scale(1.09);
       }
       body::after {
         content: ''; position: fixed; inset: 0; z-index: -1;
-        background: linear-gradient(135deg, rgba(45,5,5,.60), rgba(74,14,14,.45));
+        /* Maroon wash + vignette: enough to settle the eye on the card while the
+           campus stays faintly readable behind it. */
+        background:
+          radial-gradient(115% 85% at 50% 36%, rgba(74,14,14,.30) 0%, rgba(26,5,5,.84) 100%),
+          linear-gradient(135deg, rgba(45,5,5,.72), rgba(74,14,14,.62));
       }
 
       .auth-card {
@@ -166,8 +176,8 @@
       </div>
 
       <div class="auth-body">
-        <div class="form-title">Sign in to your account</div>
-        <div class="form-hint">Enter the credentials issued by your administrator.</div>
+        <div class="form-title">Maintenance workspace</div>
+        <div class="form-hint">Sign in to receive assigned repair tasks, record your work, and close out equipment reports for the Property Management Office.</div>
 
         <div id="loginMessage"></div>
 

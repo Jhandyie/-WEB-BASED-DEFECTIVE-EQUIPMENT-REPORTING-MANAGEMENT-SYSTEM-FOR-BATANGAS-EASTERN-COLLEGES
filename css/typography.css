@@ -1,9 +1,21 @@
 /* css/typography.css - BEC system typography */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+/* Self-hosted. This file used to @import Inter from Google Fonts — an external
+   dependency hidden inside a stylesheet rather than a visible <link>, so with no
+   internet every screen it touches fell back to Arial. It also overrode the
+   institution's own typefaces with a generic UI stack via !important, which is
+   why the sign-in screens rendered in plain sans instead of the serif used on
+   the landing page. */
+@import url('../assets/vendor/fonts/fonts.css');
 
 :root {
-  --font-primary: 'Inter', 'Roboto', 'SF Pro Display', 'Poppins', 'Nunito Sans', Arial, sans-serif;
-  --font-display: 'Inter', 'Roboto', 'SF Pro Display', 'Poppins', 'Nunito Sans', Arial, sans-serif;
+  /* Brand faces, matching the landing page and the technician workspace:
+     Fraunces (serif) for headline moments, DM Sans for interface text. */
+  --font-primary: 'DM Sans', 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
+  --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+  /* Section and card titles stay on the interface face: a serif at 0.9rem in a
+     dense admin table reads cluttered, not premium. */
+  --font-heading: 'DM Sans', 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
   --font-mono: 'Roboto Mono', 'SFMono-Regular', Consolas, monospace;
 
   --type-app-title: clamp(1.25rem, 2vw, 1.65rem);
@@ -82,7 +94,7 @@ h1 {
 .ph3 h3,
 h2,
 h3 {
-  font-family: var(--font-display) !important;
+  font-family: var(--font-heading) !important;
   font-size: var(--type-section-title);
   line-height: var(--line-title);
   font-weight: 700;
@@ -96,7 +108,7 @@ h3 {
 .uc-name,
 .report-detail-title,
 .modal-card-title {
-  font-family: var(--font-display) !important;
+  font-family: var(--font-heading) !important;
   font-size: var(--type-card-title);
   line-height: var(--line-title);
   font-weight: 700;
