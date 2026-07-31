@@ -1,0 +1,5 @@
+# Serve the sign-in page for /admin/.
+#
+# Same reason as technician/: with no index file Apache returns 403 Forbidden
+# for the folder URL, so only .../admin/admin_login_otp.html worked.
+DirectoryIndex admin_login_otp.html

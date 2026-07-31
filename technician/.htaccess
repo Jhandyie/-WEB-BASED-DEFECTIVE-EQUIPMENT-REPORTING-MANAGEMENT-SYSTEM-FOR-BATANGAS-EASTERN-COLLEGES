@@ -1,0 +1,6 @@
+# Serve the sign-in page for /technician/.
+#
+# Without this the folder has no index file, so Apache answers the obvious URL
+# (.../-WEB-BASED/technician/) with 403 Forbidden — which reads as "not found"
+# to anyone typing it on a phone. Only .../technician/login.html worked.
+DirectoryIndex login.html
