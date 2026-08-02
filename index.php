@@ -27,10 +27,9 @@ $previewReports = [];
 try {
     $conn = getDBConnection();
 
-    $cols = [];
-    if ($colRes = $conn->query("SHOW COLUMNS FROM defect_reports")) {
-        while ($c = $colRes->fetch_assoc()) { $cols[$c['Field']] = true; }
-    }
+    // The shared helper caches its result for the request, so anything else on
+    // the page that needs the schema reuses it instead of asking again.
+    $cols = getTableColumns('defect_reports');
     if (isset($cols['is_public'])) {
         $publicFilter = "dr.is_public = true";
     } elseif (isset($cols['admin_approval_status'])) {

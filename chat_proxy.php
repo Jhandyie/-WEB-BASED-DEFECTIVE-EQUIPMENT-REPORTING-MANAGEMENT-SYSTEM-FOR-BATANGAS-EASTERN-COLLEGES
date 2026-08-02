@@ -757,13 +757,13 @@ function chatBuildLocalReply(string $text, string $lang, array $snapshot, ?array
     if (preg_match('/\b(submit|report|file a report|paano mag-report)\b/i', $text)) {
         if ($lang === 'fil') {
             return [
-                'reply' => "Para mag-submit ng report:\n- Ilagay ang pangalan at email sa student portal\n- Piliin ang tamang equipment mula sa live list\n- Ilagay ang location at malinaw na description\n- I-submit para makuha ang ticket number sa screen at email\n[SUGGEST_REPORT]",
+                'reply' => "Para mag-submit ng report:\n- Ilagay ang pangalan at email sa reporter portal\n- Piliin ang tamang equipment mula sa live list\n- Ilagay ang location at malinaw na description\n- I-submit para makuha ang ticket number sa screen at email\n[SUGGEST_REPORT]",
                 'suggest' => true,
                 'chips' => chatChipSet($lang, ['submit', 'track', 'timeline']),
             ];
         }
         return [
-            'reply' => "To submit a report:\n- Enter your name and email in the student portal\n- Pick the correct equipment from the live list\n- Fill in the location and a clear description\n- Submit to get the ticket number on screen and by email\n[SUGGEST_REPORT]",
+            'reply' => "To submit a report:\n- Enter your name and email in the reporter portal\n- Pick the correct equipment from the live list\n- Fill in the location and a clear description\n- Submit to get the ticket number on screen and by email\n[SUGGEST_REPORT]",
             'suggest' => true,
             'chips' => chatChipSet($lang, ['submit', 'track', 'timeline']),
         ];

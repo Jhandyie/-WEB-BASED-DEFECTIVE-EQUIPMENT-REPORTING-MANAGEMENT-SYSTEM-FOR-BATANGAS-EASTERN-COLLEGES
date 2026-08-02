@@ -1226,8 +1226,8 @@ function fallbackReply(text) {
   if (/\b(submit|report|paano mag-report|how to report|file a report)\b/i.test(q)) {
     return wrap(
       isFil
-        ? 'Para mag-submit ng report:\n- Ilagay ang pangalan at email sa student portal\n- Piliin ang tamang equipment mula sa listahan\n- Ilagay ang location at malinaw na description\n- I-submit para makakuha ng ticket number sa screen at email'
-        : 'To submit a report:\n- Enter your name and email in the student portal\n- Choose the correct equipment from the list\n- Fill in the location and a clear description\n- Submit to get your ticket number on screen and by email',
+        ? 'Para mag-submit ng report:\n- Ilagay ang pangalan at email sa reporter portal\n- Piliin ang tamang equipment mula sa listahan\n- Ilagay ang location at malinaw na description\n- I-submit para makakuha ng ticket number sa screen at email'
+        : 'To submit a report:\n- Enter your name and email in the reporter portal\n- Choose the correct equipment from the list\n- Fill in the location and a clear description\n- Submit to get your ticket number on screen and by email',
       chipSet(['submit', 'report_projector', 'track'], isFil ? 'fil' : 'en'),
       true, 'submit'
     );
