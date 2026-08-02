@@ -1451,7 +1451,7 @@ function loadNotifs() {
             <div class="notif-body">
               <strong>${esc(n.title)}</strong>
               <p>${esc(n.message)}</p>
-              <div class="notif-time"><i class="far fa-clock"></i> ${relT(n.created_at)}</div>
+              <div class="notif-time"><i class="fas fa-clock"></i> ${relT(n.created_at)}</div>
             </div>
           </div>
         `).join('');

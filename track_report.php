@@ -589,13 +589,13 @@ html{scroll-behavior:smooth}
                 <div class="rt-marker">
                   <?php if ($step['state'] === 'done'): ?><i class="fas fa-check"></i>
                   <?php elseif ($step['state'] === 'active'): ?><i class="fas fa-screwdriver-wrench"></i>
-                  <?php else: ?><i class="far fa-circle"></i><?php endif; ?>
+                  <?php else: ?><i class="fas fa-circle"></i><?php endif; ?>
                 </div>
                 <div class="rt-body">
                   <div class="rt-title"><?php echo htmlspecialchars($step['label']); ?><?php if ($step['state'] === 'active'): ?> <span class="rt-live">In progress</span><?php endif; ?></div>
                   <?php if ($step['desc'] !== ''): ?><div class="rt-desc"><?php echo htmlspecialchars($step['desc']); ?></div><?php endif; ?>
                   <?php if (!empty($step['date'])): ?>
-                  <div class="rt-date"><i class="far fa-clock"></i> <?php echo htmlspecialchars(tr_when($step['date'])); ?></div>
+                  <div class="rt-date"><i class="fas fa-clock"></i> <?php echo htmlspecialchars(tr_when($step['date'])); ?></div>
                   <?php elseif ($step['state'] === 'pending' && !$shownNext): $shownNext = true; ?>
                   <div class="rt-next">Up next — no action yet</div>
                   <?php endif; ?>
