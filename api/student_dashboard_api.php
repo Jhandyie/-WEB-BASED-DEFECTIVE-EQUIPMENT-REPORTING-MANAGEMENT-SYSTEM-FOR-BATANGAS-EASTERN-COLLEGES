@@ -18,6 +18,13 @@ if ($requestAction !== '') {
         exit;
     }
 
+    // Actions that change something (submit a report, book, edit a profile) get
+    // the same token check every form on the site uses.
+    require_once __DIR__ . '/../includes/csrf.php';
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        requireCsrf(true);
+    }
+
     $controller = new StudentDashboardController();
     $user_id = (string)$_SESSION['user_id'];
 
@@ -112,7 +119,8 @@ if ($requestAction !== '') {
                 echo json_encode(['success' => false, 'message' => 'Unknown action']);
         }
     } catch (Exception $e) {
-        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        error_log('student_dashboard_api (' . $requestAction . '): ' . $e->getMessage());
+        echo json_encode(['success' => false, 'message' => 'That request could not be completed.']);
     }
     exit;
 }
@@ -148,8 +156,12 @@ $equipmentOptions = $equipmentOptionsResult['success'] ? ($equipmentOptionsResul
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Student Dashboard — BEC Equipment Management</title>
-<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<!-- Served from this server, not a CDN, so this view keeps its icons and
+     typefaces when the campus connection is unavailable. Nunito/Poppins were
+     never part of the institution's type system; the vendored sheet carries the
+     faces the rest of the app uses. -->
+<link rel="stylesheet" href="../assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="../assets/vendor/fontawesome/css/all.min.css">
 <link rel="stylesheet" href="../css/typography.css">
 <style>
 /* ═══════════════════════════════════════════════════

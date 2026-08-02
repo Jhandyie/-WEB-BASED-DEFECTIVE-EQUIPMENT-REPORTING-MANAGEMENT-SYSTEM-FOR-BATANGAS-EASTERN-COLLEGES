@@ -2,12 +2,19 @@
 // student/index.php
 session_start();
 require_once __DIR__ . '/includes/bec_directory_helper.php';
+require_once __DIR__ . '/includes/csrf.php';
 
 $error = '';
 // Equipment deep-link from a scanned QR code (carried through the BEC gate).
 $eq = trim((string)($_GET['eq'] ?? $_POST['eq'] ?? ''));
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Without this, another site could sign a visitor into the portal under a
+    // name and email of its choosing, and any report they filed afterwards
+    // would carry that identity. Shown as a form error, not a bare 403.
+    if (!csrf_check()) {
+        $error = 'Your session expired. Please check your details and sign in again.';
+    }
     $name  = trim($_POST['full_name'] ?? '');
     $email = trim($_POST['email'] ?? '');
 
@@ -16,7 +23,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $allowedDomain = '@bec.edu.ph';
     $emailLower = strtolower($email);
     $dirCount = function_exists('becdir_count') ? becdir_count() : 0;
-    if (empty($name) || empty($email)) {
+    if ($error !== '') {
+        // CSRF already rejected this submission — fall through to redisplay.
+    } elseif (empty($name) || empty($email)) {
         $error = 'Please enter both your name and email address.';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = 'Please enter a valid email address.';
@@ -1339,6 +1348,7 @@ function escAttr(s) { return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39
 
 <?php require __DIR__ . '/includes/site_reveal.php'; ?>
 <?php require __DIR__ . '/includes/site_transitions.php'; ?>
+<?php require __DIR__ . '/includes/csrf_inject.php'; ?>
 <script src="assets/input_guard.js" defer></script>
 <?php /* ?v=<mtime> so a changed loader reaches returning visitors: Apache sends
          no Cache-Control for these assets, so browsers happily serve a stale

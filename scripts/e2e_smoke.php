@@ -85,10 +85,16 @@ try {
     step('Fixtures ready (technician + equipment)', (bool)$eq, "equipment $eq");
 
     // session seeders
-    $seeds[] = seedFile($ROOT, '_smoke_seed_r.php', "<?php\nsession_start();\n\$_SESSION['user_id']='SMOKE-REPORTER';\$_SESSION['fullname']='Smoke Reporter';\$_SESSION['email']='$SMOKE_MAIL';\$_SESSION['user_email']=\$_SESSION['email'];\$_SESSION['role']='student';\nsession_write_close();\nrequire __DIR__.'/includes/session_bootstrap.php';\nstartRoleSession('student');\n\$_SESSION['user_id']='SMOKE-REPORTER';\$_SESSION['fullname']='Smoke Reporter';\$_SESSION['email']='$SMOKE_MAIL';\$_SESSION['user_email']=\$_SESSION['email'];\$_SESSION['role']='student';\necho 'ok';");
+    // guest_email/guest_name are the reporter portal's identity (student_index.php).
+    // track_report.php now requires them to match the report before it will accept
+    // a follow-up or a satisfaction verdict, so the seeded reporter carries them.
+    $seeds[] = seedFile($ROOT, '_smoke_seed_r.php', "<?php\nsession_start();\n\$_SESSION['user_id']='SMOKE-REPORTER';\$_SESSION['fullname']='Smoke Reporter';\$_SESSION['email']='$SMOKE_MAIL';\$_SESSION['user_email']=\$_SESSION['email'];\$_SESSION['role']='student';\n\$_SESSION['guest_email']='$SMOKE_MAIL';\$_SESSION['guest_name']='Smoke Reporter';\$_SESSION['guest_since']=time();\nrequire __DIR__.'/includes/csrf.php';\n\$__t=csrf_token();\nsession_write_close();\nrequire __DIR__.'/includes/session_bootstrap.php';\nstartRoleSession('student');\n\$_SESSION['user_id']='SMOKE-REPORTER';\$_SESSION['fullname']='Smoke Reporter';\$_SESSION['email']='$SMOKE_MAIL';\$_SESSION['user_email']=\$_SESSION['email'];\$_SESSION['role']='student';\necho \$__t;");
     $seeds[] = seedFile($ROOT, '_smoke_seed_a.php', "<?php\nrequire __DIR__.'/includes/session_bootstrap.php';\nstartRoleSession('admin');\nrequire __DIR__.'/config/database.php';\n\$c=getDBConnection();\$r=\$c->query(\"SELECT user_id,fullname FROM users WHERE role IN ('admin','pmo') AND status='active' LIMIT 1\")->fetch_assoc();\n\$_SESSION['user_id']=\$r['user_id'];\$_SESSION['fullname']=\$r['fullname'];\$_SESSION['role']='admin';\$_SESSION['logged_in']=true;\necho 'ok';");
     $seeds[] = seedFile($ROOT, '_smoke_seed_t.php', "<?php\nrequire __DIR__.'/includes/session_bootstrap.php';\nstartRoleSession('technician');\n\$_SESSION['user_id']='TECH-SMOKE1';\$_SESSION['fullname']='Smoke Test Technician';\$_SESSION['user_email']='$SMOKE_MAIL';\$_SESSION['email']='$SMOKE_MAIL';\$_SESSION['role']='technician';\$_SESSION['logged_in']=true;\necho 'ok';");
-    http($JAR_R, 'GET', "$BASE/_smoke_seed_r.php");
+    // The seeder returns the reporter session's CSRF token; the submit endpoint
+    // now requires it, exactly as the real form does.
+    [, $reporterToken] = http($JAR_R, 'GET', "$BASE/_smoke_seed_r.php");
+    $reporterToken = trim($reporterToken);
     http($JAR_A, 'GET', "$BASE/_smoke_seed_a.php");
     http($JAR_T, 'GET', "$BASE/_smoke_seed_t.php");
 
@@ -97,7 +103,7 @@ try {
         'action' => 'submit_report', 'equipment_id' => $eq, 'duplicate_override' => '1',
         'issue_description' => 'SMOKE TEST: automated lifecycle check — safe to ignore.',
         'location' => 'Smoke Test Room',
-    ], [], true);
+    ], ["X-CSRF-Token: $reporterToken"], true);
     $j = json_decode($b, true);
     $rid = (string)($j['report_id'] ?? '');
     step('Reporter submit', ($j['success'] ?? false) && $rid !== '', $rid ?: substr($b, 0, 120));
@@ -146,9 +152,19 @@ try {
     $tok4 = csrfFrom($page);
     http($JAR_A, 'POST', "$BASE/admin_defect_reports.php", ['action' => 'verify_completion', 'report_id' => $rid, 'verification_notes' => 'smoke verified'], ["X-CSRF-Token: $tok4"]);
     step('Admin: verify & close → closed', dbStatus($rid) === 'closed', dbStatus($rid));
-    http($JAR_R, 'POST', "$BASE/track_report.php", ['action' => 'confirm_satisfaction', 'report_id' => $rid, 'verdict' => 'yes', 'satisfaction_note' => 'smoke ok']);
+    [, $trackPage] = http($JAR_R, 'GET', "$BASE/track_report.php?q=" . urlencode($rid));
+    $tok5 = csrfFrom($trackPage);
+    http($JAR_R, 'POST', "$BASE/track_report.php", ['action' => 'confirm_satisfaction', 'report_id' => $rid, 'verdict' => 'yes', 'satisfaction_note' => 'smoke ok'], ["X-CSRF-Token: $tok5"]);
     $sat = $pdo->query("SELECT COALESCE(satisfaction,'') FROM defect_reports WHERE report_id=" . $pdo->quote($rid))->fetchColumn();
     step('Reporter satisfaction recorded', $sat === 'satisfied', "satisfaction=$sat");
+
+    // The same verdict from someone who is not the reporter must be refused.
+    $jarOther = tempnam(sys_get_temp_dir(), 'smk_o');
+    $pdo->exec("UPDATE defect_reports SET satisfaction=NULL, satisfaction_at=NULL WHERE report_id=" . $pdo->quote($rid));
+    http($jarOther, 'POST', "$BASE/track_report.php", ['action' => 'confirm_satisfaction', 'report_id' => $rid, 'verdict' => 'yes']);
+    $satAnon = (string)$pdo->query("SELECT COALESCE(satisfaction,'') FROM defect_reports WHERE report_id=" . $pdo->quote($rid))->fetchColumn();
+    step('Stranger cannot record satisfaction', $satAnon === '', $satAnon === '' ? 'refused' : "WROTE '$satAnon'");
+    @unlink($jarOther);
 
 } catch (\Throwable $e) {
     step('UNEXPECTED ERROR', false, $e->getMessage());

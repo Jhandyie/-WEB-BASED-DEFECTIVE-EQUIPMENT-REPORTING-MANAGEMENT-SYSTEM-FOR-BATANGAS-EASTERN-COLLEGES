@@ -1,5 +1,8 @@
 <?php
+// A session is needed only to carry the CSRF token on this pre-login page.
+if (session_status() !== PHP_SESSION_ACTIVE) { session_start(); }
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/csrf.php';
 
 $conn = getDBConnection();
 $token = trim((string)($_GET['token'] ?? ($_POST['token'] ?? '')));
@@ -27,6 +30,9 @@ if ($token === '' || (!$invite && $error === '')) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $invite) {
+    // The invitation token is the real secret here, but this form also sets a
+    // password — worth the same protection every other form on the site has.
+    requireCsrf();
     $fullname  = trim((string)($_POST['fullname'] ?? ''));
     $empId     = trim((string)($_POST['employee_id'] ?? ''));
     $contact   = trim((string)($_POST['contact_number'] ?? ''));
@@ -97,8 +103,8 @@ function vh($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 <title>Activate Technician Account — Batangas Eastern Colleges · PMO</title>
 <link rel="icon" type="image/png" href="../assets/logs.png">
 <link rel="apple-touch-icon" href="../assets/logs.png">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="../assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="../assets/vendor/fontawesome/css/all.min.css">
 <style>
   :root{--m:#7B1D1D;--md:#4A0E0E;--mdd:#2D0505;--g:#C9960C;--gold-soft:#F0C040;--ink:#1C1008;--ink2:#5C3838;--ink3:#755B4E;--paper:#F8F3EA;--surface:#fff;--border:#E8DDD0;}
   *{box-sizing:border-box}
@@ -236,6 +242,7 @@ function vh($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
           <?php if ($error): ?><div class="alert err"><i class="fas fa-circle-exclamation"></i> <span><?php echo vh($error); ?></span></div><?php endif; ?>
 
           <form method="POST" action="verify_account.php?token=<?php echo vh($token); ?>" autocomplete="off">
+            <?php echo csrf_field(); ?>
             <input type="hidden" name="token" value="<?php echo vh($token); ?>">
 
             <div class="divider">Your details</div>

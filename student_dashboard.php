@@ -392,6 +392,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!csrf_check()) {
         $error = 'Your session expired for security reasons. Please review your details and submit again.';
     }
+    // A signed-in reporter is identified but not vetted — the sign-in gate only
+    // proves the email is in the BEC directory. This keeps one person (or one
+    // script running with their session) from burying the PMO in reports.
+    // Deliberately generous: a real reporter never files 15 in an hour.
+    if (!$error) {
+        require_once __DIR__ . '/includes/rate_limiter.php';
+        try {
+            RateLimiter::enforce('report_submit:' . strtolower((string)($_SESSION['guest_email'] ?? RateLimiter::clientIp())), 15, 3600);
+        } catch (\Throwable $rl) {
+            $error = 'You have submitted several reports in a short time. Please wait a few minutes before filing another — if this is urgent, contact the PMO directly.';
+        }
+    }
     $selected_equipment_id = trim((string)($_POST['equipment_id'] ?? ''));
     $postedEquipmentName = trim((string)($_POST['equipment_name'] ?? ''));
     if ($postedEquipmentName === '') {
@@ -638,8 +650,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <meta name="theme-color" content="#4A0E0E">
 <link rel="icon" type="image/png" href="assets/logs.png">
 <link rel="apple-touch-icon" href="assets/logs.png">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<!-- Served from this server, not a CDN, so the reporter keeps icons and
+     typefaces when the campus connection is unavailable. -->
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <link rel="stylesheet" href="css/typography.css">
 <style>
 :root {

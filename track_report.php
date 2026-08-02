@@ -1,5 +1,7 @@
 <?php
+session_start();
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/csrf.php';
 
 $query = trim($_GET['ticket'] ?? ($_GET['q'] ?? ''));
 $report = null;
@@ -10,17 +12,38 @@ $conn = getDBConnection();
 
 $FOLLOW_UP_MAX = 3;
 
+// Who is asking? The reporter portal signs people in with their name and BEC
+// email (student_index.php) and keeps it in the session.
+$viewerEmail = strtolower(trim((string)($_SESSION['guest_email'] ?? '')));
+$viewerName  = trim((string)($_SESSION['guest_name'] ?? ''));
+
+/**
+ * True when the signed-in reporter is the person who filed this report.
+ *
+ * Following up and confirming satisfaction used to need nothing at all — no
+ * session, no token — so anyone who knew (or guessed, from the suggestion list
+ * this page used to publish) a ticket number could bump someone else's report
+ * or spend their one-time satisfaction verdict for them.
+ */
+function trackViewerOwnsReport(string $viewerEmail, ?array $report): bool {
+    if ($viewerEmail === '' || !$report) { return false; }
+    return strtolower(trim((string)($report['reporter_email'] ?? ''))) === $viewerEmail;
+}
+
 // --- Follow-up / Bump handler (#4) ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'follow_up') {
+    requireCsrf();
     $fid = trim((string)($_POST['report_id'] ?? ''));
     $rep = null;
     if ($fid !== '') {
-        $fst = $conn->prepare("SELECT report_id, status, COALESCE(follow_up_count,0) AS follow_up_count, equipment_name FROM defect_reports WHERE report_id = ? LIMIT 1");
+        $fst = $conn->prepare("SELECT report_id, status, COALESCE(follow_up_count,0) AS follow_up_count, equipment_name, COALESCE(reporter_email,'') AS reporter_email FROM defect_reports WHERE report_id = ? LIMIT 1");
         if ($fst) { $fst->bind_param('s', $fid); $fst->execute(); $rep = $fst->get_result()->fetch_assoc(); $fst->close(); }
     }
     $redirect = 'track_report.php?q=' . urlencode($fid);
     if (!$rep) {
         $redirect .= '&fu=notfound';
+    } elseif (!trackViewerOwnsReport($viewerEmail, $rep)) {
+        $redirect .= '&fu=notyours';
     } elseif (in_array(strtolower((string)$rep['status']), ['completed','verified','closed','rejected'], true)) {
         $redirect .= '&fu=resolved';
     } elseif ((int)$rep['follow_up_count'] >= $FOLLOW_UP_MAX) {
@@ -38,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'follo
                 if ($aid !== '' && function_exists('addNotification')) { try { addNotification($aid, $msg, 'follow_up', $fid); } catch (\Throwable $e) {} }
             }
         }
-        if (function_exists('logActivity')) { try { logActivity('reporter', 'reporter', 'report.follow_up', 'Follow-up #' . $newCount . ' on ' . $fid); } catch (\Throwable $e) {} }
+        if (function_exists('logActivity')) { try { logActivity($viewerEmail, 'reporter', 'report.follow_up', 'Follow-up #' . $newCount . ' on ' . $fid . ' by ' . ($viewerName !== '' ? $viewerName : $viewerEmail)); } catch (\Throwable $e) {} }
         $redirect .= '&fu=ok&fn=' . $newCount;
     }
     header('Location: ' . $redirect);
@@ -47,17 +70,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'follo
 
 // --- Reporter satisfaction confirmation (closes the loop) ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confirm_satisfaction') {
+    requireCsrf();
     $sid = trim((string)($_POST['report_id'] ?? ''));
     $verdict = ($_POST['verdict'] ?? '') === 'yes' ? 'satisfied' : 'unsatisfied';
     $note = trim((string)($_POST['satisfaction_note'] ?? ''));
+    if (mb_strlen($note) > 500) { $note = mb_substr($note, 0, 500); }
     $rep = null;
     if ($sid !== '') {
-        $sst = $conn->prepare("SELECT report_id, status, COALESCE(satisfaction,'') AS satisfaction FROM defect_reports WHERE report_id = ? LIMIT 1");
+        $sst = $conn->prepare("SELECT report_id, status, COALESCE(satisfaction,'') AS satisfaction, COALESCE(reporter_email,'') AS reporter_email FROM defect_reports WHERE report_id = ? LIMIT 1");
         if ($sst) { $sst->bind_param('s', $sid); $sst->execute(); $rep = $sst->get_result()->fetch_assoc(); $sst->close(); }
     }
     $redirect = 'track_report.php?q=' . urlencode($sid);
     if (!$rep) {
         $redirect .= '&sat=notfound';
+    } elseif (!trackViewerOwnsReport($viewerEmail, $rep)) {
+        // The verdict can only be given once, so letting a stranger spend it
+        // would silently take the reporter's say away for good.
+        $redirect .= '&sat=notyours';
     } elseif (!in_array(strtolower((string)$rep['status']), ['completed','verified','closed'], true)) {
         $redirect .= '&sat=tooearly';
     } elseif ($rep['satisfaction'] !== '') {
@@ -70,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
         if ($verdict === 'satisfied' && strtolower((string)$rep['status']) === 'verified') {
             $cl = $conn->prepare("UPDATE defect_reports SET status = 'closed' WHERE report_id = ?");
             if ($cl) { $cl->bind_param('s', $sid); $cl->execute(); $cl->close(); }
-            if (function_exists('logActivity')) { try { logActivity('reporter', 'reporter', 'report.closed', 'Auto-closed after reporter confirmed resolution — ' . $sid); } catch (\Throwable $e) {} }
+            if (function_exists('logActivity')) { try { logActivity($viewerEmail, 'reporter', 'report.closed', 'Auto-closed after ' . ($viewerName !== '' ? $viewerName : $viewerEmail) . ' confirmed resolution — ' . $sid); } catch (\Throwable $e) {} }
         }
         // If not fixed, alert admins so they can re-open / follow through.
         if ($verdict === 'unsatisfied') {
@@ -83,27 +112,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
                 }
             }
         }
-        if (function_exists('logActivity')) { try { logActivity('reporter', 'reporter', 'report.satisfaction', $verdict . ' on ' . $sid); } catch (\Throwable $e) {} }
+        if (function_exists('logActivity')) { try { logActivity($viewerEmail, 'reporter', 'report.satisfaction', $verdict . ' on ' . $sid . ' by ' . ($viewerName !== '' ? $viewerName : $viewerEmail)); } catch (\Throwable $e) {} }
         $redirect .= '&sat=ok&v=' . ($verdict === 'satisfied' ? '1' : '0');
     }
     header('Location: ' . $redirect);
     exit;
 }
 
-$suggestionResult = $conn->query("
-    SELECT
-        dr.report_id,
-        dr.status,
-        dr.report_date,
-        e.equipment_id,
-        COALESCE(e.asset_tag, '') AS asset_tag,
-        COALESCE(e.equipment_name, '') AS equipment_name,
-        COALESCE(e.location, '') AS location
-    FROM defect_reports dr
-    JOIN equipment e ON dr.equipment_id = e.equipment_id
-    ORDER BY dr.report_date DESC
-    LIMIT 120
-");
+// The type-ahead used to hand every visitor the newest 120 ticket numbers,
+// which is exactly the list someone needs to go poking at other people's
+// reports. A signed-in reporter now sees only their own tickets; everyone else
+// sees none and must type the reference from their confirmation email.
+$suggestionResult = null;
+if ($viewerEmail !== '') {
+    $sugStmt = $conn->prepare("
+        SELECT
+            dr.report_id,
+            dr.status,
+            dr.report_date,
+            e.equipment_id,
+            COALESCE(e.asset_tag, '') AS asset_tag,
+            COALESCE(e.equipment_name, '') AS equipment_name,
+            COALESCE(e.location, '') AS location
+        FROM defect_reports dr
+        JOIN equipment e ON dr.equipment_id = e.equipment_id
+        WHERE LOWER(COALESCE(dr.reporter_email, '')) = ?
+        ORDER BY dr.report_date DESC
+        LIMIT 120
+    ");
+    if ($sugStmt) {
+        $sugStmt->bind_param('s', $viewerEmail);
+        $sugStmt->execute();
+        $suggestionResult = $sugStmt->get_result();
+    }
+}
 
 if ($suggestionResult) {
     while ($row = $suggestionResult->fetch_assoc()) {
@@ -133,6 +175,7 @@ if ($query !== '') {
             dr.verification_notes,
             COALESCE(dr.follow_up_count, 0) AS follow_up_count,
             COALESCE(dr.satisfaction, '') AS satisfaction,
+            COALESCE(dr.reporter_email, '') AS reporter_email,
             dr.received_by_pmo_at,
             COALESCE(pu.fullname, '') AS received_by_name,
             e.equipment_name,
@@ -327,8 +370,10 @@ function tr_progress(array $timeline, string $status = ''): array {
 <link rel="icon" type="image/png" href="assets/logs.png">
 <link rel="shortcut icon" href="assets/logs.png">
 <link rel="apple-touch-icon" href="assets/logs.png">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<!-- Served from this server, not a CDN, so tracking keeps its icons and
+     typefaces when the campus connection is unavailable. -->
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <link rel="stylesheet" href="css/typography.css">
 <style>
 :root{
@@ -564,6 +609,13 @@ html{scroll-behavior:smooth}
             $satEligible = in_array($satStatus, ['completed','verified','closed'], true);
             $satGiven = (string)($report['satisfaction'] ?? '');
             $sat = $_GET['sat'] ?? '';
+            // Only the person who filed the report may act on it. Anyone else
+            // still sees the status — that is what tracking is for — but the
+            // buttons that change something are theirs alone.
+            $viewerOwnsReport = trackViewerOwnsReport($viewerEmail, $report);
+            $signInPrompt = '<div class="fu-flash err"><i class="fas fa-circle-info"></i> '
+                . 'Sign in with the BEC email you filed this report from to follow up or confirm the repair. '
+                . '<a href="student_index.php" style="color:inherit;text-decoration:underline;">Sign in</a></div>';
           ?>
           <?php if ($satEligible): ?>
           <div class="item full">
@@ -575,6 +627,10 @@ html{scroll-behavior:smooth}
                   <i class="fas fa-<?php echo $satGiven==='satisfied'?'circle-check':'circle-exclamation'; ?>"></i>
                   You marked this report as <strong><?php echo $satGiven==='satisfied'?'Resolved':'Not resolved'; ?></strong>.
                 </div>
+              <?php elseif (!$viewerOwnsReport): ?>
+                <?php if ($sat === 'notyours'): ?><div class="fu-flash err"><i class="fas fa-circle-info"></i> Only the reporter who filed this ticket can confirm the repair.</div><?php endif; ?>
+                <p class="fu-copy">The repair has been marked done. The reporter who filed this ticket can confirm whether the issue was actually resolved.</p>
+                <?php echo $signInPrompt; ?>
               <?php else: ?>
                 <p class="fu-copy">The repair has been marked done. Please confirm whether your equipment issue was actually resolved — your feedback helps the PMO ensure quality.</p>
                 <form method="POST" action="track_report.php" style="display:flex;gap:.55rem;flex-wrap:wrap;align-items:center;">
@@ -603,6 +659,8 @@ html{scroll-behavior:smooth}
                 <div class="fu-flash err"><i class="fas fa-circle-info"></i> You have reached the maximum of <?php echo $FOLLOW_UP_MAX; ?> follow-ups for this report.</div>
               <?php elseif ($fu === 'resolved'): ?>
                 <div class="fu-flash err"><i class="fas fa-circle-info"></i> This report is already resolved — no follow-up needed.</div>
+              <?php elseif ($fu === 'notyours'): ?>
+                <div class="fu-flash err"><i class="fas fa-circle-info"></i> Only the reporter who filed this ticket can send a follow-up.</div>
               <?php endif; ?>
               <p class="fu-copy">If your report hasn't moved in a while, you can gently nudge the Property Management Office. You may send up to <strong><?php echo $FOLLOW_UP_MAX; ?></strong> follow-ups per report.</p>
               <div class="fu-dots">
@@ -613,6 +671,8 @@ html{scroll-behavior:smooth}
                 <button class="fu-btn" disabled><i class="fas fa-check"></i> Report already resolved</button>
               <?php elseif ($fuCount >= $FOLLOW_UP_MAX): ?>
                 <button class="fu-btn" disabled><i class="fas fa-ban"></i> Follow-up limit reached</button>
+              <?php elseif (!$viewerOwnsReport): ?>
+                <?php echo $signInPrompt; ?>
               <?php else: ?>
                 <form method="POST" action="track_report.php" style="margin:0;">
                   <input type="hidden" name="action" value="follow_up">
@@ -763,5 +823,6 @@ trackInput.addEventListener('keydown', event => {
   items[trackFocusIdx]?.scrollIntoView({ block: 'nearest' });
 });
 </script>
+<?php require __DIR__ . '/includes/csrf_inject.php'; ?>
 </body>
 </html>

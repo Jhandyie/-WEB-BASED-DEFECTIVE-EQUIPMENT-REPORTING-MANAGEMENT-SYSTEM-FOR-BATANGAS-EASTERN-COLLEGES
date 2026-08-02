@@ -10,11 +10,28 @@
 // or conscious.
 
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/rate_limiter.php';
 
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
+// Same-origin only. This used to answer any website's script with
+// Access-Control-Allow-Origin: *, which let a page anywhere drive the
+// institution's assistant — and its metered API key — from a visitor's browser.
 header('Access-Control-Allow-Methods: POST');
 header('Access-Control-Allow-Headers: Content-Type');
+
+// The assistant is open to the public by design (a reporter shouldn't have to
+// sign in to ask how to file a report), so the ceiling is per-IP rather than
+// per-account. Generous for a real conversation, useless for running up a bill.
+try {
+    RateLimiter::enforce('chat_ip:' . RateLimiter::clientIp(), 40, 300);
+} catch (\Throwable $e) {
+    http_response_code(429);
+    echo json_encode([
+        'reply' => 'I have had a lot of questions in the last few minutes. Please give me a moment and try again.',
+        'suggest' => false,
+    ]);
+    exit();
+}
 
 function chatProxyConfig(): array
 {
