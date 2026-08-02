@@ -263,8 +263,11 @@ function build_url($extra=[]) {
 <link rel="icon" type="image/png" href="assets/logs.png">
 <link rel="shortcut icon" href="assets/logs.png">
 <link rel="apple-touch-icon" href="assets/logs.png">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<!-- Served from this server, not a CDN, so the public board keeps its icons and
+     typefaces when the campus connection is unavailable.
+     Paths are relative to public_reports.php in the web root, which includes this file. -->
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <style>
 :root{
   --m:#7B1D1D;--md:#4A0E0E;--mdd:#2D0505;--ms:rgba(123,29,29,.08);--ml:rgba(123,29,29,.04);

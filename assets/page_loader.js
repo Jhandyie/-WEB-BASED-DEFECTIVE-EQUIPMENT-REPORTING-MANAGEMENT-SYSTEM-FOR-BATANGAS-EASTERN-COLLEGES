@@ -13,11 +13,12 @@
   var base = (me && me.src) ? me.src.replace(/[^\/]*$/, '') : 'assets/';   // e.g. .../assets/
   var logo = base + 'logs.png';
 
-  // ensure Font Awesome is present (for the walking icon)
+  // ensure Font Awesome is present (for the walking icon) — from this server,
+  // not a CDN, so the icon still appears with no internet at the venue.
   if (!document.querySelector('link[href*="font-awesome"],link[href*="fontawesome"]')) {
     var fa = document.createElement('link');
     fa.rel = 'stylesheet';
-    fa.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css';
+    fa.href = base + 'vendor/fontawesome/css/all.min.css';
     document.head.appendChild(fa);
   }
 

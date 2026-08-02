@@ -11,11 +11,14 @@ if (!is_dir($dir)) mkdir($dir, 0775, true);
 // A modern desktop UA makes Google return woff2 (latin + latin-ext only).
 $UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
+// Every weight and style any page actually asks for. The admin screens request
+// DM Sans italic and Outfit 400/500, which the first build left out — so those
+// pages fell back to a synthesised face once they stopped using the CDN.
 $families = [
-    'DM+Sans'  => 'wght@400;500;600;700',
+    'DM+Sans'  => 'ital,wght@0,400;0,500;0,600;0,700;1,400',
     // Landing and reporter pages also use Fraunces italic and regular.
     'Fraunces' => 'ital,wght@0,400;0,600;0,700;1,400',
-    'Outfit'   => 'wght@600;700;800;900',
+    'Outfit'   => 'wght@400;500;600;700;800;900',
 ];
 
 function fetch(string $url, string $ua): string {

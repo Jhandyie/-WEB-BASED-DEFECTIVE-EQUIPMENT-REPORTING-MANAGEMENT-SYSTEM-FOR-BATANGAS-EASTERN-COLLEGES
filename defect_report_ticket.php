@@ -82,8 +82,10 @@ $today = date('F j, Y');
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Defect Report<?php echo $reportId !== '' ? ' — ' . dt_e($reportId) : ''; ?> — BEC PMO</title>
 <link rel="icon" type="image/png" href="assets/logs.png">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<!-- Served from this server, not a CDN, so the ticket keeps its icons and
+     typefaces when the campus connection is unavailable. -->
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <style>
   :root{--maroon:#7B1D1D;--maroon-d:#4A0E0E;--gold:#C9960C;--ink:#1C1008;--ink2:#5C3838;--ink3:#755B4E;--paper:#F1EEE8;--surface:#fff;--border:#E2D9CC;--line:#D8CCBD;}
   *{margin:0;padding:0;box-sizing:border-box;font-family:'DM Sans',system-ui,sans-serif;}

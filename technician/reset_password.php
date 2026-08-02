@@ -11,8 +11,8 @@ $hasToken = $token !== '';
 <meta name="robots" content="noindex,nofollow">
 <link rel="icon" type="image/png" href="../assets/logs.png">
 <title>BEC PMO — Reset Password</title>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="../assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="../assets/vendor/fontawesome/css/all.min.css">
 <style>
   :root{--maroon:#7B1D1D;--maroon-d:#4A0E0E;--gold:#C9960C;--ink:#1C1008;--ink2:#5C3838;--ink3:#755B4E;--surface:#FFFFFF;--border:#E2D9CC;--field:#FBF9F6;--danger:#B42318;--success:#1A7A33;}
   *{margin:0;padding:0;box-sizing:border-box;}
