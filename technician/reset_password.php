@@ -17,7 +17,7 @@ $hasToken = $token !== '';
   :root{--maroon:#7B1D1D;--maroon-d:#4A0E0E;--gold:#C9960C;--ink:#1C1008;--ink2:#5C3838;--ink3:#755B4E;--surface:#FFFFFF;--border:#E2D9CC;--field:#FBF9F6;--danger:#B42318;--success:#1A7A33;}
   *{margin:0;padding:0;box-sizing:border-box;}
   body{font-family:'DM Sans',system-ui,sans-serif;color:var(--ink);background:var(--maroon-d);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;position:relative;}
-  body::before{content:'';position:fixed;inset:0;z-index:-2;background:url('../assets/bec background (2).png') center/cover no-repeat;filter:blur(5px) brightness(.9);transform:scale(1.06);}
+  body::before{content:'';position:fixed;inset:0;z-index:-2;background:url('../assets/bec-background.jpg') center/cover no-repeat;filter:blur(5px) brightness(.9);transform:scale(1.06);}
   body::after{content:'';position:fixed;inset:0;z-index:-1;background:linear-gradient(135deg,rgba(45,5,5,.60),rgba(74,14,14,.45));}
   a{color:var(--maroon);text-decoration:none;} a:hover{text-decoration:underline;}
   .auth-card{width:100%;max-width:430px;background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 10px 28px rgba(44,10,10,.18);overflow:hidden;}

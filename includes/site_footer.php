@@ -43,7 +43,7 @@ $bsfYear = date('Y');
     <div class="bsfoot-cols">
       <div class="bsfoot-col">
         <div class="bsfoot-brand">
-          <span class="bsfoot-seal"><img src="assets/logs.png" alt="BEC logo"></span>
+          <span class="bsfoot-seal"><img src="assets/logs.png" alt="BEC logo" width="192" height="192" loading="lazy" decoding="async"></span>
           <span><b>BEC PMO</b><br><small>Defective Equipment Reporting System</small></span>
         </div>
         <p class="bsfoot-motto">&ldquo;Beacons of Education, Molders of Educators.&rdquo;

@@ -58,7 +58,7 @@ if (!isset($nav_active)) { $nav_active = ''; }
 <nav class="bsnav">
   <div class="bsnav-in">
     <a class="bsnav-brand" href="index.php">
-      <span class="bsnav-seal"><img src="assets/logs.png" alt="BEC logo" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'fas fa-graduation-cap\' style=\'color:#7B1D1D\'></i>'"></span>
+      <span class="bsnav-seal"><img src="assets/logs.png" alt="BEC logo" width="192" height="192" decoding="async" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=\'fas fa-graduation-cap\' style=\'color:#7B1D1D\'></i>'"></span>
       <span><b>BEC PMO</b><small>Property Management Office</small></span>
     </a>
     <div class="bsnav-links" id="bsnavLinks">

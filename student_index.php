@@ -130,7 +130,7 @@ body::after {
     radial-gradient(120% 80% at 0% 0%, rgba(201,150,12,.20) 0%, transparent 42%),
     linear-gradient(155deg, rgba(45,5,5,.90) 0%, rgba(74,14,14,.80) 55%, rgba(123,29,29,.72) 100%),
     url('assets/Landing Page Background.jpg') center / cover no-repeat,
-    url('assets/bec background (2).png') center / cover no-repeat;
+    url('assets/bec-background.jpg') center / cover no-repeat;
   display: flex; flex-direction: column;
 }
 .brand::after {

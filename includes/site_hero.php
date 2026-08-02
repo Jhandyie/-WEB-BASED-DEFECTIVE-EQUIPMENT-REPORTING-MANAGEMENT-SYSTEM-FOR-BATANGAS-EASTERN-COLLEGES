@@ -13,7 +13,7 @@ $__he = isset($hero_eyebrow) ? $hero_eyebrow : 'Property Management Office';
 .sbhero::before{content:'';position:absolute;inset:0;z-index:0;
   background:linear-gradient(180deg,rgba(44,10,10,.60),rgba(74,14,14,.85)),
     url('assets/Landing Page Background.jpg') center 42%/cover no-repeat,
-    url('assets/bec background (2).png') center/cover no-repeat;
+    url('assets/bec-background.jpg') center/cover no-repeat;
   transform:scale(1.03);}
 .sbhero-in{position:relative;z-index:1;max-width:820px;margin:0 auto;}
 .sbhero-eyebrow{display:inline-flex;align-items:center;gap:.45rem;font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:1.6px;color:#F0C040;margin-bottom:.6rem;}

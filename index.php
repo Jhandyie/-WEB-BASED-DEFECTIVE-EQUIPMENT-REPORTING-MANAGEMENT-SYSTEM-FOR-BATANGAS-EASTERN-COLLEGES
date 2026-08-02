@@ -139,12 +139,16 @@ a { text-decoration: none; color: inherit; }
 
 /* ══ HERO ══ */
 .hero { position: relative; display: flex; align-items: center; min-height: min(90vh, 780px); padding: 5rem 0; color: #fff; overflow: hidden; }
+/* On phones 90vh counts the strip under the collapsing address bar, so the hero
+   stands taller than the screen and the page jolts when the bar hides. dvh
+   tracks the space actually visible; browsers without it keep the vh rule. */
+@supports (height: 100dvh) { .hero { min-height: min(90dvh, 780px); } }
 .hero::before { content: ''; position: absolute; inset: 0; z-index: 0;
   background:
     linear-gradient(100deg, rgba(44, 2, 2, 0.9) 0%, rgba(38, 2, 2, 0.82) 32%, rgba(55,9,9,.56) 55%, rgba(74,14,14,.22) 76%, rgba(74,14,14,0) 100%),
     linear-gradient(0deg, rgba(26,4,4,.55) 0%, rgba(26,4,4,0) 28%),
     url('assets/Landing Page Background.jpg') center 42% / cover no-repeat,
-    url('assets/bec background (2).png') center / cover no-repeat;
+    url('assets/bec-background.jpg') center / cover no-repeat;
   transform: scale(1.1) translate3d(0, var(--hero-par, 0px), 0); will-change: transform; }
 .hero .container { position: relative; z-index: 1; }
 .hero-content {
@@ -485,7 +489,7 @@ a { text-decoration: none; color: inherit; }
   .hero::before { background:
     linear-gradient(180deg, rgba(38,4,4,.86) 0%, rgba(45,5,5,.78) 45%, rgba(74,14,14,.9) 100%),
     url('assets/Landing Page Background.jpg') center 40% / cover no-repeat,
-    url('assets/bec background (2).png') center / cover no-repeat; }
+    url('assets/bec-background.jpg') center / cover no-repeat; }
   .hero-content { max-width: 100%; }
   /* calmer type scale on phones — the long headline was overwhelming at 2.15rem */
   .hero h1 { font-size: 1.7rem; line-height: 1.2; max-width: none; }
@@ -495,14 +499,39 @@ a { text-decoration: none; color: inherit; }
   .rep-grid { grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: .6rem; }
   .rep-card { padding: .75rem .8rem .85rem; border-radius: 12px; min-width: 0; overflow: hidden; }
   .rc-top { margin-bottom: .45rem; gap: .3rem; }
-  .rc-id { font-size: .6rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .badge { font-size: .54rem; padding: .18rem .45rem; flex-shrink: 0; }
+  /* The ticket number, its status and the date are what a person actually reads
+     here, and they were the smallest type on the page at 9-10px. The number was
+     also being cut off ("BEC-2026-0000…") because it shared a row with the
+     status badge inside a 164px card, so on phones the two now stack and the
+     number gets the full width. The decorative eyebrows and pills stay small
+     by design. */
+  .rc-top { flex-direction: column; align-items: flex-start; gap: .25rem; }
+  .rc-id { font-size: .72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .badge { font-size: .62rem; padding: .2rem .45rem; flex-shrink: 0; }
   .rc-eq { font-size: .86rem; margin-bottom: .3rem; }
   .rc-meta { font-size: .68rem; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .rc-date { font-size: .62rem; margin-top: .4rem; }
+  .rc-date { font-size: .72rem; margin-top: .4rem; }
   .sec-title { font-size: 1.35rem; }
   .btn { width: 100%; justify-content: center; padding: .82rem 1.4rem; font-size: .9rem; }
   .hero-cta { flex-direction: column; }
+
+  /* ── touch ergonomics ──────────────────────────────────────────────
+     WCAG 2.5.5 and both platform guidelines put the smallest comfortable
+     touch target at 44px; most links here sat at 20-39px, close enough to
+     each other that a thumb catches the wrong one. The padding is vertical
+     only, so nothing moves visually — the tappable area just grows. */
+  .bsnav-brand,
+  .bsfoot-col a,
+  .bsfoot-contact a,
+  .rep-all a,
+  .faq-a a,
+  a.link-more { min-height: 44px; display: inline-flex; align-items: center; }
+  .bsfoot-social a { min-width: 44px; min-height: 44px; display: inline-flex;
+                     align-items: center; justify-content: center; }
+  /* Room for the iPhone home indicator and the notch in landscape. */
+  .container { padding-left: max(1.1rem, env(safe-area-inset-left));
+               padding-right: max(1.1rem, env(safe-area-inset-right)); }
+  .bsfoot { padding-bottom: max(1.5rem, env(safe-area-inset-bottom)); }
 
   /* ── tighter rhythm = less scrolling on phones (mockups kept) ── */
   .section { padding: 2.3rem 0; }
@@ -713,17 +742,17 @@ a { text-decoration: none; color: inherit; }
       <div class="becca-visual">
         <div class="becca-card">
           <div class="bc-head">
-            <span class="bc-av"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="Becca"></span>
+            <span class="bc-av"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="Becca" width="180" height="260" loading="lazy" decoding="async"></span>
             <div><b>Becca</b><small><span class="bc-dot"></span> Online · BEC Support AI</small></div>
           </div>
           <div class="bc-body">
             <div class="bc-msg u">How do I report a broken projector?</div>
             <div class="bc-row">
-              <span class="bc-mav"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt=""></span>
+              <span class="bc-mav"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="" width="180" height="260" loading="lazy" decoding="async"></span>
               <div class="bc-msg b">Sign in on the report page, choose the equipment and room, attach a photo, and set the priority. You'll get an email as soon as the PMO reviews it. 👍</div>
             </div>
             <div class="bc-row">
-              <span class="bc-mav"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt=""></span>
+              <span class="bc-mav"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="" width="180" height="260" loading="lazy" decoding="async"></span>
               <div class="bc-typing"><span></span><span></span><span></span></div>
             </div>
           </div>

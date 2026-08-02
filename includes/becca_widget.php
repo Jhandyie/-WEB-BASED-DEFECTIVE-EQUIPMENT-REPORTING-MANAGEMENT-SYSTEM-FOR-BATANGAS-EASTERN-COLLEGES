@@ -61,7 +61,9 @@
 #chatOverlay.open { opacity: 1; pointer-events: all; }
 #chatModal {
   width: 100%; max-width: 385px;
-  height: 570px; max-height: calc(100vh - 2.5rem);
+  /* vh on a phone measures past the collapsing address bar, so the panel ran
+     off the bottom of the screen; dvh follows what is actually visible. */
+  height: 570px; max-height: calc(100vh - 2.5rem); max-height: calc(100dvh - 2.5rem);
   background: rgba(255,255,255,.85);
   -webkit-backdrop-filter: blur(22px) saturate(1.2); backdrop-filter: blur(22px) saturate(1.2);
   border-radius: 22px;
@@ -106,6 +108,18 @@
   color: rgba(255,255,255,.65); font-size: .72rem; transition: background .14s, color .14s;
 }
 .ch-btn:hover { background: rgba(255,255,255,.2); color: #fff; }
+/* The header controls and language toggles were 28-30px on a phone — under the
+   44px that WCAG 2.5.5 and both platform guidelines ask for, and sitting close
+   together in a corner. The button keeps its look; the touch area around it
+   grows to 44px through a transparent pseudo-element. */
+@media (pointer: coarse), (max-width: 640px) {
+  .ch-btn, .lbtn, .sbtn { position: relative; }
+  .ch-btn::after, .lbtn::after, .sbtn::after {
+    content: ''; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 44px; min-height: 44px; width: 100%; height: 100%;
+  }
+}
 .lbar {
   padding: .48rem .88rem; border-bottom: 1px solid var(--border);
   display: flex; align-items: center; gap: .5rem; flex-shrink: 0;
