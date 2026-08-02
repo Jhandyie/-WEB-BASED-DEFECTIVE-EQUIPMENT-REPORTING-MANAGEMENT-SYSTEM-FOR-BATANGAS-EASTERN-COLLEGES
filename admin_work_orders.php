@@ -101,7 +101,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['flash'] = ['ok', "Work order $wo_id created successfully."];
         } catch (Exception $e) {
             $conn->rollback();
-            $_SESSION['flash'] = ['err', 'Failed to create work order: ' . $e->getMessage()];
+            // Database text stays in the log; the screen gets a plain message.
+            error_log('work order create failed: ' . $e->getMessage());
+            $_SESSION['flash'] = ['err', 'Failed to create the work order. The details were written to the server log.'];
         }
     }
 
@@ -271,10 +273,10 @@ function daysLeft($due) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Work Orders — BEC Admin</title>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <link rel="stylesheet" href="css/typography.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="assets/vendor/js/xlsx.full.min.js"></script>
 <style>
 /* ═══════════════════════════════════════════════════
    BEC Admin — Work Orders  |  Maroon × Gold × Warm

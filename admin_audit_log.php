@@ -27,18 +27,20 @@ $HAY_FULL = "($HAY || ' ' || COALESCE(a.action_description,'') || ' ' || COALESC
 $ilike = static function (string $hay, array $pats): string {
     return '(' . implode(' OR ', array_map(static fn($p) => $hay . " ILIKE '" . str_replace("'", "''", $p) . "'", $pats)) . ')';
 };
+// Budget/Finance were retired from the system, so there is no Budget category
+// any more — old budget rows, if any survive, fall under "Other".
 $catPat = [
     'auth'    => ['%login%', '%otp%', '%auth.%', '%logout%'],
     'report'  => ['%report%', '%defect%', '%assign%', '%task.%'],
-    'budget'  => ['%budget%'],
-    'account' => ['%account%', '%user.%', '%register%', '%invite%', '%directory%'],
+    'account' => ['%account%', '%user.%', '%register%', '%invite%', '%directory%', '%password%'],
+    'system'  => ['%backup%', '%restore%'],
 ];
 $cats = [
     'all'     => ['All',      'fa-layer-group',      ''],
     'auth'    => ['Logins',   'fa-right-to-bracket', $ilike($HAY, $catPat['auth'])],
     'report'  => ['Reports',  'fa-clipboard-list',   $ilike($HAY, $catPat['report'])],
-    'budget'  => ['Budget',   'fa-coins',            $ilike($HAY, $catPat['budget'])],
     'account' => ['Accounts', 'fa-users',            $ilike($HAY, $catPat['account'])],
+    'system'  => ['Backups',  'fa-database',         $ilike($HAY, $catPat['system'])],
     'other'   => ['Other',    'fa-ellipsis',         'NOT (' . implode(' OR ', array_map(static fn($p) => $ilike($HAY, $p), $catPat)) . ')'],
 ];
 if (!isset($cats[$cat])) { $cat = 'all'; }
@@ -70,7 +72,10 @@ try {
     $st->execute($args);
     $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {
-    $err = $e->getMessage();
+    // The driver's message names tables, columns, and the connection — logged,
+    // not printed onto the page.
+    error_log('admin_audit_log query failed: ' . $e->getMessage());
+    $err = 'The audit log could not be read. The details were written to the server log.';
 }
 $pages = max(1, (int)ceil($total / $per));
 
@@ -78,7 +83,7 @@ function actTone(string $a): array {
     $a = strtolower($a);
     if (str_contains($a, 'delete') || str_contains($a, 'reject') || str_contains($a, 'fail')) return ['#B42318', '#FDECEC'];
     if (str_contains($a, 'login') || str_contains($a, 'otp') || str_contains($a, 'auth'))     return ['#1D4ED8', '#E8EFFF'];
-    if (str_contains($a, 'budget') || str_contains($a, 'finance'))                            return ['#9A6A00', '#FFF7E6'];
+    if (str_contains($a, 'backup') || str_contains($a, 'restore'))                            return ['#9A6A00', '#FFF7E6'];
     if (str_contains($a, 'complete') || str_contains($a, 'verif') || str_contains($a, 'approve')) return ['#1A7A33', '#EEF7F0'];
     return ['#7B1D1D', 'rgba(123,29,29,.08)'];
 }
@@ -127,8 +132,8 @@ function auAvatar(string $role): string {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Audit Log — BEC Admin</title>
 <link rel="icon" type="image/png" href="assets/logs.png">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Outfit:wght@400;500;600;700;800;900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <style>
   :root{ --maroon:#7B1D1D; --maroon-d:#4A0E0E; --gold:#C9960C; --ink:#1C1008; --ink2:#5C3838; --ink3:#755B4E; --paper:#F4F1EC; --surface:#fff; --border:#E2D9CC; --field:#FBF9F6; --danger:#B42318; --success:#1A7A33; }
   *{margin:0;padding:0;box-sizing:border-box;font-family:'DM Sans',system-ui,sans-serif;}
@@ -232,7 +237,7 @@ function auAvatar(string $role): string {
   <div class="wrap">
     <div class="head">
       <h2><span class="h2-ic"><i class="fas fa-clipboard-list"></i></span> Audit Log</h2>
-      <p>Every recorded action in the system — sign-ins, report workflow, budget decisions, and account changes. Read-only.</p>
+      <p>Every recorded action in the system — sign-ins, report workflow, account changes, and backups. Read-only.</p>
     </div>
 
     <div class="bar">
@@ -250,7 +255,7 @@ function auAvatar(string $role): string {
 
     <div class="card">
       <?php if (!empty($err)): ?>
-        <div class="empty"><i class="fas fa-triangle-exclamation"></i><div>Could not read the audit log: <?php echo ae2($err); ?></div></div>
+        <div class="empty"><i class="fas fa-triangle-exclamation"></i><div><?php echo ae2($err); ?></div></div>
       <?php elseif (!$rows): ?>
         <div class="empty"><i class="fas fa-shield-halved"></i><strong>No matching entries.</strong><div><?php echo ($q !== '' || $cat !== 'all') ? 'No entries match this filter — try “All” or a different search.' : 'Actions will appear here as the system is used.'; ?></div></div>
       <?php else: ?>

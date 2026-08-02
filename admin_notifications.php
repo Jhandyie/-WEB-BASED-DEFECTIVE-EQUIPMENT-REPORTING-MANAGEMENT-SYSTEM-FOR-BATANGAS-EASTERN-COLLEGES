@@ -5,6 +5,7 @@ require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
 
 requireRole('admin');
+require_once __DIR__ . '/includes/csrf.php';
 
 $admin_id   = $_SESSION['user_id'];
 $admin_name = $_SESSION['fullname'] ?? 'Administrator';
@@ -12,6 +13,10 @@ $conn = getDBConnection();
 
 /* ─── POST ACTIONS ─────────────────────────────────── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Broadcasting to every user and clearing the whole notification list are
+    // state changes like any other — this page was the one admin screen that
+    // accepted them without a token. AJAX callers send it as a header.
+    requireCsrf(isset($_POST['ajax']));
     $act = $_POST['action'] ?? '';
 
     /* MARK ONE READ */
@@ -62,6 +67,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $type   = $_POST['notif_type']     ?? 'announcement';
         $link   = trim($_POST['link']      ?? '');
 
+        // The form offers fixed choices, but a direct POST can send anything —
+        // an unknown role would simply reach nobody, and an off-site link in a
+        // message that carries the institution's name is a phishing vector.
+        $allowedTargets = ['all', 'reporter', 'technician', 'pmo', 'admin'];
+        $allowedTypes   = ['announcement', 'alert', 'reminder', 'system'];
+        if (!in_array($target, $allowedTargets, true)) { $target = 'all'; }
+        if (!in_array($type, $allowedTypes, true))     { $type = 'announcement'; }
+        if (mb_strlen($msg) > 500) { $msg = mb_substr($msg, 0, 500); }
+        // Same-site paths only: no scheme, no host, no protocol-relative "//".
+        if ($link !== '' && (preg_match('~^[a-z][a-z0-9+.-]*:~i', $link) || str_starts_with($link, '//'))) {
+            $link = '';
+        }
+        if (mb_strlen($link) > 255) { $link = ''; }
+
         if ($msg) {
             if ($target === 'all') {
                 $res = $conn->query("SELECT user_id FROM users WHERE status='active'");
@@ -79,6 +98,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt3->execute();
                 $sent++;
             }
+            logActivity($admin_id, 'notification.broadcast',
+                "Broadcast ($type) to $target — $sent recipient(s): " . mb_substr($msg, 0, 120));
             $_SESSION['flash'] = ['ok', "Broadcast sent to $sent user(s)."];
         } else {
             $_SESSION['flash'] = ['err', 'Message cannot be empty.'];
@@ -224,8 +245,8 @@ function esc($s){return htmlspecialchars((string)($s??''),ENT_QUOTES,'UTF-8');}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Notifications — BEC Admin</title>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <link rel="stylesheet" href="css/typography.css">
 <style>
 /* ═══════════════════════════════════════════════════════
@@ -1055,6 +1076,7 @@ function toast(type,msg,title){
 <script src="assets/sidebar_autohide.js" defer></script>
 <script src="assets/search_premium.js"></script>
 <?php require_once __DIR__ . '/includes/admin_assistant.php'; ?>
+<?php require __DIR__ . '/includes/csrf_inject.php'; ?>
 <?php require __DIR__ . '/includes/site_transitions.php'; ?>
 </body>
 </html>

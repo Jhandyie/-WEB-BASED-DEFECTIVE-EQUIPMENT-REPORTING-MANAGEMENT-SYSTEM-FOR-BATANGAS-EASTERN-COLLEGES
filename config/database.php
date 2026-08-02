@@ -2770,9 +2770,32 @@ function emailExists($email, $excludeUserId = null) {
 }
 
 /**
- * Log user activity (optional security feature)
+ * Log user activity into activity_log.
+ *
+ * Two call shapes exist across the codebase and both are supported here,
+ * because this is the definition that always wins (includes/audit.php loads
+ * this file first, then guards its own copy with function_exists):
+ *
+ *   logActivity($userId, 'auth.login', 'Admin login for x@bec.edu.ph')
+ *   logActivity($userId, 'admin', 'technician.invite', 'Invited …')
+ *
+ * The 3-argument form used to slide the action code into user_role and the
+ * description into action_type, leaving action_description empty — the audit
+ * log had to guess at read time which column held what. The shape is detected
+ * from the argument count, so every row is now written the same way.
  */
-function logActivity($user_id, $user_role, $action_type, $description = '') {
+function logActivity($user_id, $arg2, $arg3 = null, $arg4 = null) {
+    if (func_num_args() >= 4) {
+        $user_role = (string)$arg2;
+        $action_type = (string)$arg3;
+        $description = (string)$arg4;
+    } else {
+        // 3-argument form: ($userId, $actionCode, $details).
+        $user_role = becActorRoleForLog($user_id);
+        $action_type = (string)$arg2;
+        $description = (string)($arg3 ?? '');
+    }
+
     $conn = getDBConnection();
     // ip_address is an inet column — use a valid IP or NULL (never 'unknown', which CLI/cron would produce).
     $ip_address = $_SERVER['REMOTE_ADDR'] ?? '';
@@ -2787,6 +2810,29 @@ function logActivity($user_id, $user_role, $action_type, $description = '') {
     $stmt->bind_param("sssss", $user_id, $user_role, $action_type, $description, $ip_address);
 
     return $stmt->execute();
+}
+
+/**
+ * The actor's role for an audit row, for callers that don't pass one.
+ * Prefers the live session, falls back to the account on file, then 'system'
+ * (cron, CLI, and the public reporter portal have no logged-in role).
+ */
+function becActorRoleForLog($user_id): string {
+    $sessionRole = trim((string)($_SESSION['role'] ?? ''));
+    if ($sessionRole !== '' && (string)($_SESSION['user_id'] ?? '') === (string)$user_id) {
+        return $sessionRole;
+    }
+    if ($user_id === null || $user_id === '') {
+        return 'system';
+    }
+    try {
+        $row = findUserById((string)$user_id, ['role']);
+        $role = trim((string)($row['role'] ?? ''));
+        if ($role !== '') { return $role; }
+    } catch (\Throwable $e) {
+        // Logging must never break the action it is recording.
+    }
+    return 'system';
 }
 
 /**
