@@ -42,7 +42,10 @@
 @keyframes fabGlow { 0%,100% { box-shadow: 0 10px 30px rgba(44,10,10,.4), 0 0 16px rgba(201,150,12,.2); } 50% { box-shadow: 0 12px 34px rgba(44,10,10,.46), 0 0 30px rgba(201,150,12,.45); } }
 @media (prefers-reduced-motion: reduce) { #chatFab, #chatFab .fab-ic::after { animation: none; } }
 @media (max-width: 560px) {
-  #chatFab { width: 56px; height: 56px; left: 1rem; bottom: 1rem; }
+  /* 1rem leaves the button sitting on the iPhone home indicator; the inset
+     lifts it clear on phones that have one and changes nothing on those that don't. */
+  #chatFab { width: 56px; height: 56px; left: 1rem;
+             bottom: calc(1rem + env(safe-area-inset-bottom)); }
   #chatFab .fab-ic { width: 42px; height: 42px; }
 }
 

@@ -313,7 +313,10 @@ a { text-decoration: none; color: inherit; }
   -webkit-mask-image: radial-gradient(ellipse 80% 70% at 80% 15%, #000 0%, transparent 75%);
   mask-image: radial-gradient(ellipse 80% 70% at 80% 15%, #000 0%, transparent 75%); }
 .about-grid { position: relative; z-index: 1; display: grid; grid-template-columns: 1.1fr .9fr; gap: 2.4rem; align-items: center; }
-.about-eyebrow { font-size: .64rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.6px; color: var(--gold); margin-bottom: .8rem; }
+/* The brand gold reads at 2.42:1 on a cream panel — fine as a dark-background
+   accent (it clears 6:1 in the footer), too pale for text on light. This is the
+   same gold taken down to a shade that passes AA. */
+.about-eyebrow { font-size: .64rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.6px; color: #8A6400; margin-bottom: .8rem; }
 .about h2 { font-family: 'Fraunces', serif; font-weight: 700; font-size: 1.9rem; line-height: 1.2; letter-spacing: -.02em; margin-bottom: .9rem; }
 .about p { font-size: .92rem; line-height: 1.75; color: rgba(255,255,255,.78); }
 .about-points { display: flex; flex-direction: column; gap: .7rem; }

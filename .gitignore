@@ -81,3 +81,4 @@ data/vapid.json
 # Auto-downloaded tunnel binary for the phone-install demo helper
 scripts/tools/
 assets/_originals/
+uploads/_originals/

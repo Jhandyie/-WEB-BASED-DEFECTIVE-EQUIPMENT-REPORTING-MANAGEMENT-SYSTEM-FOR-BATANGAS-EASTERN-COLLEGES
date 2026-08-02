@@ -18,7 +18,9 @@ if (!isset($nav_active)) { $nav_active = ''; }
 .bsnav-seal{width:38px;height:38px;border-radius:50%;background:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:0 0 0 3px rgba(201,150,12,.28);}
 .bsnav-seal img{width:100%;height:100%;object-fit:cover;}
 .bsnav-brand b{display:block;font-size:.95rem;font-weight:700;color:#1C1008;letter-spacing:-.01em;line-height:1.1;}
-.bsnav-brand small{display:block;font-size:.56rem;text-transform:uppercase;letter-spacing:1.5px;color:#9E8070;}
+/* #9E8070 on the cream header measured 3.29:1 — under the 4.5:1 WCAG AA asks
+   for text this size. #6F564A keeps the same muted feel at about 6:1. */
+.bsnav-brand small{display:block;font-size:.56rem;text-transform:uppercase;letter-spacing:1.5px;color:#6F564A;}
 .bsnav-links{display:flex;align-items:center;gap:.25rem;}
 .bsnav-link{padding:.5rem .8rem;border-radius:9px;font-size:.84rem;font-weight:600;color:#5C3838;text-decoration:none;transition:all .15s;}
 .bsnav-link:hover,.bsnav-link.active{color:#7B1D1D;background:rgba(123,29,29,.08);}

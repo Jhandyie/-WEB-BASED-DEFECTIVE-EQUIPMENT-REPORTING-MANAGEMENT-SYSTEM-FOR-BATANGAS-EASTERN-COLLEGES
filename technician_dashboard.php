@@ -1015,6 +1015,13 @@ body.modal-open{overflow:hidden;}
 
 /* ── Compact task cards on phones (dense list, less vertical space) ── */
 @media(max-width:640px){
+  /* Touch ergonomics. A technician uses this one-handed, often standing at the
+     equipment, so the controls need the 44px WCAG 2.5.5 asks for: Log Out sat
+     at 38px, the collapsible section headers at 36px, the add-photo chip 42px
+     wide. Padding only — nothing moves, the tappable area just grows. */
+  .lout{min-height:44px;}
+  .sec.collapsible > .sec-h{min-height:44px;display:flex;align-items:center;}
+  .chip-add{width:44px;min-height:44px;}
   .qgrid{gap:7px;}
   .qcard{padding:10px 10px 10px 14px;gap:9px;align-items:center;border-radius:12px;}
   .q-ic{width:34px;height:34px;border-radius:9px;font-size:.85rem;}
@@ -1352,7 +1359,7 @@ body.modal-open{overflow:hidden;}
                 <div class="photo-grid">
                   <div class="photo-field">
                     <label class="photo-drop">
-                      <input type="file" class="photo-input" name="before_photos[]" accept="image/*" multiple>
+                      <input type="file" class="photo-input" name="before_photos[]" accept="image/*" data-shrink multiple>
                       <i class="fas fa-camera"></i>
                       <span class="photo-drop-label">Before photos</span>
                       <span class="photo-hint">Tap, capture, or drag &amp; drop</span>
@@ -1363,7 +1370,7 @@ body.modal-open{overflow:hidden;}
                   </div>
                   <div class="photo-field">
                     <label class="photo-drop">
-                      <input type="file" class="photo-input" name="during_photos[]" accept="image/*" multiple>
+                      <input type="file" class="photo-input" name="during_photos[]" accept="image/*" data-shrink multiple>
                       <i class="fas fa-camera"></i>
                       <span class="photo-drop-label">During photos</span>
                       <span class="photo-hint">Tap, capture, or drag &amp; drop</span>
@@ -1374,7 +1381,7 @@ body.modal-open{overflow:hidden;}
                   </div>
                   <div class="photo-field">
                     <label class="photo-drop">
-                      <input type="file" class="photo-input" name="after_photos[]" accept="image/*" multiple>
+                      <input type="file" class="photo-input" name="after_photos[]" accept="image/*" data-shrink multiple>
                       <i class="fas fa-camera"></i>
                       <span class="photo-drop-label">After photos</span>
                       <span class="photo-hint">Tap, capture, or drag &amp; drop</span>
@@ -2144,6 +2151,8 @@ if ('serviceWorker' in navigator) {
 })();
 </script>
 <script src="assets/camera_capture.js"></script>
+<!-- Repair photos are taken on a phone in the field; shrink them there. -->
+<script src="assets/photo_shrink.js"></script>
 <?php require __DIR__ . '/includes/technician_assistant.php'; ?>
 <?php require __DIR__ . '/includes/site_transitions.php'; ?>
 </body>

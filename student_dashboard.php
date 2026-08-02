@@ -1712,7 +1712,7 @@ html { scroll-behavior: smooth; }
       </div>
 
       <div class="photo-zone" id="photo-zone">
-        <input type="file" name="photos[]" id="photo-input" aria-label="Upload photos of the defective equipment" accept="image/jpeg,image/png,image/webp" multiple>
+        <input type="file" name="photos[]" id="photo-input" data-shrink aria-label="Upload photos of the defective equipment" accept="image/jpeg,image/png,image/webp" multiple>
         <div class="photo-icon"><i class="fas fa-cloud-upload-alt"></i></div>
         <div class="photo-title">Drag &amp; drop photos here, or tap to choose</div>
         <div class="photo-sub">JPG, PNG, WEBP — up to <strong>10 photos</strong>, max 10MB each</div>
@@ -2410,5 +2410,8 @@ window.addEventListener('DOMContentLoaded', function () {
 <?php require __DIR__ . '/includes/site_transitions.php'; ?>
 <script src="assets/input_guard.js" defer></script>
 <script src="assets/camera_capture.js"></script>
+<!-- Downscales camera photos on the device before they upload. Not deferred:
+     it has to be listening before the form can be submitted. -->
+<script src="assets/photo_shrink.js"></script>
 </body>
 </html>
