@@ -25,16 +25,59 @@ if (is_array($roleCol) && isset($roleCol['Type'])) {
         $roleEnumValues = $matches[1];
     }
 }
+// One role covers everyone who files reports. "Student" used to sit here beside
+// "Reporter", which forced the PMO to decide whether a teacher reporting a
+// broken aircon was a Reporter or a Student — two different questions. The role
+// says what the system lets a person do; who they are at the college is their
+// type (below), the same field the imported BEC directory already carries.
 $assignableRoleMeta = [
     'reporter' => 'Reporter',
     'pmo' => 'PMO',
     'technician' => 'Technician',
-    'student' => 'Student',
     'admin' => 'Administrator',
 ];
+// Limited to the three types the BEC directory recognises, so an imported record
+// and an account created here describe a person the same way. Janitors, drivers
+// and office personnel are Staff.
+$reporterTypeMeta = [
+    'student' => 'Student',
+    'faculty' => 'Faculty / Teacher',
+    'staff'   => 'Staff (office, maintenance, janitorial)',
+];
+$hasUserTypeCol = isset($userCols['user_type']);
+
+/**
+ * Server-side field checks for the account forms.
+ *
+ * The forms carry maxlength and pattern attributes, but those are the browser's
+ * opinion — a direct POST ignores them entirely. These run on every submission
+ * and return the messages to show, so create and edit judge input identically.
+ */
+function becAccountFieldErrors(string $fname, string $email, string $phone, string $dept): array {
+    $errors = [];
+    $len = mb_strlen($fname);
+    if ($len > 0 && $len < 2)  { $errors[] = 'Full name is too short.'; }
+    if ($len > 100)            { $errors[] = 'Full name must be 100 characters or fewer.'; }
+    // Letters, spaces, and the punctuation Filipino names actually use.
+    if ($fname !== '' && !preg_match("/^[\p{L}\p{M}\s.'\-]+$/u", $fname)) {
+        $errors[] = 'Full name may contain only letters, spaces, apostrophes, hyphens, and periods.';
+    }
+    if (mb_strlen($email) > 150) { $errors[] = 'Email address must be 150 characters or fewer.'; }
+    if ($phone !== '' && !preg_match('/^09\d{9}$/', $phone)) {
+        $errors[] = 'Phone number must be 11 digits starting with 09 (e.g. 09171234567).';
+    }
+    if (mb_strlen($dept) > 100) { $errors[] = 'Unit / department must be 100 characters or fewer.'; }
+    return $errors;
+}
 $assignableRoles = $roleEnumValues
     ? array_values(array_filter(array_keys($assignableRoleMeta), static fn($role) => in_array($role, $roleEnumValues, true)))
     : array_keys($assignableRoleMeta);
+
+// Reporters and students never sign in with a password — the reporter portal
+// identifies them by full name + official BEC email (student_index.php), so
+// asking the administrator to invent a password for them only causes confusion.
+$passwordlessRoles = ['reporter', 'student'];
+$roleNeedsPassword = static fn($role) => !in_array($role, ['reporter', 'student'], true);
 
 $admin_id   = $_SESSION['user_id'];
 $admin_name = $_SESSION['fullname'] ?? 'Administrator';
@@ -53,13 +96,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $phone  = trim($_POST['phone']       ?? '');
         $pass   = $_POST['password']         ?? '';
         $pass2  = $_POST['password_confirm'] ?? '';
+        $utype  = strtolower(trim($_POST['user_type'] ?? ''));
 
-        $errors = [];
+        $needsPassword = $roleNeedsPassword($role);
+        $isReporter    = ($role === 'reporter');
+
+        $errors = becAccountFieldErrors($fname, $email, $phone, $dept);
         if (!$fname) $errors[] = 'Full name is required.';
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Valid email is required.';
-        if (strlen($pass) < 8) $errors[] = 'Password must be at least 8 characters.';
-        if ($pass !== $pass2) $errors[] = 'Passwords do not match.';
+        if ($needsPassword) {
+            if (strlen($pass) < 8) $errors[] = 'Password must be at least 8 characters.';
+            if ($pass !== $pass2) $errors[] = 'Passwords do not match.';
+        }
         if (!in_array($role, $assignableRoles, true)) $errors[] = 'Selected role is not supported by the current database setup.';
+        // A reporter is a person at the college first — the PMO needs to know
+        // whether they are a student, a teacher or staff when reading a report.
+        if ($hasUserTypeCol && $isReporter && !isset($reporterTypeMeta[$utype])) {
+            $errors[] = 'Choose whether this reporter is a Student, Faculty, or Staff.';
+        }
         // An Administrator must be scoped to a unit (PMO or ITSO) — it drives their dashboard.
         if ($role === 'admin') {
             $du = strtoupper($dept);
@@ -74,7 +128,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($errors) {
             $_SESSION['flash'] = ['err', implode(' ', $errors)];
         } else {
-            $hash = password_hash($pass, PASSWORD_DEFAULT);
+            // users.password is NOT NULL, so a passwordless role still stores a
+            // hash — a random one nobody holds, which no login can ever match.
+            $hash = $needsPassword
+                ? password_hash($pass, PASSWORD_DEFAULT)
+                : password_hash(bin2hex(random_bytes(24)), PASSWORD_DEFAULT);
             $uid  = 'USR-' . strtoupper(substr(md5(uniqid()), 0, 8));
             // Generate a unique username (users.username is NOT NULL UNIQUE).
             $username = preg_replace('/[^A-Za-z0-9._-]/', '', explode('@', $email)[0]);
@@ -98,6 +156,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($hasPhoneCol) {
                 $insertData['phone'] = $phone;
             }
+            if ($hasUserTypeCol && $isReporter) {
+                $insertData['user_type'] = $utype;
+            }
 
             if ($isPgSql) {
                 $fields = array_keys($insertData);
@@ -113,7 +174,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->bind_param(str_repeat('s', count($values)), ...$values);
                 $stmt->execute();
             }
-            $_SESSION['flash'] = ['ok', "User \"$fname\" created successfully (ID: $uid)."];
+            logActivity($admin_id, 'account.create', "Created $role account $fname <$email> (ID: $uid)"
+                . ($isReporter && $utype !== '' ? " — type: $utype" : ''));
+            $_SESSION['flash'] = ['ok', $needsPassword
+                ? "User \"$fname\" created successfully (ID: $uid)."
+                : "\"$fname\" was added (ID: $uid). They can sign in at the reporter portal with their full name and $email — no password needed."];
         }
     }
 
@@ -211,7 +276,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         . '</div></div>';
                     try { $emailSent = sendEmail($email, 'Your BEC Technician Account Invitation — Property Management Office', $body, null, 'admin'); } catch (\Throwable $e) {}
                 }
-                logActivity($admin_id, 'admin', 'technician.invite', "Invited technician $fname <$email> (ID: $uid)");
+                logActivity($admin_id, 'technician.invite', "Invited technician $fname <$email> (ID: $uid)");
                 $_SESSION['flash'] = ['ok', $emailSent
                     ? "Invitation sent to $email. The technician can now verify and activate their account."
                     : "Technician invited (ID: $uid), but the email could not be sent. Share this activation link manually: $link"];
@@ -231,12 +296,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $phone = trim($_POST['phone']      ?? '');
         $status= $_POST['status']          ?? 'active';
         $newpass = $_POST['new_password']  ?? '';
+        $utype = strtolower(trim($_POST['user_type'] ?? ''));
+        $isReporter = ($role === 'reporter');
 
-        $errors = [];
+        $errors = becAccountFieldErrors($fname, $email, $phone, $dept);
         if (!$fname) $errors[] = 'Full name is required.';
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Valid email is required.';
+        if ($newpass !== '' && strlen($newpass) < 8) $errors[] = 'The new password must be at least 8 characters.';
         if ($uid === $admin_id && $role !== 'admin') $errors[] = 'You cannot change your own admin role.';
         if (!in_array($role, $assignableRoles, true)) $errors[] = 'Selected role is not supported by the current database setup.';
+        if ($hasUserTypeCol && $isReporter && !isset($reporterTypeMeta[$utype])) {
+            $errors[] = 'Choose whether this reporter is a Student, Faculty, or Staff.';
+        }
         if ($role === 'admin') {
             $du = strtoupper($dept);
             if (strpos($du, 'PMO') === false && strpos($du, 'ITSO') === false) {
@@ -262,6 +333,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             if ($hasPhoneCol) {
                 $updateData['phone'] = $phone;
+            }
+            if ($hasUserTypeCol) {
+                // Cleared when the account stops being a reporter, so a former
+                // reporter turned technician doesn't keep a stale "Student" tag.
+                $updateData['user_type'] = $isReporter ? $utype : null;
             }
             if ($usePass) {
                 $updateData['password'] = password_hash($newpass, PASSWORD_DEFAULT);
@@ -292,6 +368,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // No account row matched — e.g. a directory-imported reporter (no login account).
                 $_SESSION['flash'] = ['err', "No editable account was found for \"$fname\". Directory-imported reporters have no login account to update."];
             } else {
+                logActivity($admin_id, 'account.update', "Updated account $fname <$email> (ID: $uid) — role: $role"
+                    . ($usePass ? ', password changed' : ''));
                 $_SESSION['flash'] = ['ok', "User \"$fname\" updated successfully."];
             }
         }
@@ -304,6 +382,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['flash'] = ['err', 'You cannot delete your own account.'];
         } else {
             $deleted = false;
+            // Read the account before it goes, so the audit entry names a person
+            // rather than an ID nobody can look up afterwards.
+            $gone = null;
+            try { $gone = findUserById($uid, ['fullname', 'email', 'role']); } catch (Throwable $e) {}
 
             // Prefer hard delete so counts drop immediately.
             try {
@@ -335,6 +417,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
+            if ($deleted) {
+                $who = $gone
+                    ? (($gone['fullname'] ?? '') . ' <' . ($gone['email'] ?? '') . '>, role ' . ($gone['role'] ?? '?'))
+                    : 'unknown account';
+                logActivity($admin_id, 'account.delete', "Removed account $who (ID: $uid)");
+            }
             $_SESSION['flash'] = $deleted
                 ? ['ok', 'User account removed successfully.']
                 : ['err', 'Failed to remove user account.'];
@@ -359,6 +447,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->bind_param('ss', $hash, $uid);
                 $stmt->execute();
             }
+            // The password itself is never logged — only that it was reset, by whom, for whom.
+            $target = null;
+            try { $target = findUserById($uid, ['fullname', 'email']); } catch (Throwable $e) {}
+            logActivity($admin_id, 'account.password_reset', 'Reset the password for '
+                . ($target ? ($target['fullname'] ?? '') . ' <' . ($target['email'] ?? '') . '>' : 'account') . " (ID: $uid)");
             $_SESSION['flash'] = ['ok', 'Password reset successfully.'];
         }
     }
@@ -368,6 +461,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 /* ─── DATA ──────────────────────────────────────────── */
 $rf  = $_GET['role']   ?? 'all';
+// Student is no longer a role of its own — an old link or bookmark lands on
+// Reporters, where those people now live.
+if ($rf === 'student') { $rf = 'reporter'; }
 $sf  = $_GET['status'] ?? 'all';
 $sq  = $_GET['search'] ?? '';
 
@@ -438,7 +534,7 @@ try {
                 'user_id'         => (string)($bd['student_number'] ?: ($bd['employee_number'] ?: ('DIR-'.($bd['id'] ?? '')))),
                 'fullname'        => (string)($bd['full_name'] ?? ''),
                 'email'           => (string)($bd['email'] ?? ''),
-                'role'            => $ut,           // student | faculty | staff
+                'role'            => 'reporter',    // everyone in the directory may report; $ut says who they are
                 'department'      => (string)($bd['department'] ?? ''),
                 'status'          => 'active',
                 'report_count'    => (int)($bd['report_count'] ?? 0),
@@ -452,7 +548,7 @@ try {
                 'is_directory'    => true,          // read-only marker
             ];
             // Respect the active role filter and search box.
-            if ($rf !== 'all' && $rf !== $ut && !($rf === 'reporter' && in_array($ut, ['student','faculty','staff'], true))) { continue; }
+            if ($rf !== 'all' && $rf !== 'reporter') { continue; }
             if ($sq !== '') {
                 $hay = strtolower($entry['fullname'].' '.$entry['email'].' '.$entry['user_id'].' '.$entry['department']);
                 if (strpos($hay, strtolower($sq)) === false) { continue; }
@@ -475,16 +571,27 @@ if (isPgSqlDriver()) {
 function cntU($arr,$fn){return count(array_filter($arr,$fn));}
 $dirAll = [];
 try { $pdoC = getPgsqlPdoConnection(); $dirAll = $pdoC->query("SELECT LOWER(COALESCE(user_type,'student')) AS user_type FROM public.bec_directory")->fetchAll(PDO::FETCH_ASSOC); } catch (Throwable $e) { $dirAll = []; }
-$c_dirStudent = cntU($dirAll, fn($u)=>$u['user_type']==='student');
-$c_dirOther   = cntU($dirAll, fn($u)=>in_array($u['user_type'],['faculty','staff'],true));
 $c_admin  = cntU($all_users_raw, fn($u)=>$u['role']==='admin');
 $c_pmo    = cntU($all_users_raw, fn($u)=>$u['role']==='pmo');
 $c_tech   = cntU($all_users_raw, fn($u)=>$u['role']==='technician');
 $c_rep    = cntU($all_users_raw, fn($u)=>$u['role']==='reporter') + count($dirAll);
-$c_student = $c_dirStudent;
 $c_total  = count($all_users_raw) + count($dirAll);
 /* ─── HELPERS ───────────────────────────────────────── */
 function roleCls($r){return['admin'=>'r-admin','pmo'=>'r-pmo','dean'=>'r-dean','finance'=>'r-fin','technician'=>'r-tech','reporter'=>'r-rep','student'=>'r-stud'][$r]??'r-rep';}
+// Who the reporter is at the college, shown beside the role badge. Reporters
+// come from every corner of BEC, and the PMO reads a report differently when it
+// comes from a teacher than from a first-year student.
+function typeBadge($u){
+    $t = strtolower(trim((string)($u['user_type'] ?? '')));
+    if ($t === '' || ($u['role'] ?? '') !== 'reporter') { return ''; }
+    $meta = [
+        'student' => ['Student', 'fas fa-graduation-cap', '#0891B2'],
+        'faculty' => ['Faculty', 'fas fa-chalkboard-user', '#7C3AED'],
+        'staff'   => ['Staff',   'fas fa-user-tie',        '#B45309'],
+    ][$t] ?? [ucfirst($t), 'fas fa-user', '#6B7280'];
+    return '<span class="bdg" style="background:' . $meta[2] . '1A;color:' . $meta[2] . ';font-size:.6rem;margin-left:.25rem;">'
+         . '<i class="' . $meta[1] . '" style="font-size:.58rem;margin-right:.18rem;"></i>' . htmlspecialchars($meta[0], ENT_QUOTES) . '</span>';
+}
 function roleIco($r){return['admin'=>'fas fa-crown','pmo'=>'fas fa-building','dean'=>'fas fa-user-tie','finance'=>'fas fa-wallet','technician'=>'fas fa-hard-hat','reporter'=>'fas fa-bullhorn','student'=>'fas fa-graduation-cap'][$r]??'fas fa-user';}
 function roleLbl($r){return ucfirst($r??'—');}
 function initials($n){$p=array_filter(explode(' ',$n??''));return strtoupper(implode('',array_map(fn($x)=>substr($x,0,1),array_slice($p,0,2))));}
@@ -502,10 +609,10 @@ function esc($s){return htmlspecialchars((string)($s??''),ENT_QUOTES,'UTF-8');}
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>User Management — BEC Admin</title>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <link rel="stylesheet" href="css/typography.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="assets/vendor/js/xlsx.full.min.js"></script>
 <style>
 /* ═══════════════════════════════════════════════════════
    BEC Admin — User Management  |  Maroon × Gold × Warm
@@ -987,11 +1094,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         <div class="snum" id="sn6"><?php echo $c_rep; ?></div>
         <div class="slbl">Reporters</div>
       </a>
-      <a href="?role=student&status=all" class="scard sc-c">
-        <div class="sico"><i class="fas fa-graduation-cap"></i></div>
-        <div class="snum" id="sn7"><?php echo $c_student; ?></div>
-        <div class="slbl">Students</div>
-      </a>
     </div>
 
     <!-- Role Tabs -->
@@ -1003,7 +1105,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         ['pmo', 'PMO',             'fas fa-building',       'rtab-rep'],
         ['technician','Technicians','fas fa-hard-hat',      'rtab-tech'],
         ['reporter','Reporters',   'fas fa-bullhorn',       'rtab-rep'],
-        ['student','Students',     'fas fa-graduation-cap', 'rtab-stud'],
       ];
       foreach($tabs as [$rval,$rlbl,$rico,$rcls]):
         $act = $rf===$rval?'on':'';
@@ -1071,7 +1172,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
               <span class="bdg <?php echo roleCls($u['role']); ?>">
                 <i class="<?php echo roleIco($u['role']); ?>" style="font-size:.6rem;margin-right:.18rem;"></i>
                 <?php echo roleLbl($u['role']); ?>
-              </span>
+              </span><?php echo typeBadge($u); ?>
             </td>
             <td>
               <?php if(!empty($u['department'])):?>
@@ -1109,10 +1210,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
                   onclick="openEdit(<?php echo htmlspecialchars(json_encode($u),ENT_QUOTES);?>)">
                   <i class="fas fa-pen"></i>
                 </button>
+                <?php if($roleNeedsPassword($u['role'] ?? '')): ?>
                 <button type="button" class="btn bico bi-k" title="Reset Password"
                   onclick="openReset('<?php echo esc($u['user_id']);?>','<?php echo esc($u['fullname']??'');?>')">
                   <i class="fas fa-key"></i>
                 </button>
+                <?php endif; ?>
                 <?php if($u['user_id']!==$admin_id): ?>
                 <button type="button" class="btn bico bi-d" title="Delete"
                   onclick="delUser('<?php echo esc($u['user_id']);?>','<?php echo esc($u['fullname']??'');?>')">
@@ -1154,7 +1257,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
             <span class="bdg <?php echo roleCls($u['role']);?>">
               <i class="<?php echo roleIco($u['role']);?>" style="font-size:.6rem;margin-right:.15rem;"></i>
               <?php echo roleLbl($u['role']);?>
-            </span>
+            </span><?php echo typeBadge($u); ?>
             <?php if(!empty($u['department'])):?>
             <span class="dept-<?php echo $dc;?>" style="font-size:.6rem;padding:.15rem .48rem;">
               <?php echo esc($u['department']);?>
@@ -1182,10 +1285,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
               onclick="openEdit(<?php echo htmlspecialchars(json_encode($u),ENT_QUOTES);?>)">
               <i class="fas fa-pen"></i>
             </button>
+            <?php if($roleNeedsPassword($u['role'] ?? '')): ?>
             <button type="button" class="btn btn-ghost btn-sm" title="Reset Password"
               onclick="openReset('<?php echo esc($u['user_id']);?>','<?php echo esc($u['fullname']??'');?>')">
               <i class="fas fa-key"></i>
             </button>
+            <?php endif; ?>
             <?php if($u['user_id']!==$admin_id):?>
             <button type="button" class="btn btn-red btn-sm" title="Delete"
               onclick="delUser('<?php echo esc($u['user_id']);?>','<?php echo esc($u['fullname']??'');?>')">
@@ -1210,13 +1315,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
     <div class="mhd">
       <div class="mhd-t">
         <h2><i class="fas fa-user-plus" style="margin-right:.3rem;opacity:.8;"></i> Add New User</h2>
-        <p>Create a new system account for BEC staff or students.</p>
+        <p>Register a reporter, or create a login for PMO staff, a technician, or an administrator.</p>
       </div>
       <button class="mx" onclick="document.getElementById('createMo').classList.remove('open')"><i class="fas fa-times"></i></button>
     </div>
     <div class="mb">
       <form method="POST" action="admin_users.php" id="createForm" onsubmit="return deptGuard('cuRole','cuDeptTxt');">
         <input type="hidden" name="action" value="create">
+        <p id="cuRoleNote" style="display:none;font-size:.76rem;line-height:1.6;color:var(--t2);background:rgba(8,145,178,.08);
+          border:1px solid rgba(8,145,178,.25);border-left:3px solid #0891B2;border-radius:.5rem;padding:.6rem .75rem;margin:0 0 1rem;"></p>
         <div class="fg2">
           <div class="fg">
             <label class="fl">Full Name <span>*</span></label>
@@ -1230,7 +1337,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         <div class="fg2">
           <div class="fg">
             <label class="fl">Role <span>*</span></label>
-            <select name="role" id="cuRole" class="fc" required onchange="deptRoleSync('cuRole','cuDeptSel','cuDeptStar','cuDeptHint')">
+            <select name="role" id="cuRole" class="fc" required onchange="deptRoleSync('cuRole','cuDeptSel','cuDeptStar','cuDeptHint');createAuthSync();">
               <?php foreach($assignableRoleMeta as $roleValue => $roleLabel): ?>
                 <option value="<?php echo esc($roleValue); ?>" <?php echo in_array($roleValue, $assignableRoles, true) ? '' : 'disabled'; ?>>
                   <?php echo esc($roleLabel . (in_array($roleValue, $assignableRoles, true) ? '' : ' (DB setup needed)')); ?>
@@ -1257,11 +1364,23 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
             <p id="cuDeptHint" style="font-size:.72rem;color:var(--t3,#9A7A7A);margin:.4rem 0 0;line-height:1.5;display:none;"><i class="fas fa-circle-info"></i> For an <strong>Administrator</strong> this sets which dashboard they oversee — pick <strong>PMO</strong> or <strong>ITSO</strong>.</p>
           </div>
         </div>
+        <?php if($hasUserTypeCol): /* hidden until scripts/2026_08_reporter_user_type.sql has run */ ?>
+        <div class="fg" id="cuTypeBlock">
+          <label class="fl">Reporter Type <span>*</span></label>
+          <select name="user_type" id="cuType" class="fc">
+            <option value="">Select…</option>
+            <?php foreach($reporterTypeMeta as $tVal => $tLbl): ?>
+              <option value="<?php echo esc($tVal); ?>"><?php echo esc($tLbl); ?></option>
+            <?php endforeach; ?>
+          </select>
+          <p style="font-size:.72rem;color:var(--t3,#9A7A7A);margin:.4rem 0 0;line-height:1.5;"><i class="fas fa-circle-info"></i> Everyone who reports is a <strong>Reporter</strong>. This says who they are at BEC, so the PMO knows whether a report came from a student, a teacher, or staff.</p>
+        </div>
+        <?php endif; ?>
         <div class="fg">
           <label class="fl">Phone Number</label>
           <input type="tel" name="phone" class="fc" placeholder="09171234567" maxlength="11" inputmode="numeric">
         </div>
-        <div class="fg2">
+        <div class="fg2" id="cuPassBlock">
           <div class="fg">
             <label class="fl">Password <span>*</span></label>
             <div class="pass-wrap">
@@ -1366,7 +1485,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         <div class="fg2">
           <div class="fg">
             <label class="fl">Role <span>*</span></label>
-            <select name="role" id="eRole" class="fc" required onchange="deptRoleSync('eRole','eDeptSel','eDeptStar','eDeptHint')">
+            <select name="role" id="eRole" class="fc" required onchange="deptRoleSync('eRole','eDeptSel','eDeptStar','eDeptHint');editAuthSync();">
               <?php foreach($assignableRoleMeta as $roleValue => $roleLabel): ?>
                 <option value="<?php echo esc($roleValue); ?>" <?php echo in_array($roleValue, $assignableRoles, true) ? '' : 'disabled'; ?>>
                   <?php echo esc($roleLabel . (in_array($roleValue, $assignableRoles, true) ? '' : ' (DB setup needed)')); ?>
@@ -1399,7 +1518,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
             <input type="tel" name="phone" id="ePhone" class="fc" placeholder="09171234567" maxlength="11" inputmode="numeric">
           </div>
         </div>
-        <div class="fg">
+        <?php if($hasUserTypeCol): ?>
+        <div class="fg" id="eTypeBlock">
+          <label class="fl">Reporter Type <span>*</span></label>
+          <select name="user_type" id="eType" class="fc">
+            <option value="">Select…</option>
+            <?php foreach($reporterTypeMeta as $tVal => $tLbl): ?>
+              <option value="<?php echo esc($tVal); ?>"><?php echo esc($tLbl); ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <?php endif; ?>
+        <div class="fg" id="ePassBlock">
           <label class="fl">New Password <span style="color:var(--t3);font-weight:400;text-transform:none;letter-spacing:0;">(leave blank to keep current)</span></label>
           <div class="pass-wrap">
             <input type="password" name="new_password" id="epw" class="fc" placeholder="Enter new password to change…" oninput="checkStrength(this,'estr')">
@@ -1407,6 +1537,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
           </div>
           <div class="strength-bar"><div id="estr" class="strength-fill" style="width:0;"></div></div>
         </div>
+        <p id="eRoleNote" style="display:none;font-size:.76rem;line-height:1.6;color:var(--t2);background:rgba(8,145,178,.08);
+          border:1px solid rgba(8,145,178,.25);border-left:3px solid #0891B2;border-radius:.5rem;padding:.6rem .75rem;margin:.2rem 0 0;"></p>
       </form>
     </div>
     <div class="mf">
@@ -1579,6 +1711,10 @@ const USER_EXPORT = <?php
   $exp = [];
   foreach ($users as $u2) {
       $roleLbl = ucwords(str_replace('_', ' ', (string)($u2['role'] ?? '')));
+      // A reporter reads as "Reporter (Faculty)" on the PMO form — the role plus
+      // who they are at the college.
+      $typeLbl = ucwords(strtolower(trim((string)($u2['user_type'] ?? ''))));
+      if ($typeLbl !== '' && ($u2['role'] ?? '') === 'reporter') { $roleLbl .= ' (' . $typeLbl . ')'; }
       $program = trim((string)($u2['course'] ?? ''));
       $exp[] = [
           (string)($u2['fullname'] ?? ''),
@@ -1644,8 +1780,68 @@ function exportPDF(){
   toast('ok','Print dialog opened.','PDF Export');
 }
 
+/* ─── PASSWORD VISIBILITY BY ROLE ────────────────────── */
+// Reporters and students sign in at the reporter portal with their full name
+// and BEC email — there is no password to set, so the fields are hidden (and
+// un-required, or the browser would block submit on an invisible input).
+const PASSWORDLESS_ROLES = <?php echo json_encode($passwordlessRoles); ?>;
+function isPasswordless(role){ return PASSWORDLESS_ROLES.indexOf(role) !== -1; }
+
+// The reporter type only means something for a reporter — a technician has a
+// specialization instead, an administrator a unit.
+function typeSync(roleId, blockId, selId){
+  const block = document.getElementById(blockId), sel = document.getElementById(selId);
+  if(!block || !sel) return;              // field absent until the migration runs
+  const role = (document.getElementById(roleId)||{}).value||'';
+  const on   = (role === 'reporter');
+  block.style.display = on ? '' : 'none';
+  sel.required = on;
+  if(!on) sel.value = '';
+}
+
+function createAuthSync(){
+  typeSync('cuRole','cuTypeBlock','cuType');
+  const role  = (document.getElementById('cuRole')||{}).value||'';
+  const block = document.getElementById('cuPassBlock');
+  const note  = document.getElementById('cuRoleNote');
+  const pw    = document.getElementById('cpw'), pw2 = document.getElementById('cpw2');
+  const off   = isPasswordless(role);
+  block.style.display = off ? 'none' : '';
+  pw.required = pw2.required = !off;
+  if(off){
+    pw.value=''; pw2.value=''; document.getElementById('cstr').style.width='0';
+    note.innerHTML = '<i class="fas fa-circle-info"></i> <strong>No password needed.</strong> '
+      + (role==='student'?'Students':'Reporters')
+      + ' sign in at the reporting portal with their full name and official <strong>@bec.edu.ph</strong> email — '
+      + 'adding them here is what lets that email pass the BEC identity check.';
+    note.style.display='';
+  } else {
+    note.style.display='none';
+  }
+}
+
+function editAuthSync(){
+  typeSync('eRole','eTypeBlock','eType');
+  const role  = (document.getElementById('eRole')||{}).value||'';
+  const block = document.getElementById('ePassBlock');
+  const note  = document.getElementById('eRoleNote');
+  const off   = isPasswordless(role);
+  block.style.display = off ? 'none' : '';
+  if(off){
+    document.getElementById('epw').value='';
+    document.getElementById('estr').style.width='0';
+    note.innerHTML = '<i class="fas fa-circle-info"></i> This account signs in with full name + BEC email at the reporting portal, so it has no password to change.';
+    note.style.display='';
+  } else {
+    note.style.display='none';
+  }
+}
+
 /* ─── CREATE MODAL ───────────────────────────────────── */
-function openCreate(){document.getElementById('createMo').classList.add('open');}
+function openCreate(){
+  createAuthSync();
+  document.getElementById('createMo').classList.add('open');
+}
 
 /* ─── EDIT MODAL ─────────────────────────────────────── */
 let _curUser = null;
@@ -1657,6 +1853,9 @@ function openEdit(u){
   document.getElementById('eRole').value  = u.role||'reporter';
   deptLoad('eDeptSel','eDept', u.department||'');
   deptRoleSync('eRole','eDeptSel','eDeptStar','eDeptHint');
+  const eType = document.getElementById('eType');
+  if(eType) eType.value = (u.user_type||'').toLowerCase();
+  editAuthSync();
   document.getElementById('ePhone').value = u.phone||'';
   document.getElementById('epw').value    = '';
   document.getElementById('estr').style.width='0';
@@ -1797,7 +1996,7 @@ function animN(id,to){
 document.addEventListener('DOMContentLoaded',()=>{
   animN('sn0',<?php echo $c_total;?>);animN('sn1',<?php echo $c_admin;?>);
   animN('sn2',<?php echo $c_pmo;?>);animN('sn5',<?php echo $c_tech;?>);
-  animN('sn6',<?php echo $c_rep;?>);animN('sn7',<?php echo $c_student;?>);
+  animN('sn6',<?php echo $c_rep;?>);
 });
 
 /* ─── HELPERS ─────────────────────────────────────────── */
