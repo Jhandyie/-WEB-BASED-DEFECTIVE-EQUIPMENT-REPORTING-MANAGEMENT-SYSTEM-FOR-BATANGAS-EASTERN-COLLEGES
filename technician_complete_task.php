@@ -207,6 +207,7 @@ try {
 } catch (Exception $e) {
     $conn->rollback();
     error_log('technician_complete_task error: ' . $e->getMessage());
-    echo json_encode(['success' => false, 'message' => 'Error completing task: ' . $e->getMessage()]);
+    // Already logged above — the driver's text stays out of the response.
+    echo json_encode(['success' => false, 'message' => 'The completion report could not be saved. Please try again, or contact the PMO if it keeps failing.']);
 }
 exit();

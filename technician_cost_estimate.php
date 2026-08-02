@@ -12,6 +12,7 @@ require_once __DIR__ . '/includes/session_bootstrap.php';
 startRoleSession(isset($_COOKIE['BECSESSID_ADMIN']) ? 'admin' : 'technician');
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/technician_guard.php';
 requireRole('technician'); // admins bypass this in requireRole()
 
 function ce_e($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
@@ -23,9 +24,16 @@ $loc = '';
 if ($reportId !== '') {
     try {
         $pdo = getPgsqlPdoConnection();
-        $st = $pdo->prepare("SELECT equipment_name, location FROM defect_reports WHERE report_id = :r LIMIT 1");
+        $st = $pdo->prepare("SELECT equipment_name, location, assigned_to FROM defect_reports WHERE report_id = :r LIMIT 1");
         $st->execute(['r' => $reportId]);
         $row = $st->fetch(PDO::FETCH_ASSOC);
+        // A technician may pre-fill this worksheet only from a task of their own;
+        // admins (who bypass requireRole) may use any report.
+        if ($row && ($_SESSION['role'] ?? '') === 'technician'
+            && !technicianOwnsAssigneeValue((string)($row['assigned_to'] ?? ''), technicianIdentityKeysFromSession($_SESSION))) {
+            $row = null;
+            $reportId = '';
+        }
         if ($row) { $eqName = (string)($row['equipment_name'] ?? ''); $loc = (string)($row['location'] ?? ''); }
     } catch (\Throwable $e) { /* standalone use is fine */ }
 }
@@ -37,8 +45,8 @@ $today = date('F j, Y');
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Estimated Service Cost — BEC PMO</title>
 <link rel="icon" type="image/png" href="assets/logs.png">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <style>
   :root{--maroon:#7B1D1D;--maroon-d:#4A0E0E;--gold:#C9960C;--ink:#1C1008;--ink2:#5C3838;--ink3:#755B4E;--paper:#F1EEE8;--surface:#fff;--border:#E2D9CC;--line:#D8CCBD;}
   *{margin:0;padding:0;box-sizing:border-box;font-family:'DM Sans',system-ui,sans-serif;}

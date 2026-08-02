@@ -117,6 +117,9 @@ function verifyLogin() {
 
         // Credentials OK — clear the brute-force counter and create session (no OTP)
         RateLimiter::clear('tech_login:' . RateLimiter::clientIp() . ':' . strtolower($email));
+        // New session id on privilege change, so an id planted before sign-in
+        // (session fixation) cannot be reused as a signed-in technician.
+        session_regenerate_id(true);
         $_SESSION['user_id']    = $user['user_id'];
         $_SESSION['user_email'] = $user['email'];
         $_SESSION['fullname']   = $user['fullname'];

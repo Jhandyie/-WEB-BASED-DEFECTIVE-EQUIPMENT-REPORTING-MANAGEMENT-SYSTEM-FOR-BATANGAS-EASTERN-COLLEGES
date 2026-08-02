@@ -209,6 +209,10 @@ function verifyOTPHandler() {
     RateLimiter::clear('admin_otp:' . RateLimiter::clientIp() . ':' . strtolower($email));
     $user = $result['user'];
 
+    // New session id the moment the visitor becomes an administrator, so a
+    // session id planted before sign-in (fixation) can never carry admin rights.
+    session_regenerate_id(true);
+
     $_SESSION['user_id'] = $user['user_id'];
     $_SESSION['user_email'] = $user['email'];
     $_SESSION['fullname'] = $user['fullname'];

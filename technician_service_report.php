@@ -13,6 +13,7 @@ require_once __DIR__ . '/includes/session_bootstrap.php';
 startRoleSession(isset($_COOKIE['BECSESSID_ADMIN']) ? 'admin' : 'technician');
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/technician_guard.php';
 requireRole('technician'); // admins bypass this in requireRole()
 
 function sr_e($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
@@ -41,6 +42,18 @@ if ($reportId !== '') {
             $st->execute(['r' => $reportId]);
             $r = $st->fetch(PDO::FETCH_ASSOC) ?: null;
         } catch (\Throwable $e2) { $r = null; }
+    }
+}
+
+// The report carries the reporter's name and the full fault history, and the
+// portal promises reporters that only the PMO and *their* technician see it.
+// Any signed-in technician could previously read any report by changing the id
+// in the address bar, so the assignment is checked here as well as the role.
+if ($r !== null && ($_SESSION['role'] ?? '') === 'technician') {
+    $assignee = (string)($r['assigned_to'] ?? ($r['assigned_technician'] ?? ''));
+    if (!technicianOwnsAssigneeValue($assignee, technicianIdentityKeysFromSession($_SESSION))) {
+        http_response_code(403);
+        exit('This service report belongs to another technician\'s task.');
     }
 }
 
@@ -77,8 +90,8 @@ $today = date('F j, Y');
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Service Report<?php echo $reportId !== '' ? ' — ' . sr_e($reportId) : ''; ?> — BEC PMO</title>
 <link rel="icon" type="image/png" href="assets/logs.png">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <style>
   :root{--maroon:#7B1D1D;--maroon-d:#4A0E0E;--gold:#C9960C;--ink:#1C1008;--ink2:#5C3838;--ink3:#755B4E;--paper:#F1EEE8;--surface:#fff;--border:#E2D9CC;--line:#D8CCBD;}
   *{margin:0;padding:0;box-sizing:border-box;font-family:'DM Sans',system-ui,sans-serif;}

@@ -5,6 +5,7 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/technician_guard.php';
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/webpush.php';
+require_once __DIR__ . '/includes/csrf.php';
 
 requireRole('technician');
 
@@ -220,6 +221,10 @@ $selectedId = trim((string)($_GET['report'] ?? ''));
 $flash = ['type' => trim((string)($_GET['flash_type'] ?? '')), 'message' => trim((string)($_GET['flash'] ?? ''))];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // The page already emits tokens through csrf_inject.php; nothing was
+    // checking them, so any site could drive a signed-in technician's task
+    // through the workflow — accept it, complete it — on their behalf.
+    requireCsrf();
     $action = trim((string)($_POST['action'] ?? ''));
 
     // Notification center: mark one / all as read (not tied to a defect report).
@@ -305,6 +310,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $message = 'Unable to save the task update.';
                 $type = 'err';
             } elseif ($updates && $type === 'ok') {
+                // The workflow steps a technician takes are as much a part of the
+                // maintenance record as the final completion, which was the only
+                // one reaching the audit log.
+                logActivity($techId, 'task.' . $action,
+                    'Report ' . $reportId . ' — ' . $action
+                    . (isset($updates['status']) ? ' (now ' . $updates['status'] . ')' : '')
+                    . ' by ' . $techName);
                 $fresh = getDefectReportById($reportId) ?: $report;
                 if ($action === 'accept') {
                     notifyReporter($fresh, 'A technician has received your report ' . $reportId . ' and will begin work.', 'Received by Technician', 'A technician has acknowledged your report and will begin the repair work soon.');
