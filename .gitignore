@@ -82,3 +82,5 @@ data/vapid.json
 scripts/tools/
 assets/_originals/
 uploads/_originals/
+scripts/__pycache__/
+data/apache_watchdog.pid

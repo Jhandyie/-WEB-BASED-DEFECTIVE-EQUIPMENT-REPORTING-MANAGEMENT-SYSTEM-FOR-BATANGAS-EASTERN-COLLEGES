@@ -67,6 +67,21 @@ if exist "%KEEPAWAKE_PID%" (
     echo  NOTE: could not enable sleep prevention - set Windows sleep to "Never" manually.
 )
 echo  Reminder: keep the laptop LID OPEN. Closing it still suspends Windows.
+
+REM ---- 3b. Watch Apache for the whole demo ---------------------
+REM The check in step 1 happens once. Apache on this machine crashes on its own
+REM (opcache/VirtualProtect), and a crash twenty minutes in leaves the tunnel up
+REM while every visitor gets a connection error. This polls the site like a
+REM visitor and restarts Apache within seconds if it stops answering.
+set "WATCHDOG_PID=%APP_DIR%\data\apache_watchdog.pid"
+if exist "%WATCHDOG_PID%" del /q "%WATCHDOG_PID%" >nul 2>&1
+start "" /B powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "%APP_DIR%\scripts\apache_watchdog.ps1" >nul 2>&1
+ping -n 3 127.0.0.1 >nul
+if exist "%WATCHDOG_PID%" (
+    echo  Apache watchdog: ON ^(restarts the server if it crashes; see logs\watchdog.log^)
+) else (
+    echo  NOTE: could not start the Apache watchdog.
+)
 echo.
 
 REM ---- 4. Open the public tunnel -------------------------------
@@ -85,6 +100,12 @@ echo   Printable QR sheet:
 echo     Desktop\BEC-demo-QR.html
 echo     ^(rebuild it with: php scripts\make_demo_qr.php^)
 echo.
+echo   To INSTALL the technician app on a phone, open this on the
+echo   phone ^(the address above is https, which app install needs^):
+echo     https://%DEMO_URL%/-WEB-BASED/technician/login.html
+echo     Android Chrome:  menu  then  Install app
+echo     iPhone Safari:   Share  then  Add to Home Screen
+echo.
 echo   Keep this window OPEN during the demo. Close it to stop.
 echo ============================================================
 echo.
@@ -102,6 +123,10 @@ exit /b 0
 REM Stop the keep-awake helper. Windows reverts to the normal sleep timer the
 REM moment that process exits - nothing needs restoring by hand.
 :stopawake
+if exist "%WATCHDOG_PID%" (
+    for /f "usebackq delims=" %%P in ("%WATCHDOG_PID%") do taskkill /PID %%P /F >nul 2>&1
+    del /q "%WATCHDOG_PID%" >nul 2>&1
+)
 if exist "%KEEPAWAKE_PID%" (
     for /f "usebackq delims=" %%P in ("%KEEPAWAKE_PID%") do taskkill /PID %%P /F >nul 2>&1
     del /q "%KEEPAWAKE_PID%" >nul 2>&1
