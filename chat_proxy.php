@@ -357,7 +357,12 @@ function chatLookupReport($conn, string $text): ?array
             dr.status,
             dr.priority,
             dr.report_date,
-            COALESCE(dr.completion_date, '') AS completion_date,
+            -- Not COALESCE(..., ''): MySQL coerces an empty string into a
+            -- datetime, Postgres refuses it outright, and this whole lookup
+            -- failed with SQLSTATE 22007 every time someone asked the assistant
+            -- to track a ticket. Nothing reads this column anyway, so it is
+            -- selected as-is and left null when the repair is not finished.
+            dr.completion_date,
             COALESCE(dr.issue_description, '') AS issue_description,
             e.equipment_id,
             COALESCE(e.asset_tag, '') AS asset_tag,
