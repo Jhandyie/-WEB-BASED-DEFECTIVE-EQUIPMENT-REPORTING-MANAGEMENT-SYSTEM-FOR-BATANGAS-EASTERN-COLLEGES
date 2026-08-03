@@ -146,14 +146,32 @@ $conn = getDBConnection();
 $equipment_rows = getAllEquipment();
 $category_rows = getAllCategories();
 $equipment_list = array_values(array_map(static function ($row) {
+    $id = (string)($row['equipment_id'] ?? $row['id'] ?? '');
     return [
-        'id' => (string)($row['equipment_id'] ?? $row['id'] ?? ''),
+        'id' => $id,
         'name' => (string)($row['equipment_name'] ?? ''),
         'category' => (string)($row['category_name'] ?? $row['equipment_category'] ?? $row['category'] ?? 'Uncategorized'),
         'asset_tag' => (string)($row['asset_tag'] ?? ''),
         'location' => trim((string)($row['location'] ?? '')),
+        // Where this entry came from. The PMO's inventory creates EQ- ids (and
+        // imported ones keep their property number); a reporter who types a
+        // name that is not on the list gets a MAN- row created for them. Both
+        // sit in the same table, so without this the suggestions a reporter
+        // scrolls through are mostly other people's past reports wearing the
+        // same clothes as real inventory.
+        'source' => str_starts_with($id, 'MAN-') ? 'reported' : 'inventory',
     ];
 }, $equipment_rows));
+
+// Inventory first, so it is what a reporter sees and picks.
+usort($equipment_list, static function ($a, $b) {
+    if ($a['source'] !== $b['source']) { return $a['source'] === 'inventory' ? -1 : 1; }
+    return strnatcasecmp($a['name'], $b['name']);
+});
+$equipment_counts = [
+    'inventory' => count(array_filter($equipment_list, static fn($e) => $e['source'] === 'inventory')),
+    'reported'  => count(array_filter($equipment_list, static fn($e) => $e['source'] === 'reported')),
+];
 
 // Canonical BEC categories + campus/building/room locations from the PMO inventory.
 require_once __DIR__ . '/data/bec_inventory_reference.php';
@@ -969,6 +987,19 @@ body::after {
   border-top:1px solid var(--border);
 }
 .eq-group-label:first-child { border-top:none; }
+/* Which store an entry came from. The inventory heading carries the brand
+   colour; anything a reporter typed in a past report is set apart and muted so
+   it cannot be mistaken for a cataloged asset. */
+.eq-source-label {
+  font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:1.1px;
+  color:var(--maroon);background:rgba(123,29,29,.05);
+  padding:.5rem .85rem;border-top:1px solid var(--border);
+}
+.eq-source-label:first-child { border-top:none; }
+.eq-source-label ~ .eq-source-label,
+.eq-source-label + .eq-group-label { border-top:none; }
+.eq-item-reported .eq-id { opacity:.55; }
+.eq-item-reported .eq-name { color:var(--ink2); }
 .eq-item {
   display:flex;align-items:center;gap:.6rem;
   padding:.55rem .85rem;cursor:pointer;
@@ -1549,15 +1580,25 @@ html { scroll-behavior: smooth; }
           <select name="reporter_department" id="rDept" class="fsel" required>
             <option value="" disabled <?php echo empty($_POST['reporter_department']) ? 'selected' : ''; ?>>Select your department…</option>
             <?php
-              // Group departments into labelled optgroups so the native mobile picker is easy to scan.
+              // Labelled optgroups, so the native mobile picker is easy to scan.
+              // Membership is stated outright rather than guessed from words in
+              // the name: the old version tested for "school", "college",
+              // "office" and so on, which quietly put anything renamed - or any
+              // department added later - under "Other".
               $__deptGroups = ['Basic Education'=>[], 'Higher Education'=>[], 'Technical-Vocational'=>[], 'Administrative'=>[], 'Other'=>[]];
+              $__groupOf = [
+                  'Pre-School'                          => 'Basic Education',
+                  'Grade School'                        => 'Basic Education',
+                  'Junior High School'                  => 'Basic Education',
+                  'Senior High School'                  => 'Basic Education',
+                  'College of Teacher Education'        => 'Higher Education',
+                  'College of Business'                 => 'Higher Education',
+                  'College of Computer Studies'         => 'Higher Education',
+                  'Technical-Vocational Center'         => 'Technical-Vocational',
+                  'Administrative / Non-teaching Office' => 'Administrative',
+              ];
               foreach (array_keys($becPrograms) as $__d) {
-                  $__l = strtolower($__d);
-                  if (strpos($__l, 'college') !== false)                                            $__deptGroups['Higher Education'][] = $__d;
-                  elseif (strpos($__l, 'technical') !== false || strpos($__l, 'vocational') !== false) $__deptGroups['Technical-Vocational'][] = $__d;
-                  elseif (strpos($__l, 'administrative') !== false || strpos($__l, 'office') !== false) $__deptGroups['Administrative'][] = $__d;
-                  elseif (strpos($__l, 'school') !== false || strpos($__l, 'grade') !== false)         $__deptGroups['Basic Education'][] = $__d;
-                  else                                                                                 $__deptGroups['Other'][] = $__d;
+                  $__deptGroups[$__groupOf[$__d] ?? 'Other'][] = $__d;
               }
               $__depSel = $_POST['reporter_department'] ?? '';
               foreach ($__deptGroups as $__grp => $__depts):
@@ -1572,7 +1613,7 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
       <div class="fg" style="margin-top:.85rem;">
-        <label class="fl" for="rCourse">Course / Program / Grade Level <span id="rCourseOpt" style="color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(select a department first)</span></label>
+        <label class="fl" for="rCourse">Course / Program <span id="rCourseOpt" style="color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(select a department first)</span></label>
         <div class="fi-wrap">
           <i class="fas fa-graduation-cap fi-icon"></i>
           <select name="reporter_course" id="rCourse" class="fsel" disabled>
@@ -1821,7 +1862,7 @@ html { scroll-behavior: smooth; }
     course.innerHTML = '';
     if (list.length) {
       var ph = document.createElement('option');
-      ph.value = ''; ph.textContent = 'Select your course, program, or grade level…'; ph.disabled = true; ph.selected = true;
+      ph.value = ''; ph.textContent = 'Select your course or program…'; ph.disabled = true; ph.selected = true;
       course.appendChild(ph);
       list.forEach(function (c) {
         var o = document.createElement('option');
@@ -1940,18 +1981,30 @@ function renderDropdown(query) {
     return;
   }
 
-  const grouped = groupBy(matches, 'category');
+  // The PMO's inventory comes first and on its own. What follows it are entries
+  // that exist only because someone typed them into a past report - useful to
+  // reuse, but they are not inventory and should not look like it.
   let html = '';
-  for (const [cat, items] of Object.entries(grouped)) {
-    html += `<div class="eq-group-label">${escapeHtml(cat)}</div>`;
-    items.forEach((item) => {
-      const itemIndex = equipData.indexOf(item);
-      const locLine = item.location ? `<span class="eq-loc">${escapeHtml(item.location)}</span>` : '';
-      html += `<div class="eq-item" data-index="${itemIndex}">
-        <span class="eq-id">${escapeHtml(item.id)}</span>
-        <span class="eq-body"><span class="eq-name">${escapeHtml(item.name)}</span>${locLine}</span>
-      </div>`;
-    });
+  const sections = [
+    { key: 'inventory', label: 'From the PMO inventory' },
+    { key: 'reported',  label: 'Previously reported (not in the inventory yet)' },
+  ];
+  for (const section of sections) {
+    const rows = matches.filter(e => (e.source || 'inventory') === section.key);
+    if (!rows.length) continue;
+    html += `<div class="eq-source-label">${escapeHtml(section.label)}</div>`;
+    const grouped = groupBy(rows, 'category');
+    for (const [cat, items] of Object.entries(grouped)) {
+      html += `<div class="eq-group-label">${escapeHtml(cat)}</div>`;
+      items.forEach((item) => {
+        const itemIndex = equipData.indexOf(item);
+        const locLine = item.location ? `<span class="eq-loc">${escapeHtml(item.location)}</span>` : '';
+        html += `<div class="eq-item${section.key === 'reported' ? ' eq-item-reported' : ''}" data-index="${itemIndex}">
+          <span class="eq-id">${escapeHtml(item.id)}</span>
+          <span class="eq-body"><span class="eq-name">${escapeHtml(item.name)}</span>${locLine}</span>
+        </div>`;
+      });
+    }
   }
   if (q) {
     html += '<div class="eq-manual"><strong>Not in the list?</strong> Keep typing the new equipment name and submit it manually.</div>';

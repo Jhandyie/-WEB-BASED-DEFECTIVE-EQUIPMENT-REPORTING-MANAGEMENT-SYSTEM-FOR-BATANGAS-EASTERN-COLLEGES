@@ -527,7 +527,18 @@ try {
             ? "(SELECT COUNT(*) FROM {$defectReportsTable} dr WHERE LOWER(dr.reporter_email)=LOWER(bd.email))"
             : "0";
         $drows = $pdoD->query("SELECT bd.*, {$reporterEmailExpr} AS report_count FROM public.bec_directory bd ORDER BY bd.full_name ASC")->fetchAll(PDO::FETCH_ASSOC);
+        // Someone can be both an account and a directory entry — a reporter who
+        // was later given a login, for instance. Listing both showed the same
+        // person twice, once editable and once not, which also double-counted
+        // them in the totals.
+        $accountEmails = [];
+        foreach ($users as $existing) {
+            $e = strtolower(trim((string)($existing['email'] ?? '')));
+            if ($e !== '') { $accountEmails[$e] = true; }
+        }
         foreach ($drows as $bd) {
+            $dirEmail = strtolower(trim((string)($bd['email'] ?? '')));
+            if ($dirEmail !== '' && isset($accountEmails[$dirEmail])) { continue; }
             $ut = strtolower(trim((string)($bd['user_type'] ?? 'student')));
             if (!in_array($ut, ['student','faculty','staff'], true)) { $ut = 'student'; }
             $entry = [

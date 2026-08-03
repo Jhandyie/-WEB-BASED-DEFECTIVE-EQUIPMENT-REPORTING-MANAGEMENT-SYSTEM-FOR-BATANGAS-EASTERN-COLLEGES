@@ -1121,6 +1121,11 @@ function becSyncReporterProfile(string $email, string $department = '', string $
         $usets = []; $up = ['e' => $email];
         if ($phone !== '' && isset($cols['phone']))           { $usets[] = 'phone = :ph';   $up['ph'] = $phone; }
         if ($department !== '' && isset($cols['department']))  { $usets[] = 'department = :d'; $up['d'] = $department; }
+        // The course carries the year or grade level too ("… - 2nd Year"), and
+        // it was reaching the directory record but not the account, so a
+        // reporter with a login showed a department and nothing else in User
+        // Management.
+        if ($course !== '' && isset($cols['course']))          { $usets[] = 'course = :c';   $up['c'] = $course; }
         if ($usets) {
             $st2 = $pdo->prepare('UPDATE public.users SET ' . implode(', ', $usets) . ' WHERE lower(email) = :e');
             $st2->execute($up);
