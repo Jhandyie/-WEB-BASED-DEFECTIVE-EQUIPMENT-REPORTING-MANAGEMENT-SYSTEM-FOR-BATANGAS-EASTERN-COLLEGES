@@ -6,7 +6,13 @@
  *   - Static assets (css/js/img/fonts): cache-first with background refill.
  *   - POSTs / API calls are never intercepted.
  */
-const VERSION = 'bec-pmo-v4';
+// Bump this whenever a cached asset's BYTES change under the same filename.
+// Static assets are served cache-first, so a phone that installed the app
+// before the August image/font re-encode would keep serving the old 777 KB
+// seal and the pre-subset icon font from its cache indefinitely — the
+// Cache-Control headers in .htaccess never get consulted for a cache hit.
+// Changing VERSION makes `activate` delete every cache that isn't this one.
+const VERSION = 'bec-pmo-v6';
 const STATIC_CACHE = VERSION + '-static';
 const PAGE_CACHE = VERSION + '-pages';
 
