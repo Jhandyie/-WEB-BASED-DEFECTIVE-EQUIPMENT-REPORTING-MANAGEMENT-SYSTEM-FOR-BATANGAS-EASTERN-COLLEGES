@@ -11,8 +11,27 @@ Options -Indexes
 # PWA: correct MIME type for the web-app manifest
 AddType application/manifest+json .webmanifest
 
-# Security response headers (no CSP — the app relies on inline scripts/styles).
+# Security response headers.
+#
+# Content-Security-Policy: the pages carry 54 inline <script> blocks and over a
+# thousand inline style attributes, so 'unsafe-inline' has to stay until those
+# are moved out or given nonces. Be clear about what that means: this policy
+# does NOT stop an injected inline script. What it does stop is everything an
+# attacker normally does next, and a few whole classes of attack outright:
+#
+#   default-src 'self'   no resource may be loaded from another origin
+#   script-src           no remote script files (only inline, already trusted)
+#   connect-src 'self'   fetch/XHR/WebSocket cannot post data off-site
+#   form-action 'self'   a form cannot be repointed at someone else's server
+#   frame-ancestors      the admin cannot be framed for clickjacking
+#   base-uri 'self'      a <base> tag cannot silently re-root every relative URL
+#   object-src 'none'    no Flash/Java/plugin embedding
+#
+# Everything the app needs is served from this host (fonts, icons, Chart.js,
+# SheetJS), so 'self' is enough. data: covers the inline SVG backgrounds and
+# blob: the camera previews the reporter and technician forms create.
 <IfModule mod_headers.c>
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; media-src 'self' blob:; worker-src 'self' blob:; frame-ancestors 'self'; form-action 'self'; base-uri 'self'; object-src 'none'"
     Header always set X-Frame-Options "SAMEORIGIN"
     Header always set X-Content-Type-Options "nosniff"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
