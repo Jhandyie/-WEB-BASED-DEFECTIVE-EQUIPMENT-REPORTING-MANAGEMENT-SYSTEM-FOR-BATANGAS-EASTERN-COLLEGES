@@ -42,6 +42,10 @@ DYNAMIC = {
     "times-circle", "reply", "bell",
     # toast() helpers
     "exclamation-circle",
+    # admin_defect_reports.php — `fa-user-<?= $assigned ? 'pen' : 'plus' ?>`.
+    # user-pen shares U+F4FF with user-edit, so it survives today only because
+    # user-edit is still written literally somewhere else; name it outright.
+    "user-pen", "user-plus",
 }
 
 SKIP_DIRS = {"backups", "uploads", "node_modules", ".git", "_originals"}
@@ -68,10 +72,24 @@ def used_names():
 
 
 def css_map():
+    """Map every fa-* name to its codepoint, including aliases.
+
+    Font Awesome groups aliases onto one rule:
+
+        .fa-ticket-alt:before,.fa-ticket-simple:before{content:"\\f3ff"}
+
+    Matching a single ``.fa-x:before`` immediately followed by ``{`` only ever
+    sees the LAST name in such a group. Every alias written first — fa-ticket-alt
+    and fa-table-list among them — mapped to nothing, was left out of the keep
+    set, and its glyph was subset away, so the icon rendered blank. Read the
+    whole selector list for each rule and record every name in it.
+    """
     text = open(CSS, encoding="utf-8", errors="ignore").read()
     mapping = {}
-    for m in re.finditer(r"\.fa-([a-z0-9-]+):before\s*\{\s*content:\s*[\"']\\([0-9a-fA-F]+)[\"']", text):
-        mapping[m.group(1)] = int(m.group(2), 16)
+    for m in re.finditer(r"([^{}]+)\{\s*content:\s*[\"']\\([0-9a-fA-F]+)[\"']", text):
+        cp = int(m.group(2), 16)
+        for name in re.findall(r"\.fa-([a-z0-9-]+):before", m.group(1)):
+            mapping[name] = cp
     return mapping
 
 
@@ -90,7 +108,14 @@ def main():
     print(f"{len(names)} fa-* names found in the source")
     print(f"{len(keep)} map to a glyph in all.min.css")
     if unknown:
-        print(f"{len(unknown)} are not icon names (style/size/utility classes), ignored")
+        # Print them. A name that fails to map is either a harmless utility
+        # class (fa-fw, fa-2x, fa-solid) or an icon whose glyph is about to be
+        # subset away and render blank on a live page — and the two are
+        # indistinguishable from a count alone.
+        print(f"{len(unknown)} did not map to a glyph — check these are utility "
+              f"classes and not icons:")
+        for n in unknown:
+            print(f"    fa-{n}")
 
     size_before = os.path.getsize(FONT)
     print(f"\nfa-solid-900.woff2 is {size_before/1024:.0f} KB")
