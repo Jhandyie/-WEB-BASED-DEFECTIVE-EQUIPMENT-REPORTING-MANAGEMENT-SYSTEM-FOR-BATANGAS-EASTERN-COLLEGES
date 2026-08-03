@@ -94,7 +94,9 @@ function verifyLogin() {
     }
 
     try {
-        $user = findUserByEmailAndRole($email, $role, ['user_id', 'email', 'fullname', 'username', 'password', 'status', 'role']);
+        // Accepts technicians, plus the ITSO administrators who also carry out
+        // repairs and are listed in maintenance_technicians.
+        $user = findTechnicianPortalUser($email, ['user_id', 'email', 'fullname', 'username', 'password', 'status', 'role']);
         if (!$user) {
             http_response_code(401);
             echo json_encode(['success' => false, 'message' => 'Invalid email or password.']);
@@ -123,7 +125,13 @@ function verifyLogin() {
         $_SESSION['user_id']    = $user['user_id'];
         $_SESSION['user_email'] = $user['email'];
         $_SESSION['fullname']   = $user['fullname'];
-        $_SESSION['role']       = $user['role'] ?? $role;
+        // This session belongs to the technician portal, so it carries the technician
+        // role even when the account is an ITSO admin — requireRole('technician')
+        // guards every page here. The admin portal keeps its own cookie
+        // (BECSESSID_ADMIN vs BECSESSID_TECH), so both sign-ins can be live at once
+        // and neither one grants the other's privileges.
+        $_SESSION['role']       = $role;
+        $_SESSION['account_role'] = $user['role'] ?? $role;
         $_SESSION['username']   = $user['username'] ?? '';
         $_SESSION['logged_in']  = true;
         $_SESSION['login_time'] = time();
@@ -176,7 +184,7 @@ function forgotPassword() {
         exit();
     }
 
-    $user = findUserByEmailAndRole($email, $role, ['user_id', 'email']);
+    $user = findTechnicianPortalUser($email, ['user_id', 'email']);
     if ($user) {
         $token   = bin2hex(random_bytes(32));
         $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));

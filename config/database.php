@@ -394,6 +394,62 @@ if (!function_exists('findUserByEmailAndRole')) {
     }
 }
 
+if (!function_exists('findTechnicianPortalUser')) {
+    /**
+     * Look up an account allowed to sign in to the technician portal.
+     *
+     * Normally that is role = 'technician'. The ITSO staff are administrators who
+     * also carry out repairs, and a user row holds exactly one role (users_role_check)
+     * on one email (users_email_key) — so their second capacity is recorded as a row
+     * in maintenance_technicians instead. Anyone listed there is a technician for the
+     * purposes of this portal, whatever their role in users.
+     *
+     * getAvailableTechnicians() reads the same table, so an account accepted here is
+     * also assignable — the two stay in step without a second list to maintain.
+     */
+    function findTechnicianPortalUser(string $email, array $fields = ['user_id', 'email', 'fullname', 'username', 'password', 'status', 'role']): ?array {
+        $user = findUserByEmailAndRole($email, 'technician', $fields);
+        if ($user) {
+            return $user;
+        }
+
+        $safeFields = array_values(array_filter($fields, static fn($f) => preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', (string)$f)));
+        if (empty($safeFields)) {
+            $safeFields = ['user_id', 'email', 'fullname', 'username', 'password', 'status', 'role'];
+        }
+        $fieldList = implode(', ', array_map(static fn($f) => 'u.' . $f, $safeFields));
+
+        if (isPgSqlDriver()) {
+            $pdo  = getPgsqlPdoConnection();
+            $stmt = $pdo->prepare(
+                "SELECT {$fieldList} FROM public.users u
+                   JOIN public.maintenance_technicians mt
+                     ON mt.technician_id = u.user_id OR mt.email = u.email
+                  WHERE u.email = :email AND mt.status = 'active'
+                  LIMIT 1"
+            );
+            $stmt->execute(['email' => $email]);
+            $row = $stmt->fetch();
+            return is_array($row) ? $row : null;
+        }
+
+        $conn = getDBConnection();
+        $stmt = $conn->prepare(
+            "SELECT {$fieldList} FROM users u
+               JOIN maintenance_technicians mt
+                 ON mt.technician_id = u.user_id OR mt.email = u.email
+              WHERE u.email = ? AND mt.status = 'active'
+              LIMIT 1"
+        );
+        $stmt->bind_param('s', $email);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result ? $result->fetch_assoc() : null;
+        $stmt->close();
+        return $row ?: null;
+    }
+}
+
 if (!function_exists('userExistsByEmail')) {
     function userExistsByEmail(string $email, ?string $excludeUserId = null): bool {
         if ($email === '') {
@@ -2133,7 +2189,11 @@ function getAvailableTechnicians() {
                 ON mt.technician_id = u.user_id
                 OR mt.username = u.username
                 OR mt.email = u.email
-            WHERE u.role = 'technician' AND u.status = 'active'
+            -- An mt row makes an account assignable whatever its role in users:
+            -- the ITSO staff are admins who also carry out repairs, and one row
+            -- can hold only one role. See findTechnicianPortalUser().
+            WHERE u.status = 'active'
+              AND (u.role = 'technician' OR mt.technician_id IS NOT NULL)
 
             UNION
 
