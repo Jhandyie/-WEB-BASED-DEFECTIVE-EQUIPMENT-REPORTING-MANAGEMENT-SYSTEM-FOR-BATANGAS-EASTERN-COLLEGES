@@ -45,12 +45,21 @@ $becPrograms = [
         'Grade 9',
         'Grade 10',
     ],
+    // Every other basic-education level names the grade the student is in;
+    // Senior High listed only the strand, so a Grade 11 and a Grade 12 student
+    // filed reports that looked identical. The field is labelled "Course /
+    // Program / Grade Level", so the grade belongs in the value.
     'Senior High School'                  => [
-        'STEM — Science, Technology, Engineering and Mathematics',
-        'ABM — Accountancy, Business and Management',
-        'HUMSS — Humanities and Social Sciences',
-        'TVL — Home Economics (HE)',
-        'TVL — Information and Communications Technology (ICT)',
+        'Grade 11 — STEM (Science, Technology, Engineering and Mathematics)',
+        'Grade 11 — ABM (Accountancy, Business and Management)',
+        'Grade 11 — HUMSS (Humanities and Social Sciences)',
+        'Grade 11 — TVL Home Economics (HE)',
+        'Grade 11 — TVL Information and Communications Technology (ICT)',
+        'Grade 12 — STEM (Science, Technology, Engineering and Mathematics)',
+        'Grade 12 — ABM (Accountancy, Business and Management)',
+        'Grade 12 — HUMSS (Humanities and Social Sciences)',
+        'Grade 12 — TVL Home Economics (HE)',
+        'Grade 12 — TVL Information and Communications Technology (ICT)',
     ],
     'College of Teacher Education'        => [
         'Bachelor of Elementary Education',
