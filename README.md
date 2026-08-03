@@ -117,6 +117,7 @@ in the database and all notification emails delivered.
 
 ## Documentation
 
+- **[docs/ROI_ANALYSIS.md](docs/ROI_ANALYSIS.md)** — five-year cost–benefit and return-on-investment evaluation (NPV, BCR, IRR, payback, sensitivity, make-vs-buy)
 - **[docs/USER_MANUAL.md](docs/USER_MANUAL.md)** — role-by-role instructions (reporters, PMO admins, technicians)
 - **[docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)** — 15-minute defense/demo walkthrough with pre-flight checklist, Q&A prep, and fallbacks
 - **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** — hosting guide (instant HTTPS demo tunnel, shared hosting, VPS)
