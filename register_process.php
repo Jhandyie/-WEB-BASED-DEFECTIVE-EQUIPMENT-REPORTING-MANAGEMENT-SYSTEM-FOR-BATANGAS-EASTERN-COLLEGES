@@ -2,7 +2,8 @@
 // register_process.php
 // User registration handler - Returns JSON responses
 
-session_start();
+require_once __DIR__ . '/includes/session_bootstrap.php';
+startPublicSession();
 header('Content-Type: application/json');
 require_once 'config/database.php';
 require_once 'includes/notification_helper.php';

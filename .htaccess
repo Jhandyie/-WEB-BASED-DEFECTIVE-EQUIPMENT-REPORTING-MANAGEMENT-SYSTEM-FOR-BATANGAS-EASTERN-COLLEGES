@@ -34,8 +34,23 @@ AddType application/manifest+json .webmanifest
     </FilesMatch>
 </IfModule>
 
-# Block dotfiles (.env, .git, etc.)
+# Block dotfiles (.env, .gitignore, etc.)
 <FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+# Block dot-DIRECTORIES, which the rule above does not reach: FilesMatch tests
+# the basename, so .git/config and .git/objects/… were being served. With the
+# index, the refs and the object files readable, anyone could reconstruct the
+# whole repository — every line of source and its history — from the public
+# tunnel. .env was never committed, so no credentials were in reach, but the
+# source of a system being hardened should not be either.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule (^|/)\.(git|svn|hg|bzr|idea|vscode)(/|$) - [F,L]
+</IfModule>
+# Belt and braces if mod_rewrite is off: deny the file types git stores.
+<FilesMatch "^(HEAD|ORIG_HEAD|FETCH_HEAD|COMMIT_EDITMSG|index|packed-refs|config|description)$">
     Require all denied
 </FilesMatch>
 

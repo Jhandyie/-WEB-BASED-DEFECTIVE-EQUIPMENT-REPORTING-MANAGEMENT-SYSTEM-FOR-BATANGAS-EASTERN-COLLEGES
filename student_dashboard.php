@@ -1,6 +1,7 @@
 <?php
 // student/student_dashboard.php
-session_start();
+require_once __DIR__ . '/includes/session_bootstrap.php';
+startPublicSession();
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/mail_helper.php';
 require_once __DIR__ . '/includes/csrf.php';

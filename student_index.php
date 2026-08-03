@@ -1,6 +1,7 @@
 <?php
 // student/index.php
-session_start();
+require_once __DIR__ . '/includes/session_bootstrap.php';
+startPublicSession();
 require_once __DIR__ . '/includes/bec_directory_helper.php';
 require_once __DIR__ . '/includes/csrf.php';
 

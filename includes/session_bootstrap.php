@@ -34,6 +34,43 @@ if (!function_exists('becSessionNameForContext')) {
     }
 }
 
+if (!function_exists('becHardenSessionCookie')) {
+    /**
+     * Apply the cookie flags every session on this site should carry.
+     *
+     * HttpOnly keeps the id out of reach of any script that manages to run on
+     * the page, and SameSite=Lax stops the cookie riding along on a request
+     * another site makes. Must be called before session_start().
+     */
+    function becHardenSessionCookie(): void {
+        if (session_status() === PHP_SESSION_ACTIVE) { return; }
+        $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+        session_set_cookie_params([
+            'lifetime' => 0,
+            'path' => '/',
+            'domain' => '',
+            'secure' => $isSecure,
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ]);
+    }
+}
+
+if (!function_exists('startPublicSession')) {
+    /**
+     * The reporter portal's session, on PHP's default cookie name.
+     *
+     * These pages called session_start() directly, so their cookie went out
+     * with no flags at all — the one session on the site a stranger can obtain,
+     * and the only one that was readable by script and sent cross-site.
+     */
+    function startPublicSession(): void {
+        if (session_status() === PHP_SESSION_ACTIVE) { return; }
+        becHardenSessionCookie();
+        session_start();
+    }
+}
+
 if (!function_exists('startRoleSession')) {
     function startRoleSession($context = 'auto') {
         if (session_status() === PHP_SESSION_ACTIVE) {
