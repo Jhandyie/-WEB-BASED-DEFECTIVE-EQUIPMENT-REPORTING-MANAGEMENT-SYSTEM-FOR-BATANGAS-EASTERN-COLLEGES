@@ -33,9 +33,15 @@ $bsfYear = date('Y');
 @media(max-width:900px){.bsfoot-cols{grid-template-columns:1fr 1fr;gap:1.6rem;}}
 @media(max-width:640px){
   .bsfoot-cols{grid-template-columns:1fr;gap:1.6rem;}
-  /* roomier tap targets for the footer nav links on phones */
+  /* roomier tap targets for the footer nav links on phones. The padding above
+     left these at 39px; 44px is what WCAG 2.5.5 and both platform guidelines
+     ask for. Shared footer, so every public page gets it. */
   .bsfoot-col ul{gap:.15rem;}
-  .bsfoot-col ul a{display:inline-block;padding:.5rem 0;}
+  .bsfoot-col ul a{display:inline-flex;align-items:center;min-height:44px;padding:.35rem 0;}
+  .bsfoot-contact a{display:inline-flex;align-items:center;min-height:44px;}
+  .bsfoot-social a{min-width:44px;min-height:44px;}
+  /* Clear of the iPhone home indicator. */
+  .bsfoot{padding-bottom:max(1.5rem,env(safe-area-inset-bottom));}
 }
 </style>
 <footer class="bsfoot">

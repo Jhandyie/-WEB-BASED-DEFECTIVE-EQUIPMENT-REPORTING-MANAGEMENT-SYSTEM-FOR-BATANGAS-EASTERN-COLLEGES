@@ -523,18 +523,15 @@ a { text-decoration: none; color: inherit; }
      touch target at 44px; most links here sat at 20-39px, close enough to
      each other that a thumb catches the wrong one. The padding is vertical
      only, so nothing moves visually — the tappable area just grows. */
-  .bsnav-brand,
-  .bsfoot-col a,
-  .bsfoot-contact a,
+  /* The shared nav and footer carry their own 44px rules (site_nav.php,
+     site_footer.php) so every public page gets them, not just this one. These
+     are the selectors that only exist on the landing page. */
   .rep-all a,
   .faq-a a,
   a.link-more { min-height: 44px; display: inline-flex; align-items: center; }
-  .bsfoot-social a { min-width: 44px; min-height: 44px; display: inline-flex;
-                     align-items: center; justify-content: center; }
-  /* Room for the iPhone home indicator and the notch in landscape. */
+  /* Room for the notch in landscape. */
   .container { padding-left: max(1.1rem, env(safe-area-inset-left));
                padding-right: max(1.1rem, env(safe-area-inset-right)); }
-  .bsfoot { padding-bottom: max(1.5rem, env(safe-area-inset-bottom)); }
 
   /* ── tighter rhythm = less scrolling on phones (mockups kept) ── */
   .section { padding: 2.3rem 0; }

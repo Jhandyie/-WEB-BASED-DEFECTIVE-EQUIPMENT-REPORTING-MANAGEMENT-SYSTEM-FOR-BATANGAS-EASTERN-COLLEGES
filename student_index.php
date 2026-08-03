@@ -590,7 +590,18 @@ body::after {
   .brand-top { gap: .6rem; }
   .brand-top strong { font-size: .9rem; line-height: 1.2; }
   .brand-top span { letter-spacing: .7px; font-size: .58rem; }
-  .brand-home { padding: .5rem .74rem; font-size: .75rem; min-height: 38px; }
+  .brand-home { padding: .5rem .74rem; font-size: .75rem; min-height: 44px; }
+
+  /* ── touch ergonomics on the page most people reach on a phone ──────────
+     The privacy checkbox was 16x16 and is mandatory before a report can be
+     filed — the smallest, most consequential target on the site. The label
+     already wraps it, so the whole row is clickable; this makes the box itself
+     big enough to hit, and gives the notice toggle and the footer links the
+     44px WCAG 2.5.5 asks for. */
+  .pv-consent input { width: 22px; height: 22px; margin-top: 0; }
+  .pv-consent { min-height: 44px; align-items: center; }
+  .pv-toggle { min-height: 44px; }
+  .foot-links a, .footer-link a { min-height: 44px; display: inline-flex; align-items: center; }
   .brand-hero { margin-top: 1rem; }
   .brand-tag { font-size: .58rem; padding: .28rem .6rem; margin-bottom: .7rem; }
   .brand-hero h2 { font-size: 1.35rem; }

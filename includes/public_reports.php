@@ -435,7 +435,9 @@ td:last-child{padding-right:1.25rem;}
   /* 16px inputs (no iOS zoom) + 44px tap targets */
   .search-input,.filter-sel{font-size:16px;}
   .filter-sel{min-height:44px;}
-  .pg-btn{min-height:44px;display:inline-flex;align-items:center;justify-content:center;}
+  /* Height was already 44; the arrows were only 32-34px wide, which is the
+     dimension a thumb actually misses on a paginator. */
+  .pg-btn{min-height:44px;min-width:44px;display:inline-flex;align-items:center;justify-content:center;}
 
   /* ── turn the 8-column table into tappable cards (no sideways scroll) ── */
   .table-wrap{background:transparent;border:none;box-shadow:none;border-radius:0;overflow:visible;}

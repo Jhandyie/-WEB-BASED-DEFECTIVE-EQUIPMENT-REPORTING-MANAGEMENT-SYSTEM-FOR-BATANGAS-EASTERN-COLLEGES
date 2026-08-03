@@ -12,7 +12,13 @@ if (!isset($nav_active)) { $nav_active = ''; }
 .bsnav{position:sticky;top:0;z-index:300;background:rgba(248,243,234,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid #E8DDD0;font-family:'DM Sans',sans-serif;transition:background .28s ease,box-shadow .28s ease,border-color .28s ease;}
 .bsnav.scrolled{background:rgba(248,243,234,.7);backdrop-filter:blur(16px) saturate(1.3);-webkit-backdrop-filter:blur(16px) saturate(1.3);border-bottom-color:rgba(232,221,208,.55);box-shadow:0 6px 26px rgba(44,10,10,.1);}
 .bsnav-in{max-width:100%;margin:0 auto;padding:0 2rem;height:62px;display:flex;align-items:center;justify-content:space-between;gap:1rem;transition:height .28s ease;}
-@media(max-width:640px){.bsnav-in{padding:0 1.1rem;}}
+@media(max-width:640px){.bsnav-in{padding:0 1.1rem;}
+  /* 44px is the smallest comfortable touch target (WCAG 2.5.5 and both platform
+     guidelines); the brand link sat at 38px. Padding only, so nothing moves —
+     the tappable area just grows. Lives here rather than in one page's stylesheet
+     because this nav is shared by every public page. */
+  .bsnav-brand{min-height:44px;display:inline-flex;align-items:center;}
+}
 .bsnav.scrolled .bsnav-in{height:56px;}
 .bsnav-brand{display:flex;align-items:center;gap:.6rem;text-decoration:none;}
 .bsnav-seal{width:38px;height:38px;border-radius:50%;background:#fff;flex-shrink:0;display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:0 0 0 3px rgba(201,150,12,.28);}
