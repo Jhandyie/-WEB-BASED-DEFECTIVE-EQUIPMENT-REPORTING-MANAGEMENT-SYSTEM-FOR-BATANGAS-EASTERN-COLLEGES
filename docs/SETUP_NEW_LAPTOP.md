@@ -64,6 +64,27 @@ data\system_settings.json
 config\chat_secrets.php
 ```
 
+**These must never be pushed to GitHub.** The repository is public, so a
+Supabase service-role key, a Gmail password and an Anthropic key committed there
+are readable by anyone — and automated scrapers find new secrets in public
+repositories within minutes. It would mean rotating all three, and until then
+anyone could read or delete the student data.
+
+Either copy the three files by hand on a USB stick, or use the helper, which
+packs them into one AES-encrypted file you can send by any route:
+
+```powershell
+# on the laptop that works
+powershell -ExecutionPolicy Bypass -File scripts\carry_secrets.ps1 -Pack
+
+# copy bec-secrets.enc across, then on the new laptop
+powershell -ExecutionPolicy Bypass -File scripts\carry_secrets.ps1 -Unpack
+```
+
+Send the passphrase by a different route than the file — a text message, or
+spoken. A file and its password in the same e-mail is the same as sending the
+files in the clear. Delete the `.enc` file once the new laptop works.
+
 ### 4. Run the setup script
 
 ```powershell

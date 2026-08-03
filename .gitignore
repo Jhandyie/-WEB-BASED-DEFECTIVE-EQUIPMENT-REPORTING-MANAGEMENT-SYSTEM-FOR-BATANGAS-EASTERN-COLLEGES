@@ -84,3 +84,8 @@ assets/_originals/
 uploads/_originals/
 scripts/__pycache__/
 data/apache_watchdog.pid
+
+# Encrypted credential bundle produced by scripts/carry_secrets.ps1 - never commit
+bec-secrets.enc
+*.replaced_*
+*.away
