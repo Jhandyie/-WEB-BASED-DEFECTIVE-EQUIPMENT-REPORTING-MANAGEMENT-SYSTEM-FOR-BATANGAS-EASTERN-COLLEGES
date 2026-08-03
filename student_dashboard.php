@@ -45,21 +45,12 @@ $becPrograms = [
         'Grade 9',
         'Grade 10',
     ],
-    // Every other basic-education level names the grade the student is in;
-    // Senior High listed only the strand, so a Grade 11 and a Grade 12 student
-    // filed reports that looked identical. The field is labelled "Course /
-    // Program / Grade Level", so the grade belongs in the value.
     'Senior High School'                  => [
-        'Grade 11 — STEM (Science, Technology, Engineering and Mathematics)',
-        'Grade 11 — ABM (Accountancy, Business and Management)',
-        'Grade 11 — HUMSS (Humanities and Social Sciences)',
-        'Grade 11 — TVL Home Economics (HE)',
-        'Grade 11 — TVL Information and Communications Technology (ICT)',
-        'Grade 12 — STEM (Science, Technology, Engineering and Mathematics)',
-        'Grade 12 — ABM (Accountancy, Business and Management)',
-        'Grade 12 — HUMSS (Humanities and Social Sciences)',
-        'Grade 12 — TVL Home Economics (HE)',
-        'Grade 12 — TVL Information and Communications Technology (ICT)',
+        'STEM — Science, Technology, Engineering and Mathematics',
+        'ABM — Accountancy, Business and Management',
+        'HUMSS — Humanities and Social Sciences',
+        'TVL — Home Economics (HE)',
+        'TVL — Information and Communications Technology (ICT)',
     ],
     'College of Teacher Education'        => [
         'Bachelor of Elementary Education',
@@ -106,6 +97,29 @@ $becPrograms = [
         "Administrator's / Principal's Office",
         'Other Office',
     ],
+];
+
+/**
+ * Departments where the programme alone does not say which year group the
+ * reporter is in, and the levels each one offers.
+ *
+ * Pre-School, Grade School and Junior High already name the level in the
+ * programme itself (Kindergarten, Grade 4, Grade 9). Senior High named only the
+ * strand, and the colleges only the degree, so a Grade 11 and a Grade 12
+ * student — or a first-year and a graduating student — filed reports that read
+ * identically.
+ *
+ * Kept as a separate field rather than folded into the programme names: a
+ * degree crossed with four years gives options like "Bachelor of Science in
+ * Business Administration major in Human Resource Management - 4th Year", 92
+ * characters that a phone's native picker truncates, in a list of 28. Two short
+ * lists beat one long one on the screen most reporters use.
+ */
+$becLevels = [
+    'Senior High School'           => ['Grade 11', 'Grade 12'],
+    'College of Teacher Education' => ['1st Year', '2nd Year', '3rd Year', '4th Year'],
+    'College of Business'          => ['1st Year', '2nd Year', '3rd Year', '4th Year'],
+    'College of Computer Studies'  => ['1st Year', '2nd Year', '3rd Year', '4th Year'],
 ];
 
 // Pre-fill equipment from a scanned QR code (?eq=EQUIPMENT_ID)
@@ -492,6 +506,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Reporter's BEC department / course (academic categorization)
     $reporterDepartment = trim($_POST['reporter_department'] ?? '');
     $reporterCourse     = trim($_POST['reporter_course'] ?? '');
+    $reporterLevel      = trim($_POST['reporter_level'] ?? '');
     if (!$error) {
         if ($reporterDepartment === '' || !array_key_exists($reporterDepartment, $becPrograms)) {
             $error = 'Please select your department or academic unit.';
@@ -499,6 +514,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Please select your course or program.';
         } elseif (empty($becPrograms[$reporterDepartment])) {
             $reporterCourse = ''; // department has no specific course
+        }
+    }
+    // Year / grade level, for the departments where the programme does not
+    // already say it. Stored on the end of the course so the reporter's year
+    // group travels with the report without needing a new column.
+    if (!$error && isset($becLevels[$reporterDepartment])) {
+        if ($reporterLevel === '' || !in_array($reporterLevel, $becLevels[$reporterDepartment], true)) {
+            $error = 'Please select your year or grade level.';
+        } else {
+            $reporterCourse = $reporterCourse . ' — ' . $reporterLevel;
         }
     }
 
@@ -1555,6 +1580,17 @@ html { scroll-behavior: smooth; }
           </select>
         </div>
       </div>
+      <!-- Shown only for Senior High and the colleges, where the programme
+           alone does not say which year group the reporter is in. -->
+      <div class="fg" id="rLevelWrap" style="margin-top:.85rem;display:none;">
+        <label class="fl" for="rLevel">Year / Grade Level <span style="color:var(--maroon);">*</span></label>
+        <div class="fi-wrap">
+          <i class="fas fa-layer-group fi-icon"></i>
+          <select name="reporter_level" id="rLevel" class="fsel">
+            <option value="">Select your level…</option>
+          </select>
+        </div>
+      </div>
       <div style="margin-top:.85rem;">
         <label class="fl" for="rPhone">Contact Number <span style="color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
         <div class="fi-wrap">
@@ -1803,8 +1839,39 @@ html { scroll-behavior: smooth; }
       if (optHint) optHint.textContent = dept.value ? '(not applicable)' : '(select a department first)';
     }
   }
-  dept.addEventListener('change', function () { preset = ''; fill(); });
-  fill(); // initial render (restores selection after a validation error too)
+  // Year / grade level, for the departments where the programme alone does not
+  // say it. Same source of truth as the server check ($becLevels).
+  var LEVELS = <?php echo json_encode($becLevels, JSON_UNESCAPED_UNICODE); ?>;
+  var level = document.getElementById('rLevel'),
+      levelWrap = document.getElementById('rLevelWrap');
+  var levelPreset = <?php echo json_encode($_POST['reporter_level'] ?? '', JSON_UNESCAPED_UNICODE); ?>;
+
+  function fillLevels() {
+    if (!level || !levelWrap) return;
+    var list = LEVELS[dept.value] || [];
+    level.innerHTML = '';
+    if (!list.length) {
+      // Hidden and un-required, or the browser would block submit on a field
+      // nobody can see.
+      levelWrap.style.display = 'none';
+      level.required = false;
+      return;
+    }
+    var ph = document.createElement('option');
+    ph.value = ''; ph.textContent = 'Select your level…'; ph.disabled = true; ph.selected = true;
+    level.appendChild(ph);
+    list.forEach(function (v) {
+      var o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      if (v === levelPreset) { o.selected = true; ph.selected = false; }
+      level.appendChild(o);
+    });
+    levelWrap.style.display = '';
+    level.required = true;
+  }
+
+  dept.addEventListener('change', function () { preset = ''; levelPreset = ''; fill(); fillLevels(); });
+  fill(); fillLevels(); // initial render (restores selection after a validation error too)
 })();
 
 // ── Contact number: allow digits only, cap at 11 (PH mobile format) ──
