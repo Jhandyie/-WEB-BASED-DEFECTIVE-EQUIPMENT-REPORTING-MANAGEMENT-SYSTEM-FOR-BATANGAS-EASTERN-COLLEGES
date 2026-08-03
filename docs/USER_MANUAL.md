@@ -74,10 +74,10 @@ full-screen, home-screen app that works offline for viewing your last-loaded tas
   system by its plain `http://<computer-ip>` LAN address will **not** offer install — the banner
   will say so.
   - **For a thesis demo/defense:** on the computer running XAMPP, double-click
-    **`Install app on phone (demo).bat`** (in the project folder). It opens a temporary secure
-    `https://…` link and prints it. Open that link on the phone, then:
-    **Android Chrome** → menu **⋮** → *Install app*; **iPhone Safari** → **Share** → *Add to
-    Home Screen*. Keep that window open during the demo; close it to stop.
+    **`start-demo.bat`** (on the Desktop). It checks the system, then opens the public
+    `https://…` address and prints it, including the direct technician link to open on the
+    phone. On the phone: **Android Chrome** → menu **⋮** → *Install app*; **iPhone Safari** →
+    **Share** → *Add to Home Screen*. Keep that window open during the demo; close it to stop.
 
 ### Working a task
 1. New assignments arrive by email (**Open Repair Workspace** button) and in **My Tasks**.
