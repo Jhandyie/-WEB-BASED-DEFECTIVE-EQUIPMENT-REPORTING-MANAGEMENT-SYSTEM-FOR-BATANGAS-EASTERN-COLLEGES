@@ -1043,7 +1043,7 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .nav-item:focus-visib
     <div class="lower-grid" style="margin-bottom:1.25rem;">
       <div class="panel">
         <div class="panel-h">
-          <h3><i class="fas fa-chart-donut"></i> Equipment Status</h3>
+          <h3><i class="fas fa-chart-pie"></i> Equipment Status</h3>
         </div>
         <div style="padding:1.1rem;display:flex;gap:1.25rem;align-items:center;">
           <div style="flex:1;min-width:0;max-width:200px;margin:auto;">

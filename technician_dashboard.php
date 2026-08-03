@@ -64,7 +64,8 @@ function sicon(string $s): string {
         'waiting_for_materials' => 'fa-hourglass-half',
         'for_replacement' => 'fa-rotate',
         'completed' => 'fa-user-check',
-        'verified' => 'fa-badge-check',
+        'verified' => 'fa-certificate',   // badge-check is Font Awesome Pro; this is the free badge
+
         'closed' => 'fa-circle-check',
     ][strtolower(trim($s))] ?? 'fa-circle';
 }
