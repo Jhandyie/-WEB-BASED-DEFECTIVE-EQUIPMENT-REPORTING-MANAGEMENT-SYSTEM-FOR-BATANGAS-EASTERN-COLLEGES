@@ -89,6 +89,71 @@ foreach (['index.php', 'student_index.php'] as $p) {
 $leaky ? $bad('PHP messages visible to visitors', implode(', ', $leaky))
        : $ok('No PHP warnings or errors rendered', 'public pages checked');
 
+/* ── 2b. Every image the demo pages ask for actually exists ──
+   An HTTP 200 on the page says nothing about what the page then loads. When
+   the background images were re-encoded, both .html sign-in pages kept
+   pointing at the deleted file: the pages still returned 200 and this script
+   still passed, while the panel would have seen a blank backdrop on two of
+   the three portals. Resolve what each page references and confirm it's there. */
+echo "\nPage assets resolve\n";
+$broken = [];
+$checkedPages = 0;
+$checkedRefs  = 0;
+foreach (['index.php', 'student_index.php',
+          'admin/admin_login_otp.html', 'technician/login.html'] as $page) {
+    [, $html] = httpGet($base . '/' . $page);
+    // A page that did not load tells us nothing about its assets. Skipping it
+    // silently would let this check report "all clear" having verified nothing
+    // — which is exactly what it did the first time Apache was down.
+    if ($html === '') continue;
+    $checkedPages++;
+
+    // CSS url(...) plus <img src=> — the references that render. The lookbehind
+    // matters: without it, JavaScript's `new URL(a.href, location.href)` also
+    // matches `url(` and gets checked as if it were a filename.
+    preg_match_all('/(?<![\w.-])url\(\s*[\'"]?([^\'")]+?)[\'"]?\s*\)/i', $html, $m1);
+    preg_match_all('/<img\b[^>]*\bsrc\s*=\s*[\'"]([^\'"]+)[\'"]/i', $html, $m2);
+    $refs = array_unique(array_merge($m1[1] ?? [], $m2[1] ?? []));
+
+    // '' for root-level pages. dirname() returns a Windows '\' for the root
+    // here, which would otherwise be glued onto the front of every path.
+    $dir = trim(str_replace('\\', '/', dirname('/' . $page)), '/');
+    foreach ($refs as $ref) {
+        // Paths written inside JS string literals arrive escaped ("\/assets\/…").
+        $ref = str_replace('\\/', '/', trim($ref));
+        if ($ref === '' || preg_match('~^(data:|https?:|//|\#)~i', $ref)) continue;
+
+        // Only judge things that are actually files on this server. Anything
+        // without a known asset extension is a dynamic or computed value.
+        if (!preg_match('/\.(png|jpe?g|gif|webp|svg|ico|woff2?|ttf|otf|eot)(\?|$)/i', $ref)) continue;
+        $ref = strtok($ref, '?#');
+
+        // Resolve against the page's own directory, then flatten any '../'.
+        $path = $ref[0] === '/' ? ltrim($ref, '/') : ($dir === '' ? $ref : $dir . '/' . $ref);
+        $parts = [];
+        foreach (explode('/', $path) as $seg) {
+            if ($seg === '..') array_pop($parts);
+            elseif ($seg !== '' && $seg !== '.') $parts[] = $seg;
+        }
+        $path = implode('/', $parts);
+
+        $url = $base . '/' . implode('/', array_map('rawurlencode', $parts));
+        [$c] = httpGet($url, 10);
+        $checkedRefs++;
+        if ($c !== 200) $broken[] = $page . ' -> ' . $path . ' (HTTP ' . $c . ')';
+    }
+}
+if ($broken) {
+    $bad(count($broken) . ' missing image/asset reference(s)', $broken[0]);
+} elseif ($checkedPages === 0) {
+    $bad('Could not check page assets', 'no page loaded — see the web server failures above');
+} elseif ($checkedRefs === 0) {
+    $note('No image references found to check', 'the extraction may have stopped matching');
+} else {
+    $ok('All referenced images load', "$checkedRefs assets across $checkedPages pages");
+}
+foreach (array_slice($broken, 1) as $b) printf("          %-{$W}s %s\n", '', $b);
+
 /* ── 3. Database ───────────────────────────────────────────── */
 echo "\nDatabase\n";
 try {
