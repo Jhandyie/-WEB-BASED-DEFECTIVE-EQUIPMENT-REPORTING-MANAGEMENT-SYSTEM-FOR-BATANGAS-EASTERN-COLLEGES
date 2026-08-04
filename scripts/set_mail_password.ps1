@@ -22,7 +22,14 @@ param(
     [string]$SettingsFile = (Join-Path (Split-Path -Parent $PSScriptRoot) 'data\system_settings.json'),
     # Only for automated checks. Prefer the prompt: a command line is visible in
     # the process list and stays in shell history, a typed password is not.
-    [string]$Password
+    [string]$Password,
+    # Switch the whole system to a different sending mailbox, e.g.
+    #   -Account pmo@bec.edu.ph
+    # The address appears twenty times in the settings (a username and a from
+    # address for each role, plus the defaults), which is twenty chances to miss
+    # one and have a single role keep mailing from the old account.
+    [string]$Account,
+    [string]$FromName
 )
 
 $ErrorActionPreference = 'Stop'
@@ -37,15 +44,15 @@ $settings = $json | ConvertFrom-Json
 
 # Which account are we setting the password for? Read it back so nobody
 # updates the wrong mailbox.
-$account = $null
+$currentAccount = $null
 foreach ($p in $settings.email.PSObject.Properties) {
-    if ($p.Value -is [string] -and $p.Name -match 'smtp_user' -and $p.Value -match '@') { $account = $p.Value }
-    elseif ($p.Value -isnot [string] -and $p.Value.smtp_username) { $account = $p.Value.smtp_username }
+    if ($p.Value -is [string] -and $p.Name -match 'smtp_user' -and $p.Value -match '@') { $currentAccount = $p.Value }
+    elseif ($p.Value -isnot [string] -and $p.Value.smtp_username) { $currentAccount = $p.Value.smtp_username }
 }
-if (-not $account -and $settings.email.smtp_username) { $account = $settings.email.smtp_username }
+if (-not $currentAccount -and $settings.email.smtp_username) { $currentAccount = $settings.email.smtp_username }
 
 Write-Host ""
-Write-Host "  Sending account: $account" -ForegroundColor White
+Write-Host "  Sending account: $currentAccount" -ForegroundColor White
 Write-Host "  This will set its app password everywhere it appears in the settings." -ForegroundColor Gray
 Write-Host ""
 
@@ -90,6 +97,37 @@ $script:pass = $pass
 $script:count = 0
 Set-Passwords $settings
 
+# Optionally move the whole system onto a different mailbox at the same time.
+$script:addrCount = 0
+function Set-Account($node) {
+    if ($null -eq $node) { return }
+    foreach ($prop in $node.PSObject.Properties) {
+        if ($prop.Name -match 'smtp_username|from_email|reply_to|admin_email') {
+            if ($prop.Value -is [string] -and $prop.Value -match '@') {
+                $prop.Value = $script:account
+                $script:addrCount++
+            }
+        } elseif ($prop.Name -match 'from_name' -and $script:fromName) {
+            $prop.Value = $script:fromName
+        } elseif ($prop.Value -is [System.Management.Automation.PSCustomObject]) {
+            Set-Account $prop.Value
+        } elseif ($prop.Value -is [System.Object[]]) {
+            foreach ($item in $prop.Value) {
+                if ($item -is [System.Management.Automation.PSCustomObject]) { Set-Account $item }
+            }
+        }
+    }
+}
+if ($Account) {
+    if ($Account -notmatch '^[^@\s]+@[^@\s]+\.[^@\s]+$') {
+        Write-Host "  '$Account' does not look like an e-mail address." -ForegroundColor Red
+        exit 1
+    }
+    $script:account = $Account
+    $script:fromName = $FromName
+    Set-Account $settings
+}
+
 # UTF-8 with NO byte-order mark. Windows PowerShell's -Encoding UTF8 writes a
 # BOM, and PHP's json_decode() returns null on a file that starts with one - so
 # the settings would look fine in an editor while every mail lookup silently
@@ -100,6 +138,10 @@ $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 
 Write-Host ""
 Write-Host ("  Updated {0} password field(s)." -f $script:count) -ForegroundColor Green
+if ($Account) {
+    Write-Host ("  Moved {0} address field(s) to {1}." -f $script:addrCount, $Account) -ForegroundColor Green
+    Write-Host "  api\forgot_password.php has a hard-coded fallback address - check it too." -ForegroundColor Yellow
+}
 Write-Host ("  Previous settings kept as {0}" -f (Split-Path -Leaf $backup)) -ForegroundColor Gray
 Write-Host ""
 Write-Host "  Now send yourself a test:" -ForegroundColor White
