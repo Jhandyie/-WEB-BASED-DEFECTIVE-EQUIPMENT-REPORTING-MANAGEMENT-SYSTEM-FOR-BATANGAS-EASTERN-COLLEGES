@@ -207,16 +207,15 @@ themselves evaluation data. Only assist if the respondent is genuinely blocked.
 ### B.6 Verification, audit trail, and data safeguards
 
 > **Say:** "When the technician has finished, the report returns here for verification, and only
-> the office can close it. Two further features are relevant to your evaluation.
+> the office can close it. One further feature is relevant to your evaluation.
 >
-> First, the audit log."
+> Every action taken in the system — every approval, assignment, and closure — is recorded
+> server-side with the user and the timestamp, so nothing can be altered without leaving a
+> trace. Which brings me to backup and recovery."
 
-**Do:** Open **Audit Log**.
-
-> **Say:** "Every action taken in the system — every approval, assignment, and closure — is
-> recorded with the user and the timestamp. Nothing can be altered without leaving a trace.
->
-> Second, backup and recovery."
+<!-- The browsable Audit Log page was removed in Aug 2026. Logging still happens on every
+     lifecycle action (logActivity); there is simply no admin viewer to open. Do not offer
+     to show one. -->
 
 **Do:** Open **Backup & Recovery**.
 

@@ -66,7 +66,8 @@ On the phone (PWA) or a second browser:
 - Admin: report shows **Completed** → **Verify & Close** (reporter emailed; report is closed).
 - Reporter: Track page → progress ring reads **100%** → **"Was your issue resolved?" → Yes** →
   satisfaction recorded.
-- One line: *"Every step you just saw is in the audit log"* → flash **Admin → Audit Log**.
+- One line: *"Every step you just saw is recorded with the user and a timestamp."* (Logging is
+  server-side; the browsable Audit Log page was removed in Aug 2026, so don't offer to open it.)
 - *(Optional, ~30s)* **Admin → Backup & Recovery**: "Back up now" makes a compressed snapshot
   of every table; a nightly Windows Task Scheduler job does this automatically, and any
   snapshot can restore records if data is ever deleted — the system's data-recovery safeguard.

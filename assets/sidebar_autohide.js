@@ -114,10 +114,15 @@
       SB.classList.remove('becPeek');
     });
 
-    /* restore rail preference (default: rail ON = auto) */
-    var rail = '1';
-    try { rail = localStorage.getItem(RAILKEY) || '1'; } catch (e) {}
-    body.classList.toggle('becRail', rail !== '0');
+    /* Rail preference (default: rail OFF — a full, labelled, stationary sidebar).
+       It used to default ON, which meant the desktop sidebar was a 72px icon rail
+       that expanded to 262px as an overlay whenever the pointer crossed it. Since
+       nothing ever writes RAILKEY, that was effectively unconditional, and it is
+       what made the admin sidebar feel like it was constantly moving. Set
+       localStorage becSidebarRail = '1' to get the auto-rail back. */
+    var rail = '0';
+    try { rail = localStorage.getItem(RAILKEY) || '0'; } catch (e) {}
+    body.classList.toggle('becRail', rail === '1');
     requestAnimationFrame(function () { body.classList.add('becReady'); });
   }
 

@@ -117,21 +117,17 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
 <link rel="icon" type="image/png" href="assets/logs.png">
 <link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
 <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+<link rel="stylesheet" href="assets/css/admin-shell.css">
 <style>
-  :root{ --maroon:#7B1D1D; --maroon-d:#4A0E0E; --gold:#C9960C; --ink:#1C1008; --ink2:#5C3838; --ink3:#755B4E; --paper:#F4F1EC; --surface:#fff; --border:#E2D9CC; --field:#FBF9F6; --danger:#B42318; --success:#1A7A33; }
+
+  :root{ --maroon:#7B1D1D; --maroon-d:#4A0E0E; --gold:#C9960C; --ink:#1A0808; --ink2:#5C3838; --ink3:#9C7A7A; --paper:#F4EFE6; --surface:#fff; --border:#E5D9C6; --field:#FAF7F0; --danger:#B42318; --success:#1A7A33; }
   *{margin:0;padding:0;box-sizing:border-box;font-family:'DM Sans',system-ui,sans-serif;}
   body{background:var(--paper);color:var(--ink);min-height:100vh;}
-  .top{background:var(--maroon-d);color:#fff;padding:16px 28px;display:flex;align-items:center;gap:14px;}
-  .top .seal{width:40px;height:40px;border-radius:50%;background:#fff;overflow:hidden;display:flex;align-items:center;justify-content:center;}
-  .top .seal img{width:100%;height:100%;object-fit:cover;}
-  .top h1{font-family:'Fraunces',serif;font-size:1.05rem;font-weight:700;}
-  .top .sub{font-size:.72rem;color:rgba(255,255,255,.7);}
-  .top a.back{margin-left:auto;color:#fff;text-decoration:none;font-size:.82rem;border:1px solid rgba(255,255,255,.3);padding:7px 14px;border-radius:8px;}
-  .top a.back:hover{background:rgba(255,255,255,.1);}
+  .topbar a.back{color:var(--ink2);text-decoration:none;font-size:.78rem;font-weight:600;
+    background:var(--surface);border:1px solid var(--border);padding:7px 14px;border-radius:8px;}
+  .topbar a.back:hover{background:var(--maroon);border-color:var(--maroon);color:#fff;}
   .wrap{max-width:none;margin:0;padding:24px 28px 60px;}
-  .head h2{font-family:'Fraunces',serif;font-size:1.5rem;display:flex;align-items:center;gap:.6rem;}
   .head h2 .h2-ic{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,rgba(123,29,29,.1),rgba(201,150,12,.14));color:var(--maroon);display:inline-flex;align-items:center;justify-content:center;font-size:.9rem;}
-  .head p{font-size:.86rem;color:var(--ink3);margin-top:5px;max-width:760px;}
   .flash{margin:16px 0;padding:12px 16px;border-radius:10px;font-size:.86rem;display:flex;gap:10px;align-items:flex-start;line-height:1.5;}
   .flash.ok{background:#EEF7F0;border:1px solid #BFE3C8;color:#1A5A2A;}
   .flash.err{background:#FDECEC;border:1px solid #F3C0C0;color:#8A1C1C;}
@@ -187,48 +183,23 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
   .warn{background:#FDECEC;border:1px solid #F3C0C0;color:#8A1C1C;border-radius:9px;padding:10px 12px;font-size:.78rem;line-height:1.5;margin-bottom:12px;}
   /* Persistent admin sidebar (canonical) */
   :root{ --sb:262px; --m1:#2D0505; --g2:#D4A017; --g3:#F0C040; --r1:8px; --r2:12px; }
-  .sb{position:fixed;left:0;top:0;width:var(--sb);height:100vh;background:linear-gradient(168deg,#1E0202 0%,#350808 38%,#4A0E0E 68%,#3A0808 100%);display:flex;flex-direction:column;z-index:400;overflow:hidden;box-shadow:5px 0 30px rgba(45,5,5,.38);transition:transform .32s cubic-bezier(.4,0,.2,1);}
-  .sb::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 110% 45% at 50% -5%,rgba(212,160,23,.12),transparent);pointer-events:none;}
-  .sb-top{padding:1.35rem 1.2rem .9rem;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:.75rem;position:relative;z-index:1;}
-  .seal-ring{position:relative;width:46px;height:46px;flex-shrink:0;}
-  .seal-spin{position:absolute;inset:-3px;border-radius:50%;background:conic-gradient(var(--g2) 0%,var(--g3) 30%,var(--g2) 60%,var(--g3) 80%,var(--g2) 100%);animation:sealSpin 7s linear infinite;opacity:.72;}
-  @keyframes sealSpin{to{transform:rotate(360deg)}}
-  .seal-core{position:absolute;inset:2px;border-radius:50%;overflow:hidden;background:var(--m1);}
-  .seal-core img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
-  .sb-brand strong{display:block;font-family:'Outfit',sans-serif;font-weight:800;font-size:.8rem;color:#fff;line-height:1.25;}
-  .sb-brand em{font-size:.57rem;font-style:normal;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:1.8px;}
-  .sb-user{margin:.45rem 1rem .2rem;padding:.65rem .875rem;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.07);border-radius:var(--r2);display:flex;align-items:center;gap:.65rem;position:relative;z-index:1;}
-  .uav{width:32px;height:32px;flex-shrink:0;border-radius:50%;background:linear-gradient(135deg,var(--g2),#B45309);display:flex;align-items:center;justify-content:center;font-family:'Outfit',sans-serif;font-weight:900;font-size:.77rem;color:#fff;box-shadow:0 3px 0 rgba(0,0,0,.28);}
-  .uname{font-size:.8rem;color:#fff;font-weight:600;display:block;}
-  .urole{font-size:.58rem;color:rgba(255,255,255,.32);text-transform:uppercase;letter-spacing:1px;}
-  .sb-nav{flex:1;padding:.25rem 0;overflow-y:auto;position:relative;z-index:1;scrollbar-width:thin;scrollbar-color:rgba(212,160,23,.45) transparent;}
-  .sb-nav::-webkit-scrollbar{width:6px;}
-  .sb-nav::-webkit-scrollbar-thumb{background:rgba(212,160,23,.4);border-radius:3px;}
-  .nav-sec{font-size:.54rem;text-transform:uppercase;letter-spacing:2.5px;color:rgba(255,255,255,.18);padding:.5rem 1.25rem .2rem;font-weight:700;}
-  .ni{display:flex;align-items:center;gap:.65rem;padding:.56rem 1.25rem;color:rgba(255,255,255,.42);background:none;border:none;width:100%;text-align:left;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:500;cursor:pointer;transition:all .16s;text-decoration:none;position:relative;}
-  .ni-ic{width:30px;height:30px;border-radius:var(--r1);display:flex;align-items:center;justify-content:center;font-size:.78rem;background:rgba(255,255,255,.05);flex-shrink:0;transition:all .22s;}
-  .ni:hover{color:rgba(255,255,255,.82);}
-  .ni:hover .ni-ic{background:rgba(255,255,255,.1);transform:scale(1.08);}
-  .ni.on{color:#fff;font-weight:600;}
-  .ni.on .ni-ic{background:linear-gradient(135deg,var(--g2),var(--g3));color:var(--m1);box-shadow:0 3px 0 rgba(0,0,0,.18),0 4px 12px rgba(212,160,23,.25);}
-  .ni.on::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(to bottom,var(--g2),var(--g3));border-radius:0 3px 3px 0;}
-  .sb-foot{padding:.55rem 1rem .95rem;border-top:1px solid rgba(255,255,255,.06);}
-  .lout{width:100%;display:flex;align-items:center;justify-content:center;gap:.65rem;padding:.52rem .78rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);color:rgba(255,255,255,.42);border-radius:var(--r1);cursor:pointer;font-size:.8rem;font-family:'DM Sans',sans-serif;font-weight:500;text-decoration:none;transition:all .18s;}
-  .lout:hover{background:rgba(220,38,38,.14);color:#fca5a5;border-color:rgba(220,38,38,.22);}
-  .top{margin-left:var(--sb);}
+  /* sidebar styling lives in assets/css/admin-shell.css */
+  .topbar{margin-left:var(--sb);}
   .wrap{margin:0 0 0 var(--sb);max-width:none;}
-  .top,.wrap{transition:margin-left .26s ease;}
-  body.becSbHide .top, body.becSbHide .wrap{margin-left:0 !important;}
-  @media(max-width:860px){ .sb{transform:translateX(-100%);} .top,.wrap{margin-left:0;} }
+  .topbar,.wrap{transition:margin-left .26s ease;}
+  body.becSbHide .topbar, body.becSbHide .wrap{margin-left:0 !important;}
+  @media(max-width:860px){ .sb{transform:translateX(-100%);} .topbar,.wrap{margin-left:0;} }
 </style>
 </head>
 <body>
   <?php $activeNav = 'backup'; require __DIR__ . '/includes/admin_sidebar.php'; ?>
-  <div class="top">
-    <div class="seal"><img src="assets/logs.png" alt="BEC" onerror="this.parentElement.innerHTML='<i class=\'fas fa-shield\' style=\'color:#7B1D1D\'></i>'"></div>
+  <div class="topbar">
     <div>
-      <h1>Property Management Office</h1>
-      <div class="sub">Backup &amp; Data Recovery</div>
+      <div class="pg-title">Backup &amp; Recovery</div>
+      <div class="bc">
+        <a href="admin_dashboard.php"><i class="fas fa-home"></i></a>
+        <i class="fas fa-chevron-right"></i><span>Backup &amp; Recovery</span>
+      </div>
     </div>
     <a class="back" href="admin_dashboard.php"><i class="fas fa-arrow-left"></i> Dashboard</a>
   </div>
@@ -337,6 +308,6 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
   </div>
 <script src="assets/sidebar_autohide.js" defer></script>
 <?php require_once __DIR__ . '/includes/admin_assistant.php'; ?>
-<?php require __DIR__ . '/includes/site_transitions.php'; ?>
+<?php require __DIR__ . '/includes/admin_ui.php'; ?>
 </body>
 </html>

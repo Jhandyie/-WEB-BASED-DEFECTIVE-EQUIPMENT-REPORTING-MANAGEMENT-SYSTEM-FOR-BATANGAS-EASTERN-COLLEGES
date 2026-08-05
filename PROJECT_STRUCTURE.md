@@ -36,7 +36,6 @@ cookies), so files must **not** be moved into subfolders without updating
 | `admin_preventive.php` | Preventive-maintenance scheduling |
 | `admin_analytics.php` | Charts & exports |
 | `admin_users.php` | User management (admins need Unit: PMO/ITSO) |
-| `admin_audit_log.php` | Activity log |
 | `admin_notifications.php` | Notification center |
 | `admin_backup.php` | Backup & Recovery (snapshots + restore) |
 | `admin_bec_directory.php` | Official BEC directory import |

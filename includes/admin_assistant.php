@@ -85,10 +85,19 @@ try {
     background:linear-gradient(135deg,#DC2626,#B91C1C);color:#fff;font-size:.64rem;font-weight:800;
     display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(220,38,38,.4);}
   @media(max-width:560px){.aia-bell{right:1rem;bottom:10.4rem;width:46px;height:46px;}}
-  /* When relocated into a page's top header bar it sits inline, not floating. */
-  .aia-bell.in-top{position:relative;top:auto;right:auto;bottom:auto;left:auto;width:40px;height:40px;font-size:.95rem;margin-left:.15rem;flex-shrink:0;
-    background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.28);color:#fff;box-shadow:none;}
-  .aia-bell.in-top:hover{background:rgba(255,255,255,.22);color:#fff;transform:none;box-shadow:none;}
+  /* When relocated into a page's top header bar it sits inline, not floating.
+     The .top bar is light now (it used to be maroon), so this is styled to match
+     the .ic-btn on the .topbar pages — a white-on-maroon icon would be invisible.
+     margin-left:auto keeps it grouped with the "Dashboard" link at the right
+     instead of being centred by the header's space-between. */
+  .aia-bell.in-top{position:relative;top:auto;right:auto;bottom:auto;left:auto;
+    width:34px;height:34px;font-size:.85rem;flex-shrink:0;
+    margin-left:auto;margin-right:.55rem;
+    background:#FBF9F6;border:1px solid #E2D9CC;color:#5C3838;
+    box-shadow:0 2px 0 #E2D9CC;}
+  .aia-bell.in-top:hover{background:#7B1D1D;border-color:#7B1D1D;color:#fff;
+    transform:translateY(-2px);box-shadow:0 4px 0 #4A0E0E;}
+  .aia-bell.in-top .ab-dot{min-width:17px;height:17px;font-size:.58rem;top:-5px;right:-5px;}
 </style>
 <a class="aia-bell" href="admin_notifications.php" aria-label="Notifications<?php echo $__aiaUnread > 0 ? ' (' . $__aiaUnread . ' unread)' : ''; ?>" title="Notifications">
   <i class="fas fa-bell"></i>
@@ -202,8 +211,9 @@ try {
     if (f.classList.contains('no-action-feedback')) return;           // opt-out hook
     if (f.hasAttribute('data-af-done')) return;
     f.setAttribute('data-af-done', '1');
-    var loader = document.getElementById('pageLoader');
-    if (loader) loader.classList.add('show');
+    /* admin pages replaced the full-screen loader with the top progress bar
+       from includes/admin_ui.php; becShowLoader is the shim that drives it */
+    if (typeof window.becShowLoader === 'function') window.becShowLoader();
     f.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function (b) {
       b.disabled = true;
       if (b.tagName === 'BUTTON') b.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Working…';
@@ -214,8 +224,9 @@ try {
   /* restore state if the page is shown again from bfcache */
   window.addEventListener('pageshow', function (ev) {
     if (!ev.persisted) return;
-    var loader = document.getElementById('pageLoader');
-    if (loader) loader.classList.remove('show');
+    /* the progress bar clears itself on pageshow (includes/admin_ui.php); the
+       submit buttons this handler locked are restored by the browser's own
+       bfcache form-state restore */
   });
 })();
 </script>

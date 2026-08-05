@@ -70,46 +70,16 @@ $presets   = pmFrequencyPresets();
 <title>Preventive Maintenance — Admin</title>
 <link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
 <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+<link rel="stylesheet" href="assets/css/admin-shell.css">
 <style>
-  :root{--m:#7B1D1D;--md:#4A0E0E;--g:#C9960C;--ink:#1C1008;--ink2:#5C3838;--ink3:#755B4E;--paper:#F4F1EC;--surface:#fff;--border:#E2D9CC;--sb:262px;--danger:#B42318;--success:#1A7A33;--m1:#2D0505;--g2:#D4A017;--g3:#F0C040;--r1:8px;--r2:12px;}
+
+  :root{--m:#7B1D1D;--md:#4A0E0E;--g:#C9960C;--ink:#1A0808;--ink2:#5C3838;--ink3:#9C7A7A;--paper:#F4EFE6;--surface:#fff;--border:#E5D9C6;--sb:262px;--danger:#B42318;--success:#1A7A33;--m1:#2D0505;--g2:#D4A017;--g3:#F0C040;--r1:8px;--r2:12px;}
   *{box-sizing:border-box}
   body{margin:0;font-family:'DM Sans',sans-serif;background:var(--paper);color:var(--ink);min-height:100vh;}
-  .sb{position:fixed;left:0;top:0;width:var(--sb);height:100vh;background:linear-gradient(168deg,#1E0202 0%,#350808 38%,#4A0E0E 68%,#3A0808 100%);display:flex;flex-direction:column;z-index:400;overflow:hidden;box-shadow:5px 0 30px rgba(45,5,5,.38);transition:transform .32s cubic-bezier(.4,0,.2,1);}
-  .sb::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 110% 45% at 50% -5%,rgba(212,160,23,.12),transparent);pointer-events:none;}
-  .sb-top{padding:1.35rem 1.2rem .9rem;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:.75rem;position:relative;z-index:1;}
-  .seal-ring{position:relative;width:46px;height:46px;flex-shrink:0;}
-  .seal-spin{position:absolute;inset:-3px;border-radius:50%;background:conic-gradient(var(--g2) 0%,var(--g3) 30%,var(--g2) 60%,var(--g3) 80%,var(--g2) 100%);animation:sealSpin 7s linear infinite;opacity:.72;}
-  @keyframes sealSpin{to{transform:rotate(360deg)}}
-  .seal-core{position:absolute;inset:2px;border-radius:50%;overflow:hidden;background:var(--m1);}
-  .seal-core img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
-  .sb-brand strong{display:block;font-family:'Outfit',sans-serif;font-weight:800;font-size:.8rem;color:#fff;line-height:1.25;}
-  .sb-brand em{font-size:.57rem;font-style:normal;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:1.8px;}
-  .sb-user{margin:.45rem 1rem .2rem;padding:.65rem .875rem;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.07);border-radius:var(--r2);display:flex;align-items:center;gap:.65rem;position:relative;z-index:1;}
-  .uav{width:32px;height:32px;flex-shrink:0;border-radius:50%;background:linear-gradient(135deg,var(--g2),#B45309);display:flex;align-items:center;justify-content:center;font-family:'Outfit',sans-serif;font-weight:900;font-size:.77rem;color:#fff;box-shadow:0 3px 0 rgba(0,0,0,.28);}
-  .uname{font-size:.8rem;color:#fff;font-weight:600;display:block;}
-  .urole{font-size:.58rem;color:rgba(255,255,255,.32);text-transform:uppercase;letter-spacing:1px;}
-  .sb-nav{flex:1;padding:.25rem 0;overflow-y:auto;position:relative;z-index:1;scrollbar-width:thin;scrollbar-color:rgba(212,160,23,.45) transparent;}
-.sb-nav::-webkit-scrollbar{width:6px;}
-.sb-nav::-webkit-scrollbar-thumb{background:rgba(212,160,23,.4);border-radius:3px;}
-.sb-nav::-webkit-scrollbar-thumb:hover{background:rgba(212,160,23,.65);}
-  .nav-sec{font-size:.54rem;text-transform:uppercase;letter-spacing:2.5px;color:rgba(255,255,255,.18);padding:.5rem 1.25rem .2rem;font-weight:700;}
-  .ni{display:flex;align-items:center;gap:.65rem;padding:.56rem 1.25rem;color:rgba(255,255,255,.42);background:none;border:none;width:100%;text-align:left;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:500;cursor:pointer;transition:all .16s;text-decoration:none;position:relative;}
-  .ni-ic{width:30px;height:30px;border-radius:var(--r1);display:flex;align-items:center;justify-content:center;font-size:.78rem;background:rgba(255,255,255,.05);flex-shrink:0;transition:all .22s;}
-  .ni:hover{color:rgba(255,255,255,.82);}
-  .ni:hover .ni-ic{background:rgba(255,255,255,.1);transform:scale(1.08);}
-  .ni.on{color:#fff;font-weight:600;}
-  .ni.on .ni-ic{background:linear-gradient(135deg,var(--g2),var(--g3));color:var(--m1);box-shadow:0 3px 0 rgba(0,0,0,.18),0 4px 12px rgba(212,160,23,.25);}
-  .ni.on::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(to bottom,var(--g2),var(--g3));border-radius:0 3px 3px 0;}
-  .sb-foot{padding:.55rem 1rem .95rem;border-top:1px solid rgba(255,255,255,.06);}
-  .lout{width:100%;display:flex;align-items:center;justify-content:center;gap:.65rem;padding:.52rem .78rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);color:rgba(255,255,255,.42);border-radius:var(--r1);cursor:pointer;font-size:.8rem;font-family:'DM Sans',sans-serif;font-weight:500;text-decoration:none;transition:all .18s;}
-  .lout:hover{background:rgba(220,38,38,.14);color:#fca5a5;border-color:rgba(220,38,38,.22);}
+  /* sidebar styling lives in assets/css/admin-shell.css */
   .main{margin-left:var(--sb);transition:margin-left .26s ease;}
   body.becSbHide .main{margin-left:0 !important;}
   /* Header */
-  .top{background:linear-gradient(135deg,var(--m1) 0%,var(--md) 55%,var(--m) 100%);color:#fff;padding:20px 28px;display:flex;align-items:center;gap:.95rem;}
-  .top .top-ic{width:44px;height:44px;border-radius:13px;background:rgba(255,255,255,.12);border:1px solid rgba(212,160,23,.45);display:flex;align-items:center;justify-content:center;font-size:1.15rem;color:var(--g3);flex-shrink:0;}
-  .top h1{font-size:1.18rem;margin:0;font-weight:800;letter-spacing:-.01em;}
-  .top .sub{font-size:.74rem;color:rgba(255,255,255,.72);margin-top:3px;}
   .wrap{max-width:none;margin:0;padding:24px 28px 64px;} /* full-width desktop view */
   .flash{display:flex;align-items:center;gap:.55rem;padding:.85rem 1rem;border-radius:11px;margin-bottom:1.1rem;font-size:.86rem;font-weight:600;}
   .flash.ok{background:#E9F9EF;border:1px solid #b6e6c6;color:var(--success);}
@@ -180,11 +150,20 @@ $presets   = pmFrequencyPresets();
 <body>
 <?php $activeNav = 'preventive'; require __DIR__ . '/includes/admin_sidebar.php'; ?>
   <div class="main">
-    <div class="top">
-      <div class="top-ic"><i class="fas fa-calendar-check"></i></div>
-      <div><h1>Preventive Maintenance</h1><div class="sub">Recurring maintenance schedules that auto-generate work when due</div></div>
+    <div class="topbar">
+      <div>
+        <div class="pg-title">Preventive Maintenance</div>
+        <div class="bc">
+          <a href="admin_dashboard.php"><i class="fas fa-home"></i></a>
+          <i class="fas fa-chevron-right"></i><span>Preventive Maint.</span>
+        </div>
+      </div>
     </div>
     <div class="wrap">
+      <div class="head">
+        <h2>Preventive Maintenance</h2>
+        <p>Recurring maintenance schedules that auto-generate work when due.</p>
+      </div>
       <?php if ($flash): ?><div class="flash <?php echo $flash[0]==='ok'?'ok':'err'; ?>"><?php echo pm_e($flash[1]); ?></div><?php endif; ?>
 
       <div class="cards">
@@ -283,6 +262,6 @@ $presets   = pmFrequencyPresets();
 <script src="assets/table_paginate.js" defer></script>
 <script src="assets/date_picker.js"></script>
 <?php require_once __DIR__ . '/includes/admin_assistant.php'; ?>
-<?php require __DIR__ . '/includes/site_transitions.php'; ?>
+<?php require __DIR__ . '/includes/admin_ui.php'; ?>
 </body>
 </html>

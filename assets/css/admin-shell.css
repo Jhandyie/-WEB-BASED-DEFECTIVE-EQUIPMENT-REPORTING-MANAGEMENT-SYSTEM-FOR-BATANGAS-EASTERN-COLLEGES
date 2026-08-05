@@ -1,0 +1,158 @@
+/*
+ * assets/css/admin-shell.css — the shared admin shell.
+ *
+ * Single source of truth for the sidebar, topbar, breadcrumb and page heading.
+ * These rules used to be copy-pasted inline into every admin page; ten copies
+ * had drifted into nine different texts (they still rendered identically, but
+ * nothing kept them that way). Adding a nav item or nudging a padding value is
+ * now a one-file change.
+ *
+ * Loaded from each page HEAD *before* that page own <style>, so any page-specific
+ * override still wins on the cascade. Vendored + self-hosted: no CDN, ever.
+ *
+ * Pairs with includes/admin_sidebar.php (markup) and includes/admin_ui.php
+ * (progress bar, tooltips, behaviour).
+ */
+
+/* ---- root ---------------------------------------------------------------- */
+/* MUST be applied before first paint. Setting the root font size from an
+   end-of-<body> include relays out the whole page after it has painted. */
+html{font-size:106.25%;scrollbar-gutter:stable;}
+
+/* The canonical admin palette. Every admin page still declares its own :root
+   (which wins, since page CSS loads after this file) — these are the values
+   those declarations are kept in sync with, and the fallback for any page or
+   new page that doesn't declare them.
+   Two spellings exist for historical reasons: most pages use --t1/--t3/--bdr,
+   while admin_backup / admin_bec_directory / admin_preventive use
+   --ink/--ink3/--border. Same colours, different names. Prefer the --t* set for
+   anything new; don't introduce a third spelling. */
+:root{
+  --m1:#2D0505;--m2:#4A0E0E;--m3:#7B1D1D;--m4:#9B2C2C;
+  --g1:#92600A;--g2:#D4A017;--g3:#F0C040;--gp:#FEF9E7;
+  --bg:#F4EFE6;--s1:#FFFFFF;--s2:#FAF7F0;--s3:#F2EAD9;
+  --bdr:#E5D9C6;--bdr2:#D0C0A8;
+  --t1:#1A0808;--t2:#5C3838;--t3:#9C7A7A;--t4:#C8ABAB;
+  --sh0:0 1px 2px rgba(45,5,5,.05);
+  --sh1:0 2px 8px rgba(45,5,5,.07),0 1px 3px rgba(45,5,5,.04);
+  --sh2:0 6px 20px rgba(45,5,5,.09),0 2px 6px rgba(45,5,5,.05);
+  --sh3:0 14px 40px rgba(45,5,5,.13),0 4px 10px rgba(45,5,5,.07);
+  --r1:8px;--r2:12px;--r3:18px;--r4:26px;--sb:262px;
+  /* older spelling, same values */
+  --ink:#1A0808;--ink2:#5C3838;--ink3:#9C7A7A;
+  --paper:#F4EFE6;--surface:#FFFFFF;--border:#E5D9C6;--field:#FAF7F0;
+  --maroon:#7B1D1D;--maroon-d:#4A0E0E;
+}
+
+/* ---- sidebar ------------------------------------------------------------- */
+.sb{position:fixed;left:0;top:0;width:var(--sb,262px);height:100vh;
+  background:linear-gradient(168deg,#1E0202 0%,#350808 38%,#4A0E0E 68%,#3A0808 100%);
+  display:flex;flex-direction:column;z-index:400;overflow:hidden;
+  box-shadow:5px 0 30px rgba(45,5,5,.38);
+  transition:transform .32s cubic-bezier(.4,0,.2,1);
+  /* Pinned, not inherited. Pages set slightly different body colours and font
+     sizes; without these the same sidebar rendered at 17px on one page and
+     14.875px on the next purely by inheritance. */
+  font-family:'DM Sans',system-ui,sans-serif;font-size:.875rem;color:#fff;}
+.sb::before{content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 110% 45% at 50% -5%,rgba(212,160,23,.12),transparent);pointer-events:none;}
+
+.sb-top{padding:1.35rem 1.2rem .9rem;border-bottom:1px solid rgba(255,255,255,.06);
+  display:flex;align-items:center;gap:.75rem;position:relative;z-index:1;}
+.seal-ring{position:relative;width:46px;height:46px;flex-shrink:0;}
+.seal-spin{position:absolute;inset:-3px;border-radius:50%;
+  background:conic-gradient(var(--g2,#D4A017) 0%,var(--g3,#F0C040) 30%,var(--g2,#D4A017) 60%,var(--g3,#F0C040) 80%,var(--g2,#D4A017) 100%);
+  opacity:.72;}
+@keyframes sealSpin{to{transform:rotate(360deg)}}
+.seal-core{position:absolute;inset:2px;border-radius:50%;overflow:hidden;background:var(--m1,#2D0505);}
+.seal-core img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.sb-brand strong{display:block;font-family:'Outfit',sans-serif;font-weight:800;
+  font-size:.8rem;color:#fff;line-height:1.25;}
+.sb-brand em{font-size:.57rem;font-style:normal;color:rgba(255,255,255,.3);
+  text-transform:uppercase;letter-spacing:1.8px;}
+
+.sb-user{margin:.45rem 1rem .2rem;padding:.65rem .875rem;
+  background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.07);
+  border-radius:var(--r2,12px);display:flex;align-items:center;gap:.65rem;
+  position:relative;z-index:1;cursor:default;transition:background .18s;}
+.sb-user:hover{background:rgba(255,255,255,.09);}
+.uav{width:32px;height:32px;flex-shrink:0;border-radius:50%;
+  background:linear-gradient(135deg,var(--g2,#D4A017),#B45309);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Outfit',sans-serif;font-weight:900;font-size:.77rem;color:#fff;
+  box-shadow:0 3px 0 rgba(0,0,0,.28);transition:transform .22s;}
+.sb-user:hover .uav{transform:scale(1.1) rotate(-6deg);}
+.uname{font-size:.8rem;color:#fff;font-weight:600;display:block;line-height:1.2;}
+.urole{font-size:.58rem;color:rgba(255,255,255,.32);text-transform:uppercase;letter-spacing:1px;}
+
+.sb-nav{flex:1;padding:.25rem 0;overflow-y:auto;position:relative;z-index:1;scrollbar-width:thin;scrollbar-color:rgba(212,160,23,.45) transparent;}
+.sb-nav::-webkit-scrollbar{width:6px;}
+.sb-nav::-webkit-scrollbar-thumb{background:rgba(212,160,23,.4);border-radius:3px;}
+.sb-nav::-webkit-scrollbar-thumb:hover{background:rgba(212,160,23,.65);}
+.sb-nav::-webkit-scrollbar{width:3px;}
+.sb-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px;}
+.nav-sec{font-size:.54rem;text-transform:uppercase;letter-spacing:2.5px;
+  color:rgba(255,255,255,.17);padding:.5rem 1.25rem .2rem;font-weight:700;}
+.ni{display:flex;align-items:center;gap:.65rem;padding:.56rem 1.25rem;
+  color:rgba(255,255,255,.42);background:none;border:none;width:100%;
+  text-align:left;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:500;
+  cursor:pointer;transition:all .16s;text-decoration:none;position:relative;}
+.ni-ic{width:30px;height:30px;border-radius:var(--r1,8px);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.78rem;background:rgba(255,255,255,.05);flex-shrink:0;transition:all .22s;}
+.ni:hover{color:rgba(255,255,255,.82);}
+.ni:hover .ni-ic{background:rgba(255,255,255,.1);transform:scale(1.08);}
+.ni.on{color:#fff;font-weight:600;}
+.ni.on .ni-ic{background:linear-gradient(135deg,var(--g2,#D4A017),var(--g3,#F0C040));
+  color:var(--m1,#2D0505);box-shadow:0 3px 0 rgba(0,0,0,.18),0 4px 12px rgba(212,160,23,.25);}
+.ni.on::after{content:'';position:absolute;left:0;top:0;bottom:0;
+  width:3px;background:linear-gradient(to bottom,var(--g2,#D4A017),var(--g3,#F0C040));border-radius:0 3px 3px 0;}
+.nbadge{margin-left:auto;background:var(--g2,#D4A017);color:var(--m1,#2D0505);
+  font-size:.57rem;font-weight:900;padding:2px 6px;border-radius:20px;
+  animation:nbp 2.2s ease-in-out infinite;}
+@keyframes nbp{0%,100%{transform:scale(1);}50%{transform:scale(1.12);}}
+
+.sb-foot{padding:.55rem 1rem .95rem;border-top:1px solid rgba(255,255,255,.06);z-index:1;}
+.lout{width:100%;display:flex;align-items:center;gap:.65rem;padding:.52rem .78rem;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);
+  color:rgba(255,255,255,.42);border-radius:var(--r1,8px);cursor:pointer;
+  font-size:.8rem;font-family:'DM Sans',sans-serif;font-weight:500;transition:all .18s;}
+.lout:hover{background:rgba(220,38,38,.14);color:#fca5a5;border-color:rgba(220,38,38,.22);}
+
+/* ---- topbar + breadcrumb ------------------------------------------------- */
+/* Canonical admin header. Pages using the light .topbar layout already match
+   this; the four pages that had a maroon .top bar were converted to it. */
+/* Fallback values are the CANONICAL palette, not each page's local names. Half
+   the admin pages use --t1/--t3/--bdr and half use --ink/--ink3/--border with
+   slightly different values, so falling back to the latter rendered the
+   breadcrumb brown on some pages and mauve on others. font-size and box-shadow
+   are pinned for the same reason .sb pins them: otherwise they inherit the
+   page's body and differ per page. */
+.topbar{background:rgba(255,252,245,.93);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--bdr,#E5D9C6);
+  box-shadow:var(--sh0,0 1px 2px rgba(45,5,5,.05));
+  height:58px;padding:0 1.75rem;display:flex;align-items:center;
+  justify-content:space-between;position:sticky;top:0;z-index:200;
+  font-family:'DM Sans',system-ui,sans-serif;font-size:.875rem;
+  color:var(--t1,#1A0808);}
+.tb-l,.tb-left{display:flex;align-items:center;gap:.55rem;}
+.tb-r,.tb-right{display:flex;align-items:center;gap:.55rem;}
+.pg-title{font-family:'Outfit',sans-serif;font-weight:700;font-size:1rem;
+  color:var(--t1,#1A0808);}
+.bc{font-size:.68rem;color:var(--t3,#9C7A7A);display:flex;align-items:center;gap:.25rem;}
+.bc a{color:var(--t3,#9C7A7A);text-decoration:none;}
+.bc a:hover{color:var(--m3,#7B1D1D);}
+.bc i{font-size:.55rem;}
+
+/* ---- body ---------------------------------------------------------------- */
+/* Most admin pages set this themselves; three did not, so their base text ran
+   at the full root size (17px) while everywhere else it was 14.875px. Declared
+   here so every page starts from the same base — a page may still override it. */
+body{font-size:.875rem;}
+
+/* ---- page heading block -------------------------------------------------- */
+.head{margin-bottom:18px;}
+/* flex so headings that lead with an .h2-ic icon line up; harmless for text-only */
+.head h2{font-size:1.4rem;font-weight:800;letter-spacing:-.01em;color:var(--t1,#1A0808);
+  display:flex;align-items:center;gap:.6rem;}
+.head p{font-size:.86rem;color:var(--t3,#9C7A7A);margin-top:5px;max-width:760px;}
