@@ -331,7 +331,7 @@ $vw  = $_GET['view']       ?? 'table'; // table | grid
 $jc  = $_GET['jc']         ?? ''; // JSON category quick view
 $pg  = max(1, (int)($_GET['page'] ?? 1));
 $per = (int)($_GET['per_page'] ?? 10);
-if (!in_array($per, [10,20,50], true)) { $per = 10; }
+if (!in_array($per, [10,20,50,100], true)) { $per = 10; }
 
 /* --- DATA -------------------------------------------- */
 $openDefectsExpr = '0';
@@ -443,6 +443,7 @@ $inventorySummary = [
     'foodWarmers' => 0,
     'whiteboards' => 0,
     'computers' => 0,
+    'pianos' => 0,
 ];
 $computerByDept = ['ITSO' => 0, 'PMO' => 0];
 $inventorySummaryLabels = [
@@ -459,6 +460,7 @@ $inventorySummaryLabels = [
     'foodWarmers' => 'Food Warmers',
     'whiteboards' => 'Whiteboards',
     'computers' => 'Computers',
+    'pianos' => 'Pianos',
 ];
 $inventoryQuickFilterMap = [
     'fans' => ['search' => 'Fan', 'dept' => 'all'],
@@ -474,6 +476,7 @@ $inventoryQuickFilterMap = [
     'foodWarmers' => ['search' => 'Food Warmer', 'dept' => 'all'],
     'whiteboards' => ['search' => 'Whiteboard', 'dept' => 'all'],
     'computers' => ['search' => 'Computer', 'dept' => 'all'],
+    'pianos' => ['search' => 'Piano', 'dept' => 'all'],
 ];
 
 $inventorySources = [
@@ -648,7 +651,9 @@ function qurl(array $params): string { return '?' . http_build_query($params); }
 <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <link rel="stylesheet" href="css/typography.css">
 <script src="assets/vendor/js/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="assets/css/admin-shell.css">
 <style>
+
 /* -------------------------------------------------------
    BEC Admin - Inventory  |  Maroon - Gold - Warm
    Outfit (headings) - DM Sans (body)
@@ -657,7 +662,7 @@ function qurl(array $params): string { return '?' . http_build_query($params); }
   --m1:#2D0505;--m2:#4A0E0E;--m3:#7B1D1D;--m4:#9B2C2C;
   --g1:#92600A;--g2:#D4A017;--g3:#F0C040;--gp:#FEF9E7;
   --bg:#F4EFE6;--s1:#FFFFFF;--s2:#FAF7F0;--s3:#F2EAD9;
-  --bdr:#ECE2D2;--bdr2:#D8C9B2;
+  --bdr:#E5D9C6;--bdr2:#D0C0A8;
   --t1:#1A0808;--t2:#5C3838;--t3:#9C7A7A;--t4:#C8ABAB;
   --sh0:0 1px 2px rgba(45,5,5,.05);
   --sh1:0 2px 8px rgba(45,5,5,.07),0 1px 3px rgba(45,5,5,.04);
@@ -671,60 +676,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.022'/%3E%3C/svg%3E");}
 
 /* -- SIDEBAR ---------------------------------------- */
-.sb{position:fixed;left:0;top:0;width:var(--sb);height:100vh;
-  background:linear-gradient(168deg,#1E0202 0%,#350808 38%,#4A0E0E 68%,#3A0808 100%);
-  display:flex;flex-direction:column;z-index:400;overflow:hidden;
-  box-shadow:5px 0 30px rgba(45,5,5,.38);transition:transform .32s cubic-bezier(.4,0,.2,1);}
-.sb::before{content:'';position:absolute;inset:0;
-  background:radial-gradient(ellipse 110% 45% at 50% -5%,rgba(212,160,23,.12),transparent);pointer-events:none;}
-.sb-top{padding:1.35rem 1.2rem .9rem;border-bottom:1px solid rgba(255,255,255,.06);
-  display:flex;align-items:center;gap:.75rem;position:relative;z-index:1;}
-.seal-ring{position:relative;width:46px;height:46px;flex-shrink:0;}
-.seal-spin{position:absolute;inset:-3px;border-radius:50%;
-  background:conic-gradient(var(--g2) 0%,var(--g3) 30%,var(--g2) 60%,var(--g3) 80%,var(--g2) 100%);
-  animation:sealSpin 7s linear infinite;opacity:.72;}
-@keyframes sealSpin{to{transform:rotate(360deg)}}
-.seal-core{position:absolute;inset:2px;border-radius:50%;overflow:hidden;background:var(--m1);}
-.seal-core img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
-.sb-brand strong{display:block;font-family:'Outfit',sans-serif;font-weight:800;font-size:.8rem;color:#fff;line-height:1.25;}
-.sb-brand em{font-size:.57rem;font-style:normal;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:1.8px;}
-.sb-user{margin:.45rem 1rem .2rem;padding:.65rem .875rem;
-  background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.07);border-radius:var(--r2);
-  display:flex;align-items:center;gap:.65rem;position:relative;z-index:1;transition:background .18s;}
-.sb-user:hover{background:rgba(255,255,255,.09);}
-.uav{width:32px;height:32px;flex-shrink:0;border-radius:50%;
-  background:linear-gradient(135deg,var(--g2),#B45309);
-  display:flex;align-items:center;justify-content:center;
-  font-family:'Outfit',sans-serif;font-weight:900;font-size:.77rem;color:#fff;
-  box-shadow:0 3px 0 rgba(0,0,0,.28);transition:transform .22s;}
-.sb-user:hover .uav{transform:scale(1.08) rotate(-6deg);}
-.uname{font-size:.8rem;color:#fff;font-weight:600;display:block;}
-.urole{font-size:.58rem;color:rgba(255,255,255,.32);text-transform:uppercase;letter-spacing:1px;}
-.sb-nav{flex:1;padding:.25rem 0;overflow-y:auto;position:relative;z-index:1;scrollbar-width:thin;scrollbar-color:rgba(212,160,23,.45) transparent;}
-.sb-nav::-webkit-scrollbar{width:6px;}
-.sb-nav::-webkit-scrollbar-thumb{background:rgba(212,160,23,.4);border-radius:3px;}
-.sb-nav::-webkit-scrollbar-thumb:hover{background:rgba(212,160,23,.65);}
-.nav-sec{font-size:.54rem;text-transform:uppercase;letter-spacing:2.5px;color:rgba(255,255,255,.18);padding:.5rem 1.25rem .2rem;font-weight:700;}
-.ni{display:flex;align-items:center;gap:.65rem;padding:.56rem 1.25rem;color:rgba(255,255,255,.42);
-  background:none;border:none;width:100%;text-align:left;font-family:'DM Sans',sans-serif;
-  font-size:.82rem;font-weight:500;cursor:pointer;transition:all .16s;text-decoration:none;position:relative;}
-.ni-ic{width:30px;height:30px;border-radius:var(--r1);display:flex;align-items:center;justify-content:center;
-  font-size:.78rem;background:rgba(255,255,255,.05);flex-shrink:0;transition:all .22s;}
-.ni:hover{color:rgba(255,255,255,.82);}
-.ni:hover .ni-ic{background:rgba(255,255,255,.1);transform:scale(1.08);}
-.ni.on{color:#fff;font-weight:600;}
-.ni.on .ni-ic{background:linear-gradient(135deg,var(--g2),var(--g3));color:var(--m1);
-  box-shadow:0 3px 0 rgba(0,0,0,.18),0 4px 12px rgba(212,160,23,.25);}
-.ni.on::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
-  background:linear-gradient(to bottom,var(--g2),var(--g3));border-radius:0 3px 3px 0;}
-.nbadge{margin-left:auto;background:var(--g2);color:var(--m1);font-size:.57rem;font-weight:900;
-  padding:2px 6px;border-radius:20px;animation:nbp 2.2s ease-in-out infinite;}
-@keyframes nbp{0%,100%{transform:scale(1);}50%{transform:scale(1.12);}}
-.sb-foot{padding:.55rem 1rem .95rem;border-top:1px solid rgba(255,255,255,.06);z-index:1;}
-.lout{width:100%;display:flex;align-items:center;gap:.65rem;padding:.52rem .78rem;
-  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);color:rgba(255,255,255,.42);
-  border-radius:var(--r1);cursor:pointer;font-size:.8rem;font-family:'DM Sans',sans-serif;font-weight:500;transition:all .18s;}
-.lout:hover{background:rgba(220,38,38,.14);color:#fca5a5;border-color:rgba(220,38,38,.22);}
+/* sidebar styling lives in assets/css/admin-shell.css */
 .lout i{transition:transform .3s;}.lout:hover i{transform:rotate(180deg);}
 
 /* -- LAYOUT ----------------------------------------- */
@@ -1192,6 +1144,7 @@ textarea.fc{resize:vertical;min-height:72px;}
         <option value="10" <?php echo $per===10?'selected':'';?>>10 / page</option>
         <option value="20" <?php echo $per===20?'selected':'';?>>20 / page</option>
         <option value="50" <?php echo $per===50?'selected':'';?>>50 / page</option>
+        <option value="100" <?php echo $per===100?'selected':'';?>>100 / page</option>
       </select>
       <span style="font-size:.7rem;color:var(--t3);white-space:nowrap;">Showing <?php echo $show_from;?>-<?php echo $show_to;?> of <?php echo $total_items;?> item<?php echo $total_items!=1?'s':'';?></span>
     </div>
@@ -1957,7 +1910,7 @@ function printQR(){
 <script src="assets/select_premium.js"></script>
 <script src="assets/file_upload_premium.js"></script>
 <?php require_once __DIR__ . '/includes/admin_assistant.php'; ?>
-<?php require __DIR__ . '/includes/site_transitions.php'; ?>
+<?php require __DIR__ . '/includes/admin_ui.php'; ?>
 </body>
 </html>
 

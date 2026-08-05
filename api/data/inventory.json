@@ -2,70 +2,182 @@
     "airConditioners": [
         {
             "id": 1,
-            "propertyNo": "AIR-UPLOAD-0001",
+            "propertyNo": "AIR-2026-0001",
             "campus": "All Campuses",
             "building": "Multiple",
-            "buildingName": "Uploaded Inventory",
+            "buildingName": "PMO Inventory 2026",
             "room": "Multiple Rooms",
-            "type": "Air Conditioning Unit",
-            "article": "Air Conditioning Unit",
-            "qty": 122,
+            "type": "Air Conditioner",
+            "article": "Air Conditioner",
+            "qty": 182,
             "status": "Active",
             "department": "PMO",
-            "remarks": "Imported from NEW-Inventory-2025-Dao.xlsx on Jul 16, 2026"
+            "remarks": "From the PMO inventory dated June 14, 2026"
+        }
+    ],
+    "fans": [
+        {
+            "id": 1,
+            "propertyNo": "FAN-2026-0001",
+            "campus": "All Campuses",
+            "building": "Multiple",
+            "buildingName": "PMO Inventory 2026",
+            "room": "Multiple Rooms",
+            "type": "Electric Fan",
+            "article": "Electric Fan",
+            "qty": 387,
+            "status": "Active",
+            "department": "PMO",
+            "remarks": "From the PMO inventory dated June 14, 2026"
         }
     ],
     "televisions": [
         {
             "id": 1,
-            "propertyNo": "TEL-UPLOAD-0001",
+            "propertyNo": "TEL-2026-0001",
             "campus": "All Campuses",
             "building": "Multiple",
-            "buildingName": "Uploaded Inventory",
+            "buildingName": "PMO Inventory 2026",
             "room": "Multiple Rooms",
-            "type": "Television Unit",
-            "article": "Television Unit",
-            "qty": 3,
+            "type": "Television",
+            "article": "Television",
+            "qty": 89,
             "status": "Active",
             "department": "PMO",
-            "remarks": "Imported from NEW-Inventory-2025-Dao.xlsx on Jul 16, 2026"
+            "remarks": "From the PMO inventory dated June 14, 2026"
+        }
+    ],
+    "whiteboards": [
+        {
+            "id": 1,
+            "propertyNo": "WHI-2026-0001",
+            "campus": "All Campuses",
+            "building": "Multiple",
+            "buildingName": "PMO Inventory 2026",
+            "room": "Multiple Rooms",
+            "type": "Whiteboard / Glassboard",
+            "article": "Whiteboard / Glassboard",
+            "qty": 52,
+            "status": "Active",
+            "department": "PMO",
+            "remarks": "From the PMO inventory dated June 14, 2026"
+        }
+    ],
+    "lockers": [
+        {
+            "id": 1,
+            "propertyNo": "LOC-2026-0001",
+            "campus": "All Campuses",
+            "building": "Multiple",
+            "buildingName": "PMO Inventory 2026",
+            "room": "Multiple Rooms",
+            "type": "Locker",
+            "article": "Locker",
+            "qty": 28,
+            "status": "Active",
+            "department": "PMO",
+            "remarks": "From the PMO inventory dated June 14, 2026"
         }
     ],
     "filingCabinets": [
         {
             "id": 1,
-            "propertyNo": "FIL-UPLOAD-0001",
+            "propertyNo": "FIL-2026-0001",
             "campus": "All Campuses",
             "building": "Multiple",
-            "buildingName": "Uploaded Inventory",
+            "buildingName": "PMO Inventory 2026",
             "room": "Multiple Rooms",
-            "type": "Filing Cabinet",
-            "article": "Filing Cabinet",
-            "qty": 245,
+            "type": "Cabinet",
+            "article": "Cabinet",
+            "qty": 267,
             "status": "Active",
             "department": "PMO",
-            "remarks": "Imported from NEW-Inventory-2025-Dao.xlsx on Jul 16, 2026"
+            "remarks": "From the PMO inventory dated June 14, 2026"
+        }
+    ],
+    "officeChairs": [
+        {
+            "id": 1,
+            "propertyNo": "OFF-2026-0001",
+            "campus": "All Campuses",
+            "building": "Multiple",
+            "buildingName": "PMO Inventory 2026",
+            "room": "Multiple Rooms",
+            "type": "Office Chair",
+            "article": "Office Chair",
+            "qty": 2634,
+            "status": "Active",
+            "department": "PMO",
+            "remarks": "From the PMO inventory dated June 14, 2026"
+        }
+    ],
+    "tables": [
+        {
+            "id": 1,
+            "propertyNo": "TAB-2026-0001",
+            "campus": "All Campuses",
+            "building": "Multiple",
+            "buildingName": "PMO Inventory 2026",
+            "room": "Multiple Rooms",
+            "type": "Office Table",
+            "article": "Office Table",
+            "qty": 248,
+            "status": "Active",
+            "department": "PMO",
+            "remarks": "From the PMO inventory dated June 14, 2026"
         }
     ],
     "copyPrinters": [
         {
             "id": 1,
-            "propertyNo": "COP-UPLOAD-0001",
+            "propertyNo": "COP-2026-0001",
             "campus": "All Campuses",
             "building": "Multiple",
-            "buildingName": "Uploaded Inventory",
+            "buildingName": "PMO Inventory 2026",
             "room": "Multiple Rooms",
-            "type": "Copy Printer",
-            "article": "Copy Printer",
+            "type": "Copier / Duplicator",
+            "article": "Copier / Duplicator",
             "qty": 2,
             "status": "Active",
             "department": "PMO",
-            "remarks": "Imported from NEW-Inventory-2025-Dao.xlsx on Jul 16, 2026"
+            "remarks": "From the PMO inventory dated June 14, 2026"
+        }
+    ],
+    "pianos": [
+        {
+            "id": 1,
+            "propertyNo": "PIA-2026-0001",
+            "campus": "All Campuses",
+            "building": "Multiple",
+            "buildingName": "PMO Inventory 2026",
+            "room": "Multiple Rooms",
+            "type": "Piano",
+            "article": "Piano",
+            "qty": 1,
+            "status": "Active",
+            "department": "PMO",
+            "remarks": "From the PMO inventory dated June 14, 2026"
+        }
+    ],
+    "foodWarmers": [
+        {
+            "id": 1,
+            "propertyNo": "FOO-2026-0001",
+            "campus": "All Campuses",
+            "building": "Multiple",
+            "buildingName": "PMO Inventory 2026",
+            "room": "Multiple Rooms",
+            "type": "Food Warmer",
+            "article": "Food Warmer",
+            "qty": 2,
+            "status": "Active",
+            "department": "PMO",
+            "remarks": "From the PMO inventory dated June 14, 2026"
         }
     ],
     "_meta": {
-        "uploaded_at": "2026-07-16T03:44:11+02:00",
-        "filename": "NEW-Inventory-2025-Dao.xlsx",
-        "total": 372
+        "uploaded_at": "2026-08-04T23:36:28+08:00",
+        "filename": "NEW Inventory 2026 (1).xlsx",
+        "total": 3892
     }
 }
