@@ -26,6 +26,8 @@ require_once __DIR__ . '/rate_limiter.php';
 const REPORTER_OTP_ROLE      = 'reporter';
 const REPORTER_TRUST_COOKIE  = 'bec_reporter';
 const REPORTER_TRUST_DAYS    = 30;
+const REPORTER_OTP_TTL_SECS  = 180;   // matches storeOTP()'s 3-minute window
+const REPORTER_OTP_RESEND_WAIT = 25;  // seconds before another code may be asked for
 
 /**
  * The key used to sign remembered devices.
@@ -85,10 +87,17 @@ function reporterOtpSend(string $email): array {
     }
 
     // A code already on its way is better than a second one racing it: with
-    // slow mail the reporter often reads the older message first.
-    $recent = getRecentOtpSecondsAgo($email, 25);
+    // slow mail the reporter often reads the older message first. How long is
+    // left is returned, because the page used to answer "a new code is on its
+    // way" when nothing had been sent.
+    $recent = getRecentOtpSecondsAgo($email, REPORTER_OTP_RESEND_WAIT);
     if ($recent !== null) {
-        return ['ok' => true, 'message' => '', 'throttled' => true];
+        return [
+            'ok'        => true,
+            'message'   => '',
+            'throttled' => true,
+            'retry_in'  => max(1, REPORTER_OTP_RESEND_WAIT - max(0, $recent)),
+        ];
     }
 
     $otp = generateOTP();
@@ -141,6 +150,28 @@ function reporterOtpVerify(string $email, string $code): array {
     RateLimiter::clear('reporter_otp_try:' . $email);
     RateLimiter::clear('reporter_otp_send:' . $email);
     return ['ok' => true, 'message' => ''];
+}
+
+/**
+ * When the reporter's current code stops working, as a unix timestamp, or null.
+ *
+ * The page said "expires in 3 minutes" as fixed text, which stopped being true
+ * the moment it had been open for a while. Reading the real expiry lets it
+ * count down and say something that stays correct.
+ */
+function reporterOtpExpiresAt(string $email): ?int {
+    $email = strtolower(trim($email));
+    if ($email === '') { return null; }
+    try {
+        $st = getPgsqlPdoConnection()->prepare(
+            "SELECT EXTRACT(EPOCH FROM expires_at)::bigint
+               FROM public.email_otp
+              WHERE email = :e AND user_role = :r AND is_used = false AND expires_at > now()
+              ORDER BY otp_id DESC LIMIT 1");
+        $st->execute(['e' => $email, 'r' => REPORTER_OTP_ROLE]);
+        $ts = $st->fetchColumn();
+        return $ts === false ? null : (int)$ts;
+    } catch (\Throwable $e) { return null; }
 }
 
 /** Remember this browser for REPORTER_TRUST_DAYS, so the code is a one-off. */

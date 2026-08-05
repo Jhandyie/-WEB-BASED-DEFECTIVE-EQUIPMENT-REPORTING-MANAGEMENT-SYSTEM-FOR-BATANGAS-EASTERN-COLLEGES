@@ -28,8 +28,14 @@ $stage   = 'signin';           // signin | verify | trusted
 $notice  = '';
 $devCode = '';
 $trustedEmail = reporterTrustedEmail();
-$trustedName  = $trustedEmail !== '' ? becdir_known_name($trustedEmail) : '';
+$trustedName  = $trustedEmail !== '' ? becdir_display_name(becdir_known_name($trustedEmail)) : '';
 if ($trustedEmail !== '' && $trustedName === '') { $trustedName = $trustedEmail; }
+$trustedFirst = $trustedName !== '' ? becdir_first_name($trustedName) : '';
+
+// Seconds left on the code being verified, read from the record itself so the
+// page can count down instead of repeating a fixed "3 minutes".
+$otpSecondsLeft = 0;
+$otpAskedAt     = (int)($_SESSION['otp_sent_at'] ?? 0);
 
 $signIn = static function (string $email, string $typedName, string $eq): void {
     // The typed name is not evidence of anything. Where BEC holds a name on
@@ -56,8 +62,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Your session expired. Please check your details and sign in again.';
         $stage = ($step === 'verify') ? 'verify' : 'signin';
     } elseif ($step === 'forget') {
+        // The name is deliberately kept: someone correcting a typo in their
+        // address should not have to type their name again as well.
         reporterForgetDevice();
-        unset($_SESSION['otp_email'], $_SESSION['otp_name'], $_SESSION['otp_eq'], $_SESSION['otp_sent_at']);
+        unset($_SESSION['otp_email'], $_SESSION['otp_eq'], $_SESSION['otp_sent_at']);
         header('Location: student_index.php' . ($eq !== '' ? '?eq=' . urlencode($eq) : ''));
         exit();
     } elseif ($step === 'trusted') {
@@ -73,8 +81,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif (!empty($_POST['resend'])) {
             $res = reporterOtpSend($pending);
             if (!empty($res['dev_code'])) { $devCode = $res['dev_code']; }
-            $notice = $res['ok'] ? 'A new code is on its way to ' . $pending . '.' : '';
-            if (!$res['ok']) { $error = $res['message']; }
+            if (!$res['ok']) {
+                $error = $res['message'];
+            } elseif (!empty($res['throttled'])) {
+                // Nothing was sent. Saying otherwise sends the reporter back to
+                // an inbox that will not receive anything.
+                $notice = 'Your code was sent moments ago — please check your inbox, including spam. '
+                        . 'You can ask for another in ' . (int)$res['retry_in'] . ' seconds.';
+            } else {
+                $notice = 'A new code is on its way to ' . $pending . '. The previous one no longer works.';
+            }
         } else {
             $res = reporterOtpVerify($pending, (string)($_POST['otp_code'] ?? ''));
             if ($res['ok']) {
@@ -127,6 +143,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 } elseif (!empty($_SESSION['otp_email']) && (time() - (int)($_SESSION['otp_sent_at'] ?? 0)) < 900) {
     $stage = 'verify';   // came back to the tab mid-verification
+}
+
+if ($stage === 'verify' && !empty($_SESSION['otp_email'])) {
+    $exp = reporterOtpExpiresAt((string)$_SESSION['otp_email']);
+    $otpSecondsLeft = $exp === null ? 0 : max(0, $exp - time());
+    $otpAskedAt     = (int)($_SESSION['otp_sent_at'] ?? 0);
 }
 ?><!DOCTYPE html>
 <html lang="en">
@@ -357,22 +379,55 @@ body::after {
 .alert-err { background: #FEF2F2; border: 1px solid #FECACA; color: #991B1B; }
 .alert-note { background: #FFFBEF; border: 1px solid rgba(201,150,12,.35); color: #7A5A00; }
 .alert-ok { background: #F1F9F3; border: 1px solid #C6E6CF; color: #1A6A33; }
-/* ── one-time code ── */
-.otp-head { text-align:center; margin-bottom:1.2rem; }
-.otp-head .otp-ic { width:54px;height:54px;border-radius:50%;margin:0 auto .8rem;
-  background:var(--gold-bg);border:1px solid rgba(201,150,12,.35);color:var(--gold);
-  display:flex;align-items:center;justify-content:center;font-size:1.3rem; }
-.otp-head h2 { font-family:'Fraunces',serif;font-size:1.35rem;color:var(--ink);margin-bottom:.35rem; }
-.otp-head p { font-size:.83rem;color:var(--ink3);line-height:1.6; }
-.otp-head strong { color:var(--ink2); }
-.otp-input { width:100%;padding:.9rem 1rem;border:1.5px solid var(--border);border-radius:11px;
-  font-family:'Courier New',monospace;font-size:1.9rem;font-weight:700;letter-spacing:.55em;
-  text-align:center;text-indent:.55em;color:var(--maroon);background:#fff;outline:none; }
-.otp-input:focus { border-color:var(--maroon);box-shadow:0 0 0 3.5px rgba(123,29,29,.09); }
-.otp-actions { display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin-top:1rem;flex-wrap:wrap; }
-.otp-link { background:none;border:none;padding:.55rem .2rem;min-height:44px;font-family:'DM Sans',sans-serif;
-  font-size:.78rem;font-weight:600;color:var(--maroon);cursor:pointer;text-decoration:underline; }
-.otp-link:hover { color:var(--maroon-d); }
+/* ── one-time code ─────────────────────────────────────────────────────
+   Deliberately the same maroon-and-gold vocabulary as the sign-in step: the
+   reporter has not left the college's portal, and a screen that looks like a
+   different site is exactly where people abandon a sign-in. */
+.otp-steps { display:flex; align-items:center; gap:.55rem; margin-bottom:1.4rem;
+  font-size:.68rem; font-weight:700; letter-spacing:.03em; text-transform:uppercase; }
+.otp-step { display:inline-flex; align-items:center; gap:.35rem; white-space:nowrap; }
+.otp-step.done { color:#1A7A33; }
+.otp-step.done i { font-size:.62rem; }
+.otp-step.now { color:var(--maroon); }
+.otp-step-line { flex:1; height:2px; border-radius:2px;
+  background:linear-gradient(90deg,#1A7A33,var(--maroon)); opacity:.35; }
+.otp-head { text-align:center; margin-bottom:1.3rem; }
+.otp-head .otp-ic { width:58px; height:58px; border-radius:50%; margin:0 auto .85rem;
+  background:var(--gold-bg); border:1px solid rgba(201,150,12,.35); color:var(--gold);
+  display:flex; align-items:center; justify-content:center; font-size:1.35rem; }
+.otp-head h2 { font-family:'Fraunces',serif; font-size:1.45rem; font-weight:700;
+  color:var(--ink); letter-spacing:-.015em; margin-bottom:.45rem; }
+.otp-head p { font-size:.82rem; color:var(--ink3); line-height:1.65; max-width:34ch; margin:0 auto; }
+.otp-to { display:inline-flex; align-items:center; gap:.45rem; margin-top:.9rem;
+  padding:.45rem .85rem; border-radius:20px; background:var(--maroon-soft);
+  border:1px solid rgba(123,29,29,.14); font-size:.78rem; font-weight:600;
+  color:var(--maroon); overflow-wrap:anywhere; }
+.otp-to i { font-size:.7rem; opacity:.8; }
+.otp-input { width:100%; padding:.95rem 1rem; border:1.5px solid var(--border); border-radius:12px;
+  font-family:'Courier New',Courier,monospace; font-size:1.85rem; font-weight:700;
+  letter-spacing:.5em; text-indent:.5em; text-align:center; color:var(--maroon);
+  background:#fff; outline:none; transition:border-color .18s, box-shadow .18s; }
+.otp-input::placeholder { color:#D9C6C0; letter-spacing:.5em; }
+.otp-input:focus { border-color:var(--maroon); box-shadow:0 0 0 3.5px rgba(123,29,29,.09); }
+.otp-input.is-bad { border-color:#C0392B; box-shadow:0 0 0 3.5px rgba(192,57,43,.10); }
+.otp-actions { display:grid; grid-template-columns:1fr 1fr; gap:.55rem; margin-top:1.1rem; }
+.otp-actions form { margin:0; }
+.otp-btn { width:100%; min-height:44px; display:inline-flex; align-items:center;
+  justify-content:center; gap:.4rem; padding:.6rem .7rem; border-radius:11px;
+  border:1.5px solid var(--border); background:#fff; cursor:pointer;
+  font-family:'DM Sans',sans-serif; font-size:.76rem; font-weight:600; color:var(--ink2);
+  transition:border-color .16s, color .16s, background .16s; }
+.otp-btn i { font-size:.72rem; color:var(--maroon); opacity:.8; }
+.otp-btn:hover:not(:disabled) { border-color:var(--maroon); color:var(--maroon); background:var(--maroon-soft); }
+.otp-btn:disabled { opacity:.5; cursor:not-allowed; }
+.otp-foot { margin-top:1.1rem; padding-top:.9rem; border-top:1px solid var(--border);
+  font-size:.72rem; color:var(--ink3); line-height:1.6; text-align:center; }
+.otp-foot i { color:var(--gold); margin-right:.25rem; }
+@media (max-width:400px){
+  .otp-input { font-size:1.5rem; letter-spacing:.35em; text-indent:.35em; }
+  .otp-actions { grid-template-columns:1fr; }
+  .otp-steps { font-size:.62rem; }
+}
 /* ── remembered device ── */
 .trust { display:flex;align-items:center;gap:.8rem;padding:1rem 1.1rem;margin-bottom:1.3rem;
   background:#F4FAF5;border:1px solid #CFE6D4;border-left:3px solid #1A7A33;border-radius:14px; }
@@ -844,7 +899,7 @@ body::after {
       </ul>
     </details>
     <?php if ($notice !== ''): ?>
-    <div class="alert alert-ok"><i class="fas fa-paper-plane"></i> <?php echo htmlspecialchars($notice); ?></div>
+    <div class="alert alert-ok" role="status" aria-live="polite"><i class="fas fa-paper-plane"></i> <?php echo htmlspecialchars($notice); ?></div>
     <?php endif; ?>
     <?php if (!$error && isset($_GET['expired'])): ?>
     <div class="alert alert-note">
@@ -853,7 +908,7 @@ body::after {
     </div>
     <?php endif; ?>
     <?php if ($error): ?>
-    <div class="alert alert-err">
+    <div class="alert alert-err" role="alert" aria-live="assertive">
       <i class="fas fa-exclamation-circle"></i>
       <?php echo htmlspecialchars($error); ?>
     </div>
@@ -863,7 +918,14 @@ body::after {
          tap rather than signing in silently: on a shared library machine the
          person sitting down is often not the person who verified. -->
     <div class="trust">
-      <div class="trust-av"><?php echo strtoupper(substr(preg_replace('/[^A-Za-z]/','',$trustedName) ?: 'B', 0, 2)); ?></div>
+      <div class="trust-av"><?php
+        // Initials of the given and family names, not the first two letters of
+        // whatever the roster happened to put first.
+        $__p = preg_split('/\s+/', trim($trustedName)) ?: [];
+        $__i = '';
+        foreach ([reset($__p), end($__p)] as $__w) { if ($__w !== false && $__w !== '') { $__i .= mb_substr($__w, 0, 1); } }
+        echo htmlspecialchars(mb_strtoupper($__i !== '' ? $__i : 'B'));
+      ?></div>
       <div class="trust-txt">
         <b><?php echo htmlspecialchars($trustedName); ?></b>
         <span><?php echo htmlspecialchars($trustedEmail); ?> · verified on this device</span>
@@ -874,7 +936,7 @@ body::after {
       <input type="hidden" name="step" value="trusted">
       <input type="hidden" name="eq" value="<?php echo htmlspecialchars($eq, ENT_QUOTES); ?>">
       <button type="submit" class="btn-submit trust-go">
-        Continue as <?php echo htmlspecialchars(explode(',', $trustedName)[0]); ?>
+        Continue as <?php echo htmlspecialchars($trustedFirst !== '' ? $trustedFirst : $trustedName); ?>
         <span class="btn-arrow"><i class="fas fa-arrow-right"></i></span>
       </button>
     </form>
@@ -886,45 +948,79 @@ body::after {
     <?php endif; ?>
 
     <?php if ($stage === 'verify'): ?>
-    <!-- Proof that the person signing in can actually open the mailbox. The
-         address is read from the session, never from the page, so the code
-         cannot be redirected to a different account. -->
+    <!-- Step two of two. The reporter has said who they are; this is where they
+         show they can open the mailbox that belongs to that person. The address
+         is read from the session, never from the page, so a code cannot be
+         redirected to a different account. -->
+    <div class="otp-steps" aria-hidden="true">
+      <span class="otp-step done"><i class="fas fa-check"></i> Your details</span>
+      <span class="otp-step-line"></span>
+      <span class="otp-step now">2 · Verify your email</span>
+    </div>
+
     <div class="otp-head">
       <div class="otp-ic"><i class="fas fa-envelope-open-text"></i></div>
-      <h2>Check your BEC email</h2>
-      <p>We sent a 6-digit code to<br><strong><?php echo htmlspecialchars((string)($_SESSION['otp_email'] ?? '')); ?></strong><br>
-      It expires in 3 minutes.</p>
+      <h2>Confirm it&rsquo;s you</h2>
+      <p>For your security, the Property Management Office sends a 6-digit
+      verification code to your official college email before accepting a report.</p>
+      <div class="otp-to">
+        <i class="fas fa-paper-plane"></i>
+        <span><?php echo htmlspecialchars((string)($_SESSION['otp_email'] ?? '')); ?></span>
+      </div>
     </div>
+
     <?php if ($devCode !== ''): ?>
-    <div class="alert alert-note"><i class="fas fa-flask"></i> Local setup, mail not configured — your code is <strong><?php echo htmlspecialchars($devCode); ?></strong>.</div>
+    <div class="alert alert-note"><i class="fas fa-flask"></i> Local setup, mail not configured &mdash; your code is <strong><?php echo htmlspecialchars($devCode); ?></strong>.</div>
     <?php endif; ?>
-    <form method="POST" action="" id="otpForm">
+
+    <form method="POST" action="" id="otpForm" novalidate>
       <?php echo csrf_field(); ?>
       <input type="hidden" name="step" value="verify">
       <div class="fg">
         <label class="fl" for="otpCode">Verification Code <span class="req">*</span></label>
         <input type="text" name="otp_code" id="otpCode" class="otp-input" required
-          inputmode="numeric" pattern="\d{6}" maxlength="6" autocomplete="one-time-code"
-          placeholder="000000" autofocus>
+          inputmode="numeric" autocomplete="one-time-code" maxlength="6"
+          pattern="[0-9]{6}" placeholder="------"
+          aria-describedby="otpTimer" autofocus>
+        <div class="fi-hint" id="otpTimer"
+             data-left="<?php echo (int)$otpSecondsLeft; ?>"
+             data-wait="<?php echo (int)max(0, REPORTER_OTP_RESEND_WAIT - (time() - $otpAskedAt)); ?>">
+          <?php if ($otpSecondsLeft > 0): ?>
+            <i class="fas fa-clock"></i> This code is valid for a few more minutes.
+          <?php else: ?>
+            <i class="fas fa-triangle-exclamation"></i> This code has expired &mdash; please request a new one.
+          <?php endif; ?>
+        </div>
       </div>
-      <button type="submit" class="btn-submit">
+      <button type="submit" class="btn-submit" id="otpSubmit">
         Verify and continue
         <span class="btn-arrow"><i class="fas fa-arrow-right"></i></span>
       </button>
     </form>
+
     <div class="otp-actions">
-      <form method="POST" action="" style="margin:0;">
+      <form method="POST" action="">
         <?php echo csrf_field(); ?>
         <input type="hidden" name="step" value="verify">
         <input type="hidden" name="resend" value="1">
-        <button type="submit" class="otp-link">Send a new code</button>
+        <button type="submit" class="otp-btn" id="otpResend">
+          <i class="fas fa-rotate-right"></i> <span>Send a new code</span>
+        </button>
       </form>
-      <form method="POST" action="" style="margin:0;">
+      <form method="POST" action="">
         <?php echo csrf_field(); ?>
         <input type="hidden" name="step" value="forget">
-        <button type="submit" class="otp-link">Use a different email</button>
+        <button type="submit" class="otp-btn">
+          <i class="fas fa-pen"></i> <span>Change email address</span>
+        </button>
       </form>
     </div>
+
+    <p class="otp-foot">
+      <i class="fas fa-circle-info"></i>
+      Can&rsquo;t find it? Check your spam or junk folder. Codes are sent only to
+      addresses on record with Batangas Eastern Colleges.
+    </p>
     <?php else: ?>
 <form method="POST" action="" id="signinForm" onsubmit="if(window.AuthLoader)AuthLoader.show('Signing you in…','Preparing your report portal…');">
       <input type="hidden" name="eq" value="<?php echo htmlspecialchars($eq, ENT_QUOTES); ?>">
@@ -1067,6 +1163,70 @@ body::after {
 
 
 <script>
+
+/* ── verification step ──────────────────────────────────────────────────
+   All of this is decoration over a form that already works without it: the
+   field submits, the buttons post, and the server is the one that decides. */
+(function(){
+  var input = document.getElementById('otpCode');
+  if (!input) return;
+  var form   = document.getElementById('otpForm'),
+      submit = document.getElementById('otpSubmit'),
+      timer  = document.getElementById('otpTimer'),
+      resend = document.getElementById('otpResend');
+
+  /* Codes arrive as "012345" but get pasted as "012 345" or "Code: 012345". */
+  function clean(v){ return (v || '').replace(/\D/g, '').slice(0, 6); }
+  input.addEventListener('input', function(){
+    var before = input.value;
+    input.value = clean(before);
+    input.classList.remove('is-bad');
+    // Six digits means there is nothing left to type or decide.
+    if (input.value.length === 6 && form) { form.requestSubmit ? form.requestSubmit() : form.submit(); }
+  });
+  input.addEventListener('paste', function(e){
+    var t = (e.clipboardData || window.clipboardData);
+    if (!t) return;
+    e.preventDefault();
+    input.value = clean(t.getData('text'));
+    input.dispatchEvent(new Event('input'));
+  });
+  if (form) form.addEventListener('submit', function(e){
+    if (input.value.length !== 6) { e.preventDefault(); input.classList.add('is-bad'); input.focus(); return; }
+    if (submit) { submit.disabled = true; submit.style.opacity = '.72'; }
+  });
+
+  /* The code's real remaining life, counted down rather than asserted once. */
+  var left = parseInt(timer && timer.dataset.left || '0', 10);
+  function paintTimer(){
+    if (!timer) return;
+    if (left <= 0) {
+      timer.innerHTML = '<i class="fas fa-triangle-exclamation"></i> This code has expired — please request a new one.';
+      return;
+    }
+    var m = Math.floor(left / 60), sec = left % 60;
+    timer.innerHTML = '<i class="fas fa-clock"></i> This code expires in <strong>' +
+      (m > 0 ? m + 'm ' : '') + (sec < 10 && m > 0 ? '0' : '') + sec + 's</strong>.';
+    left--;
+    setTimeout(paintTimer, 1000);
+  }
+  paintTimer();
+
+  /* Resend is refused server-side for a few seconds after a send; saying so
+     beats a button that looks live and quietly does nothing. */
+  var wait = parseInt(timer && timer.dataset.wait || '0', 10);
+  if (resend && wait > 0) {
+    var label = resend.querySelector('span'), original = label ? label.textContent : '';
+    resend.disabled = true;
+    (function tick(){
+      if (wait <= 0) { resend.disabled = false; if (label) label.textContent = original; return; }
+      if (label) label.textContent = 'Send a new code (' + wait + 's)';
+      wait--;
+      setTimeout(tick, 1000);
+    })();
+  }
+})();
+
 /* ══════════════════════════════════════
    BEC SUPPORT AI  —  "Becca"
    A warm, intelligent equipment-support assistant.

@@ -25,6 +25,11 @@ function becdir_canon_header(string $h): ?string {
         'year level' => 'year_level', 'yearlevel' => 'year_level', 'grade level' => 'year_level',
         'year' => 'year_level', 'level' => 'year_level', 'year grade level' => 'year_level',
         'user type' => 'user_type', 'type' => 'user_type', 'role' => 'user_type', 'category' => 'user_type', 'user role' => 'user_type',
+        // HR lists name the job rather than the affiliation. It is the only
+        // reliable way to tell a teacher from an office clerk when neither the
+        // registrar's "User Type" nor a year level is present.
+        'position' => 'position', 'designation' => 'position', 'job title' => 'position',
+        'title' => 'position', 'rank' => 'position', 'plantilla position' => 'position',
         // official letterhead export combines these into one column ("BSIT / Student")
         'program user role' => 'program_role', 'program role' => 'program_role', 'course role' => 'program_role',
     ];
@@ -94,6 +99,48 @@ function becdir_split_year_level(string $raw): array {
     if ($raw === '') { return ['', '']; }
     $parts = preg_split('/\s+-\s+/', $raw, 2);
     return [trim($parts[0]), trim($parts[1] ?? '')];
+}
+
+/**
+ * Decide whether a row is a student, faculty or staff member.
+ *
+ * The registrar's enrolment export carries no "User Type" column at all, and an
+ * HR list of employees carries neither that nor a year level — so before this,
+ * every faculty and staff row imported with a blank affiliation. Blank is read
+ * as "student" by the counts and filters, which meant uploading the teaching
+ * roster would have silently inflated the student total and still left Faculty
+ * reading zero.
+ *
+ * Order matters: what a person *does* outranks the office they sit in, so a
+ * janitor assigned to Senior High School is staff, not faculty.
+ */
+function becdir_infer_user_type(
+    string $explicit, string $position, string $department,
+    string $yearLevel, string $studentNo, string $employeeNo
+): string {
+    $t = becdir_canon_type($explicit);
+    if ($t !== '') { return $t; }
+
+    // Anyone with a standing or a student number is enrolled.
+    if ($yearLevel !== '' || $studentNo !== '') { return 'student'; }
+
+    $p = strtolower(trim($position));
+    if ($p !== '') {
+        // Job titles that mean the person teaches. "Dean" and "Principal" are
+        // included: they hold teaching appointments and are counted as faculty.
+        if (preg_match('/\b(teacher|instructor|professor|faculty|lecturer|dean|principal|department head|academic head|adviser|professorial)\b/', $p)) {
+            return 'faculty';
+        }
+        return 'staff';   // named a job, and it is not a teaching one
+    }
+
+    // No job title. An academic unit implies teaching; anything else is an office.
+    if (preg_match('/\b(college of|senior high|junior high|grade school|pre-?school|elementary|technical-?vocational|academy|department of)\b/i', $department)) {
+        return 'faculty';
+    }
+    if ($employeeNo !== '' || trim($department) !== '') { return 'staff'; }
+
+    return '';   // nothing to go on — reported back to the admin rather than guessed
 }
 
 /**
@@ -232,6 +279,7 @@ function becdir_parse_file(string $tmpPath, string $origName): array {
     $rows = [];
     $skipped = [];   // rows that carry no usable address, with the reason
     $repaired = [];  // addresses accepted only after being cleaned up
+    $untyped  = [];  // rows whose affiliation could not be worked out
     $seen = [];      // address => list of names, to catch one mailbox shared by many
 
     foreach ($records as $i => $r) {
@@ -276,12 +324,14 @@ function becdir_parse_file(string $tmpPath, string $origName): array {
         $department = becdir_fix_mojibake($get('department'));
         if ($department === '') { $department = becdir_infer_department($yearLevel, $program); }
 
-        // no explicit type → infer from the ID number, else from the standing:
-        // anyone carrying a year level is enrolled, so they are a student.
         if ($type === '') {
-            $type = $get('student_number') !== '' ? 'student'
-                  : ($get('employee_number') !== '' ? 'staff'
-                  : ($yearLevel !== '' ? 'student' : ''));
+            $type = becdir_infer_user_type(
+                '', $get('position'), $department,
+                $yearLevel, $get('student_number'), $get('employee_number')
+            );
+        }
+        if ($type === '') {
+            $untyped[] = ['line' => $line, 'name' => $name, 'email' => $email];
         }
 
         $rows[] = [
@@ -307,8 +357,8 @@ function becdir_parse_file(string $tmpPath, string $origName): array {
     }
     usort($shared, static fn($a, $b) => $b['count'] <=> $a['count']);
 
-    if (!$rows) return ['rows' => [], 'error' => 'No valid rows with email addresses were found.', 'skipped' => $skipped, 'repaired' => [], 'shared' => []];
-    return ['rows' => $rows, 'error' => '', 'skipped' => $skipped, 'repaired' => $repaired, 'shared' => $shared];
+    if (!$rows) return ['rows' => [], 'error' => 'No valid rows with email addresses were found.', 'skipped' => $skipped, 'repaired' => [], 'shared' => [], 'untyped' => []];
+    return ['rows' => $rows, 'error' => '', 'skipped' => $skipped, 'repaired' => $repaired, 'shared' => $shared, 'untyped' => $untyped];
 }
 
 /** Read one entry out of a ZIP archive: ZipArchive when available, else a
@@ -490,6 +540,47 @@ function becdir_is_system_user(string $email): bool {
 }
 
 /** The person's name on file, from the directory or their system account. */
+/**
+ * Turn a registrar-style name into one a person can be addressed by.
+ *
+ * The official lists are written surname-first for sorting — "MACAISA, Ken
+ * Christian E" — which is correct on a roster and wrong everywhere the system
+ * speaks to the reporter. Taking the part before the comma, as the portal did,
+ * greeted people by their surname in capitals.
+ *
+ * Returns the name in reading order with ordinary capitalisation. Names already
+ * written that way are left alone.
+ */
+function becdir_display_name(string $name): string {
+    $name = trim(preg_replace('/\s+/', ' ', $name));
+    if ($name === '') { return ''; }
+
+    // Each half is recased on its own. The roster shouts the surname but often
+    // writes the given names normally ("MACAISA, Ken Christian E"), so testing
+    // the joined string would find mixed case and leave the surname shouting.
+    $soften = static function (string $part): string {
+        $part = trim($part);
+        if ($part === '' || $part !== mb_strtoupper($part, 'UTF-8')) {
+            return $part;   // already how the person writes it — leave it alone
+        }
+        return mb_convert_case(mb_strtolower($part, 'UTF-8'), MB_CASE_TITLE, 'UTF-8');
+    };
+
+    if (strpos($name, ',') !== false) {
+        [$surname, $rest] = array_map('trim', explode(',', $name, 2));
+        return trim($soften($rest) . ' ' . $soften($surname));
+    }
+    return $soften($name);
+}
+
+/** Just the given name, for a greeting. */
+function becdir_first_name(string $name): string {
+    $display = becdir_display_name($name);
+    if ($display === '') { return ''; }
+    $first = explode(' ', $display)[0];
+    return strlen($first) < 2 ? $display : $first;   // an initial alone is no greeting
+}
+
 function becdir_known_name(string $email): string {
     $email = strtolower(trim($email));
     if ($email === '') return '';
