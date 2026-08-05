@@ -1156,18 +1156,23 @@ function equipmentUnit(string $equipmentId): string {
  * in User Management. Updates an existing BEC directory record and/or a registered user account
  * that matches the email. Only fills provided values; never creates a new record. Non-fatal.
  */
-function becSyncReporterProfile(string $email, string $department = '', string $course = '', string $phone = ''): void {
+function becSyncReporterProfile(string $email, string $department = '', string $course = '', string $phone = '', string $level = ''): void {
     $email = strtolower(trim($email));
     if ($email === '' || !isPgSqlDriver()) return;
-    $department = trim($department); $course = trim($course); $phone = trim($phone);
-    if ($department === '' && $course === '' && $phone === '') return;
+    $department = trim($department); $course = trim($course); $phone = trim($phone); $level = trim($level);
+    if ($department === '' && $course === '' && $phone === '' && $level === '') return;
     try {
         $pdo = getPgsqlPdoConnection();
+        $dirCols = getTableColumns('bec_directory');
         // 1) BEC directory record (where guest reporters live)
         $sets = []; $p = ['e' => $email];
         if ($phone !== '')      { $sets[] = 'phone = :ph';   $p['ph'] = $phone; }
         if ($department !== '') { $sets[] = 'department = :d'; $p['d'] = $department; }
         if ($course !== '')     { $sets[] = 'program = :c';   $p['c'] = $course; }
+        // The level is what makes the saved profile re-usable: written into its
+        // own column it comes straight back as the form's pre-filled answer,
+        // where appended to the course it matched no programme in the list.
+        if ($level !== '' && isset($dirCols['year_level'])) { $sets[] = 'year_level = :yl'; $p['yl'] = $level; }
         if ($sets) {
             $st = $pdo->prepare('UPDATE public.bec_directory SET ' . implode(', ', $sets) . ' WHERE lower(email) = :e');
             $st->execute($p);
@@ -1182,6 +1187,7 @@ function becSyncReporterProfile(string $email, string $department = '', string $
         // reporter with a login showed a department and nothing else in User
         // Management.
         if ($course !== '' && isset($cols['course']))          { $usets[] = 'course = :c';   $up['c'] = $course; }
+        if ($level !== '' && isset($cols['year_level']))       { $usets[] = 'year_level = :yl'; $up['yl'] = $level; }
         if ($usets) {
             $st2 = $pdo->prepare('UPDATE public.users SET ' . implode(', ', $usets) . ' WHERE lower(email) = :e');
             $st2->execute($up);

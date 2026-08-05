@@ -7,14 +7,17 @@ require_once __DIR__ . '/includes/mail_helper.php';
 require_once __DIR__ . '/includes/csrf.php';
 
 if (isset($_GET['logout'])) {
-    unset($_SESSION['guest_name'], $_SESSION['guest_email'], $_SESSION['guest_since']);
+    becEndGuestSession();
     header('Location: student_index.php');
     exit();
 }
 
-// Guard — must have a guest session
-if (empty($_SESSION['guest_email']) || empty($_SESSION['guest_name'])) {
-    header('Location: student_index.php');
+// Guard — must have a guest session that has not gone stale. becGuestSessionActive()
+// also refreshes the idle clock, so this is the page that keeps a working
+// session alive.
+if (empty($_SESSION['guest_email']) || empty($_SESSION['guest_name']) || !becGuestSessionActive()) {
+    becEndGuestSession();
+    header('Location: student_index.php?expired=1');
     exit();
 }
 
@@ -45,12 +48,22 @@ $becPrograms = [
         'Grade 9',
         'Grade 10',
     ],
+    // Every strand below has students enrolled in it in the official
+    // (SY2026-2027) roster. The first five were the only ones offered here, so
+    // a Hospitality and Tourism or Business and Entrepreneurship student had
+    // nothing correct to choose.
     'Senior High School'                  => [
         'STEM — Science, Technology, Engineering and Mathematics',
         'ABM — Accountancy, Business and Management',
         'HUMSS — Humanities and Social Sciences',
+        'ASSH — Arts, Social Sciences and Humanities',
+        'BE — Business and Entrepreneurship',
+        'HT — Hospitality and Tourism',
         'TVL — Home Economics (HE)',
         'TVL — Information and Communications Technology (ICT)',
+        'ICT — Computer Programming',
+        'ICT — Computer Hardware Servicing',
+        'ICT — Support and Computer Programming Technologies (ISCPT)',
     ],
     'College of Teacher Education'        => [
         'Bachelor of Elementary Education',
@@ -60,12 +73,14 @@ $becPrograms = [
         'Bachelor of Secondary Education major in Science',
         'Bachelor of Secondary Education major in Social Studies',
         'Bachelor of Secondary Education major in Values Education',
+        'Teacher Certificate Program',
     ],
     'College of Business'                 => [
         'Bachelor of Science in Accountancy',
         'Bachelor of Science in Accounting Information Systems',
         'Bachelor of Science in Business Administration major in Financial Management',
         'Bachelor of Science in Business Administration major in Human Resource Management',
+        'Bachelor of Science in Business Administration major in Marketing Management',
     ],
     'College of Computer Studies'         => [
         'Bachelor of Science in Information Systems',
@@ -80,6 +95,7 @@ $becPrograms = [
         'Front Office Services NC II',
         'Housekeeping NC II',
         'Bartending NC II',
+        'Diploma in Hospitality Management',
     ],
     'Administrative / Non-teaching Office' => [
         "Registrar's Office",
@@ -121,6 +137,33 @@ $becLevels = [
     'College of Business'          => ['1st Year', '2nd Year', '3rd Year', '4th Year'],
     'College of Computer Studies'  => ['1st Year', '2nd Year', '3rd Year', '4th Year'],
 ];
+
+/*
+ * What this reporter told us last time.
+ *
+ * Their department, course, year level and contact number are already on their
+ * BEC directory record — becSyncReporterProfile() has been writing them there
+ * on every submit — but nothing ever read them back, so the form asked for all
+ * four again on every single report. The registrar's own wording is not the
+ * form's wording, so the values are matched onto the options this page offers
+ * rather than trusted verbatim; anything that cannot be matched is simply left
+ * for the reporter to choose.
+ */
+require_once __DIR__ . '/includes/bec_directory_helper.php';
+$reporterProfile = function_exists('becdir_lookup') ? becdir_lookup($student_email) : null;
+$prefill = becdir_form_prefill($reporterProfile, $becPrograms, $becLevels);
+
+// A failed submit must win over the saved profile, or it would overwrite what
+// the reporter had just corrected by hand.
+$preDept   = (string)($_POST['reporter_department'] ?? $prefill['department']);
+$preCourse = (string)($_POST['reporter_course']     ?? $prefill['course']);
+$preLevel  = (string)($_POST['reporter_level']      ?? $prefill['level']);
+$prePhone  = (string)($_POST['student_phone']       ?? $prefill['phone']);
+
+// Enough to fill the section on its own — the reporter only has to confirm it.
+$profileComplete = $preDept !== ''
+    && ($preCourse !== '' || empty($becPrograms[$preDept]))
+    && ($preLevel  !== '' || !isset($becLevels[$preDept]));
 
 // Pre-fill equipment from a scanned QR code (?eq=EQUIPMENT_ID)
 $prefillEq = null;
@@ -535,14 +578,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     // Year / grade level, for the departments where the programme does not
-    // already say it. Stored on the end of the course so the reporter's year
-    // group travels with the report without needing a new column.
+    // already say it. Kept as its own field: appending it to the course left a
+    // value that matched no entry in the official programme list, so it could
+    // never be read back to pre-fill this form.
     if (!$error && isset($becLevels[$reporterDepartment])) {
         if ($reporterLevel === '' || !in_array($reporterLevel, $becLevels[$reporterDepartment], true)) {
             $error = 'Please select your year or grade level.';
-        } else {
-            $reporterCourse = $reporterCourse . ' — ' . $reporterLevel;
         }
+    } else {
+        $reporterLevel = '';   // this department names its level in the course
     }
 
     // The textarea carries maxlength="1500", but that is only a browser hint —
@@ -652,6 +696,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'reporter_email' => $student_email,
                 'reporter_department' => $reporterDepartment,
                 'reporter_course' => $reporterCourse,
+                'reporter_level' => $reporterLevel,
                 'issue_description' => trim($_POST['defect_description']),
                 'priority' => $reportPriority,
                 'usable_status' => $stillUsable,
@@ -672,7 +717,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'We could not save your report right now. Please try again.';
             } else {
                 // Save the reporter's self-provided details onto their profile (visible to admin).
-                becSyncReporterProfile($student_email, $reporterDepartment, $reporterCourse, $reporterPhone);
+                becSyncReporterProfile($student_email, $reporterDepartment, $reporterCourse, $reporterPhone, $reporterLevel);
 
                 notifyAdminsOfStudentReport(
                     $conn,
@@ -961,6 +1006,23 @@ body::after {
 .fi-wrap-sel { position:relative; }
 .fi-wrap-sel .fi-icon { pointer-events:none; }
 
+
+/* ── "Reporting as …" — the saved profile, offered for confirmation ── */
+.known{display:flex;align-items:center;gap:.75rem;margin-top:.85rem;padding:.8rem .95rem;
+  background:#F4FAF5;border:1px solid #CFE6D4;border-left:3px solid #1A7A33;border-radius:12px;}
+.known-ic{flex-shrink:0;width:30px;height:30px;border-radius:50%;background:rgba(26,122,51,.12);
+  display:flex;align-items:center;justify-content:center;color:#1A7A33;font-size:.85rem;}
+.known-txt{flex:1;min-width:0;line-height:1.5;}
+.known-txt b{display:block;font-size:.86rem;color:#1C1008;font-weight:600;}
+.known-txt span{display:block;font-size:.76rem;color:#5C3838;overflow-wrap:anywhere;}
+.known-edit{flex-shrink:0;background:none;border:1.5px solid #CFE6D4;border-radius:20px;
+  padding:.4rem .85rem;min-height:38px;font-family:'DM Sans',sans-serif;font-size:.75rem;
+  font-weight:700;color:#1A7A33;cursor:pointer;transition:background .15s,border-color .15s;}
+.known-edit:hover{background:rgba(26,122,51,.08);border-color:#1A7A33;}
+@media (max-width:520px){
+  .known{flex-wrap:wrap;}
+  .known-edit{width:100%;min-height:44px;}
+}
 .fi-hint { font-size:.74rem;color:var(--ink3);margin-top:.28rem;display:flex;align-items:center;gap:.3rem; }
 .fi-hint i { font-size:.6rem; }
 
@@ -1560,9 +1622,31 @@ html { scroll-behavior: smooth; }
         <div class="section-icon"><i class="fas fa-user"></i></div>
         <div>
           <div class="section-title">Reporter Information</div>
-          <div class="section-sub">Pre-filled from your session</div>
+          <div class="section-sub"><?php echo $profileComplete ? 'Saved from your last report — check it is still correct' : 'Pre-filled from your session'; ?></div>
         </div>
       </div>
+
+      <?php if ($profileComplete): ?>
+      <!-- A returning reporter has already answered all of this. Showing it as
+           one line to confirm — instead of three empty pickers to work through
+           again — is the difference between a report that takes a moment and
+           one that feels like paperwork. -->
+      <div class="known" id="knownStrip">
+        <div class="known-ic"><i class="fas fa-circle-check"></i></div>
+        <div class="known-txt">
+          <b>Reporting as <?php echo htmlspecialchars($student_name); ?></b>
+          <span>
+            <?php echo htmlspecialchars($preDept); ?><?php
+              if ($preCourse !== '') echo ' · ' . htmlspecialchars($preCourse);
+              if ($preLevel  !== '') echo ' · ' . htmlspecialchars($preLevel);
+              if ($prePhone  !== '') echo ' · ' . htmlspecialchars($prePhone);
+            ?>
+          </span>
+        </div>
+        <button type="button" class="known-edit" id="knownEdit"
+          aria-expanded="false" aria-controls="reporterFields">Change</button>
+      </div>
+      <?php endif; ?>
       <div class="reporter-grid">
         <div class="ro-field">
           <div class="ro-label">Full Name</div>
@@ -1573,12 +1657,13 @@ html { scroll-behavior: smooth; }
           <div class="ro-value"><?php echo htmlspecialchars($student_email); ?></div>
         </div>
       </div>
+      <div id="reporterFields"<?php echo $profileComplete ? ' hidden' : ''; ?>>
       <div class="fg" style="margin-top:.85rem;">
         <label class="fl" for="rDept">Department / Academic Unit <span style="color:var(--maroon);">*</span></label>
         <div class="fi-wrap">
           <i class="fas fa-building-columns fi-icon"></i>
           <select name="reporter_department" id="rDept" class="fsel" required>
-            <option value="" disabled <?php echo empty($_POST['reporter_department']) ? 'selected' : ''; ?>>Select your department…</option>
+            <option value="" disabled <?php echo $preDept === '' ? 'selected' : ''; ?>>Select your department…</option>
             <?php
               // Labelled optgroups, so the native mobile picker is easy to scan.
               // Membership is stated outright rather than guessed from words in
@@ -1600,7 +1685,7 @@ html { scroll-behavior: smooth; }
               foreach (array_keys($becPrograms) as $__d) {
                   $__deptGroups[$__groupOf[$__d] ?? 'Other'][] = $__d;
               }
-              $__depSel = $_POST['reporter_department'] ?? '';
+              $__depSel = $preDept;
               foreach ($__deptGroups as $__grp => $__depts):
                   if (!$__depts) continue; ?>
               <optgroup label="<?php echo htmlspecialchars($__grp); ?>">
@@ -1637,12 +1722,13 @@ html { scroll-behavior: smooth; }
         <div class="fi-wrap">
           <i class="fas fa-phone fi-icon"></i>
           <input type="tel" name="student_phone" id="rPhone" class="fi" placeholder="e.g. 09171234567"
-            value="<?php echo htmlspecialchars($_POST['student_phone'] ?? ''); ?>"
+            value="<?php echo htmlspecialchars($prePhone); ?>"
             inputmode="numeric" autocomplete="tel" maxlength="11" pattern="\d{11}"
             title="Enter your 11-digit mobile number (numbers only), e.g. 09171234567">
         </div>
         <div class="fi-hint"><i class="fas fa-circle-info"></i> 11-digit mobile number, numbers only (e.g. 09171234567).</div>
       </div>
+      </div><!-- /#reporterFields -->
     </div>
 
     <!-- ── SECTION 2: EQUIPMENT INFO ── -->
@@ -1852,11 +1938,28 @@ html { scroll-behavior: smooth; }
 // ── Reporter Information: dependent Department → Course dropdown (accurate BEC program list) ──
 (function () {
   var PROGRAMS = <?php echo json_encode($becPrograms, JSON_UNESCAPED_UNICODE); ?>;
+/* The saved profile is shown as one line to confirm. "Change" opens the real
+   fields — which are always present and always submitted, so nothing here
+   depends on JavaScript having run. */
+(function(){
+  var strip = document.getElementById('knownStrip'),
+      btn   = document.getElementById('knownEdit'),
+      wrap  = document.getElementById('reporterFields');
+  if (!btn || !wrap) return;
+  btn.addEventListener('click', function(){
+    wrap.hidden = false;
+    btn.setAttribute('aria-expanded','true');
+    if (strip) strip.style.display = 'none';
+    var d = document.getElementById('rDept');
+    if (d) { try { d.focus({preventScroll:true}); } catch(e) { d.focus(); } }
+  });
+})();
+
   var dept = document.getElementById('rDept'),
       course = document.getElementById('rCourse'),
       optHint = document.getElementById('rCourseOpt');
   if (!dept || !course) return;
-  var preset = <?php echo json_encode($_POST['reporter_course'] ?? '', JSON_UNESCAPED_UNICODE); ?>;
+  var preset = <?php echo json_encode($preCourse, JSON_UNESCAPED_UNICODE); ?>;
   function fill() {
     var list = PROGRAMS[dept.value] || [];
     course.innerHTML = '';
@@ -1885,7 +1988,7 @@ html { scroll-behavior: smooth; }
   var LEVELS = <?php echo json_encode($becLevels, JSON_UNESCAPED_UNICODE); ?>;
   var level = document.getElementById('rLevel'),
       levelWrap = document.getElementById('rLevelWrap');
-  var levelPreset = <?php echo json_encode($_POST['reporter_level'] ?? '', JSON_UNESCAPED_UNICODE); ?>;
+  var levelPreset = <?php echo json_encode($preLevel, JSON_UNESCAPED_UNICODE); ?>;
 
   function fillLevels() {
     if (!level || !levelWrap) return;
@@ -1943,6 +2046,52 @@ const submitBtn = reportForm?.querySelector('.btn-submit');
 let focusIdx = -1;
 let locationFocusIdx = -1;
 
+// Stable position of every row in its source array, stamped once. Looking the
+// index up per rendered row (indexOf) is O(n^2), which with 1,300 inventory
+// items meant ~1.7M string comparisons on every keystroke.
+equipData.forEach((item, i) => { item._i = i; });
+
+// How many suggestions to put in the DOM at once. The full inventory is 1,300
+// rows; building all of them on focus janks the field on a phone, and nobody
+// scrolls that far — they type instead.
+const COMBO_LIMIT = 50;
+
+/**
+ * Keeps a suggestion list open while the pointer is inside it.
+ *
+ * The list used to close on the input's blur after a 150ms timer. Only the rows
+ * themselves suppressed that blur, so pressing the scrollbar, a group heading,
+ * or the gap between two rows blurred the input and the list vanished mid-scroll
+ * — which is exactly what a long list invites you to do.
+ */
+function wireComboDismiss(input, dd) {
+  let holdingInside = false;
+
+  // Desktop: never let a press inside the list move focus out of the input.
+  dd.addEventListener('mousedown', e => { if (e.target !== input) e.preventDefault(); });
+
+  // Touch: the drag has to be allowed to scroll, so remember it instead and let
+  // the blur pass by until the finger is lifted.
+  dd.addEventListener('pointerdown', () => { holdingInside = true; });
+  document.addEventListener('pointerup', () => {
+    if (!holdingInside) return;
+    holdingInside = false;
+    if (document.activeElement !== input && !dd.contains(document.activeElement)) {
+      input.focus({ preventScroll: true });
+    }
+  });
+
+  input.addEventListener('blur', () => {
+    if (holdingInside) return;
+    setTimeout(() => { if (!holdingInside) dd.classList.remove('open'); }, 150);
+  });
+
+  // A press anywhere else on the page is a genuine dismissal.
+  document.addEventListener('pointerdown', e => {
+    if (e.target !== input && !dd.contains(e.target)) dd.classList.remove('open');
+  });
+}
+
 function groupBy(arr, key) {
   return arr.reduce((acc, item) => {
     (acc[item[key]] = acc[item[key]] || []).push(item);
@@ -1985,26 +2134,33 @@ function renderDropdown(query) {
   // that exist only because someone typed them into a past report - useful to
   // reuse, but they are not inventory and should not look like it.
   let html = '';
+  let hidden = 0;
   const sections = [
     { key: 'inventory', label: 'From the PMO inventory' },
     { key: 'reported',  label: 'Previously reported (not in the inventory yet)' },
   ];
   for (const section of sections) {
-    const rows = matches.filter(e => (e.source || 'inventory') === section.key);
+    const all = matches.filter(e => (e.source || 'inventory') === section.key);
+    // Capped per section, not across the whole list: the inventory alone is
+    // 1,300 rows and would otherwise bury the "previously reported" group.
+    const rows = all.slice(0, COMBO_LIMIT);
+    hidden += all.length - rows.length;
     if (!rows.length) continue;
     html += `<div class="eq-source-label">${escapeHtml(section.label)}</div>`;
     const grouped = groupBy(rows, 'category');
     for (const [cat, items] of Object.entries(grouped)) {
       html += `<div class="eq-group-label">${escapeHtml(cat)}</div>`;
       items.forEach((item) => {
-        const itemIndex = equipData.indexOf(item);
         const locLine = item.location ? `<span class="eq-loc">${escapeHtml(item.location)}</span>` : '';
-        html += `<div class="eq-item${section.key === 'reported' ? ' eq-item-reported' : ''}" data-index="${itemIndex}">
+        html += `<div class="eq-item${section.key === 'reported' ? ' eq-item-reported' : ''}" data-index="${item._i}">
           <span class="eq-id">${escapeHtml(item.id)}</span>
           <span class="eq-body"><span class="eq-name">${escapeHtml(item.name)}</span>${locLine}</span>
         </div>`;
       });
     }
+  }
+  if (hidden > 0) {
+    html += `<div class="eq-manual"><strong>${hidden.toLocaleString()} more match${hidden === 1 ? '' : 'es'}.</strong> Type the property number or room to narrow it down.</div>`;
   }
   if (q) {
     html += '<div class="eq-manual"><strong>Not in the list?</strong> Keep typing the new equipment name and submit it manually.</div>';
@@ -2012,13 +2168,6 @@ function renderDropdown(query) {
   dropdown.innerHTML = html;
   dropdown.classList.add('open');
   focusIdx = -1;
-
-  dropdown.querySelectorAll('.eq-item').forEach(el => {
-    el.addEventListener('mousedown', e => {
-      e.preventDefault();
-      selectEquip(equipData[Number(el.dataset.index)] || {});
-    });
-  });
 }
 
 function selectEquip(data) {
@@ -2053,7 +2202,16 @@ searchEl.addEventListener('input', () => {
   renderDropdown(searchEl.value);
 });
 searchEl.addEventListener('focus', () => renderDropdown(searchEl.value));
-searchEl.addEventListener('blur',  () => setTimeout(() => dropdown.classList.remove('open'), 150));
+wireComboDismiss(searchEl, dropdown);
+
+// One delegated listener instead of one per row — the rows are rebuilt on every
+// keystroke, so per-row listeners were being created and thrown away in bulk.
+dropdown.addEventListener('mousedown', e => {
+  const el = e.target.closest('.eq-item');
+  if (!el) return;
+  e.preventDefault();
+  selectEquip(equipData[Number(el.dataset.index)] || {});
+});
 
 searchEl.addEventListener('keydown', e => {
   const items = dropdown.querySelectorAll('.eq-item');
@@ -2098,11 +2256,15 @@ if (catHidden.value) {
   }
 }
 
+// Lower-cased once, with each entry carrying its own index — the filter used to
+// re-lower-case all 304 locations and then indexOf() each rendered row.
+const locationIndexed = locationData.map((label, i) => ({ label, i, lc: label.toLowerCase() }));
+
 function renderLocationDropdown(query) {
   const q = (query || '').trim().toLowerCase();
   const matches = q
-    ? locationData.filter(location => location.toLowerCase().includes(q))
-    : locationData;
+    ? locationIndexed.filter(entry => entry.lc.includes(q))
+    : locationIndexed;
 
   if (!matches.length) {
     locationDropdown.innerHTML = '<div class="eq-empty"><i class="fas fa-map-marker-alt" style="margin-right:.3rem;opacity:.5"></i>No location found</div>';
@@ -2110,24 +2272,24 @@ function renderLocationDropdown(query) {
     return;
   }
 
-  locationDropdown.innerHTML = matches.map(location => `
-    <div class="loc-item" data-index="${locationData.indexOf(location)}">
+  const shown  = matches.slice(0, COMBO_LIMIT);
+  const hidden = matches.length - shown.length;
+
+  let html = shown.map(entry => `
+    <div class="loc-item" data-index="${entry.i}">
       <span class="loc-pin"><i class="fas fa-map-marker-alt"></i></span>
       <span class="loc-meta">
-        <span class="loc-name">${escapeHtml(location)}</span>
+        <span class="loc-name">${escapeHtml(entry.label)}</span>
         <span class="loc-sub">Inventory location</span>
       </span>
     </div>
   `).join('');
+  if (hidden > 0) {
+    html += `<div class="eq-manual"><strong>${hidden.toLocaleString()} more location${hidden === 1 ? '' : 's'}.</strong> Type a building or room name to narrow it down.</div>`;
+  }
+  locationDropdown.innerHTML = html;
   locationDropdown.classList.add('open');
   locationFocusIdx = -1;
-
-  locationDropdown.querySelectorAll('.loc-item').forEach(el => {
-    el.addEventListener('mousedown', e => {
-      e.preventDefault();
-      selectLocation(locationData[Number(el.dataset.index)] || '');
-    });
-  });
 }
 
 function selectLocation(location) {
@@ -2142,7 +2304,14 @@ locationSearchEl.addEventListener('input', () => {
   renderLocationDropdown(locationSearchEl.value);
 });
 locationSearchEl.addEventListener('focus', () => renderLocationDropdown(locationSearchEl.value));
-locationSearchEl.addEventListener('blur', () => setTimeout(() => locationDropdown.classList.remove('open'), 150));
+wireComboDismiss(locationSearchEl, locationDropdown);
+
+locationDropdown.addEventListener('mousedown', e => {
+  const el = e.target.closest('.loc-item');
+  if (!el) return;
+  e.preventDefault();
+  selectLocation(locationData[Number(el.dataset.index)] || '');
+});
 locationSearchEl.addEventListener('keydown', e => {
   const items = locationDropdown.querySelectorAll('.loc-item');
   if (!items.length) return;

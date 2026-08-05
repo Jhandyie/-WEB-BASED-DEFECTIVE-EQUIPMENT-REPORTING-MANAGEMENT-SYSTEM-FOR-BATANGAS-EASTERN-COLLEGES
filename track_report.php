@@ -15,6 +15,11 @@ $FOLLOW_UP_MAX = 3;
 
 // Who is asking? The reporter portal signs people in with their name and BEC
 // email (student_index.php) and keeps it in the session.
+// Follow-up and the one-time satisfaction verdict are owner-only actions, so
+// they answer to the same session lifetime as the reporter portal.
+if (!empty($_SESSION['guest_email']) && function_exists('becGuestSessionActive') && !becGuestSessionActive()) {
+    becEndGuestSession();
+}
 $viewerEmail = strtolower(trim((string)($_SESSION['guest_email'] ?? '')));
 $viewerName  = trim((string)($_SESSION['guest_name'] ?? ''));
 

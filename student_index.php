@@ -9,6 +9,8 @@ $error = '';
 // Equipment deep-link from a scanned QR code (carried through the BEC gate).
 $eq = trim((string)($_GET['eq'] ?? $_POST['eq'] ?? ''));
 
+require_once __DIR__ . '/includes/rate_limiter.php';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Without this, another site could sign a visitor into the portal under a
     // name and email of its choosing, and any report they filed afterwards
@@ -19,34 +21,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name  = trim($_POST['full_name'] ?? '');
     $email = trim($_POST['email'] ?? '');
 
+    // Nothing limited how often this form could be submitted, and its failure
+    // message said outright whether an address was in the college directory —
+    // between them, an easy way to walk a guessed list of names and learn which
+    // ones are real people at BEC. BEC addresses follow firstname.lastname, so
+    // that list is cheap to generate.
+    if ($error === '') {
+        try {
+            RateLimiter::enforce('reporter_signin:' . RateLimiter::clientIp(), 12, 900);
+        } catch (\Throwable $e) {
+            $error = 'Too many sign-in attempts from this connection. Please wait a few minutes and try again.';
+        }
+    }
+
     // Verify against the official BEC directory (#1). If a directory has been
     // imported, the email must exist in it. Otherwise fall back to the @bec.edu.ph domain.
     $allowedDomain = '@bec.edu.ph';
     $emailLower = strtolower($email);
     $dirCount = function_exists('becdir_count') ? becdir_count() : 0;
+    // Staff (PMO, technicians, faculty) hold BEC accounts without always
+    // appearing in the imported student directory. They are among the most
+    // likely people to spot broken equipment, so a system account counts as
+    // valid identification here just as a directory entry does.
+    $knownToBec = $dirCount > 0
+        ? (becdir_email_exists($emailLower)
+           || (function_exists('becdir_is_system_user') && becdir_is_system_user($emailLower)))
+        : (substr($emailLower, -strlen($allowedDomain)) === $allowedDomain);
+
     if ($error !== '') {
-        // CSRF already rejected this submission — fall through to redisplay.
+        // CSRF or the rate limit already rejected this — fall through to redisplay.
     } elseif (empty($name) || empty($email)) {
         $error = 'Please enter both your name and email address.';
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = 'Please enter a valid email address.';
-    } elseif ($dirCount > 0 && !becdir_email_exists($emailLower)
-              && !(function_exists('becdir_is_system_user') && becdir_is_system_user($emailLower))) {
-        // Staff (PMO, technicians, faculty) hold BEC accounts without always
-        // appearing in the imported student directory. They are among the most
-        // likely people to spot broken equipment, so a system account counts
-        // as valid identification here just as a directory entry does.
-        $error = 'This email is not registered under the official Batangas Eastern Colleges directory.';
-    } elseif ($dirCount === 0 && substr($emailLower, -strlen($allowedDomain)) !== $allowedDomain) {
-        $error = 'Only official BEC accounts are allowed. Please use your Batangas Eastern Colleges email ending in @bec.edu.ph.';
+    } elseif (!$knownToBec) {
+        // One message for "not in the directory" and for "not a BEC address":
+        // told apart, the two answers confirm which addresses exist.
+        $error = 'We could not verify that email against official Batangas Eastern Colleges records. '
+               . 'Please check your @bec.edu.ph address, or contact the Property Management Office if you believe this is a mistake.';
     } elseif (strlen($name) < 2) {
         $error = 'Please enter your full name.';
     } elseif (empty($_POST['privacy_consent'])) {
         $error = 'Please read and accept the Data Privacy notice to continue.';
     } else {
-        $_SESSION['guest_name']  = htmlspecialchars($name, ENT_QUOTES, 'UTF-8');
-        $_SESSION['guest_email'] = strtolower($email);
-        $_SESSION['guest_since'] = time();
+        // The typed name is not evidence of anything — the portal never checked
+        // it, so "any name + a classmate's address" was accepted and the report
+        // carried the classmate's identity. Where BEC holds a name on file, that
+        // is the one used, and the field stops being a way to claim to be
+        // someone else.
+        $onFile = function_exists('becdir_known_name') ? trim(becdir_known_name($emailLower)) : '';
+        $_SESSION['guest_name']      = htmlspecialchars($onFile !== '' ? $onFile : $name, ENT_QUOTES, 'UTF-8');
+        $_SESSION['guest_email']     = $emailLower;
+        // Recorded so the PMO can tell a verified reporter from a self-declared
+        // one when a report looks doubtful.
+        $_SESSION['guest_name_source'] = $onFile !== '' ? 'directory' : 'self-declared';
+        $_SESSION['guest_since']     = time();
+        $_SESSION['guest_last']      = time();
+
+        // A session id handed out before sign-in must not survive it, or an id
+        // planted in advance would still be valid once it carries an identity.
+        session_regenerate_id(true);
+
+        RateLimiter::clear('reporter_signin:' . RateLimiter::clientIp());
         header('Location: student_dashboard.php' . ($eq !== '' ? '?eq=' . urlencode($eq) : ''));
         exit();
     }
@@ -266,6 +302,7 @@ body::after {
   margin-bottom: 1.1rem; display: flex; align-items: flex-start; gap: .5rem;
 }
 .alert-err { background: #FEF2F2; border: 1px solid #FECACA; color: #991B1B; }
+.alert-note { background: #FFFBEF; border: 1px solid rgba(201,150,12,.35); color: #7A5A00; }
 .alert i { font-size: .8rem; margin-top: .1rem; flex-shrink: 0; }
 
 /* ── Data Privacy Notice: short consent line + expandable full text ──
@@ -720,6 +757,12 @@ body::after {
         <li><i class="fas fa-user-shield"></i><span><b>How your information is used.</b> Your details are used only to process and deliver your report, kept confidential in line with the Data Privacy Act of 2012 (RA 10173).</span></li>
       </ul>
     </div>
+    <?php if (!$error && isset($_GET['expired'])): ?>
+    <div class="alert alert-note">
+      <i class="fas fa-clock-rotate-left"></i>
+      Your session ended after a period of inactivity. Please sign in again to continue — this keeps your details safe on shared computers.
+    </div>
+    <?php endif; ?>
     <?php if ($error): ?>
     <div class="alert alert-err">
       <i class="fas fa-exclamation-circle"></i>
@@ -737,6 +780,7 @@ body::after {
             value="<?php echo htmlspecialchars($_POST['full_name'] ?? ''); ?>"
             autocomplete="name" maxlength="80" data-guard="alpha" required>
         </div>
+        <div class="fi-hint"><i class="fas fa-id-card"></i> If Batangas Eastern Colleges holds a name for your account, your report will carry that official name.</div>
       </div>
       <div class="fg">
         <label class="fl">Email Address <span class="req">*</span></label>

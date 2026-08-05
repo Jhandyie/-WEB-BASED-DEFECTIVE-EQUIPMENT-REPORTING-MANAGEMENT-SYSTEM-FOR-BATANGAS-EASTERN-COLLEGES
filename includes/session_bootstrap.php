@@ -71,6 +71,44 @@ if (!function_exists('startPublicSession')) {
     }
 }
 
+if (!function_exists('becGuestSessionActive')) {
+    /**
+     * Is the reporter's sign-in still good — and keep it fresh if so.
+     *
+     * `guest_since` was written at sign-in and never looked at again, so a
+     * reporter session lasted until the browser was closed. On the shared
+     * machines in a lab or library that meant the next person to sit down was
+     * still signed in as whoever used it last, and any report they filed went
+     * out under that person's name and email.
+     *
+     * Idle timeout, not a fixed expiry: someone working through a long report
+     * with photos should not be thrown out mid-way.
+     */
+    function becGuestSessionActive(int $idleSeconds = 28800, int $maxSeconds = 86400): bool {
+        if (empty($_SESSION['guest_email'])) { return false; }
+        $now   = time();
+        $since = (int)($_SESSION['guest_since'] ?? 0);
+        $last  = (int)($_SESSION['guest_last'] ?? $since);
+        // Sessions predating this check carry no timestamps; treat them as fresh
+        // rather than logging everyone out the moment it ships.
+        if ($since === 0) { $_SESSION['guest_since'] = $now; $_SESSION['guest_last'] = $now; return true; }
+        if (($now - $last) > $idleSeconds || ($now - $since) > $maxSeconds) {
+            becEndGuestSession();
+            return false;
+        }
+        $_SESSION['guest_last'] = $now;
+        return true;
+    }
+}
+
+if (!function_exists('becEndGuestSession')) {
+    /** Drop the reporter's identity, leaving the rest of the session alone. */
+    function becEndGuestSession(): void {
+        unset($_SESSION['guest_name'], $_SESSION['guest_email'], $_SESSION['guest_since'],
+              $_SESSION['guest_last'], $_SESSION['guest_name_source']);
+    }
+}
+
 if (!function_exists('startRoleSession')) {
     function startRoleSession($context = 'auto') {
         if (session_status() === PHP_SESSION_ACTIVE) {
