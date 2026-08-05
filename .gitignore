@@ -89,3 +89,12 @@ data/apache_watchdog.pid
 bec-secrets.enc
 *.replaced_*
 *.away
+
+# Temporary session seeders and diagnostic pages.
+# These grant a logged-in session with no authentication, so they must never
+# be committed and must not survive on a server. See CLAUDE.md.
+_smoke_seed_*.php
+_q_tmp*.php
+*_diag_*.php
+admin_diag_*.php
+student_diag_*.php
