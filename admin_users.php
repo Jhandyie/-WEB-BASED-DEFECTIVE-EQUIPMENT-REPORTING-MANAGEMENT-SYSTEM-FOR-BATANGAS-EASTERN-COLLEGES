@@ -6,6 +6,8 @@ require_once __DIR__ . '/includes/auth.php';
 
 requireRole('admin');
 require_once __DIR__ . '/includes/csrf.php';
+// becdir_sort_year_levels() — year levels must read Nursery → 4th Year here too.
+require_once __DIR__ . '/includes/bec_directory_helper.php';
 
 $isPgSql = isPgSqlDriver();
 $pdo = $isPgSql ? getPgsqlPdoConnection() : null;
@@ -45,6 +47,8 @@ $reporterTypeMeta = [
     'staff'   => 'Staff (office, maintenance, janitorial)',
 ];
 $hasUserTypeCol = isset($userCols['user_type']);
+// Arrives with scripts/2026_08_directory_year_level.sql; the page must still work without it.
+$hasYearLevelCol = isset($userCols['year_level']);
 
 /**
  * Server-side field checks for the account forms.
@@ -97,6 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pass   = $_POST['password']         ?? '';
         $pass2  = $_POST['password_confirm'] ?? '';
         $utype  = strtolower(trim($_POST['user_type'] ?? ''));
+        $ylevel = trim($_POST['year_level']  ?? '');
 
         $needsPassword = $roleNeedsPassword($role);
         $isReporter    = ($role === 'reporter');
@@ -158,6 +163,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             if ($hasUserTypeCol && $isReporter) {
                 $insertData['user_type'] = $utype;
+            }
+            if ($hasYearLevelCol) {
+                // Only a student holds a year level; anyone else would carry a
+                // standing that means nothing.
+                $insertData['year_level'] = ($isReporter && $utype === 'student' && $ylevel !== '') ? $ylevel : null;
             }
 
             if ($isPgSql) {
@@ -297,6 +307,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $status= $_POST['status']          ?? 'active';
         $newpass = $_POST['new_password']  ?? '';
         $utype = strtolower(trim($_POST['user_type'] ?? ''));
+        $ylevel = trim($_POST['year_level'] ?? '');
         $isReporter = ($role === 'reporter');
 
         $errors = becAccountFieldErrors($fname, $email, $phone, $dept);
@@ -338,6 +349,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Cleared when the account stops being a reporter, so a former
                 // reporter turned technician doesn't keep a stale "Student" tag.
                 $updateData['user_type'] = $isReporter ? $utype : null;
+            }
+            if ($hasYearLevelCol) {
+                $updateData['year_level'] = ($isReporter && $utype === 'student' && $ylevel !== '') ? $ylevel : null;
             }
             if ($usePass) {
                 $updateData['password'] = password_hash($newpass, PASSWORD_DEFAULT);
@@ -467,6 +481,60 @@ if ($rf === 'student') { $rf = 'reporter'; }
 $sf  = $_GET['status'] ?? 'all';
 $sq  = $_GET['search'] ?? '';
 
+// Role answers what the system lets a person do. It does not answer the
+// question the PMO actually asks of this page — "show me the Senior High
+// students", "show me the non-teaching offices" — because the whole college
+// arrives here under the single role of Reporter. Those two filters do.
+$tf = strtolower(trim((string)($_GET['type'] ?? 'all')));
+if (!in_array($tf, ['all', 'student', 'faculty', 'staff'], true)) { $tf = 'all'; }
+$df = trim((string)($_GET['dept'] ?? 'all'));
+
+// PMO and ITSO are not roles — they are the two units the administrators
+// belong to, told apart by users.department exactly as adminUnitForUser()
+// does it. The page used to offer a "PMO" role tab, which matched the retired
+// role of that name: it held nobody, so it always showed an empty list while
+// the six real PMO and ITSO administrators sat under "Admins".
+$uf = strtolower(trim((string)($_GET['unit'] ?? 'all')));
+if (!in_array($uf, ['all', 'pmo', 'itso'], true)) { $uf = 'all'; }
+// ITSO is tested first so a department naming both lands where adminUnitForUser() puts it.
+$unitSql = static function (string $unit): string {
+    return $unit === 'itso'
+        ? "POSITION('ITSO' IN UPPER(COALESCE(u.department,''))) > 0"
+        : "POSITION('ITSO' IN UPPER(COALESCE(u.department,''))) = 0
+           AND POSITION('PMO' IN UPPER(COALESCE(u.department,''))) > 0";
+};
+
+// The roster runs to thousands of people, and every row on this page carries a
+// full JSON copy of itself for the profile and edit dialogs. Rendering the lot
+// would produce a page too large to be usable, so the list is paginated in the
+// database — LIMIT/OFFSET, not a client-side slice of everything.
+//
+// The list is a concatenation of two sources: account holders from `users`
+// first, then the imported directory roster. A page can straddle the boundary,
+// so the offset is spent against the users table first and whatever is left
+// over becomes the directory offset.
+$perPage = 100;
+$page    = max(1, (int) ($_GET['page'] ?? 1));
+$offset  = ($page - 1) * $perPage;
+
+// Every filter must survive a page change, or paging would silently reset the view.
+$pageQuery = static function (int $p) use ($rf, $uf, $tf, $df, $sq): string {
+    $args = ['page' => $p];
+    if ($rf !== 'all' && $rf !== '') { $args['role']   = $rf; }
+    if ($uf !== 'all')               { $args['unit']   = $uf; }
+    if ($tf !== 'all')               { $args['type']   = $tf; }
+    if ($df !== 'all')               { $args['dept']   = $df; }
+    if ($sq !== '')                  { $args['search'] = $sq; }
+    return '?' . http_build_query($args);
+};
+
+// Only the view the admin is actually looking at gets rendered. Both were
+// always emitted and one was hidden with display:none, so every person was
+// written into the page twice — the hidden grid was 40% of the bytes. The
+// choice lives in a cookie so the server can see it; the old localStorage key
+// is kept in step for anyone who already had a preference.
+$view = (($_COOKIE['bec_uview'] ?? 'table') === 'grid') ? 'grid' : 'table';
+
 // Fetch all users
 $drCols = array_fill_keys(array_keys(getTableColumns('defect_reports')), true);
 $reporterJoinCol = isset($drCols['reporter_id']) ? 'reporter_id' : (isset($drCols['reported_by']) ? 'reported_by' : (isset($drCols['user_id']) ? 'user_id' : null));
@@ -490,6 +558,16 @@ $q = "SELECT u.*,
       WHERE u.status != 'deleted'";
 $params = []; $types = '';
 if ($rf !== 'all')   { $q .= " AND u.role = ?";   $params[] = $rf;   $types .= 's'; }
+// Staff hold no user_type — an administrator or technician is a member of
+// staff by virtue of the job, so the Staff filter has to reach them too or it
+// returns nobody at all.
+if ($tf === 'staff') {
+    $q .= " AND (LOWER(COALESCE(u.user_type,'')) = 'staff' OR u.role IN ('admin','pmo','technician'))";
+} elseif ($tf !== 'all' && $hasUserTypeCol) {
+    $q .= " AND LOWER(COALESCE(u.user_type,'')) = ?"; $params[] = $tf; $types .= 's';
+}
+if ($df !== 'all' && $hasDeptCol)     { $q .= " AND COALESCE(u.department,'') = ?";       $params[] = $df; $types .= 's'; }
+if ($uf !== 'all' && $hasDeptCol)     { $q .= " AND (" . $unitSql($uf) . ")"; }
 if ($sq !== '') {
     $ql = '%'.$sq.'%';
     $searchConds = ["u.fullname LIKE ?", "u.email LIKE ?", "u.user_id LIKE ?"];
@@ -519,26 +597,52 @@ if (isPgSqlDriver()) {
 // Directory roster (imported students / faculty / staff). Reporters don't hold login
 // accounts, so the imported directory people are surfaced here as read-only entries.
 $directoryEntries = [];
+$dirMatchTotal = 0;   // how many directory people match, before the cap
 try {
     $dcolset = getTableColumns('bec_directory');
-    if ($dcolset) {
+    // The directory holds reporters only — under any other role tab there is
+    // nothing here to show, so the query is not worth running. Nor is it under
+    // a PMO/ITSO unit filter: directory departments are academic units, and
+    // nobody in the roster belongs to either office.
+    if ($dcolset && ($rf === 'all' || $rf === 'reporter') && $uf === 'all') {
         $pdoD = getPgsqlPdoConnection();
         $reporterEmailExpr = isset($drCols['reporter_email'])
             ? "(SELECT COUNT(*) FROM {$defectReportsTable} dr WHERE LOWER(dr.reporter_email)=LOWER(bd.email))"
             : "0";
-        $drows = $pdoD->query("SELECT bd.*, {$reporterEmailExpr} AS report_count FROM public.bec_directory bd ORDER BY bd.full_name ASC")->fetchAll(PDO::FETCH_ASSOC);
-        // Someone can be both an account and a directory entry — a reporter who
-        // was later given a login, for instance. Listing both showed the same
-        // person twice, once editable and once not, which also double-counted
-        // them in the totals.
-        $accountEmails = [];
-        foreach ($users as $existing) {
-            $e = strtolower(trim((string)($existing['email'] ?? '')));
-            if ($e !== '') { $accountEmails[$e] = true; }
+
+        // Filtering, de-duplicating and counting all happen in the database.
+        // Pulling every row back to sort it out in PHP was affordable for a
+        // handful of test records and is not for a full college roster.
+        $dWhere = ["NOT EXISTS (SELECT 1 FROM {$usersTable} u
+                                 WHERE LOWER(u.email) = LOWER(bd.email)
+                                   AND COALESCE(u.status,'') <> 'deleted')"];
+        $dParams = [];
+        if ($tf !== 'all') { $dWhere[] = "LOWER(COALESCE(NULLIF(bd.user_type,''),'student')) = :ut"; $dParams['ut'] = $tf; }
+        if ($df !== 'all') { $dWhere[] = "COALESCE(bd.department,'') = :dep"; $dParams['dep'] = $df; }
+        if ($sq !== '') {
+            $dWhere[] = "(bd.full_name ILIKE :q OR bd.email ILIKE :q
+                          OR COALESCE(bd.student_number,'') ILIKE :q
+                          OR COALESCE(bd.employee_number,'') ILIKE :q
+                          OR COALESCE(bd.department,'') ILIKE :q
+                          OR COALESCE(bd.program,'') ILIKE :q)";
+            $dParams['q'] = '%' . $sq . '%';
         }
+        $dSql = " FROM public.bec_directory bd WHERE " . implode(' AND ', $dWhere);
+
+        $cst = $pdoD->prepare("SELECT COUNT(*)" . $dSql);
+        $cst->execute($dParams);
+        $dirMatchTotal = (int)$cst->fetchColumn();
+
+        $room = max(0, $rowLimit - count($users));
+        $drows = [];
+        if ($room > 0) {
+            $dst = $pdoD->prepare("SELECT bd.*, {$reporterEmailExpr} AS report_count"
+                . $dSql . " ORDER BY bd.full_name ASC LIMIT " . (int)$room);
+            $dst->execute($dParams);
+            $drows = $dst->fetchAll(PDO::FETCH_ASSOC);
+        }
+
         foreach ($drows as $bd) {
-            $dirEmail = strtolower(trim((string)($bd['email'] ?? '')));
-            if ($dirEmail !== '' && isset($accountEmails[$dirEmail])) { continue; }
             $ut = strtolower(trim((string)($bd['user_type'] ?? 'student')));
             if (!in_array($ut, ['student','faculty','staff'], true)) { $ut = 'student'; }
             $entry = [
@@ -555,38 +659,101 @@ try {
                 'program'         => (string)($bd['program'] ?? ''),
                 'employee_number' => (string)($bd['employee_number'] ?? ''),
                 'student_number'  => (string)($bd['student_number'] ?? ''),
+                'year_level'      => (string)($bd['year_level'] ?? ''),
                 'user_type'       => $ut,
                 'is_directory'    => true,          // read-only marker
             ];
-            // Respect the active role filter and search box.
-            if ($rf !== 'all' && $rf !== 'reporter') { continue; }
-            if ($sq !== '') {
-                $hay = strtolower($entry['fullname'].' '.$entry['email'].' '.$entry['user_id'].' '.$entry['department']);
-                if (strpos($hay, strtolower($sq)) === false) { continue; }
-            }
             $directoryEntries[] = $entry;
         }
     }
 } catch (Throwable $e) { $directoryEntries = []; }
 $users = array_merge($users, $directoryEntries);
 
-// All users for counts
+// All users for counts. user_type comes along so the Students / Faculty / Staff
+// chips can count account holders too, not only imported directory people.
+$countCols = 'role, status' . ($hasUserTypeCol ? ', user_type' : '') . ($hasDeptCol ? ', department' : '');
 if (isPgSqlDriver()) {
-    $all_users_stmt = $pdo->query("SELECT role, status FROM {$usersTable} WHERE status IS NULL OR status != 'deleted'");
+    $all_users_stmt = $pdo->query("SELECT {$countCols} FROM {$usersTable} WHERE status IS NULL OR status != 'deleted'");
     $all_users_raw = $all_users_stmt ? $all_users_stmt->fetchAll() : [];
 } else {
-    $all_users_res = $conn->query("SELECT role, status FROM {$usersTable} WHERE status IS NULL OR status != 'deleted'");
+    $all_users_res = $conn->query("SELECT {$countCols} FROM {$usersTable} WHERE status IS NULL OR status != 'deleted'");
     $all_users_raw = $all_users_res ? $all_users_res->fetch_all(MYSQLI_ASSOC) : [];
 }
 
 function cntU($arr,$fn){return count(array_filter($arr,$fn));}
-$dirAll = [];
-try { $pdoC = getPgsqlPdoConnection(); $dirAll = $pdoC->query("SELECT LOWER(COALESCE(user_type,'student')) AS user_type FROM public.bec_directory")->fetchAll(PDO::FETCH_ASSOC); } catch (Throwable $e) { $dirAll = []; }
+
+// Counted in the database, not by pulling a row per person back to be counted
+// here — the directory is the whole college.
+$dirByType = ['student'=>0,'faculty'=>0,'staff'=>0];
+$dirTotal  = 0;
+$deptOptions = [];
+$yearOptions = [];
+try {
+    $pdoC = getPgsqlPdoConnection();
+    foreach ($pdoC->query("SELECT LOWER(COALESCE(NULLIF(user_type,''),'student')) AS ut, COUNT(*) AS c
+                           FROM public.bec_directory GROUP BY 1", PDO::FETCH_ASSOC) as $r) {
+        $ut = (string)$r['ut'];
+        if (!isset($dirByType[$ut])) { $ut = 'student'; }
+        $dirByType[$ut] += (int)$r['c'];
+        $dirTotal += (int)$r['c'];
+    }
+    // Only offer departments that somebody is actually in, so the dropdown can
+    // never lead to an empty list.
+    foreach ($pdoC->query("SELECT DISTINCT TRIM(department) AS d FROM public.bec_directory
+                           WHERE COALESCE(TRIM(department),'') <> ''
+                           UNION
+                           SELECT DISTINCT TRIM(department) FROM {$usersTable}
+                           WHERE COALESCE(TRIM(department),'') <> '' AND COALESCE(status,'') <> 'deleted'
+                           ORDER BY 1", PDO::FETCH_ASSOC) as $r) {
+        $deptOptions[] = (string)$r['d'];
+    }
+    // Year levels, in school order, from whoever is actually enrolled. Same
+    // source as the directory's filter so the two pages always agree.
+    foreach ($pdoC->query("SELECT DISTINCT TRIM(year_level) AS y FROM public.bec_directory
+                           WHERE COALESCE(TRIM(year_level),'') <> ''
+                           UNION
+                           SELECT DISTINCT TRIM(year_level) FROM {$usersTable}
+                           WHERE COALESCE(TRIM(year_level),'') <> '' AND COALESCE(status,'') <> 'deleted'", PDO::FETCH_ASSOC) as $r) {
+        $yearOptions[] = (string)$r['y'];
+    }
+    $yearOptions = becdir_sort_year_levels($yearOptions);
+} catch (Throwable $e) { /* directory or department column unavailable — filters degrade to Role only */ }
+
+$usrByType = ['student'=>0,'faculty'=>0,'staff'=>0];
+foreach ($all_users_raw as $u) {
+    $t = strtolower(trim((string)($u['user_type'] ?? '')));
+    // An administrator or technician is staff whether or not anyone recorded a
+    // user_type for them; counting only the recorded field showed Staff as 0.
+    if ($t === '' && in_array(($u['role'] ?? ''), ['admin','pmo','technician'], true)) { $t = 'staff'; }
+    if (isset($usrByType[$t])) { $usrByType[$t]++; }
+}
+$c_student = $dirByType['student'] + $usrByType['student'];
+$c_faculty = $dirByType['faculty'] + $usrByType['faculty'];
+$c_staff   = $dirByType['staff']   + $usrByType['staff'];
+
+// The two offices, counted the way adminUnitForUser() reads them.
+$unitOf = static function (string $dept): string {
+    $d = strtoupper($dept);
+    return strpos($d, 'ITSO') !== false ? 'itso' : (strpos($d, 'PMO') !== false ? 'pmo' : '');
+};
+$c_pmoUnit = 0; $c_itsoUnit = 0; $c_noUnit = 0;
+foreach ($all_users_raw as $u) {
+    if (($u['role'] ?? '') === 'reporter') { continue; }
+    $unit = $unitOf((string)($u['department'] ?? ''));
+    if ($unit === 'pmo')  { $c_pmoUnit++; }
+    elseif ($unit === 'itso') { $c_itsoUnit++; }
+    else { $c_noUnit++; }   // staff account tagged to neither office
+}
+
 $c_admin  = cntU($all_users_raw, fn($u)=>$u['role']==='admin');
-$c_pmo    = cntU($all_users_raw, fn($u)=>$u['role']==='pmo');
 $c_tech   = cntU($all_users_raw, fn($u)=>$u['role']==='technician');
-$c_rep    = cntU($all_users_raw, fn($u)=>$u['role']==='reporter') + count($dirAll);
-$c_total  = count($all_users_raw) + count($dirAll);
+$c_rep    = cntU($all_users_raw, fn($u)=>$u['role']==='reporter') + $dirTotal;
+$c_total  = count($all_users_raw) + $dirTotal;
+
+// How many people match the filters in total, against how many are on screen.
+$matchTotal = count($users) - count($directoryEntries) + $dirMatchTotal;
+$isCapped   = $matchTotal > count($users);
+$filtersOn  = ($rf !== 'all' || $tf !== 'all' || $df !== 'all' || $uf !== 'all' || $sq !== '');
 /* ─── HELPERS ───────────────────────────────────────── */
 function roleCls($r){return['admin'=>'r-admin','pmo'=>'r-pmo','dean'=>'r-dean','finance'=>'r-fin','technician'=>'r-tech','reporter'=>'r-rep','student'=>'r-stud'][$r]??'r-rep';}
 // Who the reporter is at the college, shown beside the role badge. Reporters
@@ -614,6 +781,30 @@ function deptCls($d){
     return'gen';
 }
 function esc($s){return htmlspecialchars((string)($s??''),ENT_QUOTES,'UTF-8');}
+
+/**
+ * The only fields the profile and edit dialogs actually read.
+ *
+ * Rows come back as SELECT u.*, and the whole record was being JSON-encoded
+ * into the markup five times per person — once on the row and twice on each of
+ * the table and grid buttons. That is what made the page enormous, but the
+ * bigger problem is what was in it: `users` also carries the password hash and
+ * the confirmation, recovery, invite and reauthentication tokens, so every one
+ * of them was sitting in the page source. Nothing here needs them.
+ */
+function cardPayload(array $u): string {
+    $keep = ['user_id','fullname','email','role','user_type','department','program','course',
+             'phone','contact_number','student_number','employee_number','year_level',
+             'specialization','position','status','created_at','report_count','active_tasks','is_directory'];
+    $out = [];
+    foreach ($keep as $k) {
+        if (!array_key_exists($k, $u)) { continue; }
+        $v = $u[$k];
+        if ($v === null || $v === '') { continue; }   // absent fields are simply omitted
+        $out[$k] = $v;
+    }
+    return htmlspecialchars(json_encode($out, JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
+}
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -624,7 +815,9 @@ function esc($s){return htmlspecialchars((string)($s??''),ENT_QUOTES,'UTF-8');}
 <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <link rel="stylesheet" href="css/typography.css">
 <script src="assets/vendor/js/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="assets/css/admin-shell.css">
 <style>
+
 /* ═══════════════════════════════════════════════════════
    BEC Admin — User Management  |  Maroon × Gold × Warm
    Outfit (headings) · DM Sans (body)
@@ -648,60 +841,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.022'/%3E%3C/svg%3E");}
 
 /* ── SIDEBAR ─────────────────────────────────────── */
-.sb{position:fixed;left:0;top:0;width:var(--sb);height:100vh;
-  background:linear-gradient(168deg,#1E0202 0%,#350808 38%,#4A0E0E 68%,#3A0808 100%);
-  display:flex;flex-direction:column;z-index:400;overflow:hidden;
-  box-shadow:5px 0 30px rgba(45,5,5,.38);transition:transform .32s cubic-bezier(.4,0,.2,1);}
-.sb::before{content:'';position:absolute;inset:0;
-  background:radial-gradient(ellipse 110% 45% at 50% -5%,rgba(212,160,23,.12),transparent);pointer-events:none;}
-.sb-top{padding:1.35rem 1.2rem .9rem;border-bottom:1px solid rgba(255,255,255,.06);
-  display:flex;align-items:center;gap:.75rem;position:relative;z-index:1;}
-.seal-ring{position:relative;width:46px;height:46px;flex-shrink:0;}
-.seal-spin{position:absolute;inset:-3px;border-radius:50%;
-  background:conic-gradient(var(--g2) 0%,var(--g3) 30%,var(--g2) 60%,var(--g3) 80%,var(--g2) 100%);
-  animation:sealSpin 7s linear infinite;opacity:.72;}
-@keyframes sealSpin{to{transform:rotate(360deg)}}
-.seal-core{position:absolute;inset:2px;border-radius:50%;overflow:hidden;background:var(--m1);}
-.seal-core img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
-.sb-brand strong{display:block;font-family:'Outfit',sans-serif;font-weight:800;font-size:.8rem;color:#fff;line-height:1.25;}
-.sb-brand em{font-size:.57rem;font-style:normal;color:rgba(255,255,255,.3);text-transform:uppercase;letter-spacing:1.8px;}
-.sb-user{margin:.45rem 1rem .2rem;padding:.65rem .875rem;
-  background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.07);
-  border-radius:var(--r2);display:flex;align-items:center;gap:.65rem;
-  position:relative;z-index:1;transition:background .18s;}
-.sb-user:hover{background:rgba(255,255,255,.09);}
-.uav{width:32px;height:32px;flex-shrink:0;border-radius:50%;
-  background:linear-gradient(135deg,var(--g2),#B45309);
-  display:flex;align-items:center;justify-content:center;
-  font-family:'Outfit',sans-serif;font-weight:900;font-size:.77rem;color:#fff;
-  box-shadow:0 3px 0 rgba(0,0,0,.28);transition:transform .22s;}
-.sb-user:hover .uav{transform:scale(1.08) rotate(-6deg);}
-.uname{font-size:.8rem;color:#fff;font-weight:600;display:block;}
-.urole{font-size:.58rem;color:rgba(255,255,255,.32);text-transform:uppercase;letter-spacing:1px;}
-.sb-nav{flex:1;padding:.25rem 0;overflow-y:auto;position:relative;z-index:1;scrollbar-width:thin;scrollbar-color:rgba(212,160,23,.45) transparent;}
-.sb-nav::-webkit-scrollbar{width:6px;}
-.sb-nav::-webkit-scrollbar-thumb{background:rgba(212,160,23,.4);border-radius:3px;}
-.sb-nav::-webkit-scrollbar-thumb:hover{background:rgba(212,160,23,.65);}
-.sb-nav::-webkit-scrollbar{width:3px;}
-.sb-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px;}
-.nav-sec{font-size:.54rem;text-transform:uppercase;letter-spacing:2.5px;color:rgba(255,255,255,.18);padding:.5rem 1.25rem .2rem;font-weight:700;}
- .ni{display:flex;align-items:center;gap:.65rem;padding:.56rem 1.25rem;color:rgba(255,255,255,.42);
-  background:none;border:none;width:100%;text-align:left;font-family:'DM Sans',sans-serif;
-  font-size:.82rem;font-weight:500;cursor:pointer;transition:all .16s;text-decoration:none;position:relative;}
-.ni-ic{width:30px;height:30px;border-radius:var(--r1);display:flex;align-items:center;justify-content:center;
-  font-size:.78rem;background:rgba(255,255,255,.05);flex-shrink:0;transition:all .22s;}
-.ni:hover{color:rgba(255,255,255,.82);}
-.ni:hover .ni-ic{background:rgba(255,255,255,.1);transform:scale(1.08);}
-.ni.on{color:#fff;font-weight:600;}
-.ni.on .ni-ic{background:linear-gradient(135deg,var(--g2),var(--g3));color:var(--m1);
-  box-shadow:0 3px 0 rgba(0,0,0,.18),0 4px 12px rgba(212,160,23,.25);}
-.ni.on::after{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
-  background:linear-gradient(to bottom,var(--g2),var(--g3));border-radius:0 3px 3px 0;}
-.sb-foot{padding:.55rem 1rem .95rem;border-top:1px solid rgba(255,255,255,.06);z-index:1;}
-.lout{width:100%;display:flex;align-items:center;gap:.65rem;padding:.52rem .78rem;
-  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);color:rgba(255,255,255,.42);
-  border-radius:var(--r1);cursor:pointer;font-size:.8rem;font-family:'DM Sans',sans-serif;font-weight:500;transition:all .18s;}
-.lout:hover{background:rgba(220,38,38,.14);color:#fca5a5;border-color:rgba(220,38,38,.22);}
+/* sidebar styling lives in assets/css/admin-shell.css */
 .lout i{transition:transform .3s;}.lout:hover i{transform:rotate(180deg);}
 
 /* ── LAYOUT ──────────────────────────────────────── */
@@ -803,6 +943,47 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 
 /* ── FILTER / ROLE TABS ──────────────────────────── */
 .rtabs{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.875rem;}
+/* Affiliation row — a second, quieter axis beneath the role tabs */
+.rtabs.afil{align-items:center;gap:.4rem;margin-top:-.35rem;padding:.55rem .8rem;
+  background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r3);box-shadow:var(--sh0);}
+.afil-lbl{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:1.1px;
+  color:var(--t3);margin-right:.2rem;display:inline-flex;align-items:center;gap:.32rem;}
+.afil-lbl i{font-size:.62rem;color:var(--m3);}
+.rtab-n{margin-left:.38rem;padding:.05rem .35rem;border-radius:20px;font-size:.62rem;
+  font-weight:800;background:rgba(0,0,0,.07);color:inherit;}
+.rtab.on .rtab-n{background:rgba(255,255,255,.24);}
+.rtab.t-student.on{background:#0891B2;border-color:#0891B2;color:#fff;}
+.rtab.t-faculty.on{background:#7C3AED;border-color:#7C3AED;color:#fff;}
+.rtab.t-staff.on{background:#C2410C;border-color:#C2410C;color:#fff;}
+.rtab.clr{color:var(--t3);}
+.rtab.clr:hover{color:var(--m3);border-color:var(--m3);}
+/* the two admin units, set apart from the role tabs beside them */
+.tab-div{width:1px;align-self:stretch;background:var(--bdr);margin:.1rem .35rem;}
+.rtab.u-pmo.on{background:#C2410C;border-color:#9A3412;color:#fff;}
+.rtab.u-itso.on{background:#2563EB;border-color:#1D4ED8;color:#fff;}
+/* Matches .rtab exactly — same padding, border width and type scale — so the
+   department pill sits on the same line as the affiliation tabs beside it.
+   (This read `var(--bd)`, which is not a variable anyone defines: the browser
+   dropped the whole border and the pill floated there with no outline.) */
+.dsel{position:relative;display:inline-flex;align-items:center;gap:.4rem;
+  background:var(--s1);border:1.5px solid var(--bdr);border-radius:20px;
+  padding:.3rem .75rem;font-size:.72rem;font-weight:700;color:var(--t2);
+  transition:border-color .17s;}
+/* One shared height, in rem so it tracks the reader's font-size setting: the
+   tabs are sized by their count badge and the pill by a bare <select>, which
+   otherwise leaves the pill a hair short of the row. */
+.rtab,.dsel{min-height:1.95rem;}
+.dsel:hover{border-color:var(--m3);}
+.dsel:focus-within{border-color:var(--m3);box-shadow:0 0 0 3px rgba(123,29,29,.07);}
+.dsel i{font-size:.66rem;color:var(--m3);flex-shrink:0;}
+.dsel select{border:none;background:none;font-family:'DM Sans',sans-serif;font-size:.72rem;
+  color:var(--t2);font-weight:700;cursor:pointer;outline:none;max-width:15rem;padding:0;line-height:1.45;}
+/* Scope controls sit together at the far end, away from the affiliation tabs. */
+.afil-end{margin-left:auto;display:inline-flex;align-items:center;gap:.4rem;flex-wrap:wrap;}
+.capnote{display:flex;align-items:flex-start;gap:.55rem;margin-bottom:.875rem;
+  padding:.6rem .85rem;border-radius:var(--r1);font-size:.76rem;line-height:1.55;
+  background:#FFFBEF;border:1px solid rgba(201,150,12,.32);border-left:3px solid var(--g1,#C9960C);color:var(--t2);}
+.capnote i{color:#C9960C;margin-top:.15rem;flex-shrink:0;}
 .rtab{display:inline-flex;align-items:center;gap:.3rem;padding:.3rem .75rem;border-radius:20px;
   font-size:.72rem;font-weight:700;cursor:pointer;text-decoration:none;border:1.5px solid transparent;
   transition:all .17s;background:var(--s1);color:var(--t2);border-color:var(--bdr);}
@@ -1079,30 +1260,38 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
     </div>
 
     <!-- Summary Cards -->
+    <!-- Six cards for a six-column grid. The grid had always been declared
+         repeat(6,1fr) while only five cards were rendered, so every card sat a
+         column short of the width below it — that was the misalignment. -->
     <div class="sums">
-      <a href="?role=all&status=all" class="scard sc-a">
+      <a href="?role=all" class="scard sc-a">
         <div class="sico"><i class="fas fa-users"></i></div>
-        <div class="snum" id="sn0"><?php echo $c_total; ?></div>
+        <div class="snum" id="sn0"><?php echo number_format($c_total); ?></div>
         <div class="slbl">Total Users</div>
       </a>
-      <a href="?role=admin&status=all" class="scard sc-b">
+      <a href="?role=admin" class="scard sc-b">
         <div class="sico"><i class="fas fa-crown"></i></div>
         <div class="snum" id="sn1"><?php echo $c_admin; ?></div>
         <div class="slbl">Administrators</div>
       </a>
-      <a href="?role=pmo&status=all" class="scard sc-c">
+      <a href="?unit=pmo" class="scard sc-c">
         <div class="sico"><i class="fas fa-building"></i></div>
-        <div class="snum" id="sn2"><?php echo $c_pmo; ?></div>
-        <div class="slbl">PMO</div>
+        <div class="snum" id="sn2"><?php echo $c_pmoUnit; ?></div>
+        <div class="slbl">PMO Unit</div>
       </a>
-      <a href="?role=technician&status=all" class="scard sc-f">
+      <a href="?unit=itso" class="scard sc-d">
+        <div class="sico"><i class="fas fa-laptop-code"></i></div>
+        <div class="snum" id="sn3"><?php echo $c_itsoUnit; ?></div>
+        <div class="slbl">ITSO Unit</div>
+      </a>
+      <a href="?role=technician" class="scard sc-f">
         <div class="sico"><i class="fas fa-hard-hat"></i></div>
         <div class="snum" id="sn5"><?php echo $c_tech; ?></div>
         <div class="slbl">Technicians</div>
       </a>
-      <a href="?role=reporter&status=all" class="scard sc-a">
+      <a href="?role=reporter" class="scard sc-e">
         <div class="sico"><i class="fas fa-bullhorn"></i></div>
-        <div class="snum" id="sn6"><?php echo $c_rep; ?></div>
+        <div class="snum" id="sn6"><?php echo number_format($c_rep); ?></div>
         <div class="slbl">Reporters</div>
       </a>
     </div>
@@ -1110,21 +1299,80 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
     <!-- Role Tabs -->
     <div class="rtabs">
       <?php
+      // "PMO" was here as a role and matched nobody. The administrators are
+      // the PMO and the ITSO, so those two are unit filters instead.
       $tabs=[
-        ['all',   'All Users',     'fas fa-users',          'on'],
-        ['admin', 'Admins',        'fas fa-crown',          'rtab-admin'],
-        ['pmo', 'PMO',             'fas fa-building',       'rtab-rep'],
-        ['technician','Technicians','fas fa-hard-hat',      'rtab-tech'],
-        ['reporter','Reporters',   'fas fa-bullhorn',       'rtab-rep'],
+        ['all',   'All Users',      'fas fa-users',          'on'],
+        ['admin', 'Administrators', 'fas fa-crown',          'rtab-admin'],
+        ['technician','Technicians','fas fa-hard-hat',       'rtab-tech'],
+        ['reporter','Reporters',    'fas fa-bullhorn',       'rtab-rep'],
       ];
+      // Every filter link keeps the other filters, so choosing a role does not
+      // silently throw away the department the admin already picked.
+      $keep = static function(array $over) use ($rf,$tf,$df,$sq,$uf) {
+        $qs = array_merge(['role'=>$rf,'type'=>$tf,'dept'=>$df,'unit'=>$uf,'search'=>$sq], $over);
+        return '?' . http_build_query(array_filter($qs, static fn($v) => $v !== '' && $v !== 'all'));
+      };
       foreach($tabs as [$rval,$rlbl,$rico,$rcls]):
         $act = $rf===$rval?'on':'';
       ?>
-      <a href="?role=<?php echo $rval;?>&status=<?php echo $sf;?>&search=<?php echo urlencode($sq);?>"
+      <a href="<?php echo esc($keep(['role'=>$rval])); ?>"
          class="rtab <?php echo $rcls; ?> <?php echo $act; ?>">
         <i class="<?php echo $rico;?>"></i><?php echo $rlbl;?>
       </a>
       <?php endforeach; ?>
+
+      <span class="tab-div" aria-hidden="true"></span>
+      <?php foreach([['pmo','PMO','fas fa-building',$c_pmoUnit],['itso','ITSO','fas fa-laptop-code',$c_itsoUnit]] as [$uval,$ulbl,$uico,$unum]): ?>
+      <a href="<?php echo esc($keep(['unit'=>$uf===$uval?'all':$uval])); ?>"
+         class="rtab u-<?php echo $uval; ?> <?php echo $uf===$uval?'on':''; ?>"
+         data-tip="<?php echo $ulbl; ?> administrators and technicians">
+        <i class="<?php echo $uico; ?>"></i><?php echo $ulbl; ?>
+        <span class="rtab-n"><?php echo (int)$unum; ?></span>
+      </a>
+      <?php endforeach; ?>
+    </div>
+
+    <!-- Affiliation — who the person is at BEC, which the role cannot say.
+         The whole college files reports under the one role of Reporter, so
+         without this there is no way to look at just the students, or just
+         the non-teaching offices. -->
+    <div class="rtabs afil">
+      <span class="afil-lbl"><i class="fas fa-user-tag"></i> Affiliation</span>
+      <?php
+      $typeTabs = [
+        ['all',     'Everyone',  'fas fa-users',            $c_total],
+        ['student', 'Students',  'fas fa-graduation-cap',   $c_student],
+        ['faculty', 'Faculty',   'fas fa-chalkboard-teacher',$c_faculty],
+        ['staff',   'Staff',     'fas fa-briefcase',        $c_staff],
+      ];
+      foreach($typeTabs as [$tval,$tlbl,$tico,$tnum]):
+      ?>
+      <a href="<?php echo esc($keep(['type'=>$tval])); ?>"
+         class="rtab t-<?php echo $tval; ?> <?php echo $tf===$tval?'on':''; ?>">
+        <i class="<?php echo $tico; ?>"></i><?php echo $tlbl; ?>
+        <span class="rtab-n"><?php echo (int)$tnum; ?></span>
+      </a>
+      <?php endforeach; ?>
+
+      <?php if ($deptOptions || $filtersOn): ?>
+      <div class="afil-end">
+        <?php if ($deptOptions): ?>
+        <label class="dsel">
+          <i class="fas fa-building-columns"></i>
+          <select onchange="goDept(this.value)" aria-label="Filter by department or academic unit">
+            <option value="all"<?php echo $df==='all'?' selected':''; ?>>All departments</option>
+            <?php foreach($deptOptions as $dopt): ?>
+            <option value="<?php echo esc($dopt); ?>"<?php echo $df===$dopt?' selected':''; ?>><?php echo esc($dopt); ?></option>
+            <?php endforeach; ?>
+          </select>
+        </label>
+        <?php endif; ?>
+        <?php if ($filtersOn): ?>
+        <a href="?role=all" class="rtab clr"><i class="fas fa-xmark"></i>Clear</a>
+        <?php endif; ?>
+      </div>
+      <?php endif; ?>
     </div>
 
     <!-- Filter Bar -->
@@ -1136,13 +1384,31 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
       </div>
       <!-- View toggle -->
       <div class="vt" style="margin-left:auto;">
-        <button class="vt-b" id="vt-tbl" onclick="setView('table')"><i class="fas fa-list"></i> Table</button>
-        <button class="vt-b" id="vt-grid" onclick="setView('grid')"><i class="fas fa-th-large"></i> Grid</button>
+        <button class="vt-b<?php echo $view==='table'?' on':''; ?>" id="vt-tbl" onclick="setView('table')"><i class="fas fa-list"></i> Table</button>
+        <button class="vt-b<?php echo $view==='grid'?' on':''; ?>" id="vt-grid" onclick="setView('grid')"><i class="fas fa-th-large"></i> Grid</button>
       </div>
-      <span style="font-size:.7rem;color:var(--t3);white-space:nowrap;"><?php echo count($users); ?> user<?php echo count($users)!=1?'s':''; ?></span>
+      <span style="font-size:.7rem;color:var(--t3);white-space:nowrap;">
+        <?php if ($isCapped): ?>
+          Showing <strong><?php echo count($users); ?></strong> of <?php echo number_format($matchTotal); ?>
+        <?php else: ?>
+          <?php echo number_format(count($users)); ?> user<?php echo count($users)!=1?'s':''; ?>
+        <?php endif; ?>
+      </span>
     </div>
 
+    <?php if ($isCapped): ?>
+    <!-- Said out loud rather than quietly truncating: an admin who searches a
+         name and does not find it needs to know the list was cut short. -->
+    <div class="capnote">
+      <i class="fas fa-layer-group"></i>
+      <span>Showing the first <strong><?php echo count($users); ?></strong> of
+      <strong><?php echo number_format($matchTotal); ?></strong> people.
+      Use the affiliation, department or search filters to narrow this down.</span>
+    </div>
+    <?php endif; ?>
+
     <!-- ════ TABLE VIEW ════ -->
+    <?php if ($view === 'table'): ?>
     <div class="panel" id="tableView">
       <div class="ph3">
         <h3><i class="fas fa-list-alt"></i> User Records</h3>
@@ -1155,20 +1421,20 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
       <table class="tbl" id="uTbl" data-paginate="12" data-paginate-noun="users">
         <thead>
           <tr>
-            <th>User</th><th>Email</th><th>Role</th><th>Department</th>
+            <th>User</th><th>Email</th><th>Role</th><th>Department</th><th>Year Level</th>
             <th>Reports</th><th>Active Tasks</th><th>Joined</th>
             <th style="text-align:center;">Actions</th>
           </tr>
         </thead>
         <tbody>
           <?php if(empty($users)): ?>
-          <tr><td colspan="8"><div class="empty"><i class="fas fa-users-slash"></i>No users match the current filters.</div></td></tr>
+          <tr><td colspan="9"><div class="empty"><i class="fas fa-users-slash"></i>No users match the current filters.</div></td></tr>
           <?php else: foreach($users as $u):
             $init = initials($u['fullname']??'??');
             $avcol = avatarColor($u['role']??'');
             $dc = deptCls($u['department']??'');
           ?>
-          <tr class="urow" data-user="<?php echo htmlspecialchars(json_encode($u),ENT_QUOTES);?>" tabindex="0" aria-label="Open user details">
+          <tr class="urow" data-user="<?php echo cardPayload($u);?>" tabindex="0" aria-label="Open user details">
             <td>
               <div class="tuser">
                 <div class="tav" style="background:<?php echo $avcol;?>;"><?php echo $init;?></div>
@@ -1195,6 +1461,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
               </span>
               <?php else: ?><span style="color:var(--t4);font-size:.72rem;">—</span><?php endif; ?>
             </td>
+            <td style="font-size:.74rem;color:var(--t2,#5B4636);white-space:nowrap;">
+              <?php echo !empty($u['year_level']) ? esc($u['year_level']) : '<span style="color:var(--t4);font-size:.72rem;">—</span>'; ?>
+            </td>
             <td>
               <span style="font-family:'Outfit',sans-serif;font-weight:800;font-size:.85rem;color:var(--m3);">
                 <?php echo (int)($u['report_count']??0); ?>
@@ -1213,12 +1482,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
             <td style="text-align:center;">
               <div class="no-row-open" style="display:flex;gap:.25rem;justify-content:center;">
                 <button type="button" class="btn bico bi-v" title="View Profile"
-                  onclick="openProfile(<?php echo htmlspecialchars(json_encode($u),ENT_QUOTES);?>)">
+                  onclick="openProfile(rowData(this))">
                   <i class="fas fa-eye"></i>
                 </button>
                 <?php if(empty($u['is_directory'])): ?>
                 <button type="button" class="btn bico bi-e" title="Edit User"
-                  onclick="openEdit(<?php echo htmlspecialchars(json_encode($u),ENT_QUOTES);?>)">
+                  onclick="openEdit(rowData(this))">
                   <i class="fas fa-pen"></i>
                 </button>
                 <?php if($roleNeedsPassword($u['role'] ?? '')): ?>
@@ -1244,8 +1513,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
       </table>
     </div>
 
+    <?php endif; ?>
+
     <!-- ════ GRID VIEW ════ -->
-    <div id="gridView" style="display:none;">
+    <?php if ($view === 'grid'): ?>
+    <div id="gridView">
       <div class="ugrid" data-paginate="12" data-paginate-noun="users" data-paginate-rows=".ucard">
         <?php if(empty($users)): ?>
         <div style="grid-column:1/-1;"><div class="empty"><i class="fas fa-users-slash"></i>No users match the current filters.</div></div>
@@ -1256,6 +1528,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
           $isDir = !empty($u['is_directory']);
         ?>
         <div class="ucard role-<?php echo esc($u['role']??'reporter');?>"
+          data-user="<?php echo cardPayload($u);?>"
           style="animation-delay:<?php echo $i*.04;?>s;">
           <div class="uc-top">
             <div class="uc-av" style="background:<?php echo $avcol;?>;"><?php echo $init;?></div>
@@ -1288,12 +1561,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
           </div>
           <div class="uc-acts">
             <button type="button" class="btn btn-ghost btn-sm" style="flex:1;justify-content:center;"
-              onclick="openProfile(<?php echo htmlspecialchars(json_encode($u),ENT_QUOTES);?>)">
+              onclick="openProfile(rowData(this))">
               <i class="fas fa-eye"></i> View
             </button>
             <?php if(empty($u['is_directory'])): ?>
             <button type="button" class="btn btn-gold btn-sm" title="Edit User"
-              onclick="openEdit(<?php echo htmlspecialchars(json_encode($u),ENT_QUOTES);?>)">
+              onclick="openEdit(rowData(this))">
               <i class="fas fa-pen"></i>
             </button>
             <?php if($roleNeedsPassword($u['role'] ?? '')): ?>
@@ -1316,6 +1589,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         <?php endforeach; endif;?>
       </div>
     </div>
+    <?php endif; ?>
 
   </div><!-- /pg -->
 </div><!-- /wrap -->
@@ -1364,10 +1638,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
                 <option value="PMO">PMO — Property Management Office</option>
                 <option value="ITSO">ITSO — Information Technology Services Office</option>
               </optgroup>
+              <?php /* The academic units come from the directory itself, so this list
+                        stays right as the registrar's roster changes. */ ?>
               <optgroup label="Academic / Office">
-                <option value="CCS">CCS</option>
-                <option value="Administration">Administration</option>
-                <option value="Maintenance Department">Maintenance Department</option>
+                <?php foreach ($deptOptions as $dOpt): if (in_array(strtoupper($dOpt), ['PMO','ITSO'], true)) continue; ?>
+                  <option value="<?php echo esc($dOpt); ?>"><?php echo esc($dOpt); ?></option>
+                <?php endforeach; ?>
               </optgroup>
               <option value="__other">Other…</option>
             </select>
@@ -1378,7 +1654,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         <?php if($hasUserTypeCol): /* hidden until scripts/2026_08_reporter_user_type.sql has run */ ?>
         <div class="fg" id="cuTypeBlock">
           <label class="fl">Reporter Type <span>*</span></label>
-          <select name="user_type" id="cuType" class="fc">
+          <select name="user_type" id="cuType" class="fc" onchange="yearSync('cuType','cuYearBlock','cuYear',true)">
             <option value="">Select…</option>
             <?php foreach($reporterTypeMeta as $tVal => $tLbl): ?>
               <option value="<?php echo esc($tVal); ?>"><?php echo esc($tLbl); ?></option>
@@ -1386,6 +1662,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
           </select>
           <p style="font-size:.72rem;color:var(--t3,#9A7A7A);margin:.4rem 0 0;line-height:1.5;"><i class="fas fa-circle-info"></i> Everyone who reports is a <strong>Reporter</strong>. This says who they are at BEC, so the PMO knows whether a report came from a student, a teacher, or staff.</p>
         </div>
+        <?php if($hasYearLevelCol): ?>
+        <div class="fg" id="cuYearBlock">
+          <label class="fl">Year Level</label>
+          <select name="year_level" id="cuYear" class="fc">
+            <option value="">Not applicable</option>
+            <?php foreach($yearOptions as $yOpt): ?>
+              <option value="<?php echo esc($yOpt); ?>"><?php echo esc($yOpt); ?></option>
+            <?php endforeach; ?>
+          </select>
+          <p style="font-size:.72rem;color:var(--t3,#9A7A7A);margin:.4rem 0 0;line-height:1.5;"><i class="fas fa-circle-info"></i> Students only. Chosen from the registrar's enrolment list, so it matches the directory exactly.</p>
+        </div>
+        <?php endif; ?>
         <?php endif; ?>
         <div class="fg">
           <label class="fl">Phone Number</label>
@@ -1515,9 +1803,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
                 <option value="ITSO">ITSO — Information Technology Services Office</option>
               </optgroup>
               <optgroup label="Academic / Office">
-                <option value="CCS">CCS</option>
-                <option value="Administration">Administration</option>
-                <option value="Maintenance Department">Maintenance Department</option>
+                <?php foreach ($deptOptions as $dOpt): if (in_array(strtoupper($dOpt), ['PMO','ITSO'], true)) continue; ?>
+                  <option value="<?php echo esc($dOpt); ?>"><?php echo esc($dOpt); ?></option>
+                <?php endforeach; ?>
               </optgroup>
               <option value="__other">Other…</option>
             </select>
@@ -1532,10 +1820,21 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         <?php if($hasUserTypeCol): ?>
         <div class="fg" id="eTypeBlock">
           <label class="fl">Reporter Type <span>*</span></label>
-          <select name="user_type" id="eType" class="fc">
+          <select name="user_type" id="eType" class="fc" onchange="yearSync('eType','eYearBlock','eYear',true)">
             <option value="">Select…</option>
             <?php foreach($reporterTypeMeta as $tVal => $tLbl): ?>
               <option value="<?php echo esc($tVal); ?>"><?php echo esc($tLbl); ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <?php endif; ?>
+        <?php if($hasYearLevelCol): ?>
+        <div class="fg" id="eYearBlock">
+          <label class="fl">Year Level</label>
+          <select name="year_level" id="eYear" class="fc">
+            <option value="">Not applicable</option>
+            <?php foreach($yearOptions as $yOpt): ?>
+              <option value="<?php echo esc($yOpt); ?>"><?php echo esc($yOpt); ?></option>
             <?php endforeach; ?>
           </select>
         </div>
@@ -1649,24 +1948,39 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 
 <script>
 /* ─── FILTER ─────────────────────────────────────────── */
-function go(){
+function go(over){
   const u=new URL(location.href);
-  u.searchParams.set('role',  '<?php echo esc($rf); ?>');
-  u.searchParams.set('search',document.getElementById('fsq').value);
+  const set=(k,v)=>{ (v && v!=='all') ? u.searchParams.set(k,v) : u.searchParams.delete(k); };
+  set('role',  '<?php echo esc($rf); ?>');
+  set('type',  '<?php echo esc($tf); ?>');
+  set('dept',  '<?php echo esc($df); ?>');
+  set('unit',  '<?php echo esc($uf); ?>');
+  set('search',document.getElementById('fsq').value);
+  // Changing a filter starts a new search, so the old page position goes with it.
+  if (over) { Object.entries(over).forEach(([k,v])=>set(k,v)); }
   location.href=u.toString();
 }
-let dbt; function debounceGo(){clearTimeout(dbt);dbt=setTimeout(go,500);}
+function goDept(v){ go({dept:v}); }
+let dbt; function debounceGo(){clearTimeout(dbt);dbt=setTimeout(()=>go(),500);}
 
 /* ─── VIEW TOGGLE ────────────────────────────────────── */
-let _view = localStorage.getItem('bec_uview') || 'table';
+const _view = '<?php echo $view; ?>';
 function setView(v){
-  _view=v;
-  localStorage.setItem('bec_uview',v);
-  document.getElementById('tableView').style.display = v==='table'?'block':'none';
-  document.getElementById('gridView').style.display  = v==='grid'?'block':'none';
-  document.getElementById('vt-tbl').classList.toggle('on', v==='table');
-  document.getElementById('vt-grid').classList.toggle('on', v==='grid');
+  if (v === _view) return;
+  localStorage.setItem('bec_uview', v);
+  document.cookie = 'bec_uview=' + v + ';path=/;max-age=31536000;samesite=Lax';
+  location.reload();   // the other view is not in the page — the server sends it
 }
+/* Someone who chose Grid before this became a cookie still has it only in
+   localStorage. Carry it over once, then reload into the right view. */
+(function syncStoredView(){
+  const stored = localStorage.getItem('bec_uview');
+  if (stored && stored !== _view && !sessionStorage.getItem('bec_uview_synced')) {
+    sessionStorage.setItem('bec_uview_synced','1');
+    document.cookie = 'bec_uview=' + stored + ';path=/;max-age=31536000;samesite=Lax';
+    location.reload();
+  }
+})();
 function initUserRowClicks(){
   document.querySelectorAll('#uTbl tbody tr.urow').forEach((tr)=>{
     const openRow = () => {
@@ -1687,7 +2001,6 @@ function initUserRowClicks(){
   });
 }
 document.addEventListener('DOMContentLoaded',()=>{
-  setView(_view);
   initUserRowClicks();
 });
 
@@ -1800,7 +2113,7 @@ function isPasswordless(role){ return PASSWORDLESS_ROLES.indexOf(role) !== -1; }
 
 // The reporter type only means something for a reporter — a technician has a
 // specialization instead, an administrator a unit.
-function typeSync(roleId, blockId, selId){
+function typeSync(roleId, blockId, selId, yearBlockId, yearSelId){
   const block = document.getElementById(blockId), sel = document.getElementById(selId);
   if(!block || !sel) return;              // field absent until the migration runs
   const role = (document.getElementById(roleId)||{}).value||'';
@@ -1808,10 +2121,22 @@ function typeSync(roleId, blockId, selId){
   block.style.display = on ? '' : 'none';
   sel.required = on;
   if(!on) sel.value = '';
+  yearSync(selId, yearBlockId, yearSelId, on);
+}
+
+// A year level only means something for a student, so the field appears with
+// that choice and is cleared for anyone else.
+function yearSync(typeSelId, yearBlockId, yearSelId, roleIsReporter){
+  const yBlock = document.getElementById(yearBlockId), ySel = document.getElementById(yearSelId);
+  if(!yBlock || !ySel) return;            // field absent until the migration runs
+  const type = (document.getElementById(typeSelId)||{}).value||'';
+  const show = roleIsReporter && type === 'student';
+  yBlock.style.display = show ? '' : 'none';
+  if(!show) ySel.value = '';
 }
 
 function createAuthSync(){
-  typeSync('cuRole','cuTypeBlock','cuType');
+  typeSync('cuRole','cuTypeBlock','cuType','cuYearBlock','cuYear');
   const role  = (document.getElementById('cuRole')||{}).value||'';
   const block = document.getElementById('cuPassBlock');
   const note  = document.getElementById('cuRoleNote');
@@ -1832,7 +2157,7 @@ function createAuthSync(){
 }
 
 function editAuthSync(){
-  typeSync('eRole','eTypeBlock','eType');
+  typeSync('eRole','eTypeBlock','eType','eYearBlock','eYear');
   const role  = (document.getElementById('eRole')||{}).value||'';
   const block = document.getElementById('ePassBlock');
   const note  = document.getElementById('eRoleNote');
@@ -1856,6 +2181,14 @@ function openCreate(){
 
 /* ─── EDIT MODAL ─────────────────────────────────────── */
 let _curUser = null;
+/* The row or card already carries this person's details, so the buttons read
+   them from it rather than each embedding another copy of the same record. */
+function rowData(el){
+  const host = el.closest('[data-user]');
+  try { return host ? JSON.parse(host.dataset.user) : {}; }
+  catch(e){ return {}; }
+}
+
 function openEdit(u){
   _curUser = u;
   document.getElementById('eUid').value   = u.user_id||'';
@@ -1866,6 +2199,8 @@ function openEdit(u){
   deptRoleSync('eRole','eDeptSel','eDeptStar','eDeptHint');
   const eType = document.getElementById('eType');
   if(eType) eType.value = (u.user_type||'').toLowerCase();
+  const eYear = document.getElementById('eYear');
+  if(eYear) eYear.value = u.year_level||'';
   editAuthSync();
   document.getElementById('ePhone').value = u.phone||'';
   document.getElementById('epw').value    = '';
@@ -1934,6 +2269,7 @@ function openProfile(u){
   add('Course / Program', u.program || u.course);
   addHtml('Role', roleBadge(u.role||''));
   add('User Type', u.user_type);
+  add('Year Level', u.year_level);
   add('Student No.', u.student_number);
   add('Employee No.', u.employee_number);
   add('Specialization', u.specialization);
@@ -2035,7 +2371,7 @@ function toast(type,msg,title){
 <script src="assets/search_premium.js"></script>
 <script src="assets/table_paginate.js" defer></script>
 <?php require_once __DIR__ . '/includes/admin_assistant.php'; ?>
-<?php require __DIR__ . '/includes/site_transitions.php'; ?>
+<?php require __DIR__ . '/includes/admin_ui.php'; ?>
 </body>
 </html>
 
