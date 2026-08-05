@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php -l *)",
+      "Bash(php.exe -l *)",
+      "Bash(\"/c/xampp/php/php.exe\" -l *)",
+      "Bash(c:\\xampp\\php\\php.exe -l *)",
+      "Bash(curl -s -o /dev/null -w *)",
+      "Bash(unzip -p *)",
+      "Bash(unzip -t *)",
+      "Bash(unzip -l *)",
+      "Bash(tasklist *)"
+    ]
+  }
+}
