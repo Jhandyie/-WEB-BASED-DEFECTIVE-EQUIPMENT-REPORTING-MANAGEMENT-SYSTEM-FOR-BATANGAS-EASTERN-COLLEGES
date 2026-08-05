@@ -137,10 +137,23 @@ function getEmailSettingsCandidatesByRole($role = 'admin') {
     $settings = json_decode(file_get_contents($settings_file), true);
     $email_config = $settings['email'] ?? [];
 
+    // The top-level credentials are the fallback for every role, with a role's
+    // own block overriding them. Only the host and port were carried before, so
+    // any role without an explicit entry — 'reporter', 'faculty', 'handler' —
+    // resolved to settings with no username or password and failed with
+    // "SMTP settings not configured properly", even though the file plainly
+    // holds a working account.
     $base_settings = [
-        'smtp_host' => $email_config['smtp_host'] ?? 'smtp.gmail.com',
-        'smtp_port' => $email_config['smtp_port'] ?? 587,
+        'smtp_host'     => $email_config['smtp_host'] ?? 'smtp.gmail.com',
+        'smtp_port'     => $email_config['smtp_port'] ?? 587,
+        'smtp_username' => $email_config['smtp_username'] ?? '',
+        'smtp_password' => $email_config['smtp_password'] ?? '',
+        'from_email'    => $email_config['from_email'] ?? ($email_config['smtp_username'] ?? ''),
+        'from_name'     => $email_config['from_name'] ?? 'BEC PMO',
     ];
+    // A role block that names a key but leaves it blank must not blank the
+    // fallback: array_merge would let '' win over a working credential.
+    $base_settings = array_filter($base_settings, static fn($v) => $v !== '' && $v !== null);
 
     $role_key = strtolower((string)$role);
     $role_settings = $email_config[$role_key] ?? [];

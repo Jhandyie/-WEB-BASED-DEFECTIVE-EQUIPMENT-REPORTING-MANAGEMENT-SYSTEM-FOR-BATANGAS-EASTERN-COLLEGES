@@ -10,82 +10,123 @@ $error = '';
 $eq = trim((string)($_GET['eq'] ?? $_POST['eq'] ?? ''));
 
 require_once __DIR__ . '/includes/rate_limiter.php';
+require_once __DIR__ . '/includes/reporter_otp.php';
+
+/*
+ * Signing in is now three possible states rather than one form.
+ *
+ * Checking the address against the directory only ever proved the address
+ * exists — not that whoever typed it can open it. Since BEC addresses are
+ * firstname.lastname, that was enough to file reports as anyone you could
+ * name. A code sent to the mailbox is what closes it.
+ *
+ * It is asked for once. Verifying also remembers the browser for a month, so
+ * the common case stays a single tap and the code does not become a toll on
+ * every report.
+ */
+$stage   = 'signin';           // signin | verify | trusted
+$notice  = '';
+$devCode = '';
+$trustedEmail = reporterTrustedEmail();
+$trustedName  = $trustedEmail !== '' ? becdir_known_name($trustedEmail) : '';
+if ($trustedEmail !== '' && $trustedName === '') { $trustedName = $trustedEmail; }
+
+$signIn = static function (string $email, string $typedName, string $eq): void {
+    // The typed name is not evidence of anything. Where BEC holds a name on
+    // file that is the one used, so the field cannot be used to claim to be
+    // someone else; it survives only for people with no name on record.
+    $onFile = trim(becdir_known_name($email));
+    $_SESSION['guest_name']        = htmlspecialchars($onFile !== '' ? $onFile : $typedName, ENT_QUOTES, 'UTF-8');
+    $_SESSION['guest_email']       = $email;
+    $_SESSION['guest_name_source'] = $onFile !== '' ? 'directory' : 'self-declared';
+    $_SESSION['guest_since']       = time();
+    $_SESSION['guest_last']        = time();
+    unset($_SESSION['otp_email'], $_SESSION['otp_name'], $_SESSION['otp_eq'], $_SESSION['otp_sent_at']);
+    // An id issued before sign-in must not survive it.
+    session_regenerate_id(true);
+    header('Location: student_dashboard.php' . ($eq !== '' ? '?eq=' . urlencode($eq) : ''));
+    exit();
+};
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Without this, another site could sign a visitor into the portal under a
-    // name and email of its choosing, and any report they filed afterwards
-    // would carry that identity. Shown as a form error, not a bare 403.
+    // Without this, another site could sign a visitor into the portal under an
+    // address of its choosing. Shown as a form error, not a bare 403.
+    $step = (string)($_POST['step'] ?? 'send');
     if (!csrf_check()) {
         $error = 'Your session expired. Please check your details and sign in again.';
-    }
-    $name  = trim($_POST['full_name'] ?? '');
-    $email = trim($_POST['email'] ?? '');
+        $stage = ($step === 'verify') ? 'verify' : 'signin';
+    } elseif ($step === 'forget') {
+        reporterForgetDevice();
+        unset($_SESSION['otp_email'], $_SESSION['otp_name'], $_SESSION['otp_eq'], $_SESSION['otp_sent_at']);
+        header('Location: student_index.php' . ($eq !== '' ? '?eq=' . urlencode($eq) : ''));
+        exit();
+    } elseif ($step === 'trusted') {
+        // This browser has already proved it can read that mailbox.
+        if ($trustedEmail !== '') { $signIn($trustedEmail, $trustedName, $eq); }
+        $error = 'That sign-in has expired. Please enter your BEC email to continue.';
+    } elseif ($step === 'verify') {
+        $stage   = 'verify';
+        $pending = strtolower(trim((string)($_SESSION['otp_email'] ?? '')));
+        if ($pending === '') {
+            $stage = 'signin';
+            $error = 'That sign-in timed out. Please start again.';
+        } elseif (!empty($_POST['resend'])) {
+            $res = reporterOtpSend($pending);
+            if (!empty($res['dev_code'])) { $devCode = $res['dev_code']; }
+            $notice = $res['ok'] ? 'A new code is on its way to ' . $pending . '.' : '';
+            if (!$res['ok']) { $error = $res['message']; }
+        } else {
+            $res = reporterOtpVerify($pending, (string)($_POST['otp_code'] ?? ''));
+            if ($res['ok']) {
+                reporterTrustDevice($pending);                     // a month of one-tap
+                $signIn($pending, (string)($_SESSION['otp_name'] ?? ''), (string)($_SESSION['otp_eq'] ?? $eq));
+            }
+            $error = $res['message'];
+        }
+    } else {
+        $name  = trim($_POST['full_name'] ?? '');
+        $email = strtolower(trim($_POST['email'] ?? ''));
 
-    // Nothing limited how often this form could be submitted, and its failure
-    // message said outright whether an address was in the college directory —
-    // between them, an easy way to walk a guessed list of names and learn which
-    // ones are real people at BEC. BEC addresses follow firstname.lastname, so
-    // that list is cheap to generate.
-    if ($error === '') {
+        // Nothing limited how often this form could be submitted, and its two
+        // failure messages told apart "not in the directory" from "not a BEC
+        // address" — together, a way to confirm which addresses are real people.
         try {
             RateLimiter::enforce('reporter_signin:' . RateLimiter::clientIp(), 12, 900);
         } catch (\Throwable $e) {
             $error = 'Too many sign-in attempts from this connection. Please wait a few minutes and try again.';
         }
+
+        if ($error !== '') {
+            // Already rejected — fall through and redisplay.
+        } elseif ($name === '' || $email === '') {
+            $error = 'Please enter both your name and email address.';
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $error = 'Please enter a valid email address.';
+        } elseif (strlen($name) < 2) {
+            $error = 'Please enter your full name.';
+        } elseif (empty($_POST['privacy_consent'])) {
+            $error = 'Please read and accept the Data Privacy notice to continue.';
+        } else {
+            $res = reporterOtpSend($email);
+            if (!$res['ok']) {
+                $error = $res['message'];
+            } else {
+                // Held in the session, not a hidden field, so the address the
+                // code was sent to is the only one that can be verified.
+                $_SESSION['otp_email']   = $email;
+                $_SESSION['otp_name']    = $name;
+                $_SESSION['otp_eq']      = $eq;
+                $_SESSION['otp_sent_at'] = time();
+                $stage   = 'verify';
+                $devCode = (string)($res['dev_code'] ?? '');
+                // Said the same way whether or not the address is known: a
+                // different answer here is what makes a roster guessable.
+                $notice  = 'If ' . $email . ' belongs to Batangas Eastern Colleges, a 6-digit code is on its way to it.';
+            }
+        }
     }
-
-    // Verify against the official BEC directory (#1). If a directory has been
-    // imported, the email must exist in it. Otherwise fall back to the @bec.edu.ph domain.
-    $allowedDomain = '@bec.edu.ph';
-    $emailLower = strtolower($email);
-    $dirCount = function_exists('becdir_count') ? becdir_count() : 0;
-    // Staff (PMO, technicians, faculty) hold BEC accounts without always
-    // appearing in the imported student directory. They are among the most
-    // likely people to spot broken equipment, so a system account counts as
-    // valid identification here just as a directory entry does.
-    $knownToBec = $dirCount > 0
-        ? (becdir_email_exists($emailLower)
-           || (function_exists('becdir_is_system_user') && becdir_is_system_user($emailLower)))
-        : (substr($emailLower, -strlen($allowedDomain)) === $allowedDomain);
-
-    if ($error !== '') {
-        // CSRF or the rate limit already rejected this — fall through to redisplay.
-    } elseif (empty($name) || empty($email)) {
-        $error = 'Please enter both your name and email address.';
-    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $error = 'Please enter a valid email address.';
-    } elseif (!$knownToBec) {
-        // One message for "not in the directory" and for "not a BEC address":
-        // told apart, the two answers confirm which addresses exist.
-        $error = 'We could not verify that email against official Batangas Eastern Colleges records. '
-               . 'Please check your @bec.edu.ph address, or contact the Property Management Office if you believe this is a mistake.';
-    } elseif (strlen($name) < 2) {
-        $error = 'Please enter your full name.';
-    } elseif (empty($_POST['privacy_consent'])) {
-        $error = 'Please read and accept the Data Privacy notice to continue.';
-    } else {
-        // The typed name is not evidence of anything — the portal never checked
-        // it, so "any name + a classmate's address" was accepted and the report
-        // carried the classmate's identity. Where BEC holds a name on file, that
-        // is the one used, and the field stops being a way to claim to be
-        // someone else.
-        $onFile = function_exists('becdir_known_name') ? trim(becdir_known_name($emailLower)) : '';
-        $_SESSION['guest_name']      = htmlspecialchars($onFile !== '' ? $onFile : $name, ENT_QUOTES, 'UTF-8');
-        $_SESSION['guest_email']     = $emailLower;
-        // Recorded so the PMO can tell a verified reporter from a self-declared
-        // one when a report looks doubtful.
-        $_SESSION['guest_name_source'] = $onFile !== '' ? 'directory' : 'self-declared';
-        $_SESSION['guest_since']     = time();
-        $_SESSION['guest_last']      = time();
-
-        // A session id handed out before sign-in must not survive it, or an id
-        // planted in advance would still be valid once it carries an identity.
-        session_regenerate_id(true);
-
-        RateLimiter::clear('reporter_signin:' . RateLimiter::clientIp());
-        header('Location: student_dashboard.php' . ($eq !== '' ? '?eq=' . urlencode($eq) : ''));
-        exit();
-    }
+} elseif (!empty($_SESSION['otp_email']) && (time() - (int)($_SESSION['otp_sent_at'] ?? 0)) < 900) {
+    $stage = 'verify';   // came back to the tab mid-verification
 }
 ?><!DOCTYPE html>
 <html lang="en">
@@ -303,6 +344,33 @@ body::after {
 }
 .alert-err { background: #FEF2F2; border: 1px solid #FECACA; color: #991B1B; }
 .alert-note { background: #FFFBEF; border: 1px solid rgba(201,150,12,.35); color: #7A5A00; }
+.alert-ok { background: #F1F9F3; border: 1px solid #C6E6CF; color: #1A6A33; }
+/* ── one-time code ── */
+.otp-head { text-align:center; margin-bottom:1.2rem; }
+.otp-head .otp-ic { width:54px;height:54px;border-radius:50%;margin:0 auto .8rem;
+  background:var(--gold-bg);border:1px solid rgba(201,150,12,.35);color:var(--gold);
+  display:flex;align-items:center;justify-content:center;font-size:1.3rem; }
+.otp-head h2 { font-family:'Fraunces',serif;font-size:1.35rem;color:var(--ink);margin-bottom:.35rem; }
+.otp-head p { font-size:.83rem;color:var(--ink3);line-height:1.6; }
+.otp-head strong { color:var(--ink2); }
+.otp-input { width:100%;padding:.9rem 1rem;border:1.5px solid var(--border);border-radius:11px;
+  font-family:'Courier New',monospace;font-size:1.9rem;font-weight:700;letter-spacing:.55em;
+  text-align:center;text-indent:.55em;color:var(--maroon);background:#fff;outline:none; }
+.otp-input:focus { border-color:var(--maroon);box-shadow:0 0 0 3.5px rgba(123,29,29,.09); }
+.otp-actions { display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin-top:1rem;flex-wrap:wrap; }
+.otp-link { background:none;border:none;padding:.55rem .2rem;min-height:44px;font-family:'DM Sans',sans-serif;
+  font-size:.78rem;font-weight:600;color:var(--maroon);cursor:pointer;text-decoration:underline; }
+.otp-link:hover { color:var(--maroon-d); }
+/* ── remembered device ── */
+.trust { display:flex;align-items:center;gap:.8rem;padding:1rem 1.1rem;margin-bottom:1.3rem;
+  background:#F4FAF5;border:1px solid #CFE6D4;border-left:3px solid #1A7A33;border-radius:14px; }
+.trust-av { width:42px;height:42px;border-radius:50%;flex-shrink:0;background:var(--maroon-d);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.95rem; }
+.trust-txt { flex:1;min-width:0;line-height:1.5; }
+.trust-txt b { display:block;font-size:.92rem;color:var(--ink); }
+.trust-txt span { display:block;font-size:.75rem;color:var(--ink3);overflow-wrap:anywhere; }
+.trust-go { width:100%;margin-top:.2rem; }
+@media (max-width:520px){ .trust { flex-wrap:wrap; } }
 .alert i { font-size: .8rem; margin-top: .1rem; flex-shrink: 0; }
 
 /* ── Data Privacy Notice: short consent line + expandable full text ──
@@ -757,6 +825,9 @@ body::after {
         <li><i class="fas fa-user-shield"></i><span><b>How your information is used.</b> Your details are used only to process and deliver your report, kept confidential in line with the Data Privacy Act of 2012 (RA 10173).</span></li>
       </ul>
     </div>
+    <?php if ($notice !== ''): ?>
+    <div class="alert alert-ok"><i class="fas fa-paper-plane"></i> <?php echo htmlspecialchars($notice); ?></div>
+    <?php endif; ?>
     <?php if (!$error && isset($_GET['expired'])): ?>
     <div class="alert alert-note">
       <i class="fas fa-clock-rotate-left"></i>
@@ -769,7 +840,75 @@ body::after {
       <?php echo htmlspecialchars($error); ?>
     </div>
     <?php endif; ?>
-    <form method="POST" action="" id="signinForm" onsubmit="if(window.AuthLoader)AuthLoader.show('Signing you in…','Preparing your report portal…');">
+    <?php if ($stage === 'signin' && $trustedEmail !== ''): ?>
+    <!-- This browser verified a code within the last 30 days. Offered as one
+         tap rather than signing in silently: on a shared library machine the
+         person sitting down is often not the person who verified. -->
+    <div class="trust">
+      <div class="trust-av"><?php echo strtoupper(substr(preg_replace('/[^A-Za-z]/','',$trustedName) ?: 'B', 0, 2)); ?></div>
+      <div class="trust-txt">
+        <b><?php echo htmlspecialchars($trustedName); ?></b>
+        <span><?php echo htmlspecialchars($trustedEmail); ?> · verified on this device</span>
+      </div>
+    </div>
+    <form method="POST" action="">
+      <?php echo csrf_field(); ?>
+      <input type="hidden" name="step" value="trusted">
+      <input type="hidden" name="eq" value="<?php echo htmlspecialchars($eq, ENT_QUOTES); ?>">
+      <button type="submit" class="btn-submit trust-go">
+        Continue as <?php echo htmlspecialchars(explode(',', $trustedName)[0]); ?>
+        <span class="btn-arrow"><i class="fas fa-arrow-right"></i></span>
+      </button>
+    </form>
+    <form method="POST" action="" style="text-align:center;">
+      <?php echo csrf_field(); ?>
+      <input type="hidden" name="step" value="forget">
+      <button type="submit" class="otp-link">Not you? Sign in as someone else</button>
+    </form>
+    <?php endif; ?>
+
+    <?php if ($stage === 'verify'): ?>
+    <!-- Proof that the person signing in can actually open the mailbox. The
+         address is read from the session, never from the page, so the code
+         cannot be redirected to a different account. -->
+    <div class="otp-head">
+      <div class="otp-ic"><i class="fas fa-envelope-open-text"></i></div>
+      <h2>Check your BEC email</h2>
+      <p>We sent a 6-digit code to<br><strong><?php echo htmlspecialchars((string)($_SESSION['otp_email'] ?? '')); ?></strong><br>
+      It expires in 3 minutes.</p>
+    </div>
+    <?php if ($devCode !== ''): ?>
+    <div class="alert alert-note"><i class="fas fa-flask"></i> Local setup, mail not configured — your code is <strong><?php echo htmlspecialchars($devCode); ?></strong>.</div>
+    <?php endif; ?>
+    <form method="POST" action="" id="otpForm">
+      <?php echo csrf_field(); ?>
+      <input type="hidden" name="step" value="verify">
+      <div class="fg">
+        <label class="fl" for="otpCode">Verification Code <span class="req">*</span></label>
+        <input type="text" name="otp_code" id="otpCode" class="otp-input" required
+          inputmode="numeric" pattern="\d{6}" maxlength="6" autocomplete="one-time-code"
+          placeholder="000000" autofocus>
+      </div>
+      <button type="submit" class="btn-submit">
+        Verify and continue
+        <span class="btn-arrow"><i class="fas fa-arrow-right"></i></span>
+      </button>
+    </form>
+    <div class="otp-actions">
+      <form method="POST" action="" style="margin:0;">
+        <?php echo csrf_field(); ?>
+        <input type="hidden" name="step" value="verify">
+        <input type="hidden" name="resend" value="1">
+        <button type="submit" class="otp-link">Send a new code</button>
+      </form>
+      <form method="POST" action="" style="margin:0;">
+        <?php echo csrf_field(); ?>
+        <input type="hidden" name="step" value="forget">
+        <button type="submit" class="otp-link">Use a different email</button>
+      </form>
+    </div>
+    <?php else: ?>
+<form method="POST" action="" id="signinForm" onsubmit="if(window.AuthLoader)AuthLoader.show('Signing you in…','Preparing your report portal…');">
       <input type="hidden" name="eq" value="<?php echo htmlspecialchars($eq, ENT_QUOTES); ?>">
       <?php if ($eq !== ''): ?><div class="notice" style="margin-bottom:.6rem;"><i class="fas fa-qrcode"></i> <span>You scanned an equipment QR — it will be pre-selected after you sign in.</span></div><?php endif; ?>
       <div class="fg">
@@ -830,6 +969,7 @@ body::after {
         <span class="btn-arrow"><i class="fas fa-arrow-right"></i></span>
       </button>
     </form>
+    <?php endif; ?>
     <div class="or-row">or</div>
     <div class="action-row">
       <a href="track_report.php" class="action-btn">

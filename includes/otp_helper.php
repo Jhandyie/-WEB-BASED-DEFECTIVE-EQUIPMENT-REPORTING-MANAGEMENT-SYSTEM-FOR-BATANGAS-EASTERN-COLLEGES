@@ -23,6 +23,7 @@ function sendOTPEmail($email, $otp, $role = 'admin') {
         'student'    => 'Student',
         'faculty'    => 'Faculty Member',
         'guest'      => 'Guest',
+        'reporter'   => 'Reporter',
     ];
     $roleName = $roleNames[$role] ?? 'User';
 
