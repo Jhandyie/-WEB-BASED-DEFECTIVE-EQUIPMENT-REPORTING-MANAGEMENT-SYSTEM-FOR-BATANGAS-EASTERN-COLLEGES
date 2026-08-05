@@ -8,19 +8,172 @@ require_once __DIR__ . '/../config/database.php';
 
 /** Map varied header labels to canonical field names. */
 function becdir_canon_header(string $h): ?string {
-    $k = strtolower(trim(preg_replace('/[\s_\-\.]+/', ' ', $h)));
+    // Slashes are separators here too. The registrar's enrolment export heads
+    // its columns "College/Program" and "Program/Qualifications"; without the
+    // slash in this class neither matched anything, and both columns — along
+    // with every reporter's course — were silently dropped on import.
+    $k = strtolower(trim(preg_replace('/[\s_\-\.\/]+/', ' ', $h)));
     $map = [
         'full name' => 'full_name', 'fullname' => 'full_name', 'name' => 'full_name', 'complete name' => 'full_name',
         'email' => 'email', 'bec email' => 'email', 'email address' => 'email', 'bec email address' => 'email', 'school email' => 'email',
         'employee number' => 'employee_number', 'employee no' => 'employee_number', 'emp no' => 'employee_number', 'employee id' => 'employee_number',
         'student number' => 'student_number', 'student no' => 'student_number', 'student id' => 'student_number', 'sr code' => 'student_number',
         'department' => 'department', 'dept' => 'department', 'office' => 'department',
+        'college' => 'department', 'college program' => 'department', 'academic unit' => 'department',
         'program' => 'program', 'course' => 'program', 'strand' => 'program',
+        'program qualifications' => 'program', 'qualification' => 'program', 'qualifications' => 'program',
+        'year level' => 'year_level', 'yearlevel' => 'year_level', 'grade level' => 'year_level',
+        'year' => 'year_level', 'level' => 'year_level', 'year grade level' => 'year_level',
         'user type' => 'user_type', 'type' => 'user_type', 'role' => 'user_type', 'category' => 'user_type', 'user role' => 'user_type',
         // official letterhead export combines these into one column ("BSIT / Student")
-        'program / user role' => 'program_role', 'program / role' => 'program_role', 'course / role' => 'program_role',
+        'program user role' => 'program_role', 'program role' => 'program_role', 'course role' => 'program_role',
     ];
     return $map[$k] ?? null;
+}
+
+/**
+ * Repair a mis-decoded string.
+ *
+ * A UTF-8 export opened as Windows-1252 and saved again turns "ñ" into "Ã±".
+ * Reversing the second encoding gives the original bytes back. Left alone the
+ * damage reaches the addresses themselves ("bañez" → "baÃ±ez"), and those rows
+ * fail validation and disappear.
+ */
+function becdir_fix_mojibake(string $s): string {
+    if ($s === '' || !preg_match('/Ã[\x80-\xBF]|Â[\x80-\xBF]/u', $s)) { return $s; }
+    $repaired = @mb_convert_encoding($s, 'ISO-8859-1', 'UTF-8');
+    return ($repaired !== false && $repaired !== '' && mb_check_encoding($repaired, 'UTF-8')) ? $repaired : $s;
+}
+
+/** Fold accented Latin letters down to ASCII (ñ→n, á→a). */
+function becdir_deaccent(string $s): string {
+    $from = ['á','à','â','ä','ã','å','é','è','ê','ë','í','ì','î','ï','ó','ò','ô','ö','õ','ú','ù','û','ü','ñ','ç','Á','À','Â','Ä','Ã','Å','É','È','Ê','Ë','Í','Ì','Î','Ï','Ó','Ò','Ô','Ö','Õ','Ú','Ù','Û','Ü','Ñ','Ç'];
+    $to   = ['a','a','a','a','a','a','e','e','e','e','i','i','i','i','o','o','o','o','o','u','u','u','u','n','c','A','A','A','A','A','A','E','E','E','E','I','I','I','I','O','O','O','O','O','U','U','U','U','N','C'];
+    return str_replace($from, $to, $s);
+}
+
+/**
+ * Normalise an address from the registrar's export into one that can actually
+ * receive mail, or '' if it cannot be salvaged.
+ *
+ * Two faults account for nearly every address the importer used to drop, and
+ * both come from the export rather than from the mailbox really being unusable:
+ *
+ *   "sherwin.jr..cueto@bec.edu.ph"   — a name ending in "Jr." joined to the
+ *                                      surname leaves a doubled dot, which is
+ *                                      invalid in the local part.
+ *   "xamantha.roxette.bañez@…"       — the tilde survived into the address.
+ *
+ * Both were rejected by filter_var() and skipped with no message, so the
+ * student was simply told later that they are not in the official directory.
+ */
+function becdir_clean_email(string $raw): string {
+    $e = strtolower(trim(becdir_deaccent(becdir_fix_mojibake($raw))));
+    if ($e === '') { return ''; }
+    $e = preg_replace('/\s+/', '', $e);
+    $at = strrpos($e, '@');
+    if ($at === false) { return ''; }
+    $local  = substr($e, 0, $at);
+    $domain = substr($e, $at + 1);
+    // Drop anything still outside the addressable set, then repair the dots.
+    $local  = preg_replace('/[^a-z0-9._%+\-]/', '', $local);
+    $local  = trim(preg_replace('/\.{2,}/', '.', $local), '.');
+    $domain = trim(preg_replace('/\.{2,}/', '.', preg_replace('/[^a-z0-9.\-]/', '', $domain)), '.');
+    if ($local === '' || $domain === '' || strpos($domain, '.') === false) { return ''; }
+    $e = $local . '@' . $domain;
+    return filter_var($e, FILTER_VALIDATE_EMAIL) ? $e : '';
+}
+
+/**
+ * Split "Grade 11 - STEM" into the standing and whatever follows it.
+ * The suffix is a strand for Senior High and a section name ("Diamond") lower
+ * down, so it is only adopted as the programme when no programme was given.
+ */
+function becdir_split_year_level(string $raw): array {
+    $raw = trim(preg_replace('/\s+/', ' ', $raw));
+    if ($raw === '') { return ['', '']; }
+    $parts = preg_split('/\s+-\s+/', $raw, 2);
+    return [trim($parts[0]), trim($parts[1] ?? '')];
+}
+
+/**
+ * Rank a year level the way a school does, so pickers read Nursery → 4th Year.
+ * Sorting these as text puts "Grade 10" before "Grade 7" and "1st Year" before
+ * "Nursery 1", which makes a dropdown of 19 levels almost unusable.
+ */
+function becdir_year_level_rank(string $level): int {
+    $l = strtolower(trim($level));
+    if ($l === '') return 9999;
+    if (preg_match('/nursery\s*(\d+)/', $l, $m)) return 100 + (int)$m[1];
+    if (str_contains($l, 'nursery'))             return 100;
+    if (str_contains($l, 'kinder') || str_contains($l, 'prep')) return 150;
+    if (preg_match('/grade\s*(\d{1,2})/', $l, $m)) return 200 + (int)$m[1];
+    $ordinals = ['1st' => 1, '2nd' => 2, '3rd' => 3, '4th' => 4, '5th' => 5, '6th' => 6];
+    foreach ($ordinals as $word => $n) {
+        if (str_starts_with($l, $word)) return 300 + $n;
+    }
+    return 900;
+}
+
+/** Year levels in school order; unknown values keep a stable alphabetical tail. */
+function becdir_sort_year_levels(array $levels): array {
+    usort($levels, static function ($a, $b) {
+        $ra = becdir_year_level_rank((string)$a);
+        $rb = becdir_year_level_rank((string)$b);
+        return $ra === $rb ? strcasecmp((string)$a, (string)$b) : $ra <=> $rb;
+    });
+    return array_values($levels);
+}
+
+/**
+ * Work out the BEC department from the year level and programme.
+ *
+ * The enrolment export names no department at all — it states a year level and
+ * a programme and leaves the academic unit implied. These are the same
+ * department names the reporter form offers ($becPrograms in
+ * student_dashboard.php), so a matched reporter lands on a valid option.
+ */
+function becdir_infer_department(string $yearLevel, string $program): string {
+    $y = strtolower(trim($yearLevel));
+    $p = strtolower(trim($program));
+    if ($y === '') { return ''; }
+
+    if (str_contains($y, 'nursery') || str_contains($y, 'kinder') || str_contains($y, 'pre-school')) {
+        return 'Pre-School';
+    }
+    if (preg_match('/grade\s*(\d{1,2})/', $y, $m)) {
+        $g = (int)$m[1];
+        if ($g >= 1  && $g <= 6)  { return 'Grade School'; }
+        if ($g >= 7  && $g <= 10) { return 'Junior High School'; }
+        if ($g >= 11 && $g <= 12) { return 'Senior High School'; }
+    }
+    if (preg_match('/(1st|2nd|3rd|4th|5th)\s*year/', $y)) {
+        // Ladderised TESDA qualifications sit under the Tech-Voc Center; a
+        // degree belongs to the college that grants it.
+        if (preg_match('/\bnc\s*[ivx]+\b/', $p) || str_contains($p, 'diploma in hospitality')
+            || str_contains($p, 'bartending') || str_contains($p, 'cookery')
+            || str_contains($p, 'housekeeping') || str_contains($p, 'front office')
+            || str_contains($p, 'food and beverage') || str_contains($p, 'visual graphics')) {
+            return 'Technical-Vocational Center';
+        }
+        if (str_contains($p, 'elementary education') || str_contains($p, 'secondary education')
+            || str_contains($p, 'teacher certificate')) {
+            return 'College of Teacher Education';
+        }
+        // Business is tested first on purpose: "Accounting Information System"
+        // is an accountancy degree, and matching "information system" ahead of
+        // it would file every AIS student under Computer Studies.
+        if (str_contains($p, 'business') || str_contains($p, 'accountancy')
+            || str_contains($p, 'accounting') || str_contains($p, 'entrepreneur')) {
+            return 'College of Business';
+        }
+        if (str_contains($p, 'information system') || str_contains($p, 'computer')
+            || str_contains($p, 'information technology')) {
+            return 'College of Computer Studies';
+        }
+        return '';  // a degree we do not recognise — leave it for the reporter to pick
+    }
+    return '';
 }
 
 /** Normalise user_type to student/faculty/staff. */
@@ -62,6 +215,7 @@ function becdir_parse_file(string $tmpPath, string $origName): array {
     // ("BATANGAS EASTERN COLLEGES", "Property Management Office", …), so scan the
     // first rows for the one that actually contains an Email column.
     $colMap = [];
+    $headerRow = 0;
     $scan = min(count($records), 15);
     for ($i = 0; $i < $scan; $i++) {
         $probe = [];
@@ -69,18 +223,42 @@ function becdir_parse_file(string $tmpPath, string $origName): array {
             $canon = becdir_canon_header((string)$label);
             if ($canon) $probe[$canon] = $j;
         }
-        if (isset($probe['email'])) { $colMap = $probe; $records = array_slice($records, $i + 1); break; }
+        if (isset($probe['email'])) { $colMap = $probe; $headerRow = $i; $records = array_slice($records, $i + 1); break; }
     }
     if (!isset($colMap['email'])) {
         return ['rows' => [], 'error' => 'No "Email" column was found. Required headers include: Full Name, Email, Employee Number, Student Number, Department, Program, User Type (letterhead rows above the header are fine).'];
     }
 
     $rows = [];
-    foreach ($records as $r) {
+    $skipped = [];   // rows that carry no usable address, with the reason
+    $repaired = [];  // addresses accepted only after being cleaned up
+    $seen = [];      // address => list of names, to catch one mailbox shared by many
+
+    foreach ($records as $i => $r) {
+        // A blank trailing line is not a row anyone needs to be told about.
+        if (!array_filter(array_map('trim', array_map('strval', $r)), 'strlen')) { continue; }
         $get = static fn($key) => isset($colMap[$key]) ? trim((string)($r[$colMap[$key]] ?? '')) : '';
-        $email = strtolower($get('email'));
-        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) continue;
-        $program = $get('program');
+        $line = $i + $headerRow + 2;   // 1-based line number in the uploaded file
+        $name = becdir_fix_mojibake($get('full_name'));
+        $rawEmail = $get('email');
+        $email = becdir_clean_email($rawEmail);
+
+        if ($email === '') {
+            $skipped[] = [
+                'line'   => $line,
+                'name'   => $name,
+                'email'  => $rawEmail,
+                'reason' => trim($rawEmail) === '' ? 'No email address on this row'
+                                                   : 'Not a usable email address',
+            ];
+            continue;
+        }
+        if (strtolower(trim($rawEmail)) !== $email) {
+            $repaired[] = ['line' => $line, 'name' => $name, 'from' => trim($rawEmail), 'to' => $email];
+        }
+        $seen[$email][] = $name;
+
+        $program = becdir_fix_mojibake($get('program'));
         $type    = becdir_canon_type($get('user_type'));
         // combined "PROGRAM / USER ROLE" column, e.g. "BSIT / Student"
         if (isset($colMap['program_role']) && ($pr = $get('program_role')) !== '') {
@@ -88,23 +266,49 @@ function becdir_parse_file(string $tmpPath, string $origName): array {
             if ($program === '') $program = $bits[0];
             if ($type === '' && isset($bits[1])) $type = becdir_canon_type($bits[1]);
         }
-        // no explicit type → infer from which ID number the row carries
+
+        // "Grade 11 - STEM" carries the standing and the strand in one cell.
+        [$yearLevel, $suffix] = becdir_split_year_level($get('year_level'));
+        if ($program === '' && $suffix !== '' && !preg_match('/^(diamond|ruby|emerald|pearl|sapphire|gold|silver)$/i', $suffix)) {
+            $program = $suffix;   // a strand, not a section name
+        }
+
+        $department = becdir_fix_mojibake($get('department'));
+        if ($department === '') { $department = becdir_infer_department($yearLevel, $program); }
+
+        // no explicit type → infer from the ID number, else from the standing:
+        // anyone carrying a year level is enrolled, so they are a student.
         if ($type === '') {
             $type = $get('student_number') !== '' ? 'student'
-                  : ($get('employee_number') !== '' ? 'staff' : '');
+                  : ($get('employee_number') !== '' ? 'staff'
+                  : ($yearLevel !== '' ? 'student' : ''));
         }
+
         $rows[] = [
-            'full_name'       => $get('full_name'),
+            'full_name'       => $name,
             'email'           => $email,
             'employee_number' => $get('employee_number'),
             'student_number'  => $get('student_number'),
-            'department'      => $get('department'),
+            'department'      => $department,
             'program'         => $program,
+            'year_level'      => $yearLevel,
             'user_type'       => $type,
         ];
     }
-    if (!$rows) return ['rows' => [], 'error' => 'No valid rows with email addresses were found.'];
-    return ['rows' => $rows, 'error' => ''];
+
+    // One address on many people is the worst thing that can be in this file:
+    // the upsert keys on email, so every earlier person is overwritten, and
+    // whoever signs in with it becomes whichever name landed last. The import
+    // still proceeds — the admin is told exactly which addresses to send back
+    // to the registrar.
+    $shared = [];
+    foreach ($seen as $em => $names) {
+        if (count($names) > 1) { $shared[] = ['email' => $em, 'count' => count($names), 'names' => $names]; }
+    }
+    usort($shared, static fn($a, $b) => $b['count'] <=> $a['count']);
+
+    if (!$rows) return ['rows' => [], 'error' => 'No valid rows with email addresses were found.', 'skipped' => $skipped, 'repaired' => [], 'shared' => []];
+    return ['rows' => $rows, 'error' => '', 'skipped' => $skipped, 'repaired' => $repaired, 'shared' => $shared];
 }
 
 /** Read one entry out of a ZIP archive: ZipArchive when available, else a
@@ -187,19 +391,61 @@ function becdir_read_xlsx(string $path): ?array {
 function becdir_upsert(array $rows): array {
     $pdo = getPgsqlPdoConnection();
     $ins = 0; $upd = 0;
-    $stmt = $pdo->prepare("INSERT INTO public.bec_directory (full_name,email,employee_number,student_number,department,program,user_type,imported_at)
-        VALUES (:fn,:em,:en,:sn,:dep,:prog,:ut, now())
-        ON CONFLICT (email) DO UPDATE SET
-            full_name=EXCLUDED.full_name, employee_number=EXCLUDED.employee_number, student_number=EXCLUDED.student_number,
-            department=EXCLUDED.department, program=EXCLUDED.program, user_type=EXCLUDED.user_type, imported_at=now()
-        RETURNING (xmax = 0) AS inserted");
-    foreach ($rows as $r) {
-        $stmt->execute([
-            'fn'=>$r['full_name'], 'em'=>$r['email'], 'en'=>$r['employee_number'], 'sn'=>$r['student_number'],
-            'dep'=>$r['department'], 'prog'=>$r['program'], 'ut'=>$r['user_type'],
-        ]);
-        $res = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!empty($res['inserted'])) { $ins++; } else { $upd++; }
+
+    // year_level arrives with scripts/2026_08_directory_year_level.sql. Importing
+    // must not fail on an installation where that has not been run yet.
+    $cols = getTableColumns('bec_directory');
+    $hasYear = isset($cols['year_level']);
+
+    // Collapse rows that repeat an address before they reach the database.
+    // Postgres refuses an ON CONFLICT statement that would touch the same row
+    // twice, and the roster does contain one mailbox shared by many students —
+    // so without this a real import fails outright. Last occurrence wins, which
+    // is what row-by-row upserting did anyway; becdir_parse_file() reports the
+    // shared addresses so the admin can have them corrected at source.
+    $unique = [];
+    foreach ($rows as $r) { $unique[strtolower($r['email'])] = $r; }
+    $rows = array_values($unique);
+
+    $cols = ['full_name','email','employee_number','student_number','department','program','user_type'];
+    if ($hasYear) { $cols[] = 'year_level'; }
+    $updates = [];
+    foreach ($cols as $c) { if ($c !== 'email') { $updates[] = "$c=EXCLUDED.$c"; } }
+    $updates[] = 'imported_at=now()';
+
+    // Sending one row at a time meant one network round trip per person: a full
+    // college roster took minutes and ran past the request limit, leaving the
+    // directory half written. A batch is a single statement, and a transaction
+    // per batch means a failure rolls back cleanly instead of part-importing.
+    $batchSize = 500;
+    foreach (array_chunk($rows, $batchSize) as $bi => $batch) {
+        $tuples = []; $params = [];
+        foreach ($batch as $ri => $r) {
+            $names = [];
+            foreach ($cols as $c) {
+                $ph = ":{$c}_{$ri}";
+                $names[] = $ph;
+                $params[substr($ph, 1)] = (string)($r[$c] ?? '');
+            }
+            $tuples[] = '(' . implode(',', $names) . ', now())';
+        }
+        $sql = "INSERT INTO public.bec_directory (" . implode(',', $cols) . ",imported_at) VALUES "
+             . implode(',', $tuples)
+             . " ON CONFLICT (email) DO UPDATE SET " . implode(', ', $updates)
+             . " RETURNING (xmax = 0) AS inserted";
+
+        $pdo->beginTransaction();
+        try {
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $res) {
+                if (!empty($res['inserted'])) { $ins++; } else { $upd++; }
+            }
+            $pdo->commit();
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) { $pdo->rollBack(); }
+            throw $e;
+        }
     }
     return ['inserted' => $ins, 'updated' => $upd, 'total' => $ins + $upd];
 }
@@ -256,6 +502,106 @@ function becdir_known_name(string $email): string {
         $st->execute([$email]);
         return trim((string)$st->fetchColumn());
     } catch (\Throwable $e) { return ''; }
+}
+
+/** Strip a label down to its comparable core: letters and digits only. */
+function becdir_norm_option(string $s): string {
+    return preg_replace('/[^a-z0-9]+/', '', strtolower(becdir_deaccent($s)));
+}
+
+/**
+ * Find the entry in an official list that a directory value refers to.
+ *
+ * The registrar's wording and the reporter form's wording are not the same
+ * text, and pre-filling only on an exact match would quietly leave the field
+ * blank for most of the college — worse than not pre-filling at all, because
+ * the reporter believes it is already answered. Observed in the real roster:
+ *
+ *   "Visual Graphics Design NC III"      vs  "Visual Graphic Design NC III"
+ *   "…Major in English"                  vs  "…major in English"
+ *   "SCIENCE, TECHNOLOGY, ENGINEERING…"  vs  "STEM — Science, Technology…"
+ *
+ * Returns '' when nothing matches — some roster programmes genuinely are not
+ * on the form's list (Marketing Management, Diploma in Hospitality Management),
+ * and the reporter must pick for themselves rather than be given a wrong one.
+ */
+function becdir_match_option(string $value, array $options): string {
+    $value = trim($value);
+    if ($value === '' || !$options) { return ''; }
+    if (in_array($value, $options, true)) { return $value; }
+
+    $n = becdir_norm_option($value);
+    if ($n === '') { return ''; }
+
+    foreach ($options as $opt) {
+        if (becdir_norm_option($opt) === $n) { return $opt; }
+    }
+    // Compare against the part of the option after a dash or before a bracket,
+    // which is how the form writes strands: "STEM — Science, Technology, …".
+    foreach ($options as $opt) {
+        foreach (preg_split('/\s+[—–-]\s+|\s*\(/u', $opt) as $piece) {
+            $p = becdir_norm_option((string)$piece);
+            if ($p !== '' && ($p === $n || (strlen($p) > 6 && (str_contains($n, $p) || str_contains($p, $n))))) {
+                return $opt;
+            }
+        }
+    }
+    // The leading code the form uses for Senior High strands.
+    foreach ($options as $opt) {
+        if (preg_match('/^([A-Z]{3,5})\b/', $opt, $m)) {
+            $code = becdir_norm_option($m[1]);
+            if ($code !== '' && str_starts_with($n, $code)) { return $opt; }
+        }
+    }
+    // A single close spelling. The registrar writes "Visual Graphics Design NC
+    // III" where the form says "Visual Graphic Design NC III" — one letter, and
+    // 31 students behind it. Only accepted when exactly one option is that
+    // close, so a genuine near-miss can never be silently mistaken for its
+    // neighbour.
+    $len = strlen($n);
+    if ($len >= 12) {
+        $tolerance = min(3, intdiv($len, 8));
+        $best = ''; $bestD = PHP_INT_MAX; $runnerUp = PHP_INT_MAX;
+        foreach ($options as $opt) {
+            $d = levenshtein($n, becdir_norm_option($opt));
+            if ($d < $bestD) { $runnerUp = $bestD; $bestD = $d; $best = $opt; }
+            elseif ($d < $runnerUp) { $runnerUp = $d; }
+        }
+        if ($bestD <= $tolerance && $bestD < $runnerUp) { return $best; }
+    }
+    return '';
+}
+
+/**
+ * The reporter's saved answers, mapped onto the options the form offers.
+ * Returns ['department'=>, 'course'=>, 'level'=>, 'phone'=>] with '' for
+ * anything that cannot be matched.
+ */
+function becdir_form_prefill(?array $dir, array $becPrograms, array $becLevels): array {
+    $out = ['department' => '', 'course' => '', 'level' => '', 'phone' => ''];
+    if (!$dir) { return $out; }
+
+    $dept = becdir_match_option((string)($dir['department'] ?? ''), array_keys($becPrograms));
+    $out['department'] = $dept;
+    $out['phone'] = trim((string)($dir['phone'] ?? ''));
+    if ($dept === '') { return $out; }
+
+    $program   = (string)($dir['program'] ?? '');
+    $yearLevel = (string)($dir['year_level'] ?? '');
+
+    // Pre-School, Grade School and Junior High name the level *as* the course
+    // ("Grade 7"), and those rows carry no programme at all — so for them the
+    // year level is what the course field wants.
+    $courseSource = $program !== '' ? $program : $yearLevel;
+    $out['course'] = becdir_match_option($courseSource, $becPrograms[$dept] ?? []);
+    if ($out['course'] === '' && $program !== '') {
+        $out['course'] = becdir_match_option($yearLevel, $becPrograms[$dept] ?? []);
+    }
+
+    if (isset($becLevels[$dept])) {
+        $out['level'] = becdir_match_option($yearLevel, $becLevels[$dept]);
+    }
+    return $out;
 }
 
 /** Fetch a directory record by email (or null). */
