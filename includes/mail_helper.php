@@ -139,7 +139,7 @@ function getEmailSettingsCandidatesByRole($role = 'admin') {
 
     // The top-level credentials are the fallback for every role, with a role's
     // own block overriding them. Only the host and port were carried before, so
-    // any role without an explicit entry — 'reporter', 'faculty', 'handler' —
+    // any role without an explicit entry — 'reporter' among them —
     // resolved to settings with no username or password and failed with
     // "SMTP settings not configured properly", even though the file plainly
     // holds a working account.

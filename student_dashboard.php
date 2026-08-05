@@ -219,11 +219,38 @@ $equipment_counts = [
 // Canonical BEC categories + campus/building/room locations from the PMO inventory.
 require_once __DIR__ . '/data/bec_inventory_reference.php';
 
-$location_options = array_values(array_unique(array_filter(array_merge(
-    becLocations(),
-    array_map(static fn($item) => trim((string)($item['location'] ?? '')), $equipment_list)
-))));
-sort($location_options, SORT_NATURAL | SORT_FLAG_CASE);
+/*
+ * Locations keep the PMO inventory's own order — Main Campus, then Annex 1,
+ * then Annex 2, and inside each the buildings as the workbook lists them.
+ * Sorting this alphabetically buried Main Campus behind every Annex 1 room, so
+ * a reporter opening the list saw a screen of buildings on the wrong campus and
+ * concluded the list was out of date.
+ *
+ * Anything an old report left behind that is not a catalogued location follows
+ * at the end rather than being interleaved with the real ones.
+ */
+$inventoryLocations = becLocations();
+$knownLocations     = array_flip($inventoryLocations);
+$extraLocations     = [];
+foreach ($equipment_list as $item) {
+    $loc = trim((string)($item['location'] ?? ''));
+    if ($loc === '' || isset($knownLocations[$loc])) { continue; }
+    $knownLocations[$loc] = true;
+    $extraLocations[] = $loc;
+}
+sort($extraLocations, SORT_NATURAL | SORT_FLAG_CASE);
+$location_options = array_merge($inventoryLocations, $extraLocations);
+
+/** "Campus • Building • Room" split into the parts the picker shows separately. */
+$locationParts = array_map(static function (string $full): array {
+    $bits = array_map('trim', explode('•', $full));
+    return [
+        'full'   => $full,
+        'campus' => $bits[0] ?? '',
+        'bldg'   => $bits[1] ?? '',
+        'room'   => $bits[2] ?? ($bits[1] ?? $full),
+    ];
+}, $location_options);
 
 $category_options = array_values(array_unique(array_filter(array_merge(
     becCategories(),
@@ -1032,7 +1059,8 @@ body::after {
   position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:100;
   background:var(--surface);border:1.5px solid var(--maroon);
   border-radius:10px;box-shadow:0 8px 30px rgba(44,10,10,.15);
-  max-height:220px;overflow-y:auto;display:none;
+  max-height:340px;overflow-y:auto;display:none;
+  -webkit-overflow-scrolling:touch;overscroll-behavior:contain;
 }
 .equip-dropdown.open { display:block; }
 .search-dd {
@@ -1076,17 +1104,33 @@ body::after {
 /* clean 2-line row: name + single-line truncated location (no runaway wrapping) */
 .eq-body { display:flex;flex-direction:column;min-width:0;flex:1;gap:.05rem; }
 .eq-name { font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
-.eq-loc  { font-size:.72rem;color:#9E8070;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+/* #9E8070 on white is 3.6:1 — under the 4.5:1 needed for text this small, and it
+   is the line that says which room the asset is in. #8A6E5E measures 4.7:1. */
+.eq-loc  { font-size:.72rem;color:#8A6E5E;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
 .eq-empty { padding:.75rem .85rem;font-size:.82rem;color:var(--ink3);text-align:center; }
 .eq-manual {
   padding:.7rem .85rem;border-top:1px solid var(--border);
   background:#FFFBEF;color:var(--ink2);font-size:.78rem;line-height:1.45;
 }
 .eq-manual strong { color:var(--maroon); }
+/* Sticky campus/building heading, so you always know which building the rooms
+   you are scrolling past belong to. */
+.loc-group {
+  position:sticky;top:0;z-index:1;
+  display:flex;flex-direction:column;gap:.1rem;
+  padding:.5rem .85rem .4rem;
+  background:#FBF6F0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+  font-size:.74rem;font-weight:700;color:var(--ink2);line-height:1.3;
+}
+.loc-group:first-child { border-top:none; }
+.loc-group-campus {
+  font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:1.1px;
+  color:var(--maroon);
+}
 .loc-item {
-  display:flex;align-items:center;gap:.55rem;
-  padding:.6rem .85rem;cursor:pointer;
-  transition:background .12s;font-size:.84rem;color:var(--ink);
+  display:flex;align-items:center;gap:.6rem;
+  padding:.5rem .85rem .5rem 1.15rem;cursor:pointer;
+  transition:background .12s;font-size:.86rem;color:var(--ink);
 }
 .loc-item:hover,.loc-item.focused { background:var(--maroon-soft); }
 .loc-pin {
@@ -1094,14 +1138,11 @@ body::after {
   display:flex;align-items:center;justify-content:center;
   background:rgba(123,29,29,.08);color:var(--maroon);font-size:.65rem;flex-shrink:0;
 }
-.loc-meta {
-  display:flex;flex-direction:column;gap:.08rem;min-width:0;
-}
+/* The room wraps rather than truncating — it is the whole point of the row, and
+   the campus and building it belongs to are on the heading directly above, so
+   the row itself carries nothing else. */
 .loc-name {
-  font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-}
-.loc-sub {
-  font-size:.68rem;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-weight:600;color:var(--ink);line-height:1.35;overflow-wrap:anywhere;flex:1;min-width:0;
 }
 
 /* ── USABLE TOGGLE ── */
@@ -2036,7 +2077,10 @@ const catDisplay  = document.getElementById('cat-display');
 const assetTagEl  = document.querySelector('input[name="asset_tag"]');
 const locationSearchEl = document.getElementById('location-search');
 const locationHiddenEl = document.getElementById('location-hidden');
-const locationData = <?php echo json_encode(array_values($location_options)); ?>;
+const locationData  = <?php echo json_encode(array_values($location_options)); ?>;
+// Same list, pre-split into campus / building / room so the picker can show the
+// room prominently instead of one long truncated string.
+const locationParts = <?php echo json_encode(array_values($locationParts)); ?>;
 const dropdown    = document.getElementById('equip-dropdown');
 const locationDropdown = document.getElementById('location-dropdown');
 const reportForm = document.getElementById('report-form');
@@ -2055,6 +2099,11 @@ equipData.forEach((item, i) => { item._i = i; });
 // rows; building all of them on focus janks the field on a phone, and nobody
 // scrolls that far — they type instead.
 const COMBO_LIMIT = 50;
+
+// Locations are short, grouped rows and there are only ~300 of them, so the
+// whole campus fits comfortably; capping these at 50 like the equipment list cut
+// the list off inside the first campus.
+const LOCATION_LIMIT = 120;
 
 /**
  * Keeps a suggestion list open while the pointer is inside it.
@@ -2258,7 +2307,9 @@ if (catHidden.value) {
 
 // Lower-cased once, with each entry carrying its own index — the filter used to
 // re-lower-case all 304 locations and then indexOf() each rendered row.
-const locationIndexed = locationData.map((label, i) => ({ label, i, lc: label.toLowerCase() }));
+const locationIndexed = locationParts.map((p, i) => ({
+  ...p, i, lc: p.full.toLowerCase()
+}));
 
 function renderLocationDropdown(query) {
   const q = (query || '').trim().toLowerCase();
@@ -2272,18 +2323,27 @@ function renderLocationDropdown(query) {
     return;
   }
 
-  const shown  = matches.slice(0, COMBO_LIMIT);
+  const shown  = matches.slice(0, LOCATION_LIMIT);
   const hidden = matches.length - shown.length;
 
-  let html = shown.map(entry => `
-    <div class="loc-item" data-index="${entry.i}">
-      <span class="loc-pin"><i class="fas fa-map-marker-alt"></i></span>
-      <span class="loc-meta">
-        <span class="loc-name">${escapeHtml(entry.label)}</span>
-        <span class="loc-sub">Inventory location</span>
-      </span>
-    </div>
-  `).join('');
+  // The room is what a reporter is looking for, so it leads; the campus and
+  // building it sits in run underneath it. Putting the whole
+  // "Campus • Building • Room" string on one line meant the room — the only part
+  // that identifies the place — was always the part cut off by the ellipsis.
+  let html = '';
+  let lastGroup = null;
+  for (const entry of shown) {
+    const group = entry.campus + ' • ' + entry.bldg;
+    if (group !== lastGroup) {
+      html += `<div class="loc-group"><span class="loc-group-campus">${escapeHtml(entry.campus)}</span>${escapeHtml(entry.bldg)}</div>`;
+      lastGroup = group;
+    }
+    html += `
+      <div class="loc-item" data-index="${entry.i}">
+        <span class="loc-pin"><i class="fas fa-map-marker-alt"></i></span>
+        <span class="loc-name">${escapeHtml(entry.room)}</span>
+      </div>`;
+  }
   if (hidden > 0) {
     html += `<div class="eq-manual"><strong>${hidden.toLocaleString()} more location${hidden === 1 ? '' : 's'}.</strong> Type a building or room name to narrow it down.</div>`;
   }

@@ -15,14 +15,7 @@ function sendOTPEmail($email, $otp, $role = 'admin') {
 
     $roleNames = [
         'admin'      => 'Administrator',
-        'handler'    => 'Equipment Handler',
-        'pmo'        => 'PMO Officer',
-        'dean'       => 'Dean',
-        'finance'    => 'Finance Officer',
         'technician' => 'Maintenance Technician',
-        'student'    => 'Student',
-        'faculty'    => 'Faculty Member',
-        'guest'      => 'Guest',
         'reporter'   => 'Reporter',
     ];
     $roleName = $roleNames[$role] ?? 'User';
@@ -316,7 +309,9 @@ function verifyOTP($email, $otp_code, $role = 'admin') {
     }
     markOtpUsedById((int)($otp_record['otp_id'] ?? 0));
     markEmailOtpUsed((string)$email); // burn any sibling codes — none can be replayed after a successful login
-    $allowed_roles = ['admin', 'pmo', 'dean', 'finance', 'student', 'faculty', 'technician', 'handler', 'guest'];
+    // 'reporter' was missing from this list, so a reporter's code could never
+    // have been verified through here even though one can now be issued.
+    $allowed_roles = ['admin', 'technician', 'reporter'];
     if (!in_array($role, $allowed_roles)) return ['success' => false, 'message' => 'Invalid role.', 'user' => null];
     $user = findUserByEmailAndRole((string)$email, (string)$role, [
         'user_id',
@@ -334,7 +329,7 @@ function verifyOTP($email, $otp_code, $role = 'admin') {
 
 function requestLoginOTP($email, $role = 'admin') {
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) return ['success' => false, 'message' => 'Invalid email address format.'];
-    $allowed_roles = ['admin', 'pmo', 'dean', 'finance', 'student', 'faculty', 'technician', 'handler', 'guest'];
+    $allowed_roles = ['admin', 'technician', 'reporter'];
     if (!in_array($role, $allowed_roles)) return ['success' => false, 'message' => 'Invalid role.'];
     $user = findUserByEmailAndRole((string)$email, (string)$role, ['email', 'fullname', 'status']);
     if (!$user) return ['success' => true, 'message' => 'If this email is registered, an OTP has been sent.'];

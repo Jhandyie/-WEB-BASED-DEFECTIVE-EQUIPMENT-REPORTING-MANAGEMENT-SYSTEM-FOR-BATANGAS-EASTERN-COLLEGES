@@ -32,9 +32,11 @@ if (is_array($roleCol) && isset($roleCol['Type'])) {
 // broken aircon was a Reporter or a Student — two different questions. The role
 // says what the system lets a person do; who they are at the college is their
 // type (below), the same field the imported BEC directory already carries.
+// PMO is not a role. Nothing gates on it — every portal asks for 'admin' or
+// 'technician' — so a PMO account could be created and then could not sign in
+// anywhere. The PMO and the ITSO are administrators, told apart by department.
 $assignableRoleMeta = [
     'reporter' => 'Reporter',
-    'pmo' => 'PMO',
     'technician' => 'Technician',
     'admin' => 'Administrator',
 ];
@@ -496,6 +498,12 @@ $df = trim((string)($_GET['dept'] ?? 'all'));
 // the six real PMO and ITSO administrators sat under "Admins".
 $uf = strtolower(trim((string)($_GET['unit'] ?? 'all')));
 if (!in_array($uf, ['all', 'pmo', 'itso'], true)) { $uf = 'all'; }
+
+// Year level — the third question the roster is asked ("the Grade 12s", "the
+// 1st years"), and the one the BEC Directory page already answers. Stored as
+// the printed standing itself, in both tables, so the value travels as text.
+$yl = trim((string)($_GET['year'] ?? 'all'));
+if ($yl === '') { $yl = 'all'; }
 // ITSO is tested first so a department naming both lands where adminUnitForUser() puts it.
 $unitSql = static function (string $unit): string {
     return $unit === 'itso'
@@ -535,20 +543,103 @@ $pageQuery = static function (int $p) use ($rf, $uf, $tf, $df, $sq): string {
 // is kept in step for anyone who already had a preference.
 $view = (($_COOKIE['bec_uview'] ?? 'table') === 'grid') ? 'grid' : 'table';
 
+// The filter dropdowns and the roster counts, both settled before a single row
+// is fetched: the list is ordered by year level, so the school order of the
+// levels has to be known while the query is still being built.
+//
+// Counted in the database, not by pulling a row per person back to be counted
+// here — the directory is the whole college.
+$dirByType = ['student'=>0,'faculty'=>0,'staff'=>0];
+$dirTotal  = 0;
+$deptOptions = [];
+$yearOptions = [];
+$yearRankCase = '';   // '{col}' placeholder, filled in per table below
+try {
+    $pdoC = getPgsqlPdoConnection();
+    foreach ($pdoC->query("SELECT " . $dirTypeSql('') . " AS ut, COUNT(*) AS c
+                           FROM public.bec_directory GROUP BY 1", PDO::FETCH_ASSOC) as $r) {
+        $ut = (string)$r['ut'];
+        if (!isset($dirByType[$ut])) { $ut = 'student'; }
+        $dirByType[$ut] += (int)$r['c'];
+        $dirTotal += (int)$r['c'];
+    }
+    // Only offer departments that somebody is actually in, so the dropdown can
+    // never lead to an empty list.
+    foreach ($pdoC->query("SELECT DISTINCT TRIM(department) AS d FROM public.bec_directory
+                           WHERE COALESCE(TRIM(department),'') <> ''
+                           UNION
+                           SELECT DISTINCT TRIM(department) FROM {$usersTable}
+                           WHERE COALESCE(TRIM(department),'') <> '' AND COALESCE(status,'') <> 'deleted'
+                           ORDER BY 1", PDO::FETCH_ASSOC) as $r) {
+        $deptOptions[] = (string)$r['d'];
+    }
+    // Year levels, in school order, from whoever is actually enrolled. Same
+    // source as the directory's filter so the two pages always agree.
+    foreach ($pdoC->query("SELECT DISTINCT TRIM(year_level) AS y FROM public.bec_directory
+                           WHERE COALESCE(TRIM(year_level),'') <> ''
+                           UNION
+                           SELECT DISTINCT TRIM(year_level) FROM {$usersTable}
+                           WHERE COALESCE(TRIM(year_level),'') <> '' AND COALESCE(status,'') <> 'deleted'", PDO::FETCH_ASSOC) as $r) {
+        $yearOptions[] = (string)$r['y'];
+    }
+    $yearOptions = becdir_sort_year_levels($yearOptions);
+
+    // School order as a SQL expression, built from the levels that are really
+    // in use and ranked by the one function that knows the order. Sorting the
+    // text instead puts Grade 10 ahead of Grade 7 and 1st Year ahead of Nursery.
+    if ($yearOptions) {
+        $whens = '';
+        foreach ($yearOptions as $yOpt) {
+            $whens .= ' WHEN ' . $pdoC->quote($yOpt) . ' THEN ' . becdir_year_level_rank($yOpt);
+        }
+        $yearRankCase = "CASE TRIM(COALESCE({col},''))" . $whens . ' ELSE 9999 END';
+    }
+} catch (Throwable $e) { /* directory or department column unavailable — filters degrade to Role only */ }
+$yearRankSql = static fn(string $col): string =>
+    $yearRankCase === '' ? '' : str_replace('{col}', $col, $yearRankCase);
+
 // Fetch all users
 $drCols = array_fill_keys(array_keys(getTableColumns('defect_reports')), true);
 $reporterJoinCol = isset($drCols['reporter_id']) ? 'reporter_id' : (isset($drCols['reported_by']) ? 'reported_by' : (isset($drCols['user_id']) ? 'user_id' : null));
 $reportCountExpr = $reporterJoinCol ? "(SELECT COUNT(*) FROM {$defectReportsTable} WHERE {$reporterJoinCol} = u.user_id)" : "0";
-$roleSortExpr = "CASE u.role
-    WHEN 'admin' THEN 1
-    WHEN 'pmo' THEN 2
-    WHEN 'dean' THEN 3
-    WHEN 'finance' THEN 4
-    WHEN 'technician' THEN 5
-    WHEN 'reporter' THEN 6
-    WHEN 'student' THEN 7
-    ELSE 99
+/* ─── HOW THE LIST IS ORDERED ────────────────────────
+ * Role alone cannot order this page. The whole college files reports under the
+ * single role of Reporter, so ordering by role dropped a Nursery pupil, a
+ * teacher and the non-teaching office into one undifferentiated block of 3,500.
+ *
+ * These ranks are the standing the PMO actually reads people by, most senior
+ * first, and both halves of the list — account holders and the imported roster
+ * — are ordered by the same numbers:
+ *
+ *   10 PMO administrator   30 technician              50 administrative / non-teaching staff
+ *   20 ITSO administrator  40 faculty / teacher       60 student   70 anything else
+ *
+ * Students then sort by year level (Nursery → 4th Year), then by name.
+ */
+$roleSortExpr = "CASE
+    WHEN u.role IN ('admin','pmo') AND POSITION('ITSO' IN UPPER(COALESCE(u.department,''))) > 0 THEN 20
+    WHEN u.role IN ('admin','pmo') THEN 10
+    WHEN u.role = 'technician' THEN 30
+    WHEN LOWER(COALESCE(u.user_type,'')) = 'faculty' THEN 40
+    WHEN LOWER(COALESCE(u.user_type,'')) = 'staff'   THEN 50
+    WHEN LOWER(COALESCE(u.user_type,'')) = 'student' THEN 60
+    ELSE 70
 END";
+
+// What the imported roster says a person is.
+//
+// The registrar's enrolment export types everyone in it as a student — the
+// people sitting in the Administrative / Non-teaching Office included, because
+// the file has no column that says otherwise. Reading the department back is
+// what keeps the affiliation filter, the counts and the badge on the row all
+// saying the same thing about the same person, instead of three things.
+$dirTypeSql = static function (string $prefix): string {
+    return "CASE
+        WHEN POSITION('ADMINISTRATIVE' IN UPPER(COALESCE({$prefix}department,''))) > 0
+          OR POSITION('NON-TEACHING'   IN UPPER(COALESCE({$prefix}department,''))) > 0 THEN 'staff'
+        ELSE LOWER(COALESCE(NULLIF({$prefix}user_type,''),'student'))
+    END";
+};
 
 $q = "SELECT u.*,
         {$reportCountExpr} AS report_count,
@@ -580,18 +671,48 @@ if ($sq !== '') {
     $params = array_merge($params, $searchParams);
     $types .= str_repeat('s', count($searchParams));
 }
-$q .= " ORDER BY {$roleSortExpr}, u.fullname ASC";
-
+// How many account holders match, before paging. Snapshot the FROM/WHERE now —
+// once ORDER BY is appended the same string can't be reused as a COUNT (Postgres
+// rejects the ordering expressions without a GROUP BY).
+// Anchored on the real table, not the first " FROM " — the SELECT list carries
+// correlated subqueries that each contain their own FROM.
+$mainFrom   = strpos($q, "FROM {$usersTable} u");
+$countSql   = 'SELECT COUNT(*) ' . substr($q, $mainFrom);
+$usersTotal = 0;
 if (isPgSqlDriver()) {
-    $pdo = getPgsqlPdoConnection();
-    $stmt = $pdo->prepare($q);
-    $stmt->execute($params);
-    $users = $stmt->fetchAll();
+    $pdo  = getPgsqlPdoConnection();
+    $cst  = $pdo->prepare($countSql);
+    $cst->execute($params);
+    $usersTotal = (int) $cst->fetchColumn();
 } else {
-    $stmt = $conn->prepare($q);
-    if ($params) { $stmt->bind_param($types, ...$params); }
-    $stmt->execute();
-    $users = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    $cst = $conn->prepare($countSql);
+    if ($params) { $cst->bind_param($types, ...$params); }
+    $cst->execute();
+    $usersTotal = (int) ($cst->get_result()->fetch_row()[0] ?? 0);
+}
+
+// Spend the offset against the users table first, then the directory roster.
+$userOffset = min($offset, $usersTotal);
+$userLimit  = max(0, min($perPage, $usersTotal - $userOffset));
+$dirOffset  = max(0, $offset - $usersTotal);
+$dirLimit   = $perPage - $userLimit;
+
+// Interpolated, not bound: both are ints derived from (int) casts, and the two
+// drivers disagree about binding LIMIT placeholders.
+$q .= " ORDER BY {$roleSortExpr}, u.fullname ASC LIMIT {$userLimit} OFFSET {$userOffset}";
+
+$users = [];
+if ($userLimit > 0) {
+    if (isPgSqlDriver()) {
+        $stmt = $pdo->prepare($q);
+        $stmt->execute($params);
+        $users = $stmt->fetchAll();
+    } else {
+        $stmt = $conn->prepare($q);
+        if ($params) { $stmt->bind_param($types, ...$params); }
+        $stmt->execute();
+        $users = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+    }
 }
 
 // Directory roster (imported students / faculty / staff). Reporters don't hold login
@@ -633,11 +754,14 @@ try {
         $cst->execute($dParams);
         $dirMatchTotal = (int)$cst->fetchColumn();
 
-        $room = max(0, $rowLimit - count($users));
+        // Whatever the users table did not consume of this page is filled from
+        // the roster, starting wherever the previous pages left off.
+        $room = $dirLimit;
         $drows = [];
-        if ($room > 0) {
+        if ($room > 0 && $dirOffset < $dirMatchTotal) {
             $dst = $pdoD->prepare("SELECT bd.*, {$reporterEmailExpr} AS report_count"
-                . $dSql . " ORDER BY bd.full_name ASC LIMIT " . (int)$room);
+                . $dSql . " ORDER BY bd.full_name ASC LIMIT " . (int)$room
+                . " OFFSET " . (int)$dirOffset);
             $dst->execute($dParams);
             $drows = $dst->fetchAll(PDO::FETCH_ASSOC);
         }
@@ -682,43 +806,6 @@ if (isPgSqlDriver()) {
 
 function cntU($arr,$fn){return count(array_filter($arr,$fn));}
 
-// Counted in the database, not by pulling a row per person back to be counted
-// here — the directory is the whole college.
-$dirByType = ['student'=>0,'faculty'=>0,'staff'=>0];
-$dirTotal  = 0;
-$deptOptions = [];
-$yearOptions = [];
-try {
-    $pdoC = getPgsqlPdoConnection();
-    foreach ($pdoC->query("SELECT LOWER(COALESCE(NULLIF(user_type,''),'student')) AS ut, COUNT(*) AS c
-                           FROM public.bec_directory GROUP BY 1", PDO::FETCH_ASSOC) as $r) {
-        $ut = (string)$r['ut'];
-        if (!isset($dirByType[$ut])) { $ut = 'student'; }
-        $dirByType[$ut] += (int)$r['c'];
-        $dirTotal += (int)$r['c'];
-    }
-    // Only offer departments that somebody is actually in, so the dropdown can
-    // never lead to an empty list.
-    foreach ($pdoC->query("SELECT DISTINCT TRIM(department) AS d FROM public.bec_directory
-                           WHERE COALESCE(TRIM(department),'') <> ''
-                           UNION
-                           SELECT DISTINCT TRIM(department) FROM {$usersTable}
-                           WHERE COALESCE(TRIM(department),'') <> '' AND COALESCE(status,'') <> 'deleted'
-                           ORDER BY 1", PDO::FETCH_ASSOC) as $r) {
-        $deptOptions[] = (string)$r['d'];
-    }
-    // Year levels, in school order, from whoever is actually enrolled. Same
-    // source as the directory's filter so the two pages always agree.
-    foreach ($pdoC->query("SELECT DISTINCT TRIM(year_level) AS y FROM public.bec_directory
-                           WHERE COALESCE(TRIM(year_level),'') <> ''
-                           UNION
-                           SELECT DISTINCT TRIM(year_level) FROM {$usersTable}
-                           WHERE COALESCE(TRIM(year_level),'') <> '' AND COALESCE(status,'') <> 'deleted'", PDO::FETCH_ASSOC) as $r) {
-        $yearOptions[] = (string)$r['y'];
-    }
-    $yearOptions = becdir_sort_year_levels($yearOptions);
-} catch (Throwable $e) { /* directory or department column unavailable — filters degrade to Role only */ }
-
 $usrByType = ['student'=>0,'faculty'=>0,'staff'=>0];
 foreach ($all_users_raw as $u) {
     $t = strtolower(trim((string)($u['user_type'] ?? '')));
@@ -751,11 +838,20 @@ $c_rep    = cntU($all_users_raw, fn($u)=>$u['role']==='reporter') + $dirTotal;
 $c_total  = count($all_users_raw) + $dirTotal;
 
 // How many people match the filters in total, against how many are on screen.
-$matchTotal = count($users) - count($directoryEntries) + $dirMatchTotal;
-$isCapped   = $matchTotal > count($users);
+// Both halves are counted in the database now, so this no longer depends on how
+// many rows happened to be rendered.
+$matchTotal = $usersTotal + $dirMatchTotal;
+$totalPages = max(1, (int) ceil($matchTotal / $perPage));
+// A page number past the end shows nothing; say so rather than render a blank table.
+$pageOverrun = $page > $totalPages && $matchTotal > 0;
+// Guarded on the row count, not the offset: a page past the end has an offset
+// but no rows, and would otherwise print a backwards range like "99,801–99,800".
+$rowFrom    = count($users) > 0 ? $offset + 1 : 0;
+$rowTo      = count($users) > 0 ? $offset + count($users) : 0;
+$isCapped   = $totalPages > 1;
 $filtersOn  = ($rf !== 'all' || $tf !== 'all' || $df !== 'all' || $uf !== 'all' || $sq !== '');
 /* ─── HELPERS ───────────────────────────────────────── */
-function roleCls($r){return['admin'=>'r-admin','pmo'=>'r-pmo','dean'=>'r-dean','finance'=>'r-fin','technician'=>'r-tech','reporter'=>'r-rep','student'=>'r-stud'][$r]??'r-rep';}
+function roleCls($r){return['admin'=>'r-admin','pmo'=>'r-pmo','technician'=>'r-tech','reporter'=>'r-rep','student'=>'r-stud'][$r]??'r-rep';}
 // Who the reporter is at the college, shown beside the role badge. Reporters
 // come from every corner of BEC, and the PMO reads a report differently when it
 // comes from a teacher than from a first-year student.
@@ -770,10 +866,10 @@ function typeBadge($u){
     return '<span class="bdg" style="background:' . $meta[2] . '1A;color:' . $meta[2] . ';font-size:.6rem;margin-left:.25rem;">'
          . '<i class="' . $meta[1] . '" style="font-size:.58rem;margin-right:.18rem;"></i>' . htmlspecialchars($meta[0], ENT_QUOTES) . '</span>';
 }
-function roleIco($r){return['admin'=>'fas fa-crown','pmo'=>'fas fa-building','dean'=>'fas fa-user-tie','finance'=>'fas fa-wallet','technician'=>'fas fa-hard-hat','reporter'=>'fas fa-bullhorn','student'=>'fas fa-graduation-cap'][$r]??'fas fa-user';}
+function roleIco($r){return['admin'=>'fas fa-crown','pmo'=>'fas fa-building','technician'=>'fas fa-hard-hat','reporter'=>'fas fa-bullhorn','student'=>'fas fa-graduation-cap'][$r]??'fas fa-user';}
 function roleLbl($r){return ucfirst($r??'—');}
 function initials($n){$p=array_filter(explode(' ',$n??''));return strtoupper(implode('',array_map(fn($x)=>substr($x,0,1),array_slice($p,0,2))));}
-function avatarColor($role){return['admin'=>'linear-gradient(135deg,#7B1D1D,#C53030)','pmo'=>'linear-gradient(135deg,#92400E,#F59E0B)','dean'=>'linear-gradient(135deg,#0F766E,#2DD4BF)','finance'=>'linear-gradient(135deg,#166534,#4ADE80)','technician'=>'linear-gradient(135deg,#1D4ED8,#60A5FA)','reporter'=>'linear-gradient(135deg,#7C3AED,#A78BFA)','student'=>'linear-gradient(135deg,#0891B2,#22D3EE)'][$role]??'linear-gradient(135deg,#6B7280,#9CA3AF)';}
+function avatarColor($role){return['admin'=>'linear-gradient(135deg,#7B1D1D,#C53030)','pmo'=>'linear-gradient(135deg,#92400E,#F59E0B)','technician'=>'linear-gradient(135deg,#1D4ED8,#60A5FA)','reporter'=>'linear-gradient(135deg,#7C3AED,#A78BFA)','student'=>'linear-gradient(135deg,#0891B2,#22D3EE)'][$role]??'linear-gradient(135deg,#6B7280,#9CA3AF)';}
 function deptCls($d){
     $d=strtolower($d??'');
     if(str_contains($d,'itso')||str_contains($d,'computer')||str_contains($d,'it ')|| $d==='it')return'itso';
@@ -944,7 +1040,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 /* ── FILTER / ROLE TABS ──────────────────────────── */
 .rtabs{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.875rem;}
 /* Affiliation row — a second, quieter axis beneath the role tabs */
-.rtabs.afil{align-items:center;gap:.4rem;margin-top:-.35rem;padding:.55rem .8rem;
+/* Same surface, padding and rhythm as .fbar below it, so the two control
+   strips read as one set rather than two loosely stacked panels. */
+.rtabs.afil{align-items:center;gap:.45rem;padding:.75rem 1.1rem;margin-bottom:1.1rem;
   background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r3);box-shadow:var(--sh0);}
 .afil-lbl{font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:1.1px;
   color:var(--t3);margin-right:.2rem;display:inline-flex;align-items:center;gap:.32rem;}
@@ -980,6 +1078,24 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   color:var(--t2);font-weight:700;cursor:pointer;outline:none;max-width:15rem;padding:0;line-height:1.45;}
 /* Scope controls sit together at the far end, away from the affiliation tabs. */
 .afil-end{margin-left:auto;display:inline-flex;align-items:center;gap:.4rem;flex-wrap:wrap;}
+/* ── PAGER ───────────────────────────────────────── */
+.pager{display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  flex-wrap:wrap;margin-top:1rem;padding:.75rem .95rem;background:var(--s1);
+  border:1px solid var(--bdr);border-radius:var(--r2);box-shadow:var(--sh0);}
+.pager-count{font-size:.72rem;color:var(--t3);white-space:nowrap;}
+.pager-count strong{color:var(--t2);}
+.pager-btns{display:inline-flex;align-items:center;gap:.3rem;flex-wrap:wrap;}
+.pgb{display:inline-flex;align-items:center;gap:.3rem;min-width:2rem;justify-content:center;
+  padding:.34rem .7rem;border-radius:var(--r1);border:1.5px solid var(--bdr);
+  background:var(--s1);color:var(--t2);font-family:'DM Sans',sans-serif;
+  font-size:.72rem;font-weight:700;text-decoration:none;transition:all .17s;}
+.pgb:hover{border-color:var(--m3);color:var(--m3);transform:translateY(-1px);}
+.pgb.on{background:var(--m3);border-color:var(--m2);color:#fff;cursor:default;}
+.pgb.on:hover{transform:none;color:#fff;}
+.pgb.off{opacity:.4;cursor:not-allowed;}
+.pgb.off:hover{border-color:var(--bdr);color:var(--t2);transform:none;}
+.pgb i{font-size:.6rem;}
+.pg-gap{color:var(--t4);font-size:.72rem;padding:0 .1rem;}
 .capnote{display:flex;align-items:flex-start;gap:.55rem;margin-bottom:.875rem;
   padding:.6rem .85rem;border-radius:var(--r1);font-size:.76rem;line-height:1.55;
   background:#FFFBEF;border:1px solid rgba(201,150,12,.32);border-left:3px solid var(--g1,#C9960C);color:var(--t2);}
@@ -1388,22 +1504,27 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         <button class="vt-b<?php echo $view==='grid'?' on':''; ?>" id="vt-grid" onclick="setView('grid')"><i class="fas fa-th-large"></i> Grid</button>
       </div>
       <span style="font-size:.7rem;color:var(--t3);white-space:nowrap;">
-        <?php if ($isCapped): ?>
-          Showing <strong><?php echo count($users); ?></strong> of <?php echo number_format($matchTotal); ?>
+        <?php if ($matchTotal > $perPage): ?>
+          <?php if (count($users) > 0): ?>
+            <strong><?php echo number_format($rowFrom); ?>&ndash;<?php echo number_format($rowTo); ?></strong>
+          <?php else: ?>
+            <strong>0</strong>
+          <?php endif; ?>
+          of <?php echo number_format($matchTotal); ?>
         <?php else: ?>
           <?php echo number_format(count($users)); ?> user<?php echo count($users)!=1?'s':''; ?>
         <?php endif; ?>
       </span>
     </div>
 
-    <?php if ($isCapped): ?>
-    <!-- Said out loud rather than quietly truncating: an admin who searches a
-         name and does not find it needs to know the list was cut short. -->
+    <?php if ($pageOverrun): ?>
     <div class="capnote">
-      <i class="fas fa-layer-group"></i>
-      <span>Showing the first <strong><?php echo count($users); ?></strong> of
-      <strong><?php echo number_format($matchTotal); ?></strong> people.
-      Use the affiliation, department or search filters to narrow this down.</span>
+      <i class="fas fa-circle-exclamation"></i>
+      <span>Page <strong><?php echo number_format($page); ?></strong> is past the end of this list
+      &mdash; there <?php echo $totalPages === 1 ? 'is' : 'are'; ?>
+      <strong><?php echo number_format($totalPages); ?></strong>
+      page<?php echo $totalPages !== 1 ? 's' : ''; ?>.
+      <a href="<?php echo esc($pageQuery(1)); ?>">Back to the first page</a>.</span>
     </div>
     <?php endif; ?>
 
@@ -1589,6 +1710,56 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         <?php endforeach; endif;?>
       </div>
     </div>
+    <?php endif; ?>
+
+    <?php if ($totalPages > 1): ?>
+    <!-- Paging is done in SQL: each page is its own LIMIT/OFFSET query, so the
+         browser never receives the rows it isn't showing. -->
+    <nav class="pager" aria-label="User list pages">
+      <span class="pager-count">
+        <?php if (count($users) > 0): ?>
+          <?php echo number_format($rowFrom); ?>&ndash;<?php echo number_format($rowTo); ?>
+        <?php else: ?>
+          No rows on this page &mdash;
+        <?php endif; ?>
+        of <strong><?php echo number_format($matchTotal); ?></strong>
+      </span>
+      <span class="pager-btns">
+        <?php if ($page > 1): ?>
+          <a class="pgb" href="<?php echo esc($pageQuery($page - 1)); ?>" rel="prev"><i class="fas fa-chevron-left"></i> Previous</a>
+        <?php else: ?>
+          <span class="pgb off"><i class="fas fa-chevron-left"></i> Previous</span>
+        <?php endif; ?>
+
+        <?php
+        // A window around the current page, so 36 pages don't render 36 links.
+        $from = max(1, $page - 2);
+        $to   = min($totalPages, $page + 2);
+        if ($from > 1): ?>
+          <a class="pgb" href="<?php echo esc($pageQuery(1)); ?>">1</a>
+          <?php if ($from > 2): ?><span class="pg-gap">&hellip;</span><?php endif; ?>
+        <?php endif; ?>
+
+        <?php for ($i = $from; $i <= $to; $i++): ?>
+          <?php if ($i === $page): ?>
+            <span class="pgb on" aria-current="page"><?php echo $i; ?></span>
+          <?php else: ?>
+            <a class="pgb" href="<?php echo esc($pageQuery($i)); ?>"><?php echo $i; ?></a>
+          <?php endif; ?>
+        <?php endfor; ?>
+
+        <?php if ($to < $totalPages): ?>
+          <?php if ($to < $totalPages - 1): ?><span class="pg-gap">&hellip;</span><?php endif; ?>
+          <a class="pgb" href="<?php echo esc($pageQuery($totalPages)); ?>"><?php echo number_format($totalPages); ?></a>
+        <?php endif; ?>
+
+        <?php if ($page < $totalPages): ?>
+          <a class="pgb" href="<?php echo esc($pageQuery($page + 1)); ?>" rel="next">Next <i class="fas fa-chevron-right"></i></a>
+        <?php else: ?>
+          <span class="pgb off">Next <i class="fas fa-chevron-right"></i></span>
+        <?php endif; ?>
+      </span>
+    </nav>
     <?php endif; ?>
 
   </div><!-- /pg -->
@@ -1957,6 +2128,9 @@ function go(over){
   set('unit',  '<?php echo esc($uf); ?>');
   set('search',document.getElementById('fsq').value);
   // Changing a filter starts a new search, so the old page position goes with it.
+  // Without this, searching from page 5 lands on page 5 of the new result set —
+  // usually past the end, and reading as "no matches".
+  u.searchParams.delete('page');
   if (over) { Object.entries(over).forEach(([k,v])=>set(k,v)); }
   location.href=u.toString();
 }
@@ -2341,9 +2515,11 @@ function animN(id,to){
   requestAnimationFrame(go);
 }
 document.addEventListener('DOMContentLoaded',()=>{
-  animN('sn0',<?php echo $c_total;?>);animN('sn1',<?php echo $c_admin;?>);
-  animN('sn2',<?php echo $c_pmo;?>);animN('sn5',<?php echo $c_tech;?>);
-  animN('sn6',<?php echo $c_rep;?>);
+  // One per card, in the order they are rendered. sn3 was missing entirely,
+  // so the ITSO figure was the only one that never counted up.
+  animN('sn0',<?php echo (int)$c_total;?>);   animN('sn1',<?php echo (int)$c_admin;?>);
+  animN('sn2',<?php echo (int)$c_pmoUnit;?>); animN('sn3',<?php echo (int)$c_itsoUnit;?>);
+  animN('sn5',<?php echo (int)$c_tech;?>);    animN('sn6',<?php echo (int)$c_rep;?>);
 });
 
 /* ─── HELPERS ─────────────────────────────────────────── */

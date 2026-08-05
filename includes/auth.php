@@ -38,10 +38,10 @@ function isLoggedIn() {
 function roleAliases() {
     return [
         // Student dashboard is shared with faculty/staff in this project.
-        'student' => ['student', 'faculty', 'staff'],
-        'pmo' => ['pmo'],
-        'dean' => ['dean'],
-        'finance' => ['finance'],
+        // Reporter covers everyone who files: student, teacher, office staff.
+        // Dean, Finance, PMO and Handler are gone — see the note in
+        // scripts/2026_08_drop_dead_roles.sql.
+        'reporter' => ['reporter', 'student', 'faculty', 'staff'],
     ];
 }
 

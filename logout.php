@@ -41,7 +41,6 @@ switch ($role) {
     case 'admin':
         header('Location: admin/admin_login_otp.html?success=' . $success);
         break;
-    case 'handler':
         header('Location: handler/login.html?success=' . $success);
         break;
     case 'technician':

@@ -209,7 +209,10 @@ body::after {
     linear-gradient(155deg, rgba(45,5,5,.90) 0%, rgba(74,14,14,.80) 55%, rgba(123,29,29,.72) 100%),
     url('assets/Landing Page Background.jpg') center / cover no-repeat,
     url('assets/bec-background.jpg') center / cover no-repeat;
-  display: flex; flex-direction: column;
+  /* The hero sat against the top of a tall panel, leaving a half-screen of empty
+     photograph beneath it next to a form that was scrolling. Centring it puts
+     the weight of the two columns on the same line. */
+  display: flex; flex-direction: column; justify-content: space-between;
 }
 .brand::after {
   content: ''; position: absolute; inset: 0; pointer-events: none;
@@ -331,10 +334,19 @@ body::after {
 .fi-hint i { margin-right: .3rem; }
 .fi-hint strong { color: var(--ink2); white-space: nowrap; }
 /* Friendly "about this portal" details (replaces the old button-like pills) */
-.intro-card { background: #FBF8F1; border: 1px solid var(--border); border-radius: 14px; padding: 1rem 1.1rem 1.05rem; margin-bottom: 1.5rem; }
-.intro-card h3 { font-family: 'Fraunces', serif; font-size: .95rem; font-weight: 600; color: var(--ink); margin-bottom: .7rem; display: flex; align-items: center; gap: .45rem; }
-.intro-card h3 i { color: var(--gold); font-size: .85rem; }
-.intro-list { display: flex; flex-direction: column; gap: .62rem; }
+.intro-card { background: #FBF8F1; border: 1px solid var(--border); border-radius: 14px; padding: .75rem 1.1rem; margin-bottom: 1.25rem; }
+.intro-card[open] { padding-bottom: 1.05rem; }
+.intro-card > summary {
+  font-family: 'Fraunces', serif; font-size: .95rem; font-weight: 600; color: var(--ink);
+  display: flex; align-items: center; gap: .45rem; cursor: pointer; list-style: none;
+}
+.intro-card > summary::-webkit-details-marker { display: none; }
+.intro-card > summary > i:first-child { color: var(--gold); font-size: .85rem; }
+.intro-chev { margin-left: auto; font-size: .7rem; color: var(--ink3); transition: transform .2s ease; }
+.intro-card[open] .intro-chev { transform: rotate(180deg); }
+.intro-card > summary:focus-visible { outline: 2px solid var(--maroon); outline-offset: 3px; border-radius: 6px; }
+@media (prefers-reduced-motion: reduce) { .intro-chev { transition: none; } }
+.intro-list { display: flex; flex-direction: column; gap: .62rem; margin-top: .8rem; }
 .intro-list li { list-style: none; display: flex; align-items: flex-start; gap: .62rem; font-size: .78rem; color: var(--ink2); line-height: 1.55; }
 .intro-list > li > i { color: var(--maroon); font-size: .8rem; margin-top: .2rem; flex-shrink: 0; width: 1.05rem; text-align: center; }
 .intro-list b { color: var(--ink); font-weight: 600; }
@@ -815,16 +827,22 @@ body::after {
   <main class="panel">
     <div class="panel-eyebrow"><span class="pe-dot"></span> Equipment Defect Reporting</div>
     <h1 class="panel-title">Report <em>defective campus equipment</em></h1>
-    <p class="panel-sub">Welcome to the official Property Management Office portal of Batangas Eastern Colleges. Use this page to report any damaged or malfunctioning equipment on campus. Sign in with your official BEC details below; once you submit, a ticket reference is sent to your email so you can follow your report from review all the way to its resolution.</p>
-    <div class="intro-card">
-      <h3><i class="fas fa-circle-info"></i> A few things to know</h3>
+    <?php /* The panel beside this already introduces the office and the system,
+             so this said the same thing a second time in five lines. */ ?>
+    <p class="panel-sub">Sign in with your official BEC details to report damaged or malfunctioning equipment. You will receive a ticket reference by email and can follow your report through to its repair.</p>
+    <?php /* Collapsed by default. Open, this guidance ran to four paragraphs and
+             pushed the Full Name field off the bottom of a laptop screen, so the
+             first thing a reporter met on a sign-in page was a wall of text.
+             It is one tap away, and repeated on the report form itself. */ ?>
+    <details class="intro-card">
+      <summary><i class="fas fa-circle-info"></i> A few things to know<i class="fas fa-chevron-down intro-chev"></i></summary>
       <ul class="intro-list">
         <li><i class="fas fa-id-card"></i><span><b>Who may report.</b> Any Batangas Eastern Colleges student, faculty, or staff member with an official <b>@bec.edu.ph</b> email account may file a report.</span></li>
         <li><i class="fas fa-clipboard-list"></i><span><b>What to prepare.</b> Identify the equipment, where it is located, and a short description of the problem. Adding a photo helps the technicians assess it faster.</span></li>
         <li><i class="fas fa-route"></i><span><b>What happens after you submit.</b> The PMO reviews your report, assigns a technician, and carries out the repair. You are updated by email at every key stage and can track the status online at any time.</span></li>
         <li><i class="fas fa-user-shield"></i><span><b>How your information is used.</b> Your details are used only to process and deliver your report, kept confidential in line with the Data Privacy Act of 2012 (RA 10173).</span></li>
       </ul>
-    </div>
+    </details>
     <?php if ($notice !== ''): ?>
     <div class="alert alert-ok"><i class="fas fa-paper-plane"></i> <?php echo htmlspecialchars($notice); ?></div>
     <?php endif; ?>

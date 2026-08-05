@@ -98,7 +98,7 @@ function runSlaEscalationSweep(bool $force = false): int {
 
     // Recipients: active admins + deans.
     $admins = [];
-    $ar = $conn->query("SELECT user_id FROM users WHERE role IN ('admin','dean') AND status = 'active' AND user_id IS NOT NULL AND user_id <> ''");
+    $ar = $conn->query("SELECT user_id FROM users WHERE role = 'admin' AND status = 'active' AND user_id IS NOT NULL AND user_id <> ''");
     if ($ar) { while ($a = $ar->fetch_assoc()) { $admins[] = (string)$a['user_id']; } }
 
     $count = 0;

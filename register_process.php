@@ -35,7 +35,7 @@ requireCsrf(true);
 $role = trim($_POST['role'] ?? 'student');
 if (!in_array($role, ['student', 'admin'], true)) {
     // Reject roles that must be provisioned internally or have no self-signup.
-    if (in_array($role, ['technician', 'faculty', 'pmo', 'dean', 'finance', 'handler'], true)) {
+    if (in_array($role, ['technician'], true)) {
         echo json_encode([
             'success' => false,
             'message' => 'This account type cannot be self-registered. Please contact the Property Management Office.'

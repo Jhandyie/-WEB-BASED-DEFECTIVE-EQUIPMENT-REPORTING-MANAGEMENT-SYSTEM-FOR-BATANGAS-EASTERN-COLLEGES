@@ -2605,8 +2605,6 @@ function getUserById($user_id, $role) {
     $roleTableMap = [
         'admin' => ['table' => 'admins', 'id_field' => 'admin_id'],
         'pmo' => ['table' => 'users', 'id_field' => 'user_id'],
-        'dean' => ['table' => 'users', 'id_field' => 'user_id'],
-        'finance' => ['table' => 'users', 'id_field' => 'user_id'],
         'technician' => ['table' => 'maintenance_technicians', 'id_field' => 'technician_id'],
         'faculty' => ['table' => 'faculty_members', 'id_field' => 'faculty_id'],
         'student' => ['table' => 'students', 'id_field' => 'student_id']
@@ -2617,12 +2615,12 @@ function getUserById($user_id, $role) {
     }
 
     $config = $roleTableMap[$role];
-    $sql = in_array($role, ['pmo', 'dean', 'finance'], true)
+    $sql = in_array($role, ['pmo'], true)
         ? "SELECT * FROM `users` WHERE user_id = ? AND role = ? LIMIT 1"
         : "SELECT * FROM `{$config['table']}` WHERE {$config['id_field']} = ? LIMIT 1";
 
     $stmt = $conn->prepare($sql);
-    if (in_array($role, ['pmo', 'dean', 'finance'], true)) {
+    if (in_array($role, ['pmo'], true)) {
         $stmt->bind_param("ss", $user_id, $role);
     } else {
         $stmt->bind_param("s", $user_id);
@@ -2646,8 +2644,6 @@ function createUser($role, $userData) {
     $roleTableMap = [
         'admin' => ['table' => 'admins', 'id_prefix' => 'ADM'],
         'pmo' => ['table' => 'users', 'id_prefix' => 'PMO'],
-        'dean' => ['table' => 'users', 'id_prefix' => 'DEAN'],
-        'finance' => ['table' => 'users', 'id_prefix' => 'FIN'],
         'technician' => ['table' => 'maintenance_technicians', 'id_prefix' => 'TEC'],
         'faculty' => ['table' => 'faculty_members', 'id_prefix' => 'FAC'],
         'student' => ['table' => 'students', 'id_prefix' => 'STU']
@@ -2659,7 +2655,7 @@ function createUser($role, $userData) {
 
     $config = $roleTableMap[$role];
     $table = $config['table'];
-    $idField = in_array($role, ['pmo', 'dean', 'finance'], true) ? 'user_id' : $role . '_id';
+    $idField = in_array($role, ['pmo'], true) ? 'user_id' : $role . '_id';
 
     // Generate ID
     if (!isset($userData[$idField])) {
@@ -2697,8 +2693,6 @@ function updateUser($user_id, $role, $updateData) {
     $roleTableMap = [
         'admin' => ['table' => 'admins', 'id_field' => 'admin_id'],
         'pmo' => ['table' => 'users', 'id_field' => 'user_id'],
-        'dean' => ['table' => 'users', 'id_field' => 'user_id'],
-        'finance' => ['table' => 'users', 'id_field' => 'user_id'],
         'technician' => ['table' => 'maintenance_technicians', 'id_field' => 'technician_id'],
         'faculty' => ['table' => 'faculty_members', 'id_field' => 'faculty_id'],
         'student' => ['table' => 'students', 'id_field' => 'student_id']
@@ -2743,8 +2737,6 @@ function getAllUsersByRole($role) {
     $roleTableMap = [
         'admin' => 'admins',
         'pmo' => 'users',
-        'dean' => 'users',
-        'finance' => 'users',
         'technician' => 'maintenance_technicians',
         'faculty' => 'faculty_members',
         'student' => 'students'
@@ -2755,11 +2747,11 @@ function getAllUsersByRole($role) {
     }
 
     $table = $roleTableMap[$role];
-    $sql = in_array($role, ['pmo', 'dean', 'finance'], true)
+    $sql = in_array($role, ['pmo'], true)
         ? "SELECT * FROM `users` WHERE role = ? ORDER BY fullname"
         : "SELECT * FROM `$table` ORDER BY fullname";
 
-    if (in_array($role, ['pmo', 'dean', 'finance'], true)) {
+    if (in_array($role, ['pmo'], true)) {
         $stmt = $conn->prepare($sql);
         $stmt->bind_param("s", $role);
         $stmt->execute();
