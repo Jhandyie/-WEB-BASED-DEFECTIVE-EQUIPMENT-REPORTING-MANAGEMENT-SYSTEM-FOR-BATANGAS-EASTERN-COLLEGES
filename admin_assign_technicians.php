@@ -6,6 +6,7 @@ startRoleSession('admin');
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/file_storage_helpers.php';
+require_once __DIR__ . '/includes/report_media.php';   // photoListFromRow / videoListFromRow
 
 requireRole('admin');
 require_once __DIR__ . '/includes/csrf.php';
@@ -431,8 +432,40 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   letter-spacing:.7px;color:var(--t3);margin-bottom:.45rem;}
 .rep-id{font-family:'Outfit',sans-serif;font-weight:800;color:var(--m3);font-size:.85rem;}
 .rep-eq{font-weight:700;font-size:.85rem;margin-top:.18rem;}
-.rep-desc{font-size:.73rem;color:var(--t2);margin-top:.22rem;line-height:1.5;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+/* Was clamped to 2 lines against a 90-character stub. The panel now receives the
+   whole description, because you cannot choose the right technician from half a
+   sentence; it scrolls rather than truncating. */
+.rep-desc{font-size:.73rem;color:var(--t2);margin-top:.3rem;line-height:1.55;
+  max-height:7.5em;overflow-y:auto;white-space:pre-line;}
+
+/* where / when / who */
+.rep-facts{display:flex;flex-wrap:wrap;gap:.3rem .7rem;margin-top:.3rem;}
+.rep-fact{display:inline-flex;align-items:center;gap:.3rem;
+  font-size:.68rem;color:var(--t3);}
+.rep-fact i{font-size:.62rem;color:var(--m3);}
+
+/* attached evidence */
+.rep-media{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.5rem;}
+.rep-thumb{width:54px;height:54px;padding:0;border-radius:var(--r1);
+  border:1.5px solid var(--bdr);background:var(--s1);overflow:hidden;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:border-color .16s;}
+.rep-thumb:hover{border-color:var(--m3);}
+.rep-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.rep-thumb-vid{background:var(--m1);color:var(--g3);font-size:.9rem;}
+.rep-nomedia{margin-top:.5rem;font-size:.68rem;color:var(--t4);
+  display:flex;align-items:center;gap:.35rem;}
+
+/* lightbox */
+.media-lb{position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.9);
+  display:none;align-items:center;justify-content:center;padding:2rem;}
+.media-lb.open{display:flex;}
+.media-lb-body img,.media-lb-body video{max-width:88vw;max-height:86vh;
+  border-radius:var(--r2);display:block;}
+.media-lb-x{position:absolute;top:1.25rem;right:1.25rem;width:40px;height:40px;
+  border-radius:50%;border:none;cursor:pointer;font-size:1rem;
+  background:rgba(255,255,255,.16);color:#fff;
+  display:flex;align-items:center;justify-content:center;}
+.media-lb-x:hover{background:rgba(255,255,255,.3);}
 .rep-clear{position:absolute;top:.5rem;right:.5rem;
   width:20px;height:20px;background:none;border:none;
   color:var(--t3);cursor:pointer;font-size:.72rem;
@@ -687,9 +720,17 @@ textarea.fc{resize:vertical;min-height:80px;}
                       'id'         => $r['report_id'],
                       'equipment'  => $r['equipment_name']??'N/A',
                       'asset'      => $r['asset_tag']??'',
-                      'issue'      => substr($r['issue_description']??'',0,90),
+                      // Full text, not the 90-character stub the table shows. Whoever
+                      // is dispatching needs to read the fault before choosing who
+                      // to send, and the panel has room for it.
+                      'issue'      => $r['issue_description']??'',
+                      'location'   => $r['location']??'',
+                      'reported'   => !empty($r['report_date']) ? date('M j, Y', strtotime($r['report_date'])) : '',
+                      'reporter'   => $r['reporter_name']??'',
                       'priority'   => $r['priority']??'medium',
                       'dept'       => $r['department_assigned']??'',
+                      'photos'     => photoListFromRow($r),
+                      'videos'     => videoListFromRow($r),
                     ]),ENT_QUOTES); ?>)">
                     <i class="fas fa-user-plus"></i> Assign
                   </button>
@@ -848,7 +889,11 @@ textarea.fc{resize:vertical;min-height:80px;}
               </button>
               <div class="rep-id" id="rpId">-</div>
               <div class="rep-eq" id="rpEq">-</div>
+              <div class="rep-facts" id="rpFacts"></div>
               <div class="rep-desc" id="rpDesc">-</div>
+              <!-- What the reporter actually photographed. Choosing a technician
+                   from a text description alone is guesswork. -->
+              <div class="rep-media" id="rpMedia"></div>
               <div style="margin-top:.45rem;display:flex;gap:.35rem;flex-wrap:wrap;" id="rpMeta"></div>
             </div>
           </div>
@@ -945,6 +990,11 @@ textarea.fc{resize:vertical;min-height:80px;}
 </div><!-- /wrap -->
 
 <!-- === UNASSIGN CONFIRM MODAL ======================== -->
+<div class="media-lb" id="mediaLb" onclick="if(event.target===this)closeMedia()">
+  <button type="button" class="media-lb-x" onclick="closeMedia()" aria-label="Close"><i class="fas fa-times"></i></button>
+  <div class="media-lb-body" id="mediaLbBody"></div>
+</div>
+
 <div class="mo" id="unMo" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="mw">
     <div class="mhd">
@@ -1002,6 +1052,34 @@ textarea.fc{resize:vertical;min-height:80px;}
 let _selReport = null;
 
 /* --- SELECT REPORT -------------------------------- */
+/* The report text is reporter-supplied and goes into innerHTML below, so it is
+   escaped here rather than trusted. escAttr also kills quotes that would break
+   out of the onclick it is written into. */
+function escHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+  });
+}
+function escAttr(s) { return escHtml(s); }
+
+/* --- MEDIA LIGHTBOX ------------------------------- */
+function openMedia(src, kind) {
+  const lb = document.getElementById('mediaLb');
+  const body = document.getElementById('mediaLbBody');
+  body.innerHTML = (kind === 'video')
+    ? '<video src="' + escAttr(src) + '" controls autoplay playsinline></video>'
+    : '<img src="' + escAttr(src) + '" alt="Reported defect">';
+  lb.classList.add('open');
+}
+function closeMedia() {
+  const lb = document.getElementById('mediaLb');
+  lb.classList.remove('open');
+  document.getElementById('mediaLbBody').innerHTML = '';   // stops a playing video
+}
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') closeMedia();
+});
+
 function selectReport(data) {
   _selReport = data;
 
@@ -1011,7 +1089,34 @@ function selectReport(data) {
   document.getElementById('repPrev').classList.add('filled');
   document.getElementById('rpId').textContent = '#' + data.id;
   document.getElementById('rpEq').textContent = data.equipment + (data.asset ? '  -  ' + data.asset : '');
-  document.getElementById('rpDesc').textContent = data.issue;
+  document.getElementById('rpDesc').textContent = data.issue || 'No description given.';
+
+  // Where, when and who — the three things asked before "send who?"
+  const facts = [];
+  if (data.location) facts.push(['fa-location-dot', data.location]);
+  if (data.reported) facts.push(['fa-calendar-day', data.reported]);
+  if (data.reporter) facts.push(['fa-user', data.reporter]);
+  document.getElementById('rpFacts').innerHTML = facts.map(
+    f => '<span class="rep-fact"><i class="fas ' + f[0] + '"></i>' + escHtml(f[1]) + '</span>'
+  ).join('');
+
+  // Photos and videos the reporter attached.
+  const media = document.getElementById('rpMedia');
+  const photos = data.photos || [], videos = data.videos || [];
+  if (!photos.length && !videos.length) {
+    media.innerHTML = '<div class="rep-nomedia"><i class="fas fa-image"></i> No photo or video attached</div>';
+  } else {
+    let h = '';
+    photos.forEach(function (p) {
+      h += '<button type="button" class="rep-thumb" onclick="openMedia(\'' + escAttr(p) + '\',\'image\')">'
+         + '<img src="' + escAttr(p) + '" alt="Reported defect" loading="lazy"></button>';
+    });
+    videos.forEach(function (v) {
+      h += '<button type="button" class="rep-thumb rep-thumb-vid" onclick="openMedia(\'' + escAttr(v) + '\',\'video\')">'
+         + '<i class="fas fa-play"></i></button>';
+    });
+    media.innerHTML = h;
+  }
 
   // Priority + dept badges
   const meta = document.getElementById('rpMeta');
@@ -1179,14 +1284,22 @@ document.addEventListener('DOMContentLoaded', () => {
 /* --- PRE-SELECT REPORT FROM URL ------------------- */
 <?php if($preReport): ?>
 document.addEventListener('DOMContentLoaded', () => {
-  selectReport({
-    id:       '<?php echo esc($preReport["report_id"]); ?>',
-    equipment:'<?php echo addslashes($preReport["equipment_name"]??"N/A"); ?>',
-    asset:    '<?php echo addslashes($preReport["asset_tag"]??""); ?>',
-    issue:    '<?php echo addslashes(substr($preReport["issue_description"]??'',0,90)); ?>',
-    priority: '<?php echo esc($preReport["priority"]??"medium"); ?>',
-    dept:     '<?php echo esc($preReport["department_assigned"]??""); ?>',
-  });
+  /* json_encode, not addslashes: the description is free text that can contain
+     newlines and quotes, which addslashes does not make safe inside a JS string
+     literal. This also keeps the payload identical to the one the table sends. */
+  selectReport(<?php echo json_encode([
+    'id'        => $preReport['report_id'],
+    'equipment' => $preReport['equipment_name'] ?? 'N/A',
+    'asset'     => $preReport['asset_tag'] ?? '',
+    'issue'     => $preReport['issue_description'] ?? '',
+    'location'  => $preReport['location'] ?? '',
+    'reported'  => !empty($preReport['report_date']) ? date('M j, Y', strtotime($preReport['report_date'])) : '',
+    'reporter'  => $preReport['reporter_name'] ?? '',
+    'priority'  => $preReport['priority'] ?? 'medium',
+    'dept'      => $preReport['department_assigned'] ?? '',
+    'photos'    => photoListFromRow($preReport),
+    'videos'    => videoListFromRow($preReport),
+  ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>);
 });
 <?php endif; ?>
 
