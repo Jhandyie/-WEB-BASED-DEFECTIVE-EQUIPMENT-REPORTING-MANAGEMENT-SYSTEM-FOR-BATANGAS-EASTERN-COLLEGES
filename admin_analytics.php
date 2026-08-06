@@ -256,8 +256,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .bc a{color:var(--t3);text-decoration:none;}.bc a:hover{color:var(--m3);}
 .bc i{font-size:.55rem;}
 .tb-r{display:flex;align-items:center;gap:.55rem;}
-.ic-btn{width:34px;height:34px;background:var(--s2);border:1px solid var(--bdr);border-radius:var(--r1);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--t2);font-size:.85rem;transition:all .17s;text-decoration:none;position:relative;box-shadow:0 2px 0 var(--bdr);}
-.ic-btn:hover{background:var(--m3);color:#fff;transform:translateY(-2px);box-shadow:0 4px 0 var(--m2);}
+.ic-btn{width:34px;height:34px;background:var(--s2);border:1px solid var(--bdr);border-radius:var(--r1);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--t2);font-size:.85rem;transition:all .17s;text-decoration:none;position:relative;box-shadow:none;}
+.ic-btn:hover{background:var(--m3);color:#fff;transform:none;box-shadow:none;}
 .pip{position:absolute;top:5px;right:5px;width:7px;height:7px;background:var(--g2);border-radius:50%;border:2px solid var(--s1);animation:pp 2.2s ease-in-out infinite;}
 @keyframes pp{0%,100%{transform:scale(1);}50%{transform:scale(1.4);}}
 .pg{padding:1.5rem 1.75rem;flex:1;}
@@ -265,10 +265,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 /* ── BUTTONS ──────────────────────────────────────── */
 .btn{display:inline-flex;align-items:center;gap:.32rem;padding:.4rem .875rem;border-radius:var(--r1);font-family:'DM Sans',sans-serif;font-size:.77rem;font-weight:700;cursor:pointer;border:none;transition:all .17s;text-decoration:none;white-space:nowrap;}
 .btn:hover{transform:translateY(-1px);}.btn:active{transform:translateY(0);}
-.btn-maroon{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;box-shadow:0 3px 0 var(--m2);}
-.btn-maroon:hover{box-shadow:0 5px 0 var(--m2);}
-.btn-gold{background:linear-gradient(135deg,var(--g2),var(--g3));color:var(--m1);box-shadow:0 3px 0 var(--g1);}
-.btn-gold:hover{box-shadow:0 5px 0 var(--g1);}
+.btn-maroon{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;box-shadow:none;}
+.btn-maroon:hover{box-shadow:none;}
+.btn-gold{background:linear-gradient(135deg,var(--g2),var(--g3));color:var(--m1);box-shadow:none;}
+.btn-gold:hover{box-shadow:none;}
 .btn-ghost{background:var(--s2);color:var(--t2);border:1px solid var(--bdr);}
 .btn-ghost:hover{background:var(--s3);}
 .btn-sm{padding:.3rem .65rem;font-size:.71rem;}
@@ -277,7 +277,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .rtabs{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:1.25rem;align-items:center;}
 .rtab{display:inline-flex;align-items:center;gap:.3rem;padding:.3rem .78rem;border-radius:20px;font-size:.73rem;font-weight:700;cursor:pointer;text-decoration:none;border:1.5px solid var(--bdr);background:var(--s1);color:var(--t2);transition:all .17s;}
 .rtab:hover{transform:translateY(-1px);background:var(--s2);}
-.rtab.on{background:var(--m3);color:#fff;border-color:var(--m2);box-shadow:0 3px 0 var(--m2);}
+.rtab.on{background:var(--m3);color:#fff;border-color:var(--m2);box-shadow:none;}
 .date-range-lbl{font-size:.72rem;color:var(--t3);margin-left:auto;font-style:italic;}
 
 /* ── KPI STRIP ────────────────────────────────────── */
@@ -288,7 +288,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
   border-radius:0 0 var(--r3) var(--r3);transform:scaleX(0);transform-origin:left;transition:transform .32s;}
 .kcard:hover{transform:translateY(-4px) scale(1.012);box-shadow:var(--sh2);border-color:transparent;}
 .kcard:hover::after{transform:scaleX(1);}
-.kico{width:32px;height:32px;border-radius:var(--r1);display:flex;align-items:center;justify-content:center;font-size:.78rem;margin-bottom:.45rem;background:var(--kb);color:var(--kc,var(--m3));box-shadow:0 3px 0 rgba(0,0,0,.07);transition:transform .26s;position:relative;z-index:1;}
+.kico{width:32px;height:32px;border-radius:var(--r1);display:flex;align-items:center;justify-content:center;font-size:.78rem;margin-bottom:.45rem;background:var(--kb);color:var(--kc,var(--m3));box-shadow:none;transition:transform .26s;position:relative;z-index:1;}
 .kcard:hover .kico{transform:rotate(-8deg) scale(1.12);}
 .knum{font-family:'Outfit',sans-serif;font-size:1.65rem;font-weight:800;color:var(--t1);line-height:1;transition:color .26s;position:relative;z-index:1;}
 .kcard:hover .knum{color:var(--kc,var(--m3));}
@@ -331,7 +331,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .tech-tbl tbody td{padding:.6rem 1rem;font-size:.78rem;border-bottom:1px solid var(--bdr);vertical-align:middle;}
 .tech-tbl tbody tr:last-child td{border-bottom:none;}
 .tech-tbl tbody tr:hover td{background:var(--s2);}
-.tech-av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--m3),var(--m4));display:flex;align-items:center;justify-content:center;font-family:'Outfit',sans-serif;font-weight:800;font-size:.65rem;color:#fff;flex-shrink:0;box-shadow:0 2px 0 rgba(0,0,0,.1);}
+.tech-av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--m3),var(--m4));display:flex;align-items:center;justify-content:center;font-family:'Outfit',sans-serif;font-weight:800;font-size:.65rem;color:#fff;flex-shrink:0;box-shadow:none;}
 .prog-bar{height:5px;background:var(--s3);border-radius:5px;overflow:hidden;margin-top:.2rem;}
 .prog-fill{height:100%;border-radius:5px;transition:width .7s cubic-bezier(.4,0,.2,1);}
 
@@ -502,7 +502,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
         <div class="klbl">Operational Equip.</div>
       </div>
     </div>
-    <style>@keyframes critGlow{0%,100%{box-shadow:0 3px 0 rgba(0,0,0,.07);}50%{box-shadow:0 3px 0 rgba(0,0,0,.07),0 0 14px rgba(220,38,38,.4);}}</style>
+    <style>@keyframes critGlow{0%,100%{box-shadow:none;}50%{box-shadow:0 0 14px rgba(220,38,38,.4);}}</style>
 
     <!-- ── ROW 1: Reports over time (wide) ────────── -->
     <div class="cgrid cgrid-2" style="margin-bottom:1.125rem;grid-template-columns:2fr 1fr;">

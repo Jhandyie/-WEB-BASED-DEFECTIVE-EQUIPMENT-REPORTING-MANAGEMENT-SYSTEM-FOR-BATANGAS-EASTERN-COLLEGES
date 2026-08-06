@@ -195,9 +195,9 @@ a { text-decoration: none; color: inherit; }
 .hero-cta { display: flex; flex-wrap: wrap; gap: .7rem; justify-content: flex-start; margin-bottom: 1.9rem; }
 .btn { display: inline-flex; align-items: center; gap: .55rem; padding: .9rem 1.6rem; border-radius: 12px;
   font-family: 'DM Sans', sans-serif; font-size: .95rem; font-weight: 600; cursor: pointer; text-decoration: none; transition: all .22s cubic-bezier(.22,1,.36,1); }
-.btn-primary { background: var(--gold); color: var(--maroon-dd); box-shadow: 0 4px 0 #9A6B00, 0 10px 24px rgba(0,0,0,.3); }
-.btn-primary:hover { background: #E0AC1E; transform: translateY(-2px); box-shadow: 0 6px 0 #9A6B00, 0 16px 30px rgba(0,0,0,.35); }
-.btn-primary:active { transform: translateY(1px); box-shadow: 0 2px 0 #9A6B00; }
+.btn-primary { background: var(--gold); color: var(--maroon-dd); box-shadow:0 10px 24px rgba(0,0,0,.3); }
+.btn-primary:hover { background: #E0AC1E; transform:none; box-shadow:0 16px 30px rgba(0,0,0,.35); }
+.btn-primary:active { transform:none; box-shadow:none; }
 .btn-ghost { background: rgba(255,255,255,.12); color: #fff; border: 1.5px solid rgba(255,255,255,.55); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
 .btn-ghost:hover { background: rgba(255,255,255,.22); border-color: #fff; transform: translateY(-2px); }
 .btn-arrow { width: 20px; height: 20px; background: rgba(0,0,0,.15); border-radius: 50%;
@@ -298,7 +298,7 @@ a { text-decoration: none; color: inherit; }
 .mod-card.feat { grid-column: span 2; background: linear-gradient(135deg, var(--surface) 55%, var(--maroon-soft)); border-color: rgba(123,29,29,.16); }
 .mod-card.feat .mod-ic { background: linear-gradient(135deg, var(--maroon-d), var(--maroon)); color: #fff; border-color: transparent; box-shadow: 0 4px 12px rgba(123,29,29,.28); }
 .mod-ic { position: relative; z-index: 1; width: 46px; height: 46px; border-radius: 13px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-  font-size: 1.1rem; color: var(--maroon); background: var(--maroon-soft); border: 1px solid rgba(123,29,29,.14); box-shadow: 0 3px 0 rgba(74,14,14,.06);
+  font-size: 1.1rem; color: var(--maroon); background: var(--maroon-soft); border: 1px solid rgba(123,29,29,.14); box-shadow:none;
   transition: transform .26s, background .26s, color .26s, border-color .26s; }
 .mod-card:hover .mod-ic { transform: rotate(-8deg) scale(1.1); background: linear-gradient(135deg, var(--maroon-d), var(--maroon)); color: #fff; border-color: transparent; }
 .mod-tx { position: relative; z-index: 1; }

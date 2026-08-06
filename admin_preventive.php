@@ -92,7 +92,7 @@ $presets   = pmFrequencyPresets();
   .stat:hover{transform:translateY(-4px);box-shadow:0 12px 30px rgba(44,10,10,.12);}
   .stat:hover::before{transform:scale(1.5);opacity:.09;}
   .stat:hover::after{transform:scaleX(1);}
-  .stat .ic{position:relative;z-index:1;width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;box-shadow:0 3px 0 rgba(0,0,0,.07);transition:transform .26s;}
+  .stat .ic{position:relative;z-index:1;width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;box-shadow:none;transition:transform .26s;}
   .stat:hover .ic{transform:rotate(-8deg) scale(1.12);}
   .stat .n{position:relative;z-index:1;font-family:'Outfit',sans-serif;font-size:2rem;font-weight:800;line-height:1;color:var(--ink);}
   .stat .l{position:relative;z-index:1;font-size:.62rem;text-transform:uppercase;letter-spacing:.6px;color:var(--ink3);font-weight:700;margin-top:.35rem;}
@@ -116,8 +116,8 @@ $presets   = pmFrequencyPresets();
   .form-actions{margin-top:1.25rem;display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;}
   .form-actions .hint{font-size:.72rem;color:var(--ink3);margin-left:auto;}
   .btn{display:inline-flex;align-items:center;gap:.5rem;padding:.68rem 1.2rem;border-radius:10px;border:none;font:inherit;font-weight:700;font-size:.84rem;cursor:pointer;text-decoration:none;transition:transform .15s,background .15s;}
-  .btn.m{background:var(--m);color:#fff;box-shadow:0 3px 0 var(--m1);} .btn.m:hover{background:var(--md);transform:translateY(-1px);}
-  .btn.m:active{transform:translateY(1px);box-shadow:0 1px 0 var(--m1);}
+  .btn.m{background:var(--m);color:#fff;box-shadow:none;} .btn.m:hover{background:var(--md);transform:translateY(-1px);}
+  .btn.m:active{transform:none;box-shadow:none;}
   .btn.ghost{background:#f1eadf;color:var(--ink2);} .btn.ghost:hover{background:#e7dac6;}
   /* Table */
   .tbl-wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden;overflow-x:auto;}

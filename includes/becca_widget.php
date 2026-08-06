@@ -227,10 +227,10 @@
   background: var(--maroon-d); border: none; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   color: #fff; font-size: .85rem; flex-shrink: 0;
-  box-shadow: 0 3px 0 var(--maroon-dd); transition: all .17s; -webkit-appearance: none;
+  box-shadow:none; transition: all .17s; -webkit-appearance: none;
 }
-.sbtn:hover { background: var(--maroon); transform: translateY(-1px); box-shadow: 0 4px 0 var(--maroon-dd); }
-.sbtn:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--maroon-dd); }
+.sbtn:hover { background: var(--maroon); transform:none; box-shadow:none; }
+.sbtn:active { transform:none; box-shadow:none; }
 .sbtn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .inp-meta { margin-top: .38rem; font-size: .62rem; color: var(--ink3); display: flex; align-items: center; gap: .28rem; }
 .inp-meta i { font-size: .58rem; }

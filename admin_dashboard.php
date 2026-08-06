@@ -390,10 +390,10 @@ body{
   border-radius:var(--r1);
   display:flex;align-items:center;justify-content:center;
   cursor:pointer;color:var(--t2);font-size:.88rem;
-  transition:all .18s;box-shadow:0 2px 0 var(--bdr);
+  transition:all .18s;box-shadow:none;
   text-decoration:none;position:relative;
 }
-.tb-btn:hover{background:var(--m3);color:#fff;transform:translateY(-2px);box-shadow:0 4px 0 var(--m2);}
+.tb-btn:hover{background:var(--m3);color:#fff;transform:none;box-shadow:none;}
 .npip{position:absolute;top:5px;right:5px;width:8px;height:8px;background:var(--g2);border-radius:50%;border:2px solid var(--s1);animation:pip 2s ease-in-out infinite;}
 @keyframes pip{0%,100%{transform:scale(1);}50%{transform:scale(1.3);}}
 
@@ -405,9 +405,9 @@ body{
   color:var(--m1);border:none;border-radius:var(--r1);
   font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:700;
   cursor:pointer;transition:all .2s;
-  box-shadow:0 3px 0 var(--g1);
+  box-shadow:none;
 }
-.exp-btn:hover{transform:translateY(-2px);box-shadow:0 5px 0 var(--g1);}
+.exp-btn:hover{transform:none;box-shadow:none;}
 .exp-wrap{position:relative;display:inline-block;}
 .exp-menu{position:absolute;top:calc(100% + 8px);right:0;z-index:300;min-width:252px;background:#fff;border:1px solid var(--bdr,#E8DDD0);border-radius:12px;box-shadow:0 14px 36px rgba(44,10,10,.22);padding:.4rem;display:none;}
 .exp-menu.open{display:block;animation:mUp .15s ease;}
@@ -520,7 +520,7 @@ body{
 }
 .sc::before{content:'';position:absolute;top:-20px;right:-20px;width:80px;height:80px;border-radius:50%;background:var(--sk);opacity:.04;transition:all .28s;}
 .sc::after{content:'';position:absolute;bottom:0;left:0;width:100%;height:2px;background:var(--sk);border-radius:0 0 var(--r3) var(--r3);transform:scaleX(0);transform-origin:left;transition:transform .32s;}
-.sc:hover{transform:translateY(-6px) scale(1.015);box-shadow:0 6px 0 var(--sk-s),var(--sh3);border-color:transparent;}
+.sc:hover{transform:scale(1.015);box-shadow:var(--sh3);border-color:transparent;}
 .sc:hover::before{transform:scale(1.5);opacity:.08;}
 .sc:hover::after{transform:scaleX(1);}
 
@@ -537,7 +537,7 @@ body{
   display:flex;align-items:center;justify-content:center;
   font-size:.85rem;margin-bottom:.625rem;
   background:var(--ic-bg);color:var(--ic-fg);
-  box-shadow:0 3px 0 rgba(0,0,0,.08);
+  box-shadow:none;
   transition:all .26s;position:relative;z-index:1;
 }
 .sc:hover .sc-ic{transform:rotate(-8deg) scale(1.15);}
@@ -548,7 +548,7 @@ body{
 .sc.s4 .sc-ic{--ic-bg:#F5F3FF;--ic-fg:#7C3AED;}
 .sc.s5 .sc-ic{--ic-bg:#FFF1F2;--ic-fg:#DC2626;}
 .sc.s6 .sc-ic{--ic-bg:#FFF7ED;--ic-fg:#C2410C;animation:critPulse 2s ease-in-out infinite;}
-@keyframes critPulse{0%,100%{box-shadow:0 3px 0 rgba(0,0,0,.08),0 0 0 0 rgba(194,65,12,.3);}50%{box-shadow:0 3px 0 rgba(0,0,0,.08),0 0 0 5px rgba(194,65,12,0);}}
+@keyframes critPulse{0%,100%{box-shadow:0 0 0 0 rgba(194,65,12,.3);}50%{box-shadow:0 0 0 5px rgba(194,65,12,0);}}
 
 .sc-num{font-family:'Outfit',sans-serif;font-size:2rem;font-weight:800;color:var(--t1);line-height:1;margin-bottom:.18rem;position:relative;z-index:1;transition:color .26s;}
 .sc:hover .sc-num{color:var(--sk);}
@@ -600,10 +600,10 @@ body{
 .btn{display:inline-flex;align-items:center;gap:.35rem;padding:.4rem .875rem;border-radius:var(--r1);font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:700;cursor:pointer;border:none;transition:all .18s;text-decoration:none;white-space:nowrap;}
 .btn:hover{transform:translateY(-1px);}
 .btn:active{transform:translateY(0);}
-.btn-maroon{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;box-shadow:0 3px 0 var(--m2);}
-.btn-maroon:hover{box-shadow:0 5px 0 var(--m2);}
-.btn-gold{background:linear-gradient(135deg,var(--g2),var(--g3));color:var(--m1);box-shadow:0 3px 0 var(--g1);}
-.btn-gold:hover{box-shadow:0 5px 0 var(--g1);}
+.btn-maroon{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;box-shadow:none;}
+.btn-maroon:hover{box-shadow:none;}
+.btn-gold{background:linear-gradient(135deg,var(--g2),var(--g3));color:var(--m1);box-shadow:none;}
+.btn-gold:hover{box-shadow:none;}
 .btn-ghost{background:var(--s2);color:var(--t2);border:1px solid var(--bdr);}
 .btn-ghost:hover{background:var(--s3);}
 .btn-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r1);padding:0;font-size:.75rem;}
@@ -753,22 +753,22 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .nav-item:focus-visib
       @media(max-width:560px){.kpi-strip{grid-template-columns:1fr;}}
     </style>
     <div class="kpi-strip">
-      <div style="background:var(--s1);border:1px solid var(--bdr);border-left:4px solid var(--m3);border-radius:14px;padding:.95rem 1.05rem;box-shadow:0 1px 0 var(--bdr);">
+      <div style="background:var(--s1);border:1px solid var(--bdr);border-left:4px solid var(--m3);border-radius:14px;padding:.95rem 1.05rem;box-shadow:none;">
         <div style="display:flex;align-items:center;gap:.45rem;color:var(--t3);font-size:.66rem;text-transform:uppercase;letter-spacing:.6px;font-weight:700;"><i class="fas fa-stopwatch" style="color:var(--m3);"></i> Avg Resolution</div>
         <div style="font-size:1.7rem;font-weight:800;color:var(--t1);margin-top:.3rem;line-height:1;"><?php echo $avgResolution!==null?$avgResolution:'—'; ?><span style="font-size:.8rem;font-weight:600;color:var(--t3);"><?php echo $avgResolution!==null?' days':''; ?></span></div>
         <div style="font-size:.66rem;color:var(--t3);margin-top:.3rem;">Report → completion (resolved)</div>
       </div>
-      <div style="background:var(--s1);border:1px solid var(--bdr);border-left:4px solid #16A34A;border-radius:14px;padding:.95rem 1.05rem;box-shadow:0 1px 0 var(--bdr);">
+      <div style="background:var(--s1);border:1px solid var(--bdr);border-left:4px solid #16A34A;border-radius:14px;padding:.95rem 1.05rem;box-shadow:none;">
         <div style="display:flex;align-items:center;gap:.45rem;color:var(--t3);font-size:.66rem;text-transform:uppercase;letter-spacing:.6px;font-weight:700;"><i class="fas fa-circle-check" style="color:#16A34A;"></i> Completion Rate</div>
         <div style="font-size:1.7rem;font-weight:800;color:var(--t1);margin-top:.3rem;line-height:1;"><?php echo $completionRate; ?><span style="font-size:.85rem;font-weight:600;color:var(--t3);">%</span></div>
         <div style="height:5px;background:var(--s3);border-radius:4px;margin-top:.5rem;overflow:hidden;"><div style="height:100%;width:<?php echo (int)$completionRate; ?>%;background:linear-gradient(90deg,#16A34A,#4ADE80);"></div></div>
       </div>
-      <div style="background:var(--s1);border:1px solid var(--bdr);border-left:4px solid var(--g2);border-radius:14px;padding:.95rem 1.05rem;box-shadow:0 1px 0 var(--bdr);">
+      <div style="background:var(--s1);border:1px solid var(--bdr);border-left:4px solid var(--g2);border-radius:14px;padding:.95rem 1.05rem;box-shadow:none;">
         <div style="display:flex;align-items:center;gap:.45rem;color:var(--t3);font-size:.66rem;text-transform:uppercase;letter-spacing:.6px;font-weight:700;"><i class="fas fa-screwdriver-wrench" style="color:var(--g1);"></i> Active Repairs</div>
         <div style="font-size:1.7rem;font-weight:800;color:var(--t1);margin-top:.3rem;line-height:1;"><?php echo $activeRepairs; ?></div>
         <div style="font-size:.66rem;color:var(--t3);margin-top:.3rem;">Assigned + in progress now</div>
       </div>
-      <a href="admin_defect_reports.php?status=reported" style="text-decoration:none;background:var(--s1);border:1px solid <?php echo $overdueReports>0?'#FCA5A5':'var(--bdr)'; ?>;border-left:4px solid <?php echo $overdueReports>0?'#DC2626':'#9CA3AF'; ?>;border-radius:14px;padding:.95rem 1.05rem;box-shadow:0 1px 0 var(--bdr);display:block;">
+      <a href="admin_defect_reports.php?status=reported" style="text-decoration:none;background:var(--s1);border:1px solid <?php echo $overdueReports>0?'#FCA5A5':'var(--bdr)'; ?>;border-left:4px solid <?php echo $overdueReports>0?'#DC2626':'#9CA3AF'; ?>;border-radius:14px;padding:.95rem 1.05rem;box-shadow:none;display:block;">
         <div style="display:flex;align-items:center;gap:.45rem;color:var(--t3);font-size:.66rem;text-transform:uppercase;letter-spacing:.6px;font-weight:700;"><i class="fas fa-triangle-exclamation" style="color:<?php echo $overdueReports>0?'#DC2626':'#9CA3AF'; ?>;"></i> SLA Overdue</div>
         <div style="font-size:1.7rem;font-weight:800;color:<?php echo $overdueReports>0?'#DC2626':'var(--t1)'; ?>;margin-top:.3rem;line-height:1;"><?php echo $overdueReports; ?></div>
         <div style="font-size:.66rem;color:var(--t3);margin-top:.3rem;">Open past priority target</div>

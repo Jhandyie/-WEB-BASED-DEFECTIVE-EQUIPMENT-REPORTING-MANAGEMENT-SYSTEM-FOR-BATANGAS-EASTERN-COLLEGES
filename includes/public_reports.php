@@ -556,7 +556,10 @@ td:last-child{padding-right:1.25rem;}
             <th>Location</th>
             <th>Priority</th>
             <th>Status</th>
-            <th>Equipment</th>
+            <!-- The report's status and the equipment's status are different
+                 things; two columns both headed "Equipment" made the table
+                 unreadable. The mobile cards already said "Equipment status". -->
+            <th>Equipment status</th>
             <th>Issue Summary</th>
             <th>Submitted</th>
           </tr>

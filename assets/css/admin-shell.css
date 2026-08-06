@@ -80,7 +80,7 @@ html{font-size:106.25%;scrollbar-gutter:stable;}
   background:linear-gradient(135deg,var(--g2,#D4A017),#B45309);
   display:flex;align-items:center;justify-content:center;
   font-family:'Outfit',sans-serif;font-weight:900;font-size:.77rem;color:#fff;
-  box-shadow:0 3px 0 rgba(0,0,0,.28);transition:transform .22s;}
+  box-shadow:none;transition:transform .22s;}
 .sb-user:hover .uav{transform:scale(1.1) rotate(-6deg);}
 .uname{font-size:.8rem;color:#fff;font-weight:600;display:block;line-height:1.2;}
 .urole{font-size:.58rem;color:rgba(255,255,255,.32);text-transform:uppercase;letter-spacing:1px;}
@@ -104,7 +104,7 @@ html{font-size:106.25%;scrollbar-gutter:stable;}
 .ni:hover .ni-ic{background:rgba(255,255,255,.1);transform:scale(1.08);}
 .ni.on{color:#fff;font-weight:600;}
 .ni.on .ni-ic{background:linear-gradient(135deg,var(--g2,#D4A017),var(--g3,#F0C040));
-  color:var(--m1,#2D0505);box-shadow:0 3px 0 rgba(0,0,0,.18),0 4px 12px rgba(212,160,23,.25);}
+  color:var(--m1,#2D0505);box-shadow:0 4px 12px rgba(212,160,23,.25);}
 .ni.on::after{content:'';position:absolute;left:0;top:0;bottom:0;
   width:3px;background:linear-gradient(to bottom,var(--g2,#D4A017),var(--g3,#F0C040));border-radius:0 3px 3px 0;}
 .nbadge{margin-left:auto;background:var(--g2,#D4A017);color:var(--m1,#2D0505);

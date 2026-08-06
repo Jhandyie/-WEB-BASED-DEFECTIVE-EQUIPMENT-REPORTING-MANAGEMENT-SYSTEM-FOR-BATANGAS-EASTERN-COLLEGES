@@ -94,9 +94,9 @@ try {
     width:34px;height:34px;font-size:.85rem;flex-shrink:0;
     margin-left:auto;margin-right:.55rem;
     background:#FBF9F6;border:1px solid #E2D9CC;color:#5C3838;
-    box-shadow:0 2px 0 #E2D9CC;}
+    box-shadow:none;}
   .aia-bell.in-top:hover{background:#7B1D1D;border-color:#7B1D1D;color:#fff;
-    transform:translateY(-2px);box-shadow:0 4px 0 #4A0E0E;}
+    transform:none;box-shadow:none;}
   .aia-bell.in-top .ab-dot{min-width:17px;height:17px;font-size:.58rem;top:-5px;right:-5px;}
 </style>
 <a class="aia-bell" href="admin_notifications.php" aria-label="Notifications<?php echo $__aiaUnread > 0 ? ' (' . $__aiaUnread . ' unread)' : ''; ?>" title="Notifications">

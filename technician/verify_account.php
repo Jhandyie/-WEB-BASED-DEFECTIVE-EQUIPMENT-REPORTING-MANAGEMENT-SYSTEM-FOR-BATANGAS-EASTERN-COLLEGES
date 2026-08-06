@@ -165,9 +165,9 @@ function vh($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
   .hint{font-size:.72rem;color:var(--ink3);margin-top:.5rem;display:flex;align-items:center;gap:.4rem;}
   .hint.ok{color:#16A34A}.hint.bad{color:#B4232A}
   .btn{margin-top:1.3rem;width:100%;padding:.9rem;border:none;border-radius:12px;background:linear-gradient(135deg,var(--md),var(--m));color:#fff;font-family:inherit;font-weight:700;font-size:.95rem;cursor:pointer;
-    box-shadow:0 4px 0 var(--mdd),0 10px 24px rgba(74,14,14,.24);transition:transform .18s,box-shadow .18s,filter .18s;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;}
-  .btn:hover{filter:brightness(1.06);transform:translateY(-2px);box-shadow:0 6px 0 var(--mdd),0 14px 30px rgba(74,14,14,.3);}
-  .btn:active{transform:translateY(1px);box-shadow:0 2px 0 var(--mdd);}
+    box-shadow:0 10px 24px rgba(74,14,14,.24);transition:transform .18s,box-shadow .18s,filter .18s;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;}
+  .btn:hover{filter:brightness(1.06);transform:none;box-shadow:0 14px 30px rgba(74,14,14,.3);}
+  .btn:active{transform:none;box-shadow:none;}
   .privacy{margin-top:.9rem;font-size:.72rem;color:var(--ink3);line-height:1.5;display:flex;gap:.45rem;align-items:flex-start;}
   .privacy i{color:var(--g);margin-top:.1rem;}
   .alert{padding:.8rem 1rem;border-radius:11px;font-size:.84rem;margin-bottom:1.1rem;display:flex;gap:.55rem;align-items:flex-start;line-height:1.5;}
@@ -181,7 +181,7 @@ function vh($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
   .state.warn .ic{background:#FEF6EC;color:#B77400;box-shadow:0 0 0 6px rgba(201,150,12,.1);}
   .state h2{font-family:'Fraunces',serif;color:var(--m);margin:.2rem 0 .5rem;font-size:1.5rem;}
   .state p{color:var(--ink2);font-size:.9rem;line-height:1.65;margin:0 auto;max-width:34ch;}
-  .state a.cta{display:inline-flex;align-items:center;gap:.5rem;margin-top:1.4rem;background:linear-gradient(135deg,var(--md),var(--m));color:#fff;text-decoration:none;padding:.8rem 1.5rem;border-radius:11px;font-weight:700;box-shadow:0 4px 0 var(--mdd);}
+  .state a.cta{display:inline-flex;align-items:center;gap:.5rem;margin-top:1.4rem;background:linear-gradient(135deg,var(--md),var(--m));color:#fff;text-decoration:none;padding:.8rem 1.5rem;border-radius:11px;font-weight:700;box-shadow:none;}
   .state a.cta:hover{filter:brightness(1.06)}
 
   @media (max-width:820px){

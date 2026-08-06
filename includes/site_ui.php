@@ -69,6 +69,20 @@ define('SITE_UI_RENDERED', true);
 #becLogout .bl-yes{background:#7B1D1D;border-color:#7B1D1D;color:#fff;}
 #becLogout .bl-yes:hover{background:#4A0E0E;border-color:#4A0E0E;}
 
+/* ---- flat buttons still answer the pointer ------------------------------- */
+/* The buttons used to carry a hard `0 3px 0` slab that grew to `0 5px 0` on
+   hover — the raised-plastic look, and also the ONLY hover feedback they had.
+   With the slab gone those :hover rules did nothing, so a button no longer
+   responded to the mouse at all. A small brightness shift restores the
+   affordance without reintroducing motion or fake depth. */
+.btn:hover,.btn-maroon:hover,.btn-gold:hover,.btn-green:hover,.btn-red:hover,
+.btn-ghost:hover,.btn-sm:hover,.ic-btn:hover,.pgb:hover,.exp-btn:hover,
+button.btn:hover,a.btn:hover{filter:brightness(1.07);}
+.btn:active,.btn-maroon:active,.btn-gold:active,.btn-green:active,
+.btn-red:active,.ic-btn:active,.pgb:active{filter:brightness(.95);}
+/* Disabled controls must not look clickable. */
+.btn:disabled,.btn[disabled],button:disabled{filter:none;cursor:not-allowed;}
+
 /* Shared with the admin modal rules in includes/admin_ui.php. */
 @keyframes becMoUp{from{transform:translateY(6px);opacity:0}to{transform:none;opacity:1}}
 
