@@ -204,30 +204,40 @@ $users_res = $conn->query("SELECT user_id, fullname, role, {$dept_expr} FROM use
 $all_users = $users_res ? $users_res->fetch_all(MYSQLI_ASSOC) : [];
 
 /* ─── HELPERS ─────────────────────────────────────── */
+/* Keyed on the type strings notifications are actually written with. Anything
+   unmapped still renders — a neutral bell and a Title Cased label — so a new
+   notification type never disappears from the filter. */
 function typeIcon($t){
-    $m=['task_assigned'=>'fa-user-cog','work_order'=>'fa-clipboard-check',
-        'defect_report'=>'fa-exclamation-triangle','status_update'=>'fa-sync-alt',
-        'announcement'=>'fa-bullhorn','system'=>'fa-cog','reminder'=>'fa-clock',
-        'approval'=>'fa-check-circle','rejection'=>'fa-times-circle','alert'=>'fa-bell'];
+    $m=['new_defect_report'=>'fa-exclamation-triangle','sla_escalation'=>'fa-triangle-exclamation',
+        'report_status'=>'fa-sync-alt','follow_up'=>'fa-comment-dots',
+        'task_assigned'=>'fa-user-cog','task_completed'=>'fa-circle-check',
+        'registration'=>'fa-user-plus','budget_request'=>'fa-peso-sign',
+        'announcement'=>'fa-bullhorn','system'=>'fa-cog'];
     return 'fas '.($m[$t]??'fa-bell');
 }
 function typeColor($t){
-    $m=['task_assigned'=>'#2563EB','work_order'=>'#7C3AED','defect_report'=>'#DC2626',
-        'status_update'=>'#0891B2','announcement'=>'#D4A017','system'=>'#6B7280',
-        'reminder'=>'#D97706','approval'=>'#16A34A','rejection'=>'#DC2626','alert'=>'#C2410C'];
+    $m=['new_defect_report'=>'#DC2626','sla_escalation'=>'#C2410C',
+        'report_status'=>'#0891B2','follow_up'=>'#7C3AED',
+        'task_assigned'=>'#2563EB','task_completed'=>'#16A34A',
+        'registration'=>'#0891B2','budget_request'=>'#D97706',
+        'announcement'=>'#D4A017','system'=>'#6B7280'];
     return $m[$t]??'#7B1D1D';
 }
 function typeBg($t){
-    $m=['task_assigned'=>'#EFF6FF','work_order'=>'#F5F3FF','defect_report'=>'#FFF1F2',
-        'status_update'=>'#ECFEFF','announcement'=>'#FEF9E7','system'=>'#F9FAFB',
-        'reminder'=>'#FFFBEB','approval'=>'#F0FDF4','rejection'=>'#FFF1F2','alert'=>'#FFF7ED'];
+    $m=['new_defect_report'=>'#FFF1F2','sla_escalation'=>'#FFF7ED',
+        'report_status'=>'#ECFEFF','follow_up'=>'#F5F3FF',
+        'task_assigned'=>'#EFF6FF','task_completed'=>'#F0FDF4',
+        'registration'=>'#ECFEFF','budget_request'=>'#FFFBEB',
+        'announcement'=>'#FEF9E7','system'=>'#F9FAFB'];
     return $m[$t]??'#FDECEA';
 }
 function typeLbl($t){
-    $m=['task_assigned'=>'Task Assigned','work_order'=>'Work Order','defect_report'=>'Defect Report',
-        'status_update'=>'Status Update','announcement'=>'Announcement','system'=>'System',
-        'reminder'=>'Reminder','approval'=>'Approval','rejection'=>'Rejection','alert'=>'Alert'];
-    return $m[$t]??ucfirst(str_replace('_',' ',$t));
+    $m=['new_defect_report'=>'New Defect Report','sla_escalation'=>'SLA Escalation',
+        'report_status'=>'Status Update','follow_up'=>'Follow Up',
+        'task_assigned'=>'Task Assigned','task_completed'=>'Task Completed',
+        'registration'=>'Registration','budget_request'=>'Budget Request',
+        'announcement'=>'Broadcast','system'=>'System'];
+    return $m[$t]??ucwords(str_replace('_',' ',$t));
 }
 function timeAgo($ts) {
     if (!$ts) return '—';
@@ -570,10 +580,19 @@ textarea.fc{resize:vertical;min-height:88px;}
         </a>
 
         <?php
-        $all_types=['task_assigned','work_order','defect_report','status_update','announcement','approval','rejection','reminder','alert','system'];
+        /* The types come from the notifications themselves, not a hand-written
+           list. The old list offered work_order, announcement, approval,
+           rejection, reminder, alert and system -- none of which are ever
+           written -- while the seven types that ARE written (new_defect_report,
+           sla_escalation, report_status, follow_up, task_completed,
+           registration, budget_request) had no filter at all. The panel
+           advertised filtering and filtered nothing.
+           $type_counts is already GROUP BY type ORDER BY n DESC. */
+        $all_types = array_keys($type_counts);
+        if ($tf !== 'all' && !in_array($tf, $all_types, true)) { $all_types[] = $tf; }
         foreach($all_types as $t):
+          if ($t === '' || $t === null) continue;
           $tc=$type_counts[$t]??null;
-          if(!$tc && $tf!==$t) continue; // hide empty types unless active
           $cnt=(int)($tc['n']??0);
           $unr=(int)($tc['unread']??0);
         ?>
@@ -620,12 +639,7 @@ textarea.fc{resize:vertical;min-height:88px;}
             <span style="font-family:'Outfit',sans-serif;font-size:.78rem;font-weight:800;color:var(--m3);margin-left:.35rem;">(<?php echo $total_count;?>)</span>
           </h3>
           <div class="np-acts">
-            <?php if($unread_count>0):?>
-            <form method="POST" action="admin_notifications.php" style="display:inline;">
-              <input type="hidden" name="action" value="mark_all_read">
-              <button class="btn btn-ghost btn-sm" type="submit"><i class="fas fa-check-double"></i> Mark all read</button>
-            </form>
-            <?php endif;?>
+            <!-- Mark all read lives once, in the page header action bar. -->
             <button class="btn btn-ghost btn-sm" onclick="location.reload()"><i class="fas fa-sync-alt"></i></button>
           </div>
         </div>

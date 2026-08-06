@@ -224,6 +224,48 @@ if (isset($_GET['view_id'])) {
     }
 }
 
+/* ─── DETAIL AS JSON ───────────────────────────────────────
+   Opening a report used to be a full page load (?view_id=), which threw away
+   the filters, the scroll position and the view you were in just to read one
+   record. Same data, same enrichment as the block above — the list fetches this
+   and fills a modal. ?view_id= still works untouched, so the page degrades
+   cleanly if JS is off and every existing link keeps functioning. */
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'detail') {
+    while (ob_get_level() > 0) { ob_end_clean(); }
+    header('Content-Type: application/json; charset=utf-8');
+    header('X-Content-Type-Options: nosniff');
+
+    $d = getDefectReportById((string)($_GET['id'] ?? ''));
+    if (!$d) {
+        http_response_code(404);
+        echo json_encode(['ok' => false, 'message' => 'Report not found.']);
+        exit;
+    }
+    $eq = getEquipmentById($d['equipment_id'] ?? '');
+    echo json_encode([
+        'ok'         => true,
+        'id'         => $d['report_id'],
+        'status'     => $d['status'] ?? '',
+        'statusLbl'  => stLbl($d['status'] ?? ''),
+        'priority'   => $d['priority'] ?? '',
+        'priorityLbl'=> prLbl($d['priority'] ?? ''),
+        'equipment'  => $eq['equipment_name'] ?? '—',
+        'asset'      => $eq['asset_tag'] ?? '—',
+        'location'   => $eq['location'] ?? '—',
+        'reporter'   => $d['reporter_name'] ?? 'N/A',
+        'reporterEmail' => $d['reporter_email'] ?? '',
+        'technician' => !empty($d['technician_name']) ? $d['technician_name'] : 'Unassigned',
+        'dept'       => $d['department_assigned'] ?? '',
+        'reported'   => !empty($d['report_date']) ? date('M j, Y · g:i A', strtotime($d['report_date'])) : '—',
+        'issue'      => $d['issue_description'] ?? '',
+        'notes'      => $d['admin_notes'] ?? '',
+        'photos'     => photoListFromRow($d),
+        'videos'     => videoListFromRow($d),
+        'fullUrl'    => '?view_id=' . rawurlencode((string)$d['report_id']),
+    ], JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
 /* ─── COUNTS ───────────────────────────────────────────── */
 function cnt($arr, $fn) { return count(array_filter($arr, $fn)); }
 $c_all  = count($all_raw);
@@ -721,6 +763,57 @@ textarea.fc{resize:vertical;min-height:70px;}
   border-radius:0 0 var(--r4) var(--r4);}
 
 /* ── LIGHTBOX ────────────────────────────────────────── */
+/* ── REPORT DETAIL MODAL ──────────────────────────── */
+.rd-mo{position:fixed;inset:0;z-index:800;background:rgba(26,8,8,.55);
+  display:none;align-items:flex-start;justify-content:center;padding:2.5rem 1rem;overflow-y:auto;}
+.rd-mo.open{display:flex;}
+.rd-card{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r3);
+  width:100%;max-width:620px;box-shadow:0 24px 60px rgba(45,5,5,.3);
+  animation:becMoUp .14s cubic-bezier(.4,0,.2,1);margin:auto;}
+.rd-head{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;
+  padding:1.1rem 1.35rem .85rem;border-bottom:1px solid var(--bdr);}
+.rd-kicker{font-size:.6rem;text-transform:uppercase;letter-spacing:1.6px;
+  color:var(--t3);font-weight:800;}
+.rd-head h2{font-family:'Outfit',sans-serif;font-size:1.1rem;font-weight:800;
+  color:var(--t1);margin:.12rem 0 0;}
+.rd-x{width:32px;height:32px;flex-shrink:0;border-radius:50%;border:1px solid var(--bdr);
+  background:var(--s2);color:var(--t2);cursor:pointer;font-size:.8rem;
+  display:flex;align-items:center;justify-content:center;}
+.rd-x:hover{background:var(--m3);border-color:var(--m3);color:#fff;}
+.rd-body{padding:1.1rem 1.35rem;}
+.rd-loading{padding:2rem 0;text-align:center;color:var(--t3);font-size:.8rem;}
+.rd-badges{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.6rem;}
+.rd-badge{font-size:.64rem;font-weight:800;padding:.24rem .6rem;border-radius:20px;
+  text-transform:uppercase;letter-spacing:.4px;background:var(--s3);color:var(--t2);}
+.rd-eq{font-family:'Outfit',sans-serif;font-weight:800;font-size:1rem;color:var(--t1);}
+.rd-asset{font-size:.7rem;font-weight:700;color:var(--t3);margin-left:.25rem;}
+/* Two columns on a desktop dialog, one on a narrow screen. The old detail page
+   ran these as a single ragged column, which is what made it hard to scan. */
+.rd-grid{display:grid;grid-template-columns:1fr 1fr;gap:.4rem .9rem;margin-top:.75rem;}
+@media(max-width:520px){.rd-grid{grid-template-columns:1fr;}}
+.rd-fact{display:flex;flex-direction:column;gap:.1rem;padding:.4rem .55rem;
+  background:var(--s2);border-radius:var(--r1);min-width:0;}
+.rd-fk{font-size:.6rem;text-transform:uppercase;letter-spacing:.7px;
+  color:var(--t3);font-weight:800;display:flex;align-items:center;gap:.3rem;}
+.rd-fk i{font-size:.58rem;color:var(--m3);}
+.rd-fv{font-size:.78rem;color:var(--t1);font-weight:600;word-break:break-word;}
+.rd-sec{font-size:.6rem;text-transform:uppercase;letter-spacing:1.2px;
+  color:var(--t3);font-weight:800;margin:1rem 0 .35rem;}
+.rd-issue{font-size:.82rem;line-height:1.6;color:var(--t2);white-space:pre-line;
+  background:var(--s2);border-radius:var(--r1);padding:.65rem .8rem;}
+.rd-media{display:flex;flex-wrap:wrap;gap:.45rem;}
+.rd-thumb{width:74px;height:74px;padding:0;border-radius:var(--r1);overflow:hidden;
+  border:1.5px solid var(--bdr);background:var(--s1);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:border-color .16s;}
+.rd-thumb:hover{border-color:var(--m3);}
+.rd-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.rd-thumb-vid{background:var(--m1);color:var(--g3);font-size:1.1rem;}
+.rd-nomedia{font-size:.72rem;color:var(--t4);display:flex;align-items:center;gap:.4rem;}
+.rd-foot{display:flex;justify-content:flex-end;gap:.45rem;flex-wrap:wrap;
+  padding:.85rem 1.35rem 1.1rem;border-top:1px solid var(--bdr);background:var(--s2);
+  border-radius:0 0 var(--r3) var(--r3);}
+#lbVid video{max-width:90vw;max-height:88vh;border-radius:var(--r2);display:block;}
+
 .lb{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:999;
   display:none;align-items:center;justify-content:center;cursor:zoom-out;}
 .lb.open{display:flex;animation:moFade .2s ease;}
@@ -963,7 +1056,7 @@ textarea.fc{resize:vertical;min-height:70px;}
               <i class="fas fa-folder-open"></i>No reports match your current filters.
             </div></td></tr>
             <?php else: foreach($reports as $r): ?>
-            <tr class="rep-row" tabindex="0" role="button" aria-label="Open report details" data-view-url="?view_id=<?php echo $r['report_id']; ?>&status=<?php echo $sf; ?>&priority=<?php echo $pf; ?>&dept=<?php echo $df; ?>&search=<?php echo urlencode($sq); ?>&view=<?php echo $vw; ?>">
+            <tr class="rep-row" tabindex="0" role="button" aria-label="Open report details" data-rid="<?php echo esc($r['report_id']); ?>" data-view-url="?view_id=<?php echo $r['report_id']; ?>&status=<?php echo $sf; ?>&priority=<?php echo $pf; ?>&dept=<?php echo $df; ?>&search=<?php echo urlencode($sq); ?>&view=<?php echo $vw; ?>">
               <td><span class="rid"><?php echo esc($r['report_id']); ?></span></td>
               <td>
                 <div class="en"><?php echo esc($r['equipment_name']??'N/A'); ?></div>
@@ -1451,7 +1544,28 @@ textarea.fc{resize:vertical;min-height:70px;}
 <!-- Lightbox -->
 <div class="lb" id="lb" onclick="closeLb()">
   <img id="lbImg" src="" alt="Report photo">
+  <!-- Videos get their own element rather than replacing the lightbox markup,
+       which would destroy #lbImg and break photo viewing afterwards. -->
+  <div id="lbVid"></div>
   <button class="lb-close" onclick="closeLb()"><i class="fas fa-times"></i></button>
+</div>
+
+<!-- Report detail, opened in place instead of navigating to ?view_id= -->
+<div class="rd-mo" id="rdMo" onclick="if(event.target===this)closeReport()" role="dialog" aria-modal="true" aria-labelledby="rdTitle">
+  <div class="rd-card">
+    <div class="rd-head">
+      <div>
+        <div class="rd-kicker">Defect report</div>
+        <h2 id="rdTitle">—</h2>
+      </div>
+      <button type="button" class="rd-x" onclick="closeReport()" aria-label="Close"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="rd-body" id="rdBody"></div>
+    <div class="rd-foot">
+      <a class="btn btn-maroon btn-sm" id="rdFull" href="#"><i class="fas fa-up-right-from-square"></i> Open full record &amp; actions</a>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="closeReport()">Close</button>
+    </div>
+  </div>
 </div>
 
 <!-- Hidden delete form -->
@@ -1524,10 +1638,16 @@ document.addEventListener('DOMContentLoaded', rvInitPrio);
 
 /* ── LIGHTBOX ─────────────────────────────────────── */
 function openLb(src) {
-  document.getElementById('lbImg').src = src;
+  document.getElementById('lbVid').innerHTML = '';
+  const img = document.getElementById('lbImg');
+  img.style.display = '';
+  img.src = src;
   document.getElementById('lb').classList.add('open');
 }
-function closeLb() { document.getElementById('lb').classList.remove('open'); }
+function closeLb() {
+  document.getElementById('lb').classList.remove('open');
+  document.getElementById('lbVid').innerHTML = '';   // stops a playing video
+}
 document.addEventListener('keydown', e => { if(e.key==='Escape') { closeLb(); } });
 
 function setMainPhoto(src, el) {
@@ -1540,19 +1660,91 @@ function setMainPhoto(src, el) {
   if (el) el.classList.add('act');
 }
 
+/* ── REPORT DETAIL MODAL ──────────────────────────────
+   A row used to navigate away, losing the filters, the scroll position and the
+   view. It now fetches the same record as JSON and shows it in place. If the
+   fetch fails for any reason the original full-page URL is still used, so the
+   worst case is the behaviour we had before. */
+function dEsc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function openReport(rid, fallbackUrl) {
+  const mo   = document.getElementById('rdMo');
+  const body = document.getElementById('rdBody');
+  const ttl  = document.getElementById('rdTitle');
+  ttl.textContent = rid;
+  body.innerHTML = '<div class="rd-loading"><i class="fas fa-circle-notch fa-spin"></i> Loading report…</div>';
+  mo.classList.add('open');
+  document.getElementById('rdFull').setAttribute('href', fallbackUrl || ('?view_id=' + encodeURIComponent(rid)));
+
+  fetch('admin_defect_reports.php?ajax=detail&id=' + encodeURIComponent(rid), {
+      credentials: 'same-origin', headers: { 'Accept': 'application/json' }
+    })
+    .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
+    .then(d => {
+      if (!d.ok) throw new Error(d.message || 'Not found');
+      const fact = (icon, label, val) => !val ? '' :
+        '<div class="rd-fact"><span class="rd-fk"><i class="fas ' + icon + '"></i> ' + label + '</span>'
+        + '<span class="rd-fv">' + dEsc(val) + '</span></div>';
+
+      let media = '';
+      (d.photos || []).forEach(p => {
+        media += '<button type="button" class="rd-thumb" onclick="openLb(\'' + dEsc(p) + '\')">'
+               + '<img src="' + dEsc(p) + '" alt="Reported defect" loading="lazy"></button>';
+      });
+      (d.videos || []).forEach(v => {
+        media += '<button type="button" class="rd-thumb rd-thumb-vid" onclick="openVid(\'' + dEsc(v) + '\')">'
+               + '<i class="fas fa-play"></i></button>';
+      });
+
+      body.innerHTML =
+        '<div class="rd-badges">'
+          + '<span class="rd-badge st-' + dEsc(d.status) + '">' + dEsc(d.statusLbl) + '</span>'
+          + '<span class="rd-badge pr-' + dEsc(d.priority) + '">' + dEsc(d.priorityLbl) + ' priority</span>'
+        + '</div>'
+        + '<div class="rd-eq">' + dEsc(d.equipment) + (d.asset && d.asset !== '—' ? ' <span class="rd-asset">' + dEsc(d.asset) + '</span>' : '') + '</div>'
+        + '<div class="rd-grid">'
+          + fact('fa-location-dot', 'Location', d.location)
+          + fact('fa-calendar-day', 'Reported', d.reported)
+          + fact('fa-user', 'Reporter', d.reporter)
+          + fact('fa-envelope', 'Email', d.reporterEmail)
+          + fact('fa-user-gear', 'Technician', d.technician)
+          + fact('fa-building', 'Department', d.dept)
+        + '</div>'
+        + '<div class="rd-sec">Issue reported</div>'
+        + '<div class="rd-issue">' + (d.issue ? dEsc(d.issue) : '<em>No description given.</em>') + '</div>'
+        + (d.notes ? '<div class="rd-sec">PMO notes</div><div class="rd-issue">' + dEsc(d.notes) + '</div>' : '')
+        + '<div class="rd-sec">Attached evidence</div>'
+        + (media ? '<div class="rd-media">' + media + '</div>'
+                 : '<div class="rd-nomedia"><i class="fas fa-image"></i> No photo or video attached</div>');
+    })
+    .catch(() => {
+      // Fall back to the page that always worked rather than showing an error.
+      location.href = fallbackUrl || ('?view_id=' + encodeURIComponent(rid));
+    });
+}
+function closeReport(){ document.getElementById('rdMo').classList.remove('open'); }
+function openVid(src){
+  const img = document.getElementById('lbImg');
+  img.style.display = 'none';                     // keep the element, just hide it
+  document.getElementById('lbVid').innerHTML =
+    '<video src="' + dEsc(src) + '" controls autoplay playsinline></video>';
+  document.getElementById('lb').classList.add('open');
+}
+
 document.querySelectorAll('#mainTbl tbody tr.rep-row').forEach(tr => {
+  const open = () => openReport(tr.getAttribute('data-rid'), tr.getAttribute('data-view-url'));
   tr.addEventListener('click', (e) => {
     if (e.target.closest('a,button,input,select,textarea,label')) return;
-    const u = tr.getAttribute('data-view-url');
-    if (u) location.href = u;
+    open();
   });
   tr.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      const u = tr.getAttribute('data-view-url');
-      if (u) location.href = u;
-    }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
   });
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeReport();
 });
 /* ── DELETE ───────────────────────────────────────── */
 function delRep(rid) {
