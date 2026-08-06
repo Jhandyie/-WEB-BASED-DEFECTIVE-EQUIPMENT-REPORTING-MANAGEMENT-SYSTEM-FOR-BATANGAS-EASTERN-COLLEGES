@@ -9,6 +9,29 @@
  */
 require_once __DIR__ . '/../config/database.php';
 
+if (!function_exists('becTicketCounterResync')) {
+    /**
+     * Drag the per-year counter up past the highest ticket that actually exists.
+     *
+     * The counter only advances when generateTicketNumber() runs, so anything
+     * that writes defect_reports with an explicit report_id — a seeding script,
+     * a restore, a bulk import — leaves it behind. Every ticket it then hands
+     * out collides with a row that is already there, and report submission
+     * fails outright until the counter catches up. It has, in production.
+     */
+    function becTicketCounterResync(PDO $pdo, int $year): void {
+        $pdo->prepare(
+            "UPDATE public.ticket_counters
+                SET last_seq = GREATEST(last_seq, COALESCE((
+                        SELECT MAX(CAST(SUBSTRING(report_id FROM 'BEC-[0-9]{4}-([0-9]+)\$') AS INTEGER))
+                          FROM public.defect_reports
+                         WHERE report_id ~ ('^BEC-' || :y1 || '-[0-9]+\$')
+                    ), 0))
+              WHERE year = :y2"
+        )->execute(['y1' => $year, 'y2' => $year]);
+    }
+}
+
 if (!function_exists('generateTicketNumber')) {
     function generateTicketNumber(): string {
         $year = (int)date('Y');
@@ -16,15 +39,27 @@ if (!function_exists('generateTicketNumber')) {
         try {
             if (isPgSqlDriver()) {
                 $pdo = getPgsqlPdoConnection();
-                $stmt = $pdo->prepare(
+                $bump = $pdo->prepare(
                     'INSERT INTO public.ticket_counters (year, last_seq) VALUES (:y, 1)
                      ON CONFLICT (year) DO UPDATE SET last_seq = public.ticket_counters.last_seq + 1
                      RETURNING last_seq'
                 );
-                $stmt->execute(['y' => $year]);
-                $seq = (int)$stmt->fetchColumn();
-                if ($seq > 0) {
-                    return sprintf('BEC-%d-%06d', $year, $seq);
+                $taken = $pdo->prepare('SELECT 1 FROM public.defect_reports WHERE report_id = :id LIMIT 1');
+
+                // Normal path is one round trip. Only a counter that has drifted
+                // behind pays for the resync, and then only once.
+                for ($attempt = 0; $attempt < 3; $attempt++) {
+                    $bump->execute(['y' => $year]);
+                    $seq = (int)$bump->fetchColumn();
+                    if ($seq < 1) { break; }
+                    $id = sprintf('BEC-%d-%06d', $year, $seq);
+
+                    $taken->execute(['id' => $id]);
+                    if ($taken->fetchColumn() === false) {
+                        return $id;                    // free — hand it out
+                    }
+                    error_log("generateTicketNumber: {$id} already exists, resyncing counter");
+                    becTicketCounterResync($pdo, $year);
                 }
             } else {
                 $conn = getDBConnection();
