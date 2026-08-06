@@ -93,6 +93,10 @@ $lpBaseUrl = $lpScheme . '://' . $lpHost . $lpDir;
 <link rel="apple-touch-icon" href="assets/logs.png">
 <link rel="shortcut icon" href="assets/logs.png">
 <style>
+/* Root size bump — MUST stay in <head>. Setting this from an end-of-body
+   include repaints, then re-lays-out, the whole page on every load. */
+html{font-size:106.25%;scrollbar-gutter:stable;}
+
 :root {
   --maroon: #7B1D1D;
   --maroon-d: #4A0E0E;
@@ -1011,7 +1015,7 @@ a { text-decoration: none; color: inherit; }
   b.addEventListener('click',function(){window.scrollTo({top:0,behavior:reduce?'auto':'smooth'});});
 })();</script>
 
-<?php require __DIR__ . '/includes/site_transitions.php'; ?>
+<?php require __DIR__ . '/includes/site_ui.php'; ?>
 <?php require __DIR__ . '/includes/becca_widget.php'; ?>
 </body>
 </html>

@@ -269,6 +269,10 @@ function build_url($extra=[]) {
 <link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
 <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <style>
+/* Root size bump — MUST stay in <head>. Setting this from an end-of-body
+   include repaints, then re-lays-out, the whole page on every load. */
+html{font-size:106.25%;scrollbar-gutter:stable;}
+
 :root{
   --m:#7B1D1D;--md:#4A0E0E;--mdd:#2D0505;--ms:rgba(123,29,29,.08);--ml:rgba(123,29,29,.04);
   --g:#C9960C;--gl:#F0C040;--gb:#FFFBEF;
@@ -830,7 +834,6 @@ function closeModalDirect() {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModalDirect(); });
 </script>
 <?php require __DIR__ . '/site_footer.php'; ?>
-<?php require __DIR__ . '/site_reveal.php'; ?>
-<?php require __DIR__ . '/site_transitions.php'; ?>
+<?php require __DIR__ . '/site_ui.php'; ?>
 </body>
 </html>

@@ -382,6 +382,10 @@ function tr_progress(array $timeline, string $status = ''): array {
 <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <link rel="stylesheet" href="css/typography.css">
 <style>
+/* Root size bump — MUST stay in <head>. Setting this from an end-of-body
+   include repaints, then re-lays-out, the whole page on every load. */
+html{font-size:106.25%;scrollbar-gutter:stable;}
+
 :root{
   --m:#7B1D1D;--md:#4A0E0E;--g:#C9960C;--k:#1C1008;--k2:#5C3838;--k3:#9E8070;--p:#F8F3EA;--s:#FFFFFF;--b:#E8DDD0;
 }
@@ -395,7 +399,10 @@ h1{font-family:'Fraunces',serif;font-size:1.95rem;margin:.2rem 0 .35rem;letter-s
 .sub{color:var(--k3);line-height:1.6;margin-bottom:1rem}
 form{display:flex;gap:.7rem;flex-wrap:wrap}
 .search-wrap{position:relative;flex:1 1 260px}
-.input{flex:1 1 260px;padding:.85rem 1rem;border:1.5px solid var(--b);border-radius:12px;font:inherit}
+/* width:100%, not flex — this input's parent is .search-wrap (position:relative,
+   a normal block), so flex properties on it were inert and it fell back to the
+   intrinsic ~177px input width. It only looked right on a wide screen. */
+.input{width:100%;box-sizing:border-box;padding:.85rem 1rem;border:1.5px solid var(--b);border-radius:12px;font:inherit}
 .btn{padding:.85rem 1.2rem;border:none;border-radius:12px;background:var(--md);color:#fff;font:inherit;font-weight:600;cursor:pointer}
 .search-dd{position:absolute;top:calc(100% + 4px);left:0;right:0;z-index:40;background:var(--s);border:1.5px solid var(--m);border-radius:12px;box-shadow:0 10px 30px rgba(44,10,10,.15);max-height:280px;overflow-y:auto;display:none}
 .search-dd.open{display:block}
@@ -708,8 +715,7 @@ html{scroll-behavior:smooth}
     </div>
   </div>
 <?php require __DIR__ . '/includes/site_footer.php'; ?>
-<?php require __DIR__ . '/includes/site_reveal.php'; ?>
-<?php require __DIR__ . '/includes/site_transitions.php'; ?>
+<?php require __DIR__ . '/includes/site_ui.php'; ?>
 <script>
 const trackInput = document.getElementById('track-search');
 const trackDropdown = document.getElementById('track-dropdown');

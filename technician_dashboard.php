@@ -505,6 +505,10 @@ foreach ($notifications as $n) { $notifGroups[notifBucket((string)($n['created_d
 <link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
 <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <style>
+/* Root size bump — MUST stay in <head>. Setting this from an end-of-body
+   include repaints, then re-lays-out, the whole page on every load. */
+html{font-size:106.25%;scrollbar-gutter:stable;}
+
 /* ============================================================================
    BEC PMO — TECHNICIAN PORTAL
    Rebuilt from scratch on the admin design system (deep-maroon sidebar,
@@ -2155,6 +2159,6 @@ if ('serviceWorker' in navigator) {
 <!-- Repair photos are taken on a phone in the field; shrink them there. -->
 <script src="assets/photo_shrink.js"></script>
 <?php require __DIR__ . '/includes/technician_assistant.php'; ?>
-<?php require __DIR__ . '/includes/site_transitions.php'; ?>
+<?php require __DIR__ . '/includes/site_ui.php'; ?>
 </body>
 </html>

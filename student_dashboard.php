@@ -781,6 +781,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <link rel="stylesheet" href="css/typography.css">
 <style>
+/* Root size bump — MUST stay in <head>. Setting this from an end-of-body
+   include repaints, then re-lays-out, the whole page on every load. */
+html{font-size:106.25%;scrollbar-gutter:stable;}
+
 :root {
   --maroon: #7B1D1D;
   --maroon-d: #4A0E0E;
@@ -2766,7 +2770,7 @@ window.addEventListener('DOMContentLoaded', function () {
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && modal.classList.contains('show')) close(); });
 })();
 </script>
-<?php require __DIR__ . '/includes/site_transitions.php'; ?>
+<?php require __DIR__ . '/includes/site_ui.php'; ?>
 <script src="assets/input_guard.js" defer></script>
 <script src="assets/camera_capture.js"></script>
 <!-- Downscales camera photos on the device before they upload. Not deferred:

@@ -165,6 +165,10 @@ if ($stage === 'verify' && !empty($_SESSION['otp_email'])) {
 <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <link rel="stylesheet" href="css/typography.css">
 <style>
+/* Root size bump — MUST stay in <head>. Setting this from an end-of-body
+   include repaints, then re-lays-out, the whole page on every load. */
+html{font-size:106.25%;scrollbar-gutter:stable;}
+
 :root {
   --maroon: #7B1D1D;
   --maroon-d: #4A0E0E;
@@ -1720,8 +1724,7 @@ function escAttr(s) { return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39
 
 </script>
 
-<?php require __DIR__ . '/includes/site_reveal.php'; ?>
-<?php require __DIR__ . '/includes/site_transitions.php'; ?>
+<?php require __DIR__ . '/includes/site_ui.php'; ?>
 <?php require __DIR__ . '/includes/csrf_inject.php'; ?>
 <script src="assets/input_guard.js" defer></script>
 <?php /* ?v=<mtime> so a changed loader reaches returning visitors: Apache sends
