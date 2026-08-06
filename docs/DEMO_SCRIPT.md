@@ -46,7 +46,7 @@ needs an account to follow their case."*
 - Dashboard tour, briefly: KPI cards, **Asset Health** scores, priority alerts.
 - **Defect Reports** → open the new report → **Mark as Received**
   (point at Gmail: the reporter is notified) → **Approve** (set department + priority —
-  mention a work order is auto-created).
+  the report moves straight to Ready for Assignment).
 
 ### 5. Assignment (1 min)
 **Assign Technicians** → pick the report → click a technician card (workload is shown).

@@ -33,63 +33,6 @@ function adminWorkflowNotifyRole($conn, string $role, string $message, string $r
     }
 }
 
-function autoCreateWorkOrderFromReport($reportId, $adminId, $department, $priority, $adminNotes = '') {
-    $conn = getDBConnection();
-
-    $tbl = $conn->query("SHOW TABLES LIKE 'work_orders'");
-    if (!$tbl || $tbl->num_rows === 0) {
-        return ['status' => 'skipped'];
-    }
-
-    $existingStmt = $conn->prepare("SELECT work_order_id FROM work_orders WHERE report_id = ? AND status != 'deleted' LIMIT 1");
-    $existingStmt->bind_param('s', $reportId);
-    $existingStmt->execute();
-    $existing = $existingStmt->get_result()->fetch_assoc();
-    $existingStmt->close();
-
-    if (!empty($existing['work_order_id'])) {
-        return ['status' => 'exists', 'work_order_id' => $existing['work_order_id']];
-    }
-
-    $report = getDefectReportById($reportId);
-    if (!$report) {
-        return ['status' => 'error', 'message' => 'report not found'];
-    }
-
-    $priority = in_array($priority, ['critical', 'high', 'medium', 'low'], true) ? $priority : 'medium';
-    // Work-order due date follows the configured SLA window (config/sla.php).
-    $dueDate = date('Y-m-d', time() + becSlaSeconds($priority));
-
-    $equipmentName = trim((string)($report['equipment_name'] ?? 'Equipment'));
-    $issue = trim((string)($report['issue_description'] ?? 'Reported issue'));
-    $title = $equipmentName . ': ' . $issue;
-    if ($title === ': ') {
-        $title = 'Maintenance Request for ' . $reportId;
-    }
-    if (strlen($title) > 255) {
-        $title = substr($title, 0, 252) . '...';
-    }
-
-    $notes = 'Auto-created from defect report ' . $reportId . '.';
-    $adminNotes = trim((string)$adminNotes);
-    if ($adminNotes !== '') {
-        $notes .= "\n\nAdmin notes:\n" . $adminNotes;
-    }
-
-    $workOrderId = 'WO-' . strtoupper(substr(md5(uniqid((string)$reportId, true)), 0, 6));
-    $assignedTech = null;
-
-    $insert = $conn->prepare("INSERT INTO work_orders (work_order_id, report_id, title, department, priority, due_date, assigned_technician, notes, status, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,'open',?,NOW())");
-    $insert->bind_param('sssssssss', $workOrderId, $reportId, $title, $department, $priority, $dueDate, $assignedTech, $notes, $adminId);
-    if (!$insert->execute()) {
-        $err = $insert->error;
-        $insert->close();
-        return ['status' => 'error', 'message' => $err];
-    }
-    $insert->close();
-
-    return ['status' => 'created', 'work_order_id' => $workOrderId];
-}
 
 /* ─── POST ACTIONS ─────────────────────────────────────── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -163,16 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'Your report has been approved by the Property Management Office. A technician will be assigned to handle the repair shortly.'
         );
 
-        $woResult = autoCreateWorkOrderFromReport($reportId, $admin_id, $dept, $priority, $adminNotes);
-        if (($woResult['status'] ?? '') === 'created') {
-            $_SESSION['flash'] = ['ok', 'Report approved and categorised. Work order ' . ($woResult['work_order_id'] ?? '') . ' was auto-created.'];
-        } elseif (($woResult['status'] ?? '') === 'exists') {
-            $_SESSION['flash'] = ['ok', 'Report approved and categorised. Existing work order ' . ($woResult['work_order_id'] ?? '') . ' already linked.'];
-        } elseif (($woResult['status'] ?? '') === 'error') {
-            $_SESSION['flash'] = ['err', 'Report approved, but auto-creating work order failed: ' . ($woResult['message'] ?? 'unknown error')];
-        } else {
-            $_SESSION['flash'] = ['ok', 'Report approved and categorised.'];
-        }
+        $_SESSION['flash'] = ['ok', 'Report approved and categorised.'];
     }
     elseif ($act === 'reject') {
         $rejReason = trim((string)($_POST['rejection_reason'] ?? ''));
@@ -209,15 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'Repair Verified & Resolved',
             'The repair on your reported equipment has been verified by the Property Management Office and your report is now resolved. Thank you for helping keep BEC facilities in good condition.'
         );
-        $woResult = autoCreateWorkOrderFromReport($reportId, $admin_id, $vDept, $vPrio, $vNotes);
-
-        if (($woResult['status'] ?? '') === 'created') {
-            $_SESSION['flash'] = ['ok', 'Completion verified and report closed. Work order ' . ($woResult['work_order_id'] ?? '') . ' was auto-created.'];
-        } elseif (($woResult['status'] ?? '') === 'exists') {
-            $_SESSION['flash'] = ['ok', 'Completion verified and report closed. Existing work order ' . ($woResult['work_order_id'] ?? '') . ' already linked.'];
-        } else {
-            $_SESSION['flash'] = ['ok', 'Completion verified and report closed.'];
-        }
+        $_SESSION['flash'] = ['ok', 'Completion verified and report closed.'];
     }
     elseif ($act === 'return_to_progress') {
         updateDefectReport($reportId, ['status' => 'in_progress']);

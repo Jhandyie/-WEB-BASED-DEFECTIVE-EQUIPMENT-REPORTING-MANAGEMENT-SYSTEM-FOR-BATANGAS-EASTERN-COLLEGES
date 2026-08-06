@@ -39,7 +39,6 @@ function scalar($conn, $sql, $types='', ...$params) {
 }
 function esc($s){return htmlspecialchars((string)($s??''),ENT_QUOTES,'UTF-8');}
 
-$has_work_orders = (bool)$conn->query("SHOW TABLES LIKE 'work_orders'")->num_rows;
 $drCols = [];
 $drColRes = $conn->query("SHOW COLUMNS FROM defect_reports");
 while ($drColRes && ($drRow = $drColRes->fetch_assoc())) {
@@ -65,9 +64,10 @@ $kpi_total_tech = scalar($conn,"SELECT COUNT(*) FROM users WHERE role='technicia
 $kpi_reports    = scalar($conn,"SELECT COUNT(*) FROM defect_reports WHERE report_date BETWEEN ? AND ?","ss",$df_ts,$dt_ts);
 $kpi_resolved   = scalar($conn,"SELECT COUNT(*) FROM defect_reports WHERE status IN('completed','verified','closed') AND report_date BETWEEN ? AND ?","ss",$df_ts,$dt_ts);
 $kpi_pending    = scalar($conn,"SELECT COUNT(*) FROM defect_reports WHERE status='reported'");
-$kpi_wos        = $has_work_orders ? scalar($conn,"SELECT COUNT(*) FROM work_orders WHERE created_at BETWEEN ? AND ?","ss",$df,$dt) : 0;
+// Work orders were removed; the lifecycle now lives entirely in defect_reports.
+$kpi_inprog     = scalar($conn,"SELECT COUNT(*) FROM defect_reports WHERE status IN('assigned','accepted','in_progress')");
 $kpi_crit       = scalar($conn,"SELECT COUNT(*) FROM defect_reports WHERE priority='critical' AND status NOT IN('completed','verified','closed','rejected','deleted')");
-$kpi_overdue_wo = $has_work_orders ? scalar($conn,"SELECT COUNT(*) FROM work_orders WHERE due_date < CURDATE() AND status NOT IN('completed','closed','deleted')") : 0;
+$kpi_unassigned = scalar($conn,"SELECT COUNT(*) FROM defect_reports WHERE status IN('pmo_review','ready_for_assignment')");
 
 $resolution_rate = $kpi_reports > 0 ? round(($kpi_resolved / $kpi_reports) * 100) : 0;
 
@@ -161,16 +161,7 @@ $tech_res = q($conn,"
     GROUP BY u.user_id ORDER BY done DESC, total DESC LIMIT 8
 ","ss",$df_ts,$dt_ts)->fetch_all(MYSQLI_ASSOC);
 
-/* ─── CHART 8: Work order status breakdown ───────────── */
-$wo_res = $has_work_orders
-    ? q($conn,"
-    SELECT status, COUNT(*) AS n FROM work_orders
-    WHERE created_at BETWEEN ? AND ? AND status!='deleted'
-    GROUP BY status ORDER BY n DESC
-","ss",$df,$dt)->fetch_all(MYSQLI_ASSOC)
-    : [];
-$wo_labels = array_column($wo_res,'status');
-$wo_vals   = array_column($wo_res,'n');
+/* Chart 8 (work-order status) removed with the work-order module. */
 
 /* ─── CHART 9: Monthly trend (last 12 months) ───────── */
 $trend_res = q($conn,"
@@ -478,8 +469,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
       </div>
       <div class="kcard" style="--kc:#2563EB;--kb:#EFF6FF;">
         <div class="kico"><i class="fas fa-clipboard-check"></i></div>
-        <div class="knum" id="kn3"><?php echo $kpi_wos;?></div>
-        <div class="klbl">Work Orders</div>
+        <div class="knum" id="kn3"><?php echo $kpi_inprog;?></div>
+        <div class="klbl">In Progress</div>
       </div>
       <div class="kcard" style="--kc:var(--m3);--kb:#FEF9E7;">
         <div class="kico"><i class="fas fa-percentage"></i></div>
@@ -553,8 +544,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
               <span class="stat-val <?php echo $avg_resolution_days<=3?'good':($avg_resolution_days<=7?'warn':'bad');?>"><?php echo $avg_resolution_days;?>d</span>
             </div>
             <div class="stat-row" style="padding:.45rem .75rem;background:var(--s2);border-radius:var(--r1);">
-              <span class="stat-lbl"><i class="fas fa-exclamation-circle"></i> Overdue WOs</span>
-              <span class="stat-val <?php echo $kpi_overdue_wo>0?'bad':'good';?>"><?php echo $kpi_overdue_wo;?></span>
+              <span class="stat-lbl"><i class="fas fa-exclamation-circle"></i> Awaiting assignment</span>
+              <span class="stat-val <?php echo $kpi_unassigned>0?'warn':'good';?>"><?php echo $kpi_unassigned;?></span>
             </div>
           </div>
         </div>
@@ -675,35 +666,6 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
         </div>
       </div>
 
-      <!-- Work Orders donut + stats -->
-      <div class="cpanel" style="min-height:260px;">
-        <div class="cp-head">
-          <div><h3><i class="fas fa-clipboard-check"></i> Work Orders</h3>
-          <div class="cp-sub">Status breakdown in period</div></div>
-        </div>
-        <div class="cp-body" style="padding:.75rem 1rem 1rem;align-items:flex-start;gap:1rem;">
-          <?php if(empty($wo_labels)):?><div class="empty">No work orders.</div>
-          <?php else:?>
-          <div style="width:100%;display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:center;">
-            <canvas id="c8" style="height:180px;max-height:180px;"></canvas>
-            <div style="display:flex;flex-direction:column;gap:.35rem;">
-              <?php
-              $wo_colors=['open'=>['#EFF6FF','#2563EB'],'in_progress'=>['#F5F3FF','#7C3AED'],'completed'=>['#F0FDF4','#16A34A'],'closed'=>['#FAF7F0','#9C7A7A'],'on_hold'=>['#FFFBEB','#D97706']];
-              foreach($wo_res as $w):
-                $wbg=$wo_colors[$w['status']][0]??'#FAF7F0';
-                $wco=$wo_colors[$w['status']][1]??'#9C7A7A';
-                $wlbl=['open'=>'Open','in_progress'=>'In Progress','completed'=>'Completed','closed'=>'Closed','on_hold'=>'On Hold'][$w['status']]??ucfirst($w['status']);
-              ?>
-              <div style="display:flex;align-items:center;justify-content:space-between;background:<?php echo $wbg;?>;border-radius:var(--r1);padding:.35rem .6rem;">
-                <span style="font-size:.72rem;color:<?php echo $wco;?>;font-weight:700;"><?php echo $wlbl;?></span>
-                <span style="font-family:'Outfit',sans-serif;font-weight:800;color:<?php echo $wco;?>;"><?php echo (int)$w['n'];?></span>
-              </div>
-              <?php endforeach;?>
-            </div>
-          </div>
-          <?php endif;?>
-        </div>
-      </div>
     </div>
 
     <!-- ── ROW 6: Top reporters + Recent activity ── -->
@@ -975,23 +937,6 @@ new Chart(document.getElementById('c7'), {
 });
 <?php endif;?>
 
-/* ─── CHART 8: Work orders donut ─────────────────────── */
-<?php if(!empty($wo_labels)):
-  $woPal=['open'=>'#2563EB','in_progress'=>'#7C3AED','completed'=>'#16A34A','closed'=>'#9CA3AF','on_hold'=>'#D97706'];
-  $woColors = array_map(fn($s)=>$woPal[$s]??'#7B1D1D', $wo_labels);
-  $woLbls   = array_map(fn($s)=>['open'=>'Open','in_progress'=>'In Progress','completed'=>'Completed','closed'=>'Closed','on_hold'=>'On Hold'][$s]??ucfirst($s), $wo_labels);
-?>
-new Chart(document.getElementById('c8'), {
-  type:'doughnut',
-  data:{
-    labels:<?php echo jArr($woLbls);?>,
-    datasets:[{data:<?php echo jArr($wo_vals);?>,backgroundColor:<?php echo json_encode(array_values($woColors));?>,borderWidth:2,borderColor:'#FFFFFF',hoverOffset:6}]
-  },
-  options:{responsive:true,maintainAspectRatio:false,cutout:'70%',
-    plugins:{legend:{display:false}}
-  }
-});
-<?php endif;?>
 
 /* ─── ANIMATED KPI COUNTERS ──────────────────────────── */
 function animN(id, to, suffix='') {
@@ -1011,7 +956,7 @@ document.addEventListener('DOMContentLoaded', () => {
   animN('kn0', <?php echo $kpi_reports;?>);
   animN('kn1', <?php echo $kpi_resolved;?>);
   animN('kn2', <?php echo $kpi_pending;?>);
-  animN('kn3', <?php echo $kpi_wos;?>);
+  animN('kn3', <?php echo $kpi_inprog;?>);
   animN('kn4', <?php echo $resolution_rate;?>, '%');
   animN('kn5', <?php echo $avg_resolution_days;?>, 'd');
   animN('kn6', <?php echo $kpi_crit;?>);

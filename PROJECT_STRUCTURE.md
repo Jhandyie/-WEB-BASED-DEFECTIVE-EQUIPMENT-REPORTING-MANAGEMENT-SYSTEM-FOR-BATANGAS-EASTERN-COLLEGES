@@ -31,7 +31,6 @@ cookies), so files must **not** be moved into subfolders without updating
 | `admin_dashboard.php` | Overview, stats, unit-scoped queues |
 | `admin_defect_reports.php` | Case review, approval, detail modal |
 | `admin_assign_technicians.php` | Technician assignment & workloads |
-| `admin_work_orders.php` | Work-order tracking |
 | `admin_inventory.php` | Equipment records, asset tags, QR |
 | `admin_preventive.php` | Preventive-maintenance scheduling |
 | `admin_analytics.php` | Charts & exports |

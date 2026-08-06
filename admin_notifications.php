@@ -833,7 +833,7 @@ textarea.fc{resize:vertical;min-height:88px;}
           </div>
           <div class="fg">
             <label class="fl">Link (optional)</label>
-            <input type="text" name="link" class="fc" placeholder="e.g. admin_work_orders.php">
+            <input type="text" name="link" class="fc" placeholder="e.g. admin_defect_reports.php">
           </div>
         </div>
 

@@ -784,13 +784,6 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .nav-item:focus-visib
           <span><?php echo $pendingReports;?> pending review</span>
         </div>
       </a>
-      <a href="admin_work_orders.php" class="qa-card c2">
-        <div class="qa-ic"><i class="fas fa-clipboard-check"></i></div>
-        <div class="qa-text">
-          <strong>Work Orders</strong>
-          <span><?php echo $approvedReports;?> awaiting dispatch</span>
-        </div>
-      </a>
       <a href="admin_assign_technicians.php" class="qa-card c3">
         <div class="qa-ic"><i class="fas fa-user-cog"></i></div>
         <div class="qa-text">

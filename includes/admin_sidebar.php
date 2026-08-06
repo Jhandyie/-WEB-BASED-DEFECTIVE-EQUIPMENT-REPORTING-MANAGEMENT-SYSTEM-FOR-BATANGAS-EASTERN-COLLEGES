@@ -20,7 +20,6 @@ $__sections = [
     ],
     'Reports' => [
         ['defects',       'admin_defect_reports.php',     'fa-exclamation-triangle','Defect Reports'],
-        ['workorders',    'admin_work_orders.php',        'fa-clipboard-check',     'Work Orders'],
         ['assign',        'admin_assign_technicians.php', 'fa-user-cog',            'Assign Technicians'],
         ['preventive',    'admin_preventive.php',         'fa-calendar-check',      'Preventive Maint.'],
     ],

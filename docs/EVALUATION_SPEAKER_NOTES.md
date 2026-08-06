@@ -93,7 +93,7 @@ checklist in the last section before you close.
 | Defect Reports → open the new one | Reporter details, equipment record, photo |
 | **Mark as Received** | |
 | Switch to mailbox | The reporter now knows **someone has seen it** — the **biggest complaint** in the current process |
-| **Approve** + department + priority | Approving **creates the work order automatically** — no second form *(III-A #2)* |
+| **Approve** + department + priority | Approving moves it **straight to Ready for Assignment** — no second form *(III-A #2)* |
 | *(Mention)* | Or reject **with a reason** — on record either way |
 | Assign Technicians | Each card shows **current workload** — assign on **who's actually free** *(III-A #3)* |
 | Assign → show the email | Technician gets a **direct link to that exact task** |

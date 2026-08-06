@@ -82,7 +82,7 @@ To determine, through a formal discounted cost–benefit analysis, whether the B
 
 ### 3.1 Scope
 
-The analysis covers the complete system as deployed: the public landing page and ticket tracker, the reporter portal, the PMO administrative suite (dashboard, analytics, defect review, work orders, preventive maintenance, inventory, user directory, audit log, backup and recovery, branded exports), and the technician progressive web application. It encompasses all direct costs of building, deploying, and operating the system, and all benefits accruing to the institution that can be traced to the system's operation.
+The analysis covers the complete system as deployed: the public landing page and ticket tracker, the reporter portal, the PMO administrative suite (dashboard, analytics, defect review, preventive maintenance, inventory, user directory, backup and recovery, branded exports), and the technician progressive web application. It encompasses all direct costs of building, deploying, and operating the system, and all benefits accruing to the institution that can be traced to the system's operation.
 
 ### 3.2 Delimitations
 

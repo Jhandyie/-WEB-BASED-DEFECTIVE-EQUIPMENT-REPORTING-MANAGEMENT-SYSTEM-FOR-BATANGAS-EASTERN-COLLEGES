@@ -186,8 +186,8 @@ themselves evaluation data. Only assist if the respondent is genuinely blocked.
 > never learn whether their report reached anyone.
 >
 > The second action is the decision itself: approve the report and set the responsible department
-> and the priority level, or reject it with a reason. Approving it creates the work order
-> automatically; no separate form is encoded."
+> and the priority level, or reject it with a reason. Approving it moves the report straight to
+> Ready for Assignment; no separate form is encoded."
 
 **Do:** Approve the report, assigning department and priority.
 

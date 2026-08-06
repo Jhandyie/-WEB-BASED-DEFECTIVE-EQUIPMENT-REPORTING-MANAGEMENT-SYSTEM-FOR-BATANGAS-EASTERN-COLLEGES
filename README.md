@@ -16,7 +16,7 @@ notifications at every stage, and a built-in AI assistant ("Becca") on every por
 | **Landing page** (`index.php`) | Everyone | Campus-photo hero, modules overview, live public-reports preview, Becca AI chat |
 | **Reporter portal** (`student_index.php`) | Students, faculty & staff | Guided defect reporting with photos, priority inference, email confirmations |
 | **Public tracker** (`track_report.php`, `public_reports.php`) | Everyone | Track any ticket by ID/asset tag, follow-up requests, satisfaction confirmation |
-| **Admin / PMO suite** (`admin_*.php`) | PMO administrators | Dashboard + analytics, defect review (receive → approve → assign → verify), work orders, preventive maintenance, inventory, user management, backup & recovery, branded exports |
+| **Admin / PMO suite** (`admin_*.php`) | PMO administrators | Dashboard + analytics, defect review (receive → approve → assign → verify), preventive maintenance, inventory, user management, backup & recovery, branded exports |
 | **Technician portal** (`technician_dashboard.php`) | Maintenance technicians | Installable **PWA**; scroll-down repair workspace with live SLA/repair timers, workflow stepper, photo-documented completion reports |
 
 ## The report lifecycle
@@ -95,7 +95,7 @@ student_dashboard.php         Reporter dashboard (submit/track reports)
 track_report.php              Public ticket tracker + satisfaction
 technician_dashboard.php      Technician repair workspace (PWA)
 technician_*.php              Technician endpoints (completion, chat proxy)
-admin_*.php                   PMO admin suite (dashboard, defects, work orders,
+admin_*.php                   PMO admin suite (dashboard, defects,
                               preventive, inventory, users, analytics,
                               backup & recovery…)
 admin_backup.php              Backup & Recovery (on-demand backup, download, restore)
