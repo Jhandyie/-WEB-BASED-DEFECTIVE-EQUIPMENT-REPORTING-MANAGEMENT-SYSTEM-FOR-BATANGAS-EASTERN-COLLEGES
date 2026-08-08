@@ -963,26 +963,39 @@ function deleteNotif(nid, btn) {
 
 /* ─── DETAIL MODAL ───────────────────────────────────── */
 function openDetail(n) {
-  const typeColors={task_assigned:'#2563EB',work_order:'#7C3AED',defect_report:'#DC2626',
-    status_update:'#0891B2',announcement:'#D4A017',system:'#6B7280',
-    reminder:'#D97706',approval:'#16A34A',rejection:'#DC2626',alert:'#C2410C'};
-  const typeBgs={task_assigned:'#EFF6FF',work_order:'#F5F3FF',defect_report:'#FFF1F2',
-    status_update:'#ECFEFF',announcement:'#FEF9E7',system:'#F9FAFB',
-    reminder:'#FFFBEB',approval:'#F0FDF4',rejection:'#FFF1F2',alert:'#FFF7ED'};
-  const typeIcons={task_assigned:'fa-user-cog',work_order:'fa-clipboard-check',
-    defect_report:'fa-exclamation-triangle',status_update:'fa-sync-alt',
-    announcement:'fa-bullhorn',system:'fa-cog',reminder:'fa-clock',
-    approval:'fa-check-circle',rejection:'fa-times-circle',alert:'fa-bell'};
-  const typeLabels={task_assigned:'Task Assigned',work_order:'Work Order',
-    defect_report:'Defect Report',status_update:'Status Update',
-    announcement:'Announcement',system:'System',reminder:'Reminder',
-    approval:'Approval',rejection:'Rejection',alert:'Alert'};
+  /* These must stay in step with typeIcon/typeColor/typeBg/typeLbl in the PHP
+     above — same keys, same values, same Title Case fallback. They had drifted
+     onto the old hand-written vocabulary (work_order, defect_report,
+     status_update, approval, ...), none of which is ever written, so every real
+     notification missed every map: the modal showed a maroon bell and a raw
+     "new_defect_report" where the list beside it showed "New Defect Report". */
+  const typeColors={new_defect_report:'#DC2626',sla_escalation:'#C2410C',
+    report_status:'#0891B2',follow_up:'#7C3AED',
+    task_assigned:'#2563EB',task_completed:'#16A34A',
+    registration:'#0891B2',budget_request:'#D97706',
+    announcement:'#D4A017',system:'#6B7280'};
+  const typeBgs={new_defect_report:'#FFF1F2',sla_escalation:'#FFF7ED',
+    report_status:'#ECFEFF',follow_up:'#F5F3FF',
+    task_assigned:'#EFF6FF',task_completed:'#F0FDF4',
+    registration:'#ECFEFF',budget_request:'#FFFBEB',
+    announcement:'#FEF9E7',system:'#F9FAFB'};
+  const typeIcons={new_defect_report:'fa-exclamation-triangle',sla_escalation:'fa-triangle-exclamation',
+    report_status:'fa-sync-alt',follow_up:'fa-comment-dots',
+    task_assigned:'fa-user-cog',task_completed:'fa-circle-check',
+    registration:'fa-user-plus',budget_request:'fa-peso-sign',
+    announcement:'fa-bullhorn',system:'fa-cog'};
+  const typeLabels={new_defect_report:'New Defect Report',sla_escalation:'SLA Escalation',
+    report_status:'Status Update',follow_up:'Follow Up',
+    task_assigned:'Task Assigned',task_completed:'Task Completed',
+    registration:'Registration',budget_request:'Budget Request',
+    announcement:'Broadcast',system:'System'};
+  const titleCase = s => String(s||'').replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase());
 
   const t = n.type||'system';
   const col = typeColors[t]||'#7B1D1D';
   const bg  = typeBgs[t]||'#FDECEA';
   const ico = typeIcons[t]||'fa-bell';
-  const lbl = typeLabels[t]||t;
+  const lbl = typeLabels[t]||titleCase(t);
 
   document.getElementById('detIco').style.background=bg;
   document.getElementById('detIco').style.color=col;

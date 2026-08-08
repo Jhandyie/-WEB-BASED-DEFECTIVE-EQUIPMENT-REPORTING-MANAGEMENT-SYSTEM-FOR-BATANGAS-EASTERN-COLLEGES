@@ -202,6 +202,112 @@ if ($sf !== 'all') {
     $reports = array_values(array_filter($reports, fn($r) => in_array(($r['status'] ?? ''), $sfStatuses, true)));
 }
 $reports = array_values(array_filter($reports, $unitFilter));
+
+/* ─── EXPORT ────────────────────────────────────────────
+   Built here, from the records, while $reports still holds everything the
+   active filters select. The browser used to assemble this by reading the
+   rendered table, which meant the status arrived as badge text and the CSV
+   had no byte-order mark, so every em dash and "ñ" opened mangled in Excel.
+   The status stages and the PMO/ITSO unit scope are non-trivial and defined
+   just above, which is why the export lives here and not in
+   api/export_reports.php — that endpoint still serves the Advanced Export
+   dialog, where the filters are chosen independently of this page. */
+$exportFmt = strtolower(trim((string)($_GET['export'] ?? '')));
+if (in_array($exportFmt, ['csv', 'xlsx', 'pdf'], true)) {
+    $dHeaders = ['Ticket', 'Equipment', 'Asset Tag', 'Location', 'Issue', 'Priority', 'Status',
+                 'Unit', 'Reporter', 'Technician', 'Reported', 'Completed'];
+    $flat = static fn($v) => trim(preg_replace('/\s+/u', ' ', (string)$v));
+    $dash = static fn($v) => trim((string)$v) !== '' ? trim((string)$v) : '—';
+    $day  = static fn($v) => !empty($v) ? date('Y-m-d', strtotime((string)$v)) : '—';
+    $dRows = [];
+    foreach ($reports as $r1) {
+        $dRows[] = [
+            (string)($r1['report_id'] ?? ''),
+            $dash($r1['equipment_name'] ?? ''),
+            $dash($r1['asset_tag'] ?? ''),
+            $dash($r1['location'] ?? ''),
+            $flat($r1['issue_description'] ?? ''),
+            ucfirst((string)($r1['priority'] ?? '')),
+            ucwords(str_replace('_', ' ', (string)($r1['status'] ?? ''))),
+            $dash($r1['department_assigned'] ?? ''),
+            $dash($r1['reporter_name'] ?? ($r1['reported_by'] ?? '')),
+            $dash($r1['technician_name'] ?? ''),
+            $day($r1['report_date'] ?? ''),
+            $day($r1['completion_date'] ?? ''),
+        ];
+    }
+
+    $stageCount = static function (array $statuses) use ($reports): int {
+        return count(array_filter($reports, static fn($x) => in_array((string)($x['status'] ?? ''), $statuses, true)));
+    };
+    $dSummary = [
+        'Total Reports' => number_format(count($dRows)),
+        'Pending'       => number_format($stageCount($stages['pending'])),
+        'Received'      => number_format($stageCount($stages['received'])),
+        'In Progress'   => number_format($stageCount($stages['in_progress'])),
+        'Completed'     => number_format($stageCount($stages['completed'])),
+        'Rejected'      => number_format($stageCount($stages['rejected'])),
+    ];
+    $dMeta = array_filter([
+        'Status Filter'   => $sf !== 'all' ? ucwords(str_replace('_', ' ', $sf)) : '',
+        'Priority Filter' => $pf !== 'all' ? ucfirst($pf) : '',
+        'Unit Filter'     => $df !== 'all' ? $df : '',
+        'Search'          => $sq !== '' ? $sq : '',
+    ]);
+
+    if ($exportFmt === 'csv') {
+        require_once __DIR__ . '/includes/csv_export.php';
+        $out = becCsvOpen('defect_reports');
+        becCsvLetterhead($out, 'Defect Reports', $dMeta + ['Total Records' => number_format(count($dRows))]);
+        becCsvSection($out, 'Executive Summary', ['Metric', 'Value'],
+            array_map(static fn($k, $v) => [$k, $v], array_keys($dSummary), array_values($dSummary)));
+        becCsvRow($out, ['DEFECT REPORT RECORDS']);
+        becCsvRow($out, $dHeaders);
+        foreach ($dRows as $row) { becCsvRow($out, $row); }
+        becCsvBlank($out);
+        becCsvFooter($out, 'End of Defect Reports');
+        fclose($out);
+        exit;
+    }
+
+    if ($exportFmt === 'xlsx') {
+        require_once __DIR__ . '/includes/xlsx_writer.php';
+        becRenderBrandedXlsx('Defect Reports', $dHeaders, $dRows, $dSummary, $dMeta, 'defect_reports');
+        exit;
+    }
+
+    require_once __DIR__ . '/includes/export_branding.php';
+    $deh = static fn($v) => htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
+    header('Content-Type: text/html; charset=UTF-8');
+    echo '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">'
+       . '<meta name="viewport" content="width=device-width,initial-scale=1.0">'
+       . '<title>Defect Reports — BEC PMO</title>'
+       . '<link rel="icon" type="image/png" href="assets/logs.png">'
+       . '<style>' . becExportCss() . '@page{size:A4 landscape;margin:12mm 10mm;}</style></head><body>';
+    echo becExportToolbar();
+    echo becExportHeader('Defect Reports', $dMeta + ['Total Records' => number_format(count($dRows))]);
+    echo becExportSummaryCards($dSummary);
+    echo '<div class="sec-label">Defect Report Records</div>';
+    echo '<table class="data-table"><thead><tr>';
+    foreach ($dHeaders as $hd) { echo '<th>' . $deh($hd) . '</th>'; }
+    echo '</tr></thead><tbody>';
+    if (!$dRows) {
+        echo '<tr><td colspan="' . count($dHeaders) . '" class="empty">No reports match the selected filters.</td></tr>';
+    } else {
+        foreach ($dRows as $row) {
+            echo '<tr>';
+            foreach ($row as $cell) { echo '<td>' . $deh($cell) . '</td>'; }
+            echo '</tr>';
+        }
+    }
+    echo '</tbody></table>';
+    echo becExportSignatures();
+    echo becExportFooter();
+    echo '<script>window.addEventListener("load",function(){setTimeout(function(){window.print();},400);});</script>';
+    echo '</body></html>';
+    exit;
+}
+
 foreach ($reports as &$r0) {
     $pl = photoListFromRow($r0);
     $r0['photo_urls'] = $pl;
@@ -285,13 +391,18 @@ $cols = [
     'completed'   => ['label'=>'Completed',            'icon'=>'check-circle',    'color'=>'#16A34A', 'bg'=>'#F0FDF4', 'bdr'=>'#BBF7D0'],
     'rejected'    => ['label'=>'Rejected',             'icon'=>'times-circle',    'color'=>'#DC2626', 'bg'=>'#FFF1F2', 'bdr'=>'#FECDD3'],
 ];
+// Only the active view is rendered (switchView() reloads the page), so in table view none of
+// this is ever read. Bucketing every report six times over is not free at a real backlog.
 $kanban = [];
-foreach ($cols as $status => $_) {
-    $kanban[$status] = array_values(array_filter($all_raw, fn($r) => $r['status'] === $status));
+if ($vw === 'kanban') {
+    foreach ($cols as $status => $_) { $kanban[$status] = []; }
+    // completed bucket also includes verified/closed
+    foreach ($all_raw as $r) {
+        $s = $r['status'] ?? '';
+        if (in_array($s, ['verified','closed'], true)) { $s = 'completed'; }
+        if (isset($kanban[$s])) { $kanban[$s][] = $r; }
+    }
 }
-// completed bucket also includes verified/closed
-$kanban['completed'] = array_values(array_filter($all_raw,
-    fn($r) => in_array($r['status'], ['completed','verified','closed'])));
 
 /* ─── HELPERS ──────────────────────────────────────────── */
 function stCls($s){return['reported'=>'pend','pmo_review'=>'pend','ready_for_assignment'=>'prog','assigned'=>'prog','in_progress'=>'prog2','completed'=>'done','verified'=>'done','closed'=>'done','rejected'=>'rej'][$s]??'pend';}
@@ -310,7 +421,8 @@ function esc($s){return htmlspecialchars((string)($s ?? '—'), ENT_QUOTES, 'UTF
 <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <link rel="stylesheet" href="css/typography.css">
 <!-- SheetJS for Excel -->
-<script src="assets/vendor/js/xlsx.full.min.js"></script>
+<!-- SheetJS removed: the Excel export is built server-side by
+     includes/xlsx_writer.php, so this 861 KB bundle no longer loads. -->
 <link rel="stylesheet" href="assets/css/admin-shell.css">
 <style>
 
@@ -1033,7 +1145,8 @@ textarea.fc{resize:vertical;min-height:70px;}
     </div>
 
     <!-- ════ TABLE VIEW ════════════════════════════════ -->
-    <div id="tableView" style="<?php echo $vw==='table'?'':'display:none;'; ?>">
+    <?php if ($vw === 'table'): ?>
+    <div id="tableView">
       <div class="panel">
         <div class="ph3">
           <h3><i class="fas fa-list-alt"></i> Report Records</h3>
@@ -1102,9 +1215,11 @@ textarea.fc{resize:vertical;min-height:70px;}
         <div class="rpager" id="repPager" hidden></div>
       </div>
     </div>
+    <?php endif; ?>
 
     <!-- ════ KANBAN VIEW ═══════════════════════════════ -->
-    <div id="kanbanView" style="<?php echo $vw==='kanban'?'':'display:none;'; ?>">
+    <?php if ($vw === 'kanban'): ?>
+    <div id="kanbanView">
       <div class="kanban">
         <?php foreach($cols as $status => $col):
           $cards = $kanban[$status];
@@ -1131,9 +1246,8 @@ textarea.fc{resize:vertical;min-height:70px;}
               <i class="fas fa-inbox"></i>No reports
             </div>
             <?php else: foreach($cards as $i=>$r): ?>
-            <div class="kcard" style="--kbdr:<?php echo $col['bdr'];?>;--kc:<?php echo $col['color'];?>;"
-              onclick="location.href='?view_id=<?php echo $r['report_id'];?>&view=kanban'"
-              style="animation-delay:<?php echo $i*.04;?>s;">
+            <div class="kcard" style="--kbdr:<?php echo $col['bdr'];?>;--kc:<?php echo $col['color'];?>;animation-delay:<?php echo min($i,25)*.04;?>s;"
+              onclick="location.href='?view_id=<?php echo $r['report_id'];?>&view=kanban'">
               <?php if(!empty($r['photo_url'])): ?>
               <div class="kcard-photo"><i class="fas fa-camera"></i></div>
               <?php endif; ?>
@@ -1151,6 +1265,7 @@ textarea.fc{resize:vertical;min-height:70px;}
         <?php endforeach; ?>
       </div>
     </div>
+    <?php endif; ?>
 
   </div><!-- /pg -->
 </div><!-- /wrap -->
@@ -1764,84 +1879,27 @@ document.addEventListener('click', () => {
   if (m) m.style.display = 'none';
 });
 
-/* ── TABLE DATA HELPER ────────────────────────────── */
-function getTableRows() {
-  const hdrs = ['Report ID','Equipment','Reporter','Priority','Status','Department','Date','Assigned To'];
-  const rows = [];
-  document.querySelectorAll('#mainTbl tbody tr').forEach(tr => {
-    const tds = tr.querySelectorAll('td');
-    if (tds.length < 8) return;
-    rows.push(Array.from(tds).slice(0,8).map(td => td.textContent.trim().replace(/\s+/g,' ')));
-  });
-  return { hdrs, rows };
+/* ── EXPORT ───────────────────────────────────────────
+   Built server-side from the records (see the export branch next to the
+   filters). The browser only carries the current filters over. */
+function exportUrl(format) {
+  const u = new URL(location.href);
+  u.searchParams.delete('view_id');
+  u.searchParams.set('export', format);
+  return u.toString();
 }
-
-/* ── EXPORT CSV ───────────────────────────────────── */
 function exportCSV() {
-  const { hdrs, rows } = getTableRows();
-  let c = 'BEC Equipment Management — Defect Reports\nExported: ' + new Date().toLocaleString() + '\n\n';
-  c += hdrs.join(',') + '\n';
-  rows.forEach(r => c += r.map(v => '"' + v.replace(/"/g,'""') + '"').join(',') + '\n');
-  const b = new Blob([c], { type: 'text/csv;charset=utf-8;' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(b);
-  a.download = 'defect_reports_' + new Date().toISOString().split('T')[0] + '.csv';
-  a.click();
-  toast('ok', rows.length + ' records exported to CSV.', 'CSV Export');
+  window.location.href = exportUrl('csv');
+  toast('ok', 'All filtered reports are being exported.', 'CSV Export');
 }
-
-/* ── EXPORT EXCEL (SheetJS) ───────────────────────── */
 function exportExcel() {
-  const { hdrs, rows } = getTableRows();
-  const wsData = [
-    ['BEC Equipment Management — Defect Reports'],
-    ['Exported: ' + new Date().toLocaleString()],
-    [],
-    hdrs,
-    ...rows
-  ];
-  const ws = XLSX.utils.aoa_to_sheet(wsData);
-  // Style header row
-  ws['!cols'] = hdrs.map(() => ({ wch: 18 }));
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Defect Reports');
-  XLSX.writeFile(wb, 'defect_reports_' + new Date().toISOString().split('T')[0] + '.xlsx');
-  toast('ok', rows.length + ' records exported to Excel.', 'Excel Export');
+  window.location.href = exportUrl('xlsx');
+  toast('ok', 'All filtered reports are being exported.', 'Excel Export');
 }
 
-/* ── EXPORT PDF (print-based) ─────────────────────── */
 function exportPDF() {
-  const { hdrs, rows } = getTableRows();
-  const dt = new Date().toLocaleString();
-  let trs = rows.map(r =>
-    '<tr>' + r.map(v => `<td>${v}</td>`).join('') + '</tr>'
-  ).join('');
-
-  const win = window.open('', '_blank');
-  win.document.write(`<!DOCTYPE html><html><head>
-  <title>BEC Defect Reports</title>
-  <style>
-    body{font-family:'Segoe UI',sans-serif;margin:2cm;color:#1a0808;font-size:11px;}
-    h1{font-size:18px;margin-bottom:4px;color:#7B1D1D;}
-    .sub{font-size:10px;color:#9a7a7a;margin-bottom:20px;}
-    table{width:100%;border-collapse:collapse;}
-    th{background:#7B1D1D;color:#fff;padding:7px 9px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.6px;}
-    td{padding:6px 9px;border-bottom:1px solid #e5d9c6;font-size:10px;}
-    tr:nth-child(even) td{background:#faf7f0;}
-    .footer{margin-top:20px;font-size:9px;color:#9a7a7a;border-top:1px solid #e5d9c6;padding-top:8px;}
-    @media print{@page{margin:1.5cm;size:A4 landscape;}}
-  </style></head><body>
-  <h1>BEC Equipment Management — Defect Reports</h1>
-  <div class="sub">Generated: ${dt} &nbsp;|&nbsp; Total records: ${rows.length}</div>
-  <table>
-    <thead><tr>${hdrs.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
-    <tbody>${trs}</tbody>
-  </table>
-  <div class="footer">Batangas Eastern Colleges &nbsp;·&nbsp; Equipment Management System &nbsp;·&nbsp; ${dt}</div>
-  </body></html>`);
-  win.document.close();
-  setTimeout(() => { win.print(); win.close(); }, 400);
-  toast('ok', 'Print dialog opened for PDF export.', 'PDF Export');
+  window.open(exportUrl('pdf'), '_blank');
+  toast('ok', 'Print view opened in a new tab.', 'PDF Export');
 }
 /* ── ANIMATED COUNTERS ────────────────────────────── */
 function animN(id, to) {
