@@ -525,6 +525,16 @@ $unitSql = static function (string $unit): string {
 // the only way through the list now, so this is the real page size, not a cap.
 $perPage = 50;
 $page    = max(1, (int) ($_GET['page'] ?? 1));
+
+// An export is not a page. It used to be built in the browser from whatever the
+// page happened to be showing, so "N users exported" meant the current 50 out of
+// thousands. Asking for one page of everything lets the same queries — and the
+// same filters — produce the whole list, and the export branch below hands it
+// straight to the shared CSV/XLSX/print writers.
+$exportFmt = strtolower(trim((string) ($_GET['export'] ?? '')));
+$isExport  = in_array($exportFmt, ['csv', 'xlsx', 'pdf'], true);
+if ($isExport) { $perPage = 1000000; $page = 1; }
+
 $offset  = ($page - 1) * $perPage;
 
 // Every filter must survive a page change, or paging would silently reset the view.
@@ -574,8 +584,15 @@ $dirTypeSql = static function (string $prefix): string {
 // here — the directory is the whole college.
 $dirByType = ['student'=>0,'faculty'=>0,'staff'=>0];
 $dirTotal  = 0;
+// Narrowed by the other active filters — for the FILTER bar only.
 $deptOptions = [];
 $yearOptions = [];
+// The complete vocabulary, ignoring every filter — for the Add/Edit USER FORMS.
+// A creation form must offer every department and year level whatever the list
+// happens to be filtered to; otherwise filtering the list to Grade School would
+// quietly stop you being able to add a college student.
+$deptAll = [];
+$yearAll = [];
 $yearRankCase = '';   // '{col}' placeholder, filled in per table below
 try {
     $pdoC = getPgsqlPdoConnection();
@@ -586,33 +603,75 @@ try {
         $dirByType[$ut] += (int)$r['c'];
         $dirTotal += (int)$r['c'];
     }
-    // Only offer departments that somebody is actually in, so the dropdown can
-    // never lead to an empty list.
-    foreach ($pdoC->query("SELECT DISTINCT TRIM(department) AS d FROM public.bec_directory
-                           WHERE COALESCE(TRIM(department),'') <> ''
-                           UNION
-                           SELECT DISTINCT TRIM(department) FROM {$usersTable}
-                           WHERE COALESCE(TRIM(department),'') <> '' AND COALESCE(status,'') <> 'deleted'
-                           ORDER BY 1", PDO::FETCH_ASSOC) as $r) {
-        $deptOptions[] = (string)$r['d'];
-    }
-    // Year levels, in school order, from whoever is actually enrolled. Same
-    // source as the directory's filter so the two pages always agree.
-    foreach ($pdoC->query("SELECT DISTINCT TRIM(year_level) AS y FROM public.bec_directory
-                           WHERE COALESCE(TRIM(year_level),'') <> ''
-                           UNION
-                           SELECT DISTINCT TRIM(year_level) FROM {$usersTable}
-                           WHERE COALESCE(TRIM(year_level),'') <> '' AND COALESCE(status,'') <> 'deleted'", PDO::FETCH_ASSOC) as $r) {
-        $yearOptions[] = (string)$r['y'];
-    }
+    // Only offer values somebody is actually filed under GIVEN THE OTHER
+    // FILTERS, so a dropdown can never lead to an empty list.
+    //
+    // Applying only "does anybody have this value" is not enough once a second
+    // filter is in play: with a college selected, the year dropdown still
+    // offered Nursery 1 to Grade 12, and with Grade School selected it still
+    // offered 1st to 4th Year. On this roster 85% of the department-and-year
+    // pairs cannot exist. Each list is therefore built with every other filter
+    // applied but not its own — the same faceting the BEC Directory page uses.
+    //
+    // Both halves of the union are filtered, because the list on screen is a
+    // concatenation of account holders and the imported roster.
+    $optFacet = static function (string $col, bool $useYear, bool $useDept, bool $useType = true)
+        use ($pdoC, $usersTable, $dirTypeSql, $tf, $df, $yl): array {
+
+        $dW = ["COALESCE(TRIM(bd.{$col}),'') <> ''"];
+        $uW = ["COALESCE(TRIM(u.{$col}),'') <> ''", "COALESCE(u.status,'') <> 'deleted'"];
+        $p  = [];
+        if ($useType && $tf !== 'all') {
+            $dW[] = '(' . $dirTypeSql('bd.') . ') = :ut';
+            $uW[] = "(LOWER(COALESCE(u.user_type,'')) = :ut OR u.role IN ('admin','pmo','technician'))";
+            $p['ut'] = $tf;
+        }
+        if ($useDept && $df !== 'all') {
+            $dW[] = "COALESCE(TRIM(bd.department),'') = :dep";
+            $uW[] = "COALESCE(TRIM(u.department),'') = :dep";
+            $p['dep'] = $df;
+        }
+        if ($useYear && $yl !== 'all') {
+            $dW[] = "COALESCE(TRIM(bd.year_level),'') = :yr";
+            $uW[] = "COALESCE(TRIM(u.year_level),'') = :yr";
+            $p['yr'] = $yl;
+        }
+        $sql = "SELECT DISTINCT TRIM(bd.{$col}) AS v FROM public.bec_directory bd WHERE " . implode(' AND ', $dW)
+             . " UNION SELECT DISTINCT TRIM(u.{$col}) FROM {$usersTable} u WHERE " . implode(' AND ', $uW)
+             . ' ORDER BY 1';
+        $st = $pdoC->prepare($sql);
+        $st->execute($p);
+        $out = [];
+        foreach ($st as $r) { if ((string)$r['v'] !== '') { $out[] = (string)$r['v']; } }
+        return $out;
+    };
+
+    // Department list respects the year filter; year list respects the department.
+    $deptOptions = $optFacet('department', true, false);
+    $yearOptions = $optFacet('year_level', false, true);
+
+    // A selected value must stay in its own list even when the other filters
+    // have made it impossible, or the <select> shows nothing selected while the
+    // filter is still being applied.
+    if ($df !== 'all' && !in_array($df, $deptOptions, true)) { $deptOptions[] = $df; }
+    if ($yl !== 'all' && !in_array($yl, $yearOptions, true)) { $yearOptions[] = $yl; }
+
     $yearOptions = becdir_sort_year_levels($yearOptions);
 
     // School order as a SQL expression, built from the levels that are really
     // in use and ranked by the one function that knows the order. Sorting the
     // text instead puts Grade 10 ahead of Grade 7 and 1st Year ahead of Nursery.
-    if ($yearOptions) {
+    //
+    // Built from EVERY level in use, not from $yearOptions — that list is now
+    // narrowed by the department filter, and ranking from it would drop every
+    // level outside the current filter into the ELSE bucket, so an unfiltered
+    // or differently-filtered view would sort into one undifferentiated block.
+    $deptAll = $optFacet('department', false, false, false);   // no filters at all
+    $yearAll = $optFacet('year_level', false, false, false);
+    $yearAll = becdir_sort_year_levels($yearAll);
+    if ($yearAll) {
         $whens = '';
-        foreach ($yearOptions as $yOpt) {
+        foreach ($yearAll as $yOpt) {
             $whens .= ' WHEN ' . $pdoC->quote($yOpt) . ' THEN ' . becdir_year_level_rank($yOpt);
         }
         $yearRankCase = "CASE TRIM(COALESCE({col},''))" . $whens . ' ELSE 9999 END';
@@ -713,7 +772,12 @@ $dirLimit   = $perPage - $userLimit;
 
 // Interpolated, not bound: both are ints derived from (int) casts, and the two
 // drivers disagree about binding LIMIT placeholders.
-$userYearRank = $hasYearLevelCol ? $yearRankSql('u.year_level') : '';
+// Only students are ordered by year level. A technician who happens to carry
+// one — the account form offers the field to everybody — would otherwise be
+// pulled to the head of the technicians by a value that says nothing about them.
+$userYearRank = $hasYearLevelCol && $yearRankSql('u.year_level') !== ''
+    ? "CASE WHEN ({$roleSortExpr}) = 60 THEN (" . $yearRankSql('u.year_level') . ") ELSE 0 END"
+    : '';
 $q .= " ORDER BY {$roleSortExpr}, " . ($userYearRank !== '' ? $userYearRank . ', ' : '')
     . "u.fullname ASC LIMIT {$userLimit} OFFSET {$userOffset}";
 
@@ -781,9 +845,11 @@ try {
         if ($room > 0 && $dirOffset < $dirMatchTotal) {
             // Ordered by the same standing ranks the accounts use — faculty,
             // then the non-teaching offices, then the students by year level.
+            $dirStanding = "CASE (" . $dirTypeSql('bd.') . ") WHEN 'faculty' THEN 40 WHEN 'staff' THEN 50 ELSE 60 END";
             $dirYearRank = isset($dcolset['year_level']) ? $yearRankSql('bd.year_level') : '';
-            $dOrder = "CASE (" . $dirTypeSql('bd.') . ") WHEN 'faculty' THEN 40 WHEN 'staff' THEN 50 ELSE 60 END"
-                . ($dirYearRank !== '' ? ', ' . $dirYearRank : '') . ", bd.full_name ASC";
+            $dOrder = $dirStanding
+                . ($dirYearRank !== '' ? ", CASE WHEN ({$dirStanding}) = 60 THEN ({$dirYearRank}) ELSE 0 END" : '')
+                . ", bd.full_name ASC";
             $dst = $pdoD->prepare("SELECT bd.*, {$reporterEmailExpr} AS report_count, ("
                 . $dirTypeSql('bd.') . ") AS affil_type"
                 . $dSql . " ORDER BY " . $dOrder . " LIMIT " . (int)$room
@@ -820,6 +886,106 @@ try {
     }
 } catch (Throwable $e) { $directoryEntries = []; }
 $users = array_merge($users, $directoryEntries);
+
+/* ---- EXPORT ------------------------------------------------------------
+   $users now holds everyone matching the current filters (see $isExport
+   above). Built from the records rather than the rendered table, so the
+   Standing column reads as one thing instead of a badge plus a sub-label. */
+if ($isExport) {
+    $uHeaders = ['Full Name', 'Email Address', 'Employee ID', 'Student ID',
+                 'Department', 'Program', 'Standing', 'Year Level', 'Reports Filed', 'Date Added'];
+    $uRows = [];
+    foreach ($users as $u2) {
+        $roleLbl = ucwords(str_replace('_', ' ', (string)($u2['role'] ?? '')));
+        // A reporter reads as "Reporter (Faculty)" on the PMO form — the role
+        // plus who they are at the college.
+        $typeLbl = ucwords(strtolower(trim((string)($u2['user_type'] ?? ''))));
+        if ($typeLbl !== '' && ($u2['role'] ?? '') === 'reporter') { $roleLbl .= ' (' . $typeLbl . ')'; }
+        $joined = trim((string)($u2['created_at'] ?? ''));
+        $uRows[] = [
+            (string)($u2['fullname'] ?? ''),
+            (string)($u2['email'] ?? ''),
+            (string)($u2['employee_id'] ?? $u2['employee_number'] ?? '') !== '' ? (string)($u2['employee_id'] ?? $u2['employee_number']) : '—',
+            (string)($u2['school_id'] ?? $u2['student_number'] ?? '') !== '' ? (string)($u2['school_id'] ?? $u2['student_number']) : '—',
+            (string)($u2['department'] ?? '') !== '' ? (string)$u2['department'] : '—',
+            (string)($u2['course'] ?? $u2['program'] ?? '') !== '' ? (string)($u2['course'] ?? $u2['program']) : '—',
+            $roleLbl,
+            (string)($u2['year_level'] ?? '') !== '' ? (string)$u2['year_level'] : '—',
+            (int)($u2['report_count'] ?? 0),
+            $joined !== '' ? date('Y-m-d', strtotime($joined)) : '—',
+        ];
+    }
+
+    $uCount = static function (string $role) use ($users): int {
+        return count(array_filter($users, static fn($x) => (string)($x['role'] ?? '') === $role));
+    };
+    $uSummary = [
+        'Total People' => number_format(count($uRows)),
+        'Reporters'    => number_format($uCount('reporter')),
+        'Technicians'  => number_format($uCount('technician')),
+        'Admins'       => number_format($uCount('admin')),
+    ];
+    $uMeta = array_filter([
+        'Role Filter'       => ($rf !== 'all' && $rf !== '') ? ucwords(str_replace('_', ' ', $rf)) : '',
+        'Unit Filter'       => $uf !== 'all' ? $uf : '',
+        'Affiliation'       => $tf !== 'all' ? ucfirst($tf) : '',
+        'Department Filter' => $df !== 'all' ? $df : '',
+        'Year Level'        => $yl !== 'all' ? $yl : '',
+        'Search'            => $sq !== '' ? $sq : '',
+    ]);
+
+    if ($exportFmt === 'csv') {
+        require_once __DIR__ . '/includes/csv_export.php';
+        $out = becCsvOpen('BEC_PMO_User_List');
+        becCsvLetterhead($out, 'User List', $uMeta + ['Total Records' => number_format(count($uRows))]);
+        becCsvSection($out, 'Executive Summary', ['Metric', 'Value'],
+            array_map(static fn($k, $v) => [$k, $v], array_keys($uSummary), array_values($uSummary)));
+        becCsvRow($out, ['USER RECORDS']);
+        becCsvRow($out, $uHeaders);
+        foreach ($uRows as $row) { becCsvRow($out, $row); }
+        becCsvBlank($out);
+        becCsvFooter($out, 'End of User List');
+        fclose($out);
+        exit;
+    }
+
+    if ($exportFmt === 'xlsx') {
+        require_once __DIR__ . '/includes/xlsx_writer.php';
+        becRenderBrandedXlsx('User List', $uHeaders, $uRows, $uSummary, $uMeta, 'BEC_PMO_User_List');
+        exit;
+    }
+
+    require_once __DIR__ . '/includes/export_branding.php';
+    $ueh = static fn($v) => htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
+    header('Content-Type: text/html; charset=UTF-8');
+    echo '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">'
+       . '<meta name="viewport" content="width=device-width,initial-scale=1.0">'
+       . '<title>User List — BEC PMO</title>'
+       . '<link rel="icon" type="image/png" href="assets/logs.png">'
+       . '<style>' . becExportCss() . '@page{size:A4 landscape;margin:12mm 10mm;}</style></head><body>';
+    echo becExportToolbar();
+    echo becExportHeader('User List', $uMeta + ['Total Records' => number_format(count($uRows))]);
+    echo becExportSummaryCards($uSummary);
+    echo '<div class="sec-label">User Records</div>';
+    echo '<table class="data-table"><thead><tr>';
+    foreach ($uHeaders as $hd) { echo '<th>' . $ueh($hd) . '</th>'; }
+    echo '</tr></thead><tbody>';
+    if (!$uRows) {
+        echo '<tr><td colspan="' . count($uHeaders) . '" class="empty">Nobody matches the selected filters.</td></tr>';
+    } else {
+        foreach ($uRows as $row) {
+            echo '<tr>';
+            foreach ($row as $cell) { echo '<td>' . $ueh($cell) . '</td>'; }
+            echo '</tr>';
+        }
+    }
+    echo '</tbody></table>';
+    echo becExportSignatures();
+    echo becExportFooter();
+    echo '<script>window.addEventListener("load",function(){setTimeout(function(){window.print();},400);});</script>';
+    echo '</body></html>';
+    exit;
+}
 
 // All users for counts. user_type comes along so the Students / Faculty / Staff
 // chips can count account holders too, not only imported directory people.
@@ -949,7 +1115,8 @@ function cardPayload(array $u): string {
 <link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
 <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <link rel="stylesheet" href="css/typography.css">
-<script src="assets/vendor/js/xlsx.full.min.js"></script>
+<!-- SheetJS removed: the Excel export is built server-side by
+     includes/xlsx_writer.php, so this 861 KB bundle no longer loads. -->
 <link rel="stylesheet" href="assets/css/admin-shell.css">
 <style>
 
@@ -994,8 +1161,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .tb-r{display:flex;align-items:center;gap:.55rem;}
 .ic-btn{width:34px;height:34px;background:var(--s2);border:1px solid var(--bdr);border-radius:var(--r1);
   display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--t2);font-size:.85rem;
-  transition:all .17s;text-decoration:none;position:relative;box-shadow:0 2px 0 var(--bdr);}
-.ic-btn:hover{background:var(--m3);color:#fff;transform:translateY(-2px);box-shadow:0 4px 0 var(--m2);}
+  transition:all .17s;text-decoration:none;position:relative;box-shadow:none;}
+.ic-btn:hover{background:var(--m3);color:#fff;transform:none;box-shadow:none;}
 .pip{position:absolute;top:5px;right:5px;width:7px;height:7px;background:var(--g2);border-radius:50%;
   border:2px solid var(--s1);animation:pp 2.2s ease-in-out infinite;}
 @keyframes pp{0%,100%{transform:scale(1);}50%{transform:scale(1.4);}}
@@ -1019,16 +1186,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   border-radius:var(--r1);font-family:'DM Sans',sans-serif;font-size:.77rem;font-weight:700;
   cursor:pointer;border:none;transition:all .17s;text-decoration:none;white-space:nowrap;}
 .btn:hover{transform:translateY(-1px);}.btn:active{transform:translateY(0);}
-.btn-maroon{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;box-shadow:0 3px 0 var(--m2);}
-.btn-maroon:hover{box-shadow:0 5px 0 var(--m2);}
-.btn-gold{background:linear-gradient(135deg,var(--g2),var(--g3));color:var(--m1);box-shadow:0 3px 0 var(--g1);}
-.btn-gold:hover{box-shadow:0 5px 0 var(--g1);}
-.btn-green{background:linear-gradient(135deg,#15803D,#22C55E);color:#fff;box-shadow:0 3px 0 #14532D;}
-.btn-green:hover{box-shadow:0 5px 0 #14532D;}
-.btn-red{background:linear-gradient(135deg,#B91C1C,#EF4444);color:#fff;box-shadow:0 3px 0 #7F1D1D;}
-.btn-red:hover{box-shadow:0 5px 0 #7F1D1D;}
-.btn-amber{background:linear-gradient(135deg,#D97706,#FBBF24);color:#fff;box-shadow:0 3px 0 #B45309;}
-.btn-amber:hover{box-shadow:0 5px 0 #B45309;}
+.btn-maroon{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;box-shadow:none;}
+.btn-maroon:hover{box-shadow:none;}
+.btn-gold{background:linear-gradient(135deg,var(--g2),var(--g3));color:var(--m1);box-shadow:none;}
+.btn-gold:hover{box-shadow:none;}
+.btn-green{background:linear-gradient(135deg,#15803D,#22C55E);color:#fff;box-shadow:none;}
+.btn-green:hover{box-shadow:none;}
+.btn-red{background:linear-gradient(135deg,#B91C1C,#EF4444);color:#fff;box-shadow:none;}
+.btn-red:hover{box-shadow:none;}
+.btn-amber{background:linear-gradient(135deg,#D97706,#FBBF24);color:#fff;box-shadow:none;}
+.btn-amber:hover{box-shadow:none;}
 .btn-ghost{background:var(--s2);color:var(--t2);border:1px solid var(--bdr);}
 .btn-ghost:hover{background:var(--s3);}
 .btn-sm{padding:.3rem .65rem;font-size:.71rem;}
@@ -1047,7 +1214,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   background:var(--sk);opacity:.04;transition:all .28s;}
 .scard::after{content:'';position:absolute;bottom:0;left:0;width:100%;height:3px;background:var(--sk);
   border-radius:0 0 var(--r3) var(--r3);transform:scaleX(0);transform-origin:left;transition:transform .32s;}
-.scard:hover{transform:translateY(-6px) scale(1.015);box-shadow:0 6px 0 var(--skl),var(--sh3);border-color:transparent;}
+.scard:hover{transform:scale(1.015);box-shadow:var(--sh3);border-color:transparent;}
 .scard:hover::before{transform:scale(1.5);opacity:.08;}
 .scard:hover::after{transform:scaleX(1);}
 .sc-a{--sk:var(--m3);--skl:rgba(123,29,29,.14);}
@@ -1058,7 +1225,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .sc-f{--sk:#DC2626;--skl:rgba(220,38,38,.14);}
 .sico{width:36px;height:36px;border-radius:var(--r2);display:flex;align-items:center;justify-content:center;
   font-size:.84rem;margin-bottom:.5rem;background:var(--sib);color:var(--sic);
-  box-shadow:0 4px 0 rgba(0,0,0,.08);transition:all .26s;position:relative;z-index:1;}
+  box-shadow:none;transition:all .26s;position:relative;z-index:1;}
 .scard:hover .sico{transform:rotate(-8deg) scale(1.15);}
 .sc-a .sico{--sib:#FDECEA;--sic:var(--m3);}
 .sc-b .sico{--sib:#FFF7ED;--sic:#C2410C;}
@@ -1175,6 +1342,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .tbl thead th{padding:.52rem 1rem;font-size:.6rem;text-transform:uppercase;letter-spacing:.85px;
   color:var(--t3);font-weight:800;text-align:left;background:var(--s2);border-bottom:1.5px solid var(--bdr);white-space:nowrap;}
 .tbl tbody td{padding:.68rem 1rem;font-size:.79rem;color:var(--t1);border-bottom:1px solid var(--bdr);vertical-align:middle;}
+.tblwrap{overflow-x:auto;}
 /* Column alignment, set once. Counts and dates centre under their headings and
    never wrap; only the name, email and department columns are free to reflow,
    which is what keeps a 100-row page reading as columns rather than as prose. */
@@ -1194,7 +1362,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 /* User avatar in table */
 .tav{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;
   font-family:'Outfit',sans-serif;font-weight:800;font-size:.77rem;color:#fff;
-  flex-shrink:0;box-shadow:0 3px 0 rgba(0,0,0,.12);transition:transform .22s;}
+  flex-shrink:0;box-shadow:none;transition:transform .22s;}
 .tbl tbody tr:hover .tav{transform:scale(1.08) rotate(-5deg);}
 .tuser{display:flex;align-items:center;gap:.625rem;}
 .tname{font-weight:700;font-size:.83rem;}
@@ -1232,7 +1400,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .ucard::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;
   background:var(--ucol,var(--m3));border-radius:0 0 var(--r3) var(--r3);
   transform:scaleX(0);transform-origin:left;transition:transform .3s;}
-.ucard:hover{transform:translateY(-5px) scale(1.012);box-shadow:0 5px 0 var(--ucol-s,rgba(123,29,29,.12)),var(--sh3);border-color:transparent;}
+.ucard:hover{transform:scale(1.012);box-shadow:var(--sh3);border-color:transparent;}
 .ucard:hover::before{transform:scale(1.6);opacity:.08;}
 .ucard:hover::after{transform:scaleX(1);}
 .ucard.role-admin{--ucol:var(--m3);--ucol-s:rgba(123,29,29,.12);}
@@ -1246,7 +1414,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .uc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.875rem;}
 .uc-av{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;
   font-family:'Outfit',sans-serif;font-weight:900;font-size:1.1rem;color:#fff;
-  box-shadow:0 5px 0 rgba(0,0,0,.12);transition:transform .25s;flex-shrink:0;position:relative;z-index:1;}
+  box-shadow:none;transition:transform .25s;flex-shrink:0;position:relative;z-index:1;}
 .ucard:hover .uc-av{transform:scale(1.08) rotate(-6deg);}
 .uc-status{flex-shrink:0;}
 .uc-name{font-family:'Outfit',sans-serif;font-size:.95rem;font-weight:800;color:var(--t1);
@@ -1296,7 +1464,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   padding-bottom:1rem;border-bottom:1.5px solid var(--bdr);}
 .prof-av{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;
   font-family:'Outfit',sans-serif;font-weight:900;font-size:1.4rem;color:#fff;
-  flex-shrink:0;box-shadow:0 5px 0 rgba(0,0,0,.12);}
+  flex-shrink:0;box-shadow:none;}
 .prof-name{font-family:'Outfit',sans-serif;font-size:1.05rem;font-weight:800;}
 .prof-id{font-size:.68rem;color:var(--t3);font-family:'Outfit',sans-serif;font-weight:700;margin-top:.1rem;}
 
@@ -1591,6 +1759,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
       <!-- No data-paginate here: this list is paged in SQL (see $perPage). The
            client-side paginator would slice the 50 rows the server already
            chose, leaving two stacked pagers disagreeing about "page 1". -->
+      <!-- Nine columns of real content do not fit every desktop. The panel
+           clips (overflow:hidden, for its rounded corners), so without this the
+           Joined date and the whole Actions column are simply not reachable. -->
+      <div class="tblwrap">
       <table class="tbl" id="uTbl">
         <thead>
           <tr>
@@ -1680,6 +1852,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
           <?php endforeach; endif; ?>
         </tbody>
       </table>
+      </div>
     </div>
 
     <?php endif; ?>
@@ -1698,7 +1871,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         ?>
         <div class="ucard role-<?php echo esc($u['role']??'reporter');?>"
           data-user="<?php echo cardPayload($u);?>"
-          style="animation-delay:<?php echo $i*.04;?>s;">
+          style="animation-delay:<?php echo min($i,25)*.04;?>s;">
           <div class="uc-top">
             <div class="uc-av" style="background:<?php echo $avcol;?>;"><?php echo $init;?></div>
             <?php if($isDir): ?><span class="uc-status"><span class="bdg" style="background:rgba(8,145,178,.12);color:#0891B2;font-size:.6rem;"><i class="fas fa-address-book" style="font-size:.55rem;margin-right:.15rem;"></i>Directory</span></span><?php endif; ?>
@@ -1860,7 +2033,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
               <?php /* The academic units come from the directory itself, so this list
                         stays right as the registrar's roster changes. */ ?>
               <optgroup label="Academic / Office">
-                <?php foreach ($deptOptions as $dOpt): if (in_array(strtoupper($dOpt), ['PMO','ITSO'], true)) continue; ?>
+                <?php foreach ($deptAll as $dOpt): if (in_array(strtoupper($dOpt), ['PMO','ITSO'], true)) continue; ?>
                   <option value="<?php echo esc($dOpt); ?>"><?php echo esc($dOpt); ?></option>
                 <?php endforeach; ?>
               </optgroup>
@@ -1886,7 +2059,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
           <label class="fl">Year Level</label>
           <select name="year_level" id="cuYear" class="fc">
             <option value="">Not applicable</option>
-            <?php foreach($yearOptions as $yOpt): ?>
+            <?php foreach($yearAll as $yOpt): ?>
               <option value="<?php echo esc($yOpt); ?>"><?php echo esc($yOpt); ?></option>
             <?php endforeach; ?>
           </select>
@@ -2022,7 +2195,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
                 <option value="ITSO">ITSO — Information Technology Services Office</option>
               </optgroup>
               <optgroup label="Academic / Office">
-                <?php foreach ($deptOptions as $dOpt): if (in_array(strtoupper($dOpt), ['PMO','ITSO'], true)) continue; ?>
+                <?php foreach ($deptAll as $dOpt): if (in_array(strtoupper($dOpt), ['PMO','ITSO'], true)) continue; ?>
                   <option value="<?php echo esc($dOpt); ?>"><?php echo esc($dOpt); ?></option>
                 <?php endforeach; ?>
               </optgroup>
@@ -2052,7 +2225,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
           <label class="fl">Year Level</label>
           <select name="year_level" id="eYear" class="fc">
             <option value="">Not applicable</option>
-            <?php foreach($yearOptions as $yOpt): ?>
+            <?php foreach($yearAll as $yOpt): ?>
               <option value="<?php echo esc($yOpt); ?>"><?php echo esc($yOpt); ?></option>
             <?php endforeach; ?>
           </select>
@@ -2233,97 +2406,27 @@ function toggleExp(e){
   m.style.display=m.style.display==='none'?'block':'none';
 }
 document.addEventListener('click',()=>{const m=document.getElementById('expMenu');if(m)m.style.display='none';});
-function getRows(){
-  const h=['User ID','Full Name','Email','Role','Department','Phone','Joined','Reports','Active Tasks'];
-  const r=[];
-  document.querySelectorAll('#uTbl tbody tr').forEach(tr=>{
-    const tds=tr.querySelectorAll('td');if(tds.length<7)return;
-    const uid=tr.querySelector('.tuid')?.textContent.trim()||'';
-    const name=tr.querySelector('.tname')?.textContent.trim()||'';
-    const email=tds[1].textContent.trim();
-    const role=tds[2].textContent.trim().replace(/\s+/g,' ');
-    const dept=tds[3].textContent.trim();
-    const reports=tds[4].textContent.trim();
-    const tasks=tds[5].textContent.trim();
-    const joined=tds[6].textContent.trim();
-    r.push([uid,name,email,role,dept,'',joined,reports,tasks]);
-  });
-  return{h,r};
+/* The export is built server-side from the records themselves (see the export
+   branch next to the roster query). It used to be handed the one page of 50 the
+   browser had rendered, so "N users exported" was never the whole list. All the
+   browser does now is carry the current filters over. */
+function exportUrl(format){
+  const u=new URL(location.href);
+  u.searchParams.delete('page');
+  u.searchParams.set('export',format);
+  return u.toString();
 }
-/* ── Official BEC PMO USER LIST export (matches the PMO form: letterhead +
-      Full Name / Email / Employee ID / Student ID / Department / Program-Role) ── */
-const USER_HEADERS = ['FULL NAME','EMAIL ADDRESS','EMPLOYEE ID','STUDENT ID','DEPARTMENT','PROGRAM / USER ROLE'];
-const USER_EXPORT = <?php
-  $exp = [];
-  foreach ($users as $u2) {
-      $roleLbl = ucwords(str_replace('_', ' ', (string)($u2['role'] ?? '')));
-      // A reporter reads as "Reporter (Faculty)" on the PMO form — the role plus
-      // who they are at the college.
-      $typeLbl = ucwords(strtolower(trim((string)($u2['user_type'] ?? ''))));
-      if ($typeLbl !== '' && ($u2['role'] ?? '') === 'reporter') { $roleLbl .= ' (' . $typeLbl . ')'; }
-      $program = trim((string)($u2['course'] ?? ''));
-      $exp[] = [
-          (string)($u2['fullname'] ?? ''),
-          (string)($u2['email'] ?? ''),
-          (string)($u2['employee_id'] ?? ''),
-          (string)($u2['school_id'] ?? ''),
-          (string)($u2['department'] ?? ''),
-          $program !== '' ? ($program . ' / ' . $roleLbl) : $roleLbl,
-      ];
-  }
-  echo json_encode($exp, JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_INVALID_UTF8_SUBSTITUTE);
-?>;
 function exportCSV(){
-  let c='BATANGAS EASTERN COLLEGES\nProperty Management Office\nUSER LIST\nGenerated: '+new Date().toLocaleString()+'\n\n';
-  c+=USER_HEADERS.join(',')+'\n';
-  USER_EXPORT.forEach(row=>c+=row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')+'\n');
-  const b=new Blob([c],{type:'text/csv'});const a=document.createElement('a');
-  a.href=URL.createObjectURL(b);a.download='BEC_PMO_User_List_'+new Date().toISOString().split('T')[0]+'.csv';a.click();
-  toast('ok',USER_EXPORT.length+' users exported.','CSV Export');
+  window.location.href=exportUrl('csv');
+  toast('ok','Everyone matching the current filters is being exported.','CSV Export');
 }
 function exportExcel(){
-  const ws=XLSX.utils.aoa_to_sheet([
-    ['BATANGAS EASTERN COLLEGES'],['Property Management Office'],['USER LIST'],
-    ['Generated: '+new Date().toLocaleString()],[],
-    USER_HEADERS,...USER_EXPORT
-  ]);
-  ws['!cols']=[{wch:28},{wch:32},{wch:16},{wch:16},{wch:22},{wch:26}];
-  ws['!merges']=[{s:{r:0,c:0},e:{r:0,c:5}},{s:{r:1,c:0},e:{r:1,c:5}},{s:{r:2,c:0},e:{r:2,c:5}},{s:{r:3,c:0},e:{r:3,c:5}}];
-  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'User List');
-  XLSX.writeFile(wb,'BEC_PMO_User_List_'+new Date().toISOString().split('T')[0]+'.xlsx');
-  toast('ok',USER_EXPORT.length+' users exported.','Excel Export');
+  window.location.href=exportUrl('xlsx');
+  toast('ok','Everyone matching the current filters is being exported.','Excel Export');
 }
 function exportPDF(){
-  const dt=new Date().toLocaleString();
-  const logo=new URL('assets/logs.png',location.href).href;
-  const win=window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><title>BEC PMO — User List</title>
-  <style>
-  *{box-sizing:border-box;}body{font-family:'Segoe UI',Calibri,Arial,sans-serif;margin:1.4cm 1.2cm 1.8cm;color:#111;font-size:11px;}
-  .lh{text-align:center;margin-bottom:14px;}
-  .lh img{width:64px;height:64px;border-radius:50%;object-fit:cover;margin-bottom:6px;}
-  .lh .school{font-size:15px;font-weight:800;letter-spacing:.4px;color:#111;}
-  .lh .office{font-size:11.5px;font-style:italic;color:#222;margin-top:1px;}
-  .lh .doc{font-size:11px;letter-spacing:2px;color:#333;margin-top:3px;text-transform:uppercase;}
-  table{width:100%;border-collapse:collapse;}
-  thead th{background:#BDD7EE;color:#111;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;padding:7px 8px;text-align:left;border:1px solid #9DBBD9;}
-  td{padding:6px 8px;border:1px solid #D9E4F0;font-size:10px;vertical-align:top;}
-  tr:nth-child(even) td{background:#F5F9FD;}
-  .pfoot{position:fixed;bottom:.4cm;left:0;right:0;text-align:center;font-size:9px;color:#666;}
-  @media print{@page{margin:1.2cm;size:A4 landscape;} thead{display:table-header-group;}}
-  </style></head><body>
-  <div class="lh">
-    <img src="${logo}" onerror="this.style.display='none'">
-    <div class="school">BATANGAS EASTERN COLLEGES</div>
-    <div class="office">Property Management Office</div>
-    <div class="doc">User List</div>
-  </div>
-  <table><thead><tr>${USER_HEADERS.map(x=>`<th>${x}</th>`).join('')}</tr></thead>
-  <tbody>${USER_EXPORT.map(row=>'<tr>'+row.map(v=>`<td>${String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;')||'—'}</td>`).join('')+'</tr>').join('')}</tbody></table>
-  <div class="pfoot">Batangas Eastern Colleges · Property Management Office · Generated ${dt} · ${USER_EXPORT.length} user(s)</div>
-  </body></html>`);
-  win.document.close();setTimeout(()=>{win.print();win.close();},450);
-  toast('ok','Print dialog opened.','PDF Export');
+  window.open(exportUrl('pdf'),'_blank');
+  toast('ok','Print view opened in a new tab.','PDF Export');
 }
 
 /* ─── PASSWORD VISIBILITY BY ROLE ────────────────────── */

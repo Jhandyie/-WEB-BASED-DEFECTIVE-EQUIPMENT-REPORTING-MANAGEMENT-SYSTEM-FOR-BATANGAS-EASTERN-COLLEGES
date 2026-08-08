@@ -208,6 +208,10 @@ function equipment_status_label($status) {
         'maintenance', 'under_maintenance' => 'Under Maintenance',
         'reserved', 'in_use', 'in use', 'borrowed' => 'In Use',
         'defective', 'faulty', 'damaged' => 'Needs Attention',
+        // 'deleted' is internal inventory bookkeeping. Falling through to the
+        // default printed the word "Deleted" on a public transparency board,
+        // beside a real report, which reads as though the record were destroyed.
+        'deleted', 'retired', 'disposed', 'archived' => 'Retired from inventory',
         default => $status !== '' ? ucwords(str_replace('_', ' ', (string)$status)) : 'Unknown',
     };
 }
@@ -287,6 +291,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--p);min-height:100vh;paddi
 body::before{content:'';position:fixed;top:-200px;right:-200px;width:550px;height:550px;border-radius:50%;background:radial-gradient(circle,rgba(201,150,12,.1) 0%,transparent 65%);pointer-events:none;z-index:0;}
 body::after{content:'';position:fixed;bottom:-160px;left:-160px;width:450px;height:450px;border-radius:50%;background:radial-gradient(circle,rgba(123,29,29,.08) 0%,transparent 65%);pointer-events:none;z-index:0;}
 .bg-grid{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:radial-gradient(circle,rgba(123,29,29,.1) 1px,transparent 1px);background-size:32px 32px;mask-image:radial-gradient(ellipse 80% 80% at 50% 50%,black 0%,transparent 100%);}
+
+/* One focus ring for the page. This board is a grid of keyboard-reachable
+   cards that open a modal, and it had no focus style at all — the browser
+   default is nearly invisible on the maroon chips and card surfaces.
+   :focus-visible keeps it off mouse clicks. */
+:focus-visible{outline:3px solid var(--m);outline-offset:3px;}
+.modal-overlay :focus-visible{outline-color:#F0C040;}
 
 /* ── LAYOUT ── */
 .page{max-width:1100px;margin:0 auto;padding:0 1.25rem;position:relative;z-index:1;}
@@ -464,12 +475,12 @@ td:last-child{padding-right:1.25rem;}
 </style>
 </head>
 <body>
-<div class="bg-grid"></div>
+<div class="bg-grid" aria-hidden="true"></div>
 
 <?php $nav_active = 'public'; require __DIR__ . '/site_nav.php'; ?>
 <?php $hero_title = 'Public Equipment Reports'; $hero_sub = 'Browse publicly visible equipment reports across the campus. Personal and sensitive details are intentionally hidden.'; require __DIR__ . '/site_hero.php'; ?>
 
-<div class="page">
+<main id="main" class="page">
 
   <!-- ── PAGE HEADER ── -->
   <div class="page-header">
@@ -481,27 +492,27 @@ td:last-child{padding-right:1.25rem;}
   <!-- ── STAT CARDS ── -->
   <div class="stats">
     <div class="stat s-total">
-      <div class="stat-icon"><i class="fas fa-clipboard-list"></i></div>
+      <div class="stat-icon"><i aria-hidden="true" class="fas fa-clipboard-list"></i></div>
       <div class="stat-num"><?= $stats['total'] ?></div>
       <div class="stat-label">Total Reports</div>
     </div>
     <div class="stat s-open">
-      <div class="stat-icon"><i class="fas fa-exclamation-circle"></i></div>
+      <div class="stat-icon"><i aria-hidden="true" class="fas fa-exclamation-circle"></i></div>
       <div class="stat-num"><?= $stats['open'] ?></div>
       <div class="stat-label">Open</div>
     </div>
     <div class="stat s-prog">
-      <div class="stat-icon"><i class="fas fa-tools"></i></div>
+      <div class="stat-icon"><i aria-hidden="true" class="fas fa-tools"></i></div>
       <div class="stat-num"><?= $stats['in_progress'] ?></div>
       <div class="stat-label">In Progress</div>
     </div>
     <div class="stat s-done">
-      <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+      <div class="stat-icon"><i aria-hidden="true" class="fas fa-check-circle"></i></div>
       <div class="stat-num"><?= $stats['resolved'] ?></div>
       <div class="stat-label">Resolved</div>
     </div>
     <div class="stat s-crit">
-      <div class="stat-icon"><i class="fas fa-fire"></i></div>
+      <div class="stat-icon"><i aria-hidden="true" class="fas fa-fire"></i></div>
       <div class="stat-num"><?= $stats['critical'] ?></div>
       <div class="stat-label">Critical</div>
     </div>
@@ -511,7 +522,7 @@ td:last-child{padding-right:1.25rem;}
   <form method="GET" action="">
     <div class="toolbar">
       <div class="search-wrap">
-        <i class="fas fa-search search-icon"></i>
+        <i aria-hidden="true" class="fas fa-search search-icon"></i>
         <input type="text" name="q" id="public-search" class="search-input"
           placeholder="Search by ticket, equipment, location, or issue…"
           value="<?= htmlspecialchars($search) ?>" autocomplete="off">
@@ -533,7 +544,7 @@ td:last-child{padding-right:1.25rem;}
       <button type="submit" style="display:none"></button>
       <span class="result-count"><?= $total_rows ?> result<?= $total_rows!==1?'s':'' ?></span>
       <?php if($search||$status||$severity): ?>
-        <a href="public_reports.php" class="clear-link"><i class="fas fa-times" style="font-size:.65rem;margin-right:.2rem"></i>Clear</a>
+        <a href="public_reports.php" class="clear-link"><i aria-hidden="true" class="fas fa-times" style="font-size:.65rem;margin-right:.2rem"></i>Clear</a>
       <?php endif; ?>
     </div>
   </form>
@@ -543,7 +554,7 @@ td:last-child{padding-right:1.25rem;}
     <div class="table-scroll">
       <?php if(empty($reports)): ?>
         <div class="empty">
-          <div class="empty-icon"><i class="fas fa-folder-open"></i></div>
+          <div class="empty-icon"><i aria-hidden="true" class="fas fa-folder-open"></i></div>
           <div class="empty-title">No reports found</div>
           <div class="empty-sub">Try adjusting your search or filters.</div>
         </div>
@@ -598,21 +609,24 @@ td:last-child{padding-right:1.25rem;}
       <span class="pg-info">
         Showing <?= min($offset+1,$total_rows) ?>–<?= min($offset+$per_page,$total_rows) ?> of <?= $total_rows ?> reports
       </span>
-      <div class="pg-btns">
+      <?php /* The prev/next arrows are Font Awesome glyphs, which carry no text,
+               so these two links reached a screen reader with no name at all.
+               The page numbers name themselves; only the arrows need labels. */ ?>
+      <nav class="pg-btns" aria-label="Pagination">
         <a href="?q=<?=urlencode($search)?>&status=<?=urlencode($status)?>&sev=<?=urlencode($severity)?>&page=<?=$page-1?>"
-           class="pg-btn <?= $page<=1?'disabled':'' ?>"><i class="fas fa-chevron-left" style="font-size:.65rem"></i></a>
+           class="pg-btn <?= $page<=1?'disabled':'' ?>" aria-label="Previous page"><i aria-hidden="true" class="fas fa-chevron-left" style="font-size:.65rem"></i></a>
         <?php for($i=max(1,$page-2); $i<=min($total_pages,$page+2); $i++): ?>
           <a href="?q=<?=urlencode($search)?>&status=<?=urlencode($status)?>&sev=<?=urlencode($severity)?>&page=<?=$i?>"
-             class="pg-btn <?= $i===$page?'active':'' ?>"><?=$i?></a>
+             class="pg-btn <?= $i===$page?'active':'' ?>"<?= $i===$page?' aria-current="page"':'' ?>><?=$i?></a>
         <?php endfor; ?>
         <a href="?q=<?=urlencode($search)?>&status=<?=urlencode($status)?>&sev=<?=urlencode($severity)?>&page=<?=$page+1?>"
-           class="pg-btn <?= $page>=$total_pages?'disabled':'' ?>"><i class="fas fa-chevron-right" style="font-size:.65rem"></i></a>
-      </div>
+           class="pg-btn <?= $page>=$total_pages?'disabled':'' ?>" aria-label="Next page"><i aria-hidden="true" class="fas fa-chevron-right" style="font-size:.65rem"></i></a>
+      </nav>
     </div>
     <?php endif; ?>
   </div>
 
-</div><!-- /page -->
+</main><!-- /page -->
 
 <!-- ── MODAL ── -->
 <div class="modal-overlay" id="modal-overlay" onclick="closeModal(event)">
@@ -623,30 +637,30 @@ td:last-child{padding-right:1.25rem;}
         <div class="modal-ticket" id="m-ticket"></div>
         <div class="modal-equip" id="m-equip"></div>
       </div>
-      <button class="modal-close" onclick="closeModalDirect()"><i class="fas fa-times"></i></button>
+      <button class="modal-close" type="button" onclick="closeModalDirect()" aria-label="Close report details"><i aria-hidden="true" class="fas fa-times"></i></button>
     </div>
       <div class="modal-body">
       <div class="modal-badges" id="m-badges"></div>
       <div style="font-size:.76rem;color:var(--k3);line-height:1.55;margin:0 0 1rem;">Public view shows safe report details only. Reporter identity, contact info, and internal admin notes are hidden.</div>
       <div class="detail-grid">
         <div class="detail-item">
-          <div class="di-label"><i class="fas fa-tag" style="margin-right:.3rem;font-size:.6rem"></i>Category</div>
+          <div class="di-label"><i aria-hidden="true" class="fas fa-tag" style="margin-right:.3rem;font-size:.6rem"></i>Category</div>
           <div class="di-value" id="m-cat"></div>
         </div>
         <div class="detail-item">
-          <div class="di-label"><i class="fas fa-map-marker-alt" style="margin-right:.3rem;font-size:.6rem"></i>Location</div>
+          <div class="di-label"><i aria-hidden="true" class="fas fa-map-marker-alt" style="margin-right:.3rem;font-size:.6rem"></i>Location</div>
           <div class="di-value" id="m-location"></div>
         </div>
         <div class="detail-item">
-          <div class="di-label"><i class="fas fa-clock" style="margin-right:.3rem;font-size:.6rem"></i>Report Submitted</div>
+          <div class="di-label"><i aria-hidden="true" class="fas fa-clock" style="margin-right:.3rem;font-size:.6rem"></i>Report Submitted</div>
           <div class="di-value" id="m-submitted"></div>
         </div>
         <div class="detail-item">
-          <div class="di-label"><i class="fas fa-microchip" style="margin-right:.3rem;font-size:.6rem"></i>Equipment Status</div>
+          <div class="di-label"><i aria-hidden="true" class="fas fa-microchip" style="margin-right:.3rem;font-size:.6rem"></i>Equipment Status</div>
           <div class="di-value" id="m-eq-status"></div>
         </div>
         <div class="detail-item full">
-          <div class="di-label"><i class="fas fa-align-left" style="margin-right:.3rem;font-size:.6rem"></i>Issue Summary</div>
+          <div class="di-label"><i aria-hidden="true" class="fas fa-align-left" style="margin-right:.3rem;font-size:.6rem"></i>Issue Summary</div>
           <div class="di-value desc" id="m-desc"></div>
         </div>
       </div>
@@ -654,7 +668,7 @@ td:last-child{padding-right:1.25rem;}
     <div class="modal-foot">
       <button class="btn-close-modal" onclick="closeModalDirect()">Close</button>
       <a id="m-track-link" href="track_report.php" class="btn-track">
-        <i class="fas fa-search" style="font-size:.72rem"></i> Track This Report
+        <i aria-hidden="true" class="fas fa-search" style="font-size:.72rem"></i> Track This Report
       </a>
     </div>
   </div>
@@ -711,7 +725,7 @@ function renderPublicDropdown(query) {
     const submitValue = item.ticket || item.equipment_id || item.asset_tag || '';
     return `
       <div class="search-item" data-index="${publicSearchData.indexOf(item)}" data-value="${escapeHtml(submitValue)}">
-        <span class="search-icon-chip"><i class="fas fa-search"></i></span>
+        <span class="search-icon-chip"><i aria-hidden="true" class="fas fa-search"></i></span>
         <span class="search-copy">
           <span class="search-title">${escapeHtml(title)}</span>
           <span class="search-meta">${escapeHtml(detailParts.join(' • '))}</span>

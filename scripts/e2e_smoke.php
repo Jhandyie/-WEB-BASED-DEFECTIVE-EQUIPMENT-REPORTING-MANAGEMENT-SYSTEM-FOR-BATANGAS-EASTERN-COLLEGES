@@ -174,8 +174,27 @@ try {
 echo "-- cleanup --\n";
 try {
     if ($pdo) {
-        if ($rid)  { $pdo->exec("DELETE FROM notifications WHERE related_id=" . $pdo->quote($rid)); $pdo->exec("DELETE FROM maintenance_history WHERE report_id=" . $pdo->quote($rid)); $pdo->exec("DELETE FROM work_orders WHERE report_id=" . $pdo->quote($rid)); $pdo->exec("DELETE FROM defect_reports WHERE report_id=" . $pdo->quote($rid)); }
-        $pdo->exec("DELETE FROM users WHERE user_id='TECH-SMOKE1'");
+        // Each statement stands on its own. They used to share one try, so a
+        // single failure — a table that no longer exists, a changed column —
+        // aborted the rest and left the report behind.
+        $wipe = static function (PDO $pdo, string $sql): void {
+            try { $pdo->exec($sql); } catch (\Throwable $e) { /* keep cleaning */ }
+        };
+        if ($rid) {
+            $q = $pdo->quote($rid);
+            $wipe($pdo, "DELETE FROM notifications WHERE related_id={$q}");
+            $wipe($pdo, "DELETE FROM maintenance_history WHERE report_id={$q}");
+            $wipe($pdo, "DELETE FROM work_orders WHERE report_id={$q}");
+            $wipe($pdo, "DELETE FROM defect_reports WHERE report_id={$q}");
+        }
+        // Belt and braces: the delete above only runs when $rid was captured, so
+        // a crash between submitting and reading the ticket number left a report
+        // titled "SMOKE TEST: …" sitting on the PUBLIC transparency board. It
+        // did. Sweep by the markers only this script ever writes.
+        $wipe($pdo, "DELETE FROM defect_reports
+                      WHERE issue_description LIKE 'SMOKE TEST:%'
+                         OR reporter_name = 'Smoke Reporter'");
+        $wipe($pdo, "DELETE FROM users WHERE user_id='TECH-SMOKE1'");
     }
     if ($settingsBackup !== null) { file_put_contents($settingsFile, $settingsBackup); }
     foreach ($seeds as $sfile) { @unlink($sfile); }
