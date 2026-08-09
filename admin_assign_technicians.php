@@ -443,7 +443,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
    the Assign button — fell off the edge. Tighter gutters and a ceiling on the
    free-text column bring it back on screen; the wrapper above is the safety net
    for narrow displays, not the normal way to reach the button. */
+/* Active assignments moved out from under the queue, so the left column is the
+   queue's alone and the Action cell fits again without the squeeze. */
 .tbl thead th,.tbl tbody td{padding-left:.62rem;padding-right:.62rem;}
+/* The monitoring table now runs the full page width and can be read as a table
+   rather than as something crammed beside a form, so it gets the wider gutters
+   the queue beside a 400px workspace cannot afford. */
+.asg-active{margin-top:1.25rem;}
+.asg-active .tbl thead th,.asg-active .tbl tbody td{padding-left:1rem;padding-right:1rem;}
+/* The queue shares its row with the workspace, so the free-text column is what
+   gives way — the Assign button must stay reachable without scrolling. */
+#unTbl td:nth-child(3){max-width:9.5rem;}
+#unTbl th:last-child,#unTbl td:last-child{width:1%;white-space:nowrap;}
 .tbl td .esl{white-space:nowrap;}
 #unTbl td:nth-child(3){max-width:11rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .tbl td:last-child,.tbl th:last-child{white-space:nowrap;width:1%;}
@@ -866,50 +877,6 @@ textarea.fc{resize:vertical;min-height:80px;}
           </table></div>
         </div>
 
-        <!-- Active Assignments Panel -->
-        <div class="panel">
-          <div class="ph3">
-            <h3><i class="fas fa-tasks"></i> Active Assignments</h3>
-            <span style="font-size:.72rem;color:var(--t3);"><?php echo $totalInProgress; ?> reports in progress</span>
-          </div>
-          <div class="tblwrap"><table class="tbl">
-            <thead>
-              <tr>
-                <th>Report ID</th><th>Equipment</th><th>Technician</th>
-                <th>Priority</th><th>Status</th><th>Assigned</th><th style="text-align:center;">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              <?php if(empty($inprogress)): ?>
-              <tr><td colspan="7"><div class="empty">
-                <i class="fas fa-inbox"></i> No active assignments.
-              </div></td></tr>
-              <?php else: foreach($inprogress as $r): ?>
-              <tr>
-                <td><span class="rid"><?php echo esc($r['report_id']); ?></span></td>
-                <td>
-                  <div class="en"><?php echo esc($r['equipment_name']??'N/A'); ?></div>
-                  <?php if(!empty($r['asset_tag'])): ?><div class="esl"><?php echo esc($r['asset_tag']); ?></div><?php endif; ?>
-                </td>
-                <td style="font-size:.79rem;font-weight:600;">
-                  <?php echo esc($r['assigned_to']??'-'); ?>
-                </td>
-                <td><span class="bdg b-<?php echo prCls($r['priority']); ?>"><?php echo prLbl($r['priority']); ?></span></td>
-                <td><span class="bdg b-<?php echo stCls($r['status']); ?>"><?php echo stLbl($r['status']); ?></span></td>
-                <td style="font-size:.71rem;color:var(--t3);">
-                  <?php echo !empty($r['assigned_date'])?date('M j',strtotime($r['assigned_date'])):'-'; ?>
-                </td>
-                <td style="text-align:center;">
-                  <button class="btn bico bi-d btn-sm" title="Unassign"
-                    onclick="openUnassign('<?php echo esc($r['report_id']); ?>','<?php echo esc($r['equipment_name']??'Equipment'); ?>')">
-                    <i class="fas fa-user-minus"></i>
-                  </button>
-                </td>
-              </tr>
-              <?php endforeach; endif; ?>
-            </tbody>
-          </table></div>
-        </div>
 
 
       </div><!-- /left col -->
@@ -1177,6 +1144,57 @@ textarea.fc{resize:vertical;min-height:80px;}
     </div><!-- /assign-col -->
 
     </div><!-- /main-grid -->
+
+    <!-- Active assignments are monitoring, not dispatch. They sat inside the
+         LEFT column between the queue and nothing, so the queue lost the width
+         that pushed its Assign button off the edge, and seven columns of
+         already-assigned work sat in the middle of the job of assigning. Below
+         the dispatch area, full width, where they have room and are out of the
+         way of the decision above them. -->
+        <!-- Active Assignments Panel -->
+        <div class="panel asg-active">
+          <div class="ph3">
+            <h3><i class="fas fa-tasks"></i> Active Assignments</h3>
+            <span style="font-size:.72rem;color:var(--t3);"><?php echo $totalInProgress; ?> reports in progress</span>
+          </div>
+          <div class="tblwrap"><table class="tbl">
+            <thead>
+              <tr>
+                <th>Report ID</th><th>Equipment</th><th>Technician</th>
+                <th>Priority</th><th>Status</th><th>Assigned</th><th style="text-align:center;">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php if(empty($inprogress)): ?>
+              <tr><td colspan="7"><div class="empty">
+                <i class="fas fa-inbox"></i> No active assignments.
+              </div></td></tr>
+              <?php else: foreach($inprogress as $r): ?>
+              <tr>
+                <td><span class="rid"><?php echo esc($r['report_id']); ?></span></td>
+                <td>
+                  <div class="en"><?php echo esc($r['equipment_name']??'N/A'); ?></div>
+                  <?php if(!empty($r['asset_tag'])): ?><div class="esl"><?php echo esc($r['asset_tag']); ?></div><?php endif; ?>
+                </td>
+                <td style="font-size:.79rem;font-weight:600;">
+                  <?php echo esc($r['assigned_to']??'-'); ?>
+                </td>
+                <td><span class="bdg b-<?php echo prCls($r['priority']); ?>"><?php echo prLbl($r['priority']); ?></span></td>
+                <td><span class="bdg b-<?php echo stCls($r['status']); ?>"><?php echo stLbl($r['status']); ?></span></td>
+                <td style="font-size:.71rem;color:var(--t3);">
+                  <?php echo !empty($r['assigned_date'])?date('M j',strtotime($r['assigned_date'])):'-'; ?>
+                </td>
+                <td style="text-align:center;">
+                  <button class="btn bico bi-d btn-sm" title="Unassign"
+                    onclick="openUnassign('<?php echo esc($r['report_id']); ?>','<?php echo esc($r['equipment_name']??'Equipment'); ?>')">
+                    <i class="fas fa-user-minus"></i>
+                  </button>
+                </td>
+              </tr>
+              <?php endforeach; endif; ?>
+            </tbody>
+          </table></div>
+        </div>
   </div><!-- /pg -->
 </div><!-- /wrap -->
 
