@@ -230,6 +230,18 @@ $hasFilter = ($search !== '' || $tf !== 'all' || $df !== 'all' || $yf !== 'all')
   .panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.2rem;margin-bottom:1.2rem;}
   .panel h2{margin:0 0 .3rem;font-size:1rem;color:var(--m);}
   .panel p.note{font-size:.8rem;color:var(--ink2);line-height:1.55;margin:.2rem 0 1rem;}
+  /* The import guidance is reference material, not something read every visit. */
+  details.note-guide{padding:0;}
+  details.note-guide > summary{cursor:pointer;list-style:none;display:flex;align-items:center;
+    gap:.5rem;padding:.6rem .8rem;font-size:.82rem;}
+  details.note-guide > summary::-webkit-details-marker{display:none;}
+  details.note-guide > summary::after{content:'\f078';font-family:'Font Awesome 6 Free';font-weight:900;
+    margin-left:auto;font-size:.62rem;color:var(--ink3);transition:transform .18s;}
+  details.note-guide[open] > summary::after{transform:rotate(180deg);}
+  details.note-guide > summary:focus-visible{outline:2px solid var(--m);outline-offset:2px;}
+  details.note-guide .guide-hint{font-size:.68rem;font-weight:500;color:var(--ink3);}
+  details.note-guide ul{margin:0;padding:.1rem .9rem .8rem 2rem;}
+  @media(prefers-reduced-motion:reduce){details.note-guide > summary::after{transition:none;}}
   .note-guide{font-size:.8rem;color:var(--ink2);line-height:1.55;margin:.2rem 0 1rem;
     background:#FBF8F1;border:1px solid var(--border);border-left:3px solid var(--g);
     border-radius:10px;padding:.75rem .95rem;}
@@ -352,16 +364,22 @@ $hasFilter = ($search !== '' || $tf !== 'all' || $df !== 'all' || $yf !== 'all')
         <p class="note">Upload a <strong>CSV</strong> file with the official BEC users. Only <em>Full Name</em> and <em>Email</em> are required; <em>Employee Number, Student Number, Department, Program, Year Level, Position, User Type</em> are used when present. Existing emails are updated, new ones are added, and anything that could not be imported is listed above.</p>
 
         <?php /* Faculty and staff need their own upload: the registrar's file is
-                 students only, and a reporter who is in no list cannot sign in. */ ?>
-        <div class="note note-guide">
-          <b><i class="fas fa-users"></i> Importing students, faculty, or staff</b>
+                 students only, and a reporter who is in no list cannot sign in.
+
+                 Collapsed by default. This page is opened far more often to look
+                 somebody up than to import, and four bullets of import rules —
+                 about 250px — stood between the header and the 3,587 records the
+                 visit was actually for. It opens itself right after an import,
+                 which is exactly when the skipped-row rules matter. */ ?>
+        <details class="note note-guide" <?php echo $report ? 'open' : ''; ?>>
+          <summary><b><i class="fas fa-users"></i> How importing works</b><span class="guide-hint">students, faculty &amp; staff</span></summary>
           <ul>
             <li><b>Students</b> — the registrar's enrolment export uploads as-is. Its <em>Year Level</em> and <em>Program/Qualifications</em> columns are read, and the department is worked out from them.</li>
             <li><b>Faculty and staff</b> — these are <u>not</u> in the enrolment export, so they need a separate file. Give it <em>Full Name</em>, <em>Email</em>, <em>Department</em> and either a <em>User Type</em> column (Student / Faculty / Staff) or a <em>Position</em> column (&ldquo;Instructor I&rdquo;, &ldquo;Records Officer&rdquo;).</li>
             <li><b>Why it matters</b> — a row with no year level, no <em>User Type</em> and no <em>Position</em> has nothing to identify it, so it is counted as a student. That is what makes the Faculty total read zero.</li>
             <li><b>Position beats department</b> — a utility worker assigned to Senior High School is staff, not faculty. Without a <em>Position</em>, anyone in an academic unit is assumed to teach.</li>
           </ul>
-        </div>
+        </details>
         <p class="note">
         <?php if (!extension_loaded('zip')): ?><br><i class="fas fa-circle-info"></i> Tip: In Excel choose <strong>File → Save As → CSV</strong>, then upload that file.<?php endif; ?></p>
         <form method="POST" enctype="multipart/form-data" class="uprow">
