@@ -352,6 +352,45 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 
 /* The chosen technician is stated on the card you clicked, not only in a select
    the card happens to drive. */
+/* ── responsible unit cards ───────────────────────────────────────────────
+   Two units, stated with what each one covers, selected by clicking. Same
+   shape as the priority control so the form asks its questions one way. */
+.unit-seg{display:grid;grid-template-columns:1fr 1fr;gap:.45rem;}
+.unit-opt{position:relative;display:block;cursor:pointer;}
+.unit-opt input{position:absolute;opacity:0;width:0;height:0;}
+.unit-box{display:block;position:relative;height:100%;padding:.6rem .65rem;border-radius:var(--r1);
+  border:1.5px solid var(--bdr);background:var(--s1);transition:all .15s;}
+.unit-opt:hover .unit-box{border-color:var(--bdr2);}
+.unit-opt input:focus-visible + .unit-box{outline:2px solid var(--m3);outline-offset:2px;}
+.unit-ic{display:block;font-size:.85rem;color:var(--t3);margin-bottom:.25rem;}
+.unit-t{display:block;font-family:'Outfit',sans-serif;font-size:.8rem;font-weight:800;color:var(--t1);}
+.unit-d{display:block;font-size:.62rem;color:var(--t3);line-height:1.35;margin-top:.1rem;}
+.unit-check{position:absolute;top:.45rem;right:.45rem;width:17px;height:17px;border-radius:50%;
+  background:var(--m3);color:#fff;font-size:.52rem;display:none;align-items:center;justify-content:center;}
+.unit-opt input:checked + .unit-box{border-color:var(--m3);background:#FDF6F6;}
+.unit-opt input:checked + .unit-box .unit-check{display:flex;}
+.unit-opt input:checked + .unit-box .unit-ic{color:var(--m3);}
+.unit-itso input:checked + .unit-box{border-color:#2563EB;background:#EFF6FF;}
+.unit-itso input:checked + .unit-box .unit-check{background:#2563EB;}
+.unit-itso input:checked + .unit-box .unit-ic{color:#2563EB;}
+
+/* ── assignment stepper ───────────────────────────────────────────────────
+   Four short words telling you where you are in a job that used to be a
+   column of unlabelled fields. Driven by what has actually been chosen. */
+.asg-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:.3rem;
+  padding:.7rem .9rem;border-bottom:1px solid var(--bdr);background:var(--s2);}
+.asg-step{text-align:center;font-size:.58rem;font-weight:700;color:var(--t4);
+  letter-spacing:.3px;text-transform:uppercase;}
+.asg-step span{display:flex;align-items:center;justify-content:center;
+  width:20px;height:20px;margin:0 auto .18rem;border-radius:50%;
+  border:1.5px solid var(--bdr);background:var(--s1);
+  font-size:.58rem;font-weight:800;color:var(--t4);}
+.asg-step.done{color:var(--t2);}
+.asg-step.done span{background:#16A34A;border-color:#16A34A;color:#fff;}
+.asg-step.now{color:var(--m3);}
+.asg-step.now span{background:var(--m3);border-color:var(--m2);color:#fff;
+  box-shadow:0 0 0 3px rgba(123,29,29,.13);}
+
 /* ── technician card ──────────────────────────────────────────────────────
    Name, what they do, where they sit, whether they are free and how loaded —
    the five things needed to choose someone, on the card you click. */
@@ -883,9 +922,19 @@ textarea.fc{resize:vertical;min-height:80px;}
       <div class="assign-col">
       <div class="assign-panel">
         <div class="ap-head">
-          <h3><i class="fas fa-user-plus"></i> Assignment Form</h3>
-          <p>Pick a report — the system recommends the best-matched technician by skill, availability &amp; workload.</p>
+          <h3><i class="fas fa-user-plus"></i> Assignment Workspace</h3>
+          <p>Pick a report, choose who takes it, set how urgent it is — then dispatch.</p>
         </div>
+
+        <!-- Where you are, in four words. Driven by what has actually been
+             chosen, not by a wizard that makes you click Next. -->
+        <div class="asg-steps" id="asgSteps" aria-label="Assignment progress">
+          <div class="asg-step now" data-step="1"><span>1</span>Report</div>
+          <div class="asg-step"     data-step="2"><span>2</span>Technician</div>
+          <div class="asg-step"     data-step="3"><span>3</span>Details</div>
+          <div class="asg-step"     data-step="4"><span>4</span>Dispatch</div>
+        </div>
+
         <div class="ap-body">
 
           <?php if ($preReport && $recommendedTech): ?>
@@ -966,14 +1015,27 @@ textarea.fc{resize:vertical;min-height:80px;}
               </div>
             </div>
 
-            <!-- Department -->
+            <!-- Responsible unit. Two options behind a dropdown you had to open to
+                 discover it held two. As cards they state what each unit covers,
+                 which is the part an administrator is actually deciding. -->
             <div class="fg">
-              <label class="fl">Department <span>*</span></label>
-              <select name="department" id="fDept" class="fc" required>
-                <option value="">Select department...</option>
-                <option value="ITSO">ITSO - IT &amp; Computer Labs</option>
-                <option value="PMO">PMO - Physical Maintenance &amp; Facilities</option>
-              </select>
+              <label class="fl">Responsible Unit <span>*</span></label>
+              <div class="unit-seg" role="radiogroup" aria-label="Responsible unit">
+                <?php foreach ([
+                  ['PMO',  'fa-building',     'PMO',  'Physical maintenance &amp; facilities'],
+                  ['ITSO', 'fa-laptop-code',  'ITSO', 'IT equipment &amp; computer labs'],
+                ] as [$uv, $uic, $ut, $ud]): ?>
+                <label class="unit-opt unit-<?php echo strtolower($uv); ?>">
+                  <input type="radio" name="department" value="<?php echo $uv; ?>" required>
+                  <span class="unit-box">
+                    <span class="unit-check" aria-hidden="true"><i class="fas fa-check"></i></span>
+                    <i class="fas <?php echo $uic; ?> unit-ic" aria-hidden="true"></i>
+                    <span class="unit-t"><?php echo $ut; ?></span>
+                    <span class="unit-d"><?php echo $ud; ?></span>
+                  </span>
+                </label>
+                <?php endforeach; ?>
+              </div>
             </div>
 
             <!-- Priority: four fixed choices, so it is four buttons rather than a
@@ -1254,13 +1316,19 @@ function selectReport(data) {
 
   // Fill form
   document.getElementById('fRid').value = data.id;
+  asgSyncSteps();
   // Priority is a radio group now, not a select — tick the matching option so
   // picking a report still pre-fills the priority it was reported with.
   if (data.priority) {
     const p = document.querySelector('.prio-seg input[value="' + data.priority + '"]');
     if (p) { p.checked = true; }
   }
-  if (data.dept)     document.getElementById('fDept').value = data.dept;
+  // Responsible unit is a radio group now, so picking a report pre-selects the
+  // unit it was already routed to instead of setting a select's value.
+  if (data.dept) {
+    const u = document.querySelector('.unit-seg input[value="' + data.dept + '"]');
+    if (u) { u.checked = true; }
+  }
 
   // Highlight row
   document.querySelectorAll('#unTbl tbody tr').forEach(r => r.style.background = '');
@@ -1292,9 +1360,36 @@ function clearAll() {
   document.getElementById('assignForm').reset();
   document.getElementById('techPrev').classList.remove('show');
   document.querySelectorAll('.tcard').forEach(c => c.classList.remove('selected'));
+  // form.reset() clears the radios and the select, so the cards that mirror
+  // them have to be cleared too or they keep claiming a selection that is gone
+  document.querySelectorAll('.tech-card').forEach(c => c.classList.remove('on'));
+  asgSyncSteps();
 }
 
 /* --- TECHNICIAN CHANGED --------------------------- */
+/* Reflect what has been chosen so far. Called from every control that changes
+   the answer to one of the four questions, so the stepper never claims progress
+   that has not been made. */
+function asgSyncSteps() {
+  const has = {
+    1: !!(document.getElementById('fRid') || {}).value,
+    2: !!(document.getElementById('fTech') || {}).value,
+    3: !!document.querySelector('.prio-seg input:checked')
+       && !!document.querySelector('.unit-seg input:checked'),
+  };
+  const steps = document.querySelectorAll('#asgSteps .asg-step');
+  // the current step is the first unanswered one
+  let cur = has[1] ? (has[2] ? (has[3] ? 4 : 3) : 2) : 1;
+  steps.forEach(function (el) {
+    const n = parseInt(el.getAttribute('data-step'), 10);
+    el.classList.toggle('done', n < cur);
+    el.classList.toggle('now',  n === cur);
+  });
+}
+document.addEventListener('change', function (e) {
+  if (e.target.closest && e.target.closest('.prio-seg,.unit-seg,#fTech')) { asgSyncSteps(); }
+});
+
 function techChanged(sel) {
   const opt = sel.options[sel.selectedIndex];
   const prev = document.getElementById('techPrev');
@@ -1327,6 +1422,7 @@ function techChanged(sel) {
   tpMeta.innerHTML += wlBadge(wl);
 
   prev.classList.add('show');
+  asgSyncSteps();
 
   // Highlight technician card
   document.querySelectorAll('.tcard').forEach(c => c.classList.remove('selected'));
