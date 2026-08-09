@@ -1063,11 +1063,12 @@ function typeBadge($u){
     // An administrator's standing is which office they sit in — that, not the
     // role, is what tells a PMO administrator from an ITSO one, and it is the
     // same reading adminUnitForUser() makes of the department.
+    // For staff accounts this badge was derived from the department and printed
+    // PMO or ITSO — the very thing the Department column shows in the next cell.
+    // Every administrator row therefore read "ADMIN  PMO | PMO". The unit is the
+    // department's job; Standing states the role and nothing else.
     if (in_array($role, ['admin','pmo','technician'], true)) {
-        $d = strtoupper((string)($u['department'] ?? ''));
-        if (strpos($d, 'ITSO') !== false)     { $meta = ['ITSO', 'fas fa-laptop-code', '#2563EB']; }
-        elseif (strpos($d, 'PMO') !== false)  { $meta = ['PMO',  'fas fa-building',    '#C2410C']; }
-        else { return ''; }
+        return '';
     } else {
     $t = strtolower(trim((string)($u['user_type'] ?? '')));
     if ($t === '' || $role !== 'reporter') { return ''; }
@@ -1596,42 +1597,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
       </div>
     </div>
 
-    <!-- Summary Cards -->
-    <!-- Six cards for a six-column grid. The grid had always been declared
-         repeat(6,1fr) while only five cards were rendered, so every card sat a
-         column short of the width below it — that was the misalignment. -->
-    <div class="sums">
-      <a href="?role=all" class="scard sc-a">
-        <div class="sico"><i class="fas fa-users"></i></div>
-        <div class="snum" id="sn0"><?php echo number_format($c_total); ?></div>
-        <div class="slbl">Total Users</div>
-      </a>
-      <a href="?role=admin" class="scard sc-b">
-        <div class="sico"><i class="fas fa-crown"></i></div>
-        <div class="snum" id="sn1"><?php echo $c_admin; ?></div>
-        <div class="slbl">Administrators</div>
-      </a>
-      <a href="?unit=pmo" class="scard sc-c">
-        <div class="sico"><i class="fas fa-building"></i></div>
-        <div class="snum" id="sn2"><?php echo $c_pmoUnit; ?></div>
-        <div class="slbl">PMO Unit</div>
-      </a>
-      <a href="?unit=itso" class="scard sc-d">
-        <div class="sico"><i class="fas fa-laptop-code"></i></div>
-        <div class="snum" id="sn3"><?php echo $c_itsoUnit; ?></div>
-        <div class="slbl">ITSO Unit</div>
-      </a>
-      <a href="?role=technician" class="scard sc-f">
-        <div class="sico"><i class="fas fa-hard-hat"></i></div>
-        <div class="snum" id="sn5"><?php echo $c_tech; ?></div>
-        <div class="slbl">Technicians</div>
-      </a>
-      <a href="?role=reporter" class="scard sc-e">
-        <div class="sico"><i class="fas fa-bullhorn"></i></div>
-        <div class="snum" id="sn6"><?php echo number_format($c_rep); ?></div>
-        <div class="slbl">Reporters</div>
-      </a>
-    </div>
+    <!-- The six summary cards that used to sit here linked to ?role=all,
+         ?role=admin, ?unit=pmo, ?unit=itso, ?role=technician and ?role=reporter
+         — the same six filters as the tab row directly beneath them, with the
+         same six numbers. One row does both jobs: the counts now ride on the
+         tabs, which is where you click anyway. -->
 
     <!-- Role Tabs -->
     <div class="rtabs">
@@ -1639,10 +1609,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
       // "PMO" was here as a role and matched nobody. The administrators are
       // the PMO and the ITSO, so those two are unit filters instead.
       $tabs=[
-        ['all',   'All Users',      'fas fa-users',          'on'],
-        ['admin', 'Administrators', 'fas fa-crown',          'rtab-admin'],
-        ['technician','Technicians','fas fa-hard-hat',       'rtab-tech'],
-        ['reporter','Reporters',    'fas fa-bullhorn',       'rtab-rep'],
+        ['all',   'All Users',      'fas fa-users',          'on',        $c_total],
+        ['admin', 'Administrators', 'fas fa-crown',          'rtab-admin',$c_admin],
+        ['technician','Technicians','fas fa-hard-hat',       'rtab-tech', $c_tech],
+        ['reporter','Reporters',    'fas fa-bullhorn',       'rtab-rep',  $c_rep],
       ];
       // Every filter link keeps the other filters, so choosing a role does not
       // silently throw away the department the admin already picked.
@@ -1650,12 +1620,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         $qs = array_merge(['role'=>$rf,'type'=>$tf,'dept'=>$df,'unit'=>$uf,'year'=>$yl,'search'=>$sq], $over);
         return '?' . http_build_query(array_filter($qs, static fn($v) => $v !== '' && $v !== 'all'));
       };
-      foreach($tabs as [$rval,$rlbl,$rico,$rcls]):
+      foreach($tabs as [$rval,$rlbl,$rico,$rcls,$rnum]):
         $act = $rf===$rval?'on':'';
       ?>
       <a href="<?php echo esc($keep(['role'=>$rval])); ?>"
          class="rtab <?php echo $rcls; ?> <?php echo $act; ?>">
         <i class="<?php echo $rico;?>"></i><?php echo $rlbl;?>
+        <span class="rtab-n"><?php echo number_format((int)$rnum); ?></span>
       </a>
       <?php endforeach; ?>
 
@@ -1770,11 +1741,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
     <div class="panel" id="tableView">
       <div class="ph3">
         <h3><i class="fas fa-list-alt"></i> User Records</h3>
-        <div style="display:flex;gap:.4rem;">
-          <button class="btn btn-ghost btn-sm" onclick="exportCSV()"><i class="fas fa-file-csv"></i> CSV</button>
-          <button class="btn btn-maroon btn-sm" onclick="openCreate()"><i class="fas fa-user-plus"></i> Add User</button>
-      <button class="btn btn-sm" style="background:#C9960C;color:#fff;border:none;" onclick="document.getElementById('inviteMo').classList.add('open')"><i class="fas fa-user-shield"></i> Invite Technician</button>
-        </div>
+        <!-- Export, Add User and Invite Technician were repeated here from the
+             page header a few hundred pixels above, so the same three actions
+             appeared twice on one screen. They live in the header only. -->
       </div>
       <!-- No data-paginate here: this list is paged in SQL (see $perPage). The
            client-side paginator would slice the 50 rows the server already
@@ -2678,20 +2647,8 @@ function togglePw(id,btn){
 }
 
 /* ─── ANIMATED COUNTERS ──────────────────────────────── */
-function animN(id,to){
-  const el=document.getElementById(id);if(!el)return;
-  const from=parseInt(el.textContent)||0,dur=700,t0=performance.now();
-  const go=now=>{const p=Math.min((now-t0)/dur,1),e=1-Math.pow(1-p,3);
-    el.textContent=Math.round(from+(to-from)*e);if(p<1)requestAnimationFrame(go);};
-  requestAnimationFrame(go);
-}
-document.addEventListener('DOMContentLoaded',()=>{
-  // One per card, in the order they are rendered. sn3 was missing entirely,
-  // so the ITSO figure was the only one that never counted up.
-  animN('sn0',<?php echo (int)$c_total;?>);   animN('sn1',<?php echo (int)$c_admin;?>);
-  animN('sn2',<?php echo (int)$c_pmoUnit;?>); animN('sn3',<?php echo (int)$c_itsoUnit;?>);
-  animN('sn5',<?php echo (int)$c_tech;?>);    animN('sn6',<?php echo (int)$c_rep;?>);
-});
+/* The count-up animation went with the summary cards it animated; the tab
+   counts are rendered server-side and do not need to be animated into place. */
 
 /* ─── HELPERS ─────────────────────────────────────────── */
 function avColor(role){return{admin:'linear-gradient(135deg,#7B1D1D,#C53030)',pmo:'linear-gradient(135deg,#92400E,#F59E0B)',dean:'linear-gradient(135deg,#0F766E,#2DD4BF)',finance:'linear-gradient(135deg,#166534,#4ADE80)',technician:'linear-gradient(135deg,#1D4ED8,#60A5FA)',reporter:'linear-gradient(135deg,#7C3AED,#A78BFA)',student:'linear-gradient(135deg,#0891B2,#22D3EE)'}[role]||'linear-gradient(135deg,#6B7280,#9CA3AF)';}
