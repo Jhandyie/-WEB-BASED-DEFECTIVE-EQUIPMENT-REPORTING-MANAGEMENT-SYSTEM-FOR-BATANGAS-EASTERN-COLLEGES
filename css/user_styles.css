@@ -198,7 +198,7 @@ body {
 }
 
 .action-card:hover {
-    transform: translateY(-8px);
+    transform:none;
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.15);
 }
 
@@ -283,7 +283,7 @@ body {
 }
 
 .equipment-card:hover {
-    transform: translateY(-5px);
+    transform:none;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
@@ -352,7 +352,7 @@ body {
 
 .btn-reserve:hover {
     background: #218838;
-    transform: translateY(-2px);
+    transform:none;
 }
 
 /* ============================================
@@ -423,7 +423,7 @@ body {
 }
 
 .report-card:hover {
-    transform: translateY(-5px);
+    transform:none;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
@@ -596,7 +596,7 @@ body {
 
 .btn-primary:hover {
     background: #5a0000;
-    transform: translateY(-2px);
+    transform:none;
     box-shadow: 0 4px 12px rgba(128, 0, 0, 0.3);
 }
 

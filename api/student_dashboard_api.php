@@ -482,7 +482,7 @@ body{
   box-shadow:var(--sh3d);
   transition:transform .3s,box-shadow .3s;
 }
-.hero:hover{transform:translateY(-4px);box-shadow:var(--sh3dh);}
+.hero:hover{transform:none;box-shadow:var(--sh3dh);}
 
 /* BEC Campus background */
 .hero-bg{
@@ -563,7 +563,7 @@ body{
   background:linear-gradient(to bottom,rgba(255,255,255,.12),transparent);
   border-radius:inherit;pointer-events:none;
 }
-.btn:hover{transform:translateY(-2px);}
+.btn:hover{transform:none;}
 .btn:active{transform:translateY(1px);}
 
 .btn-gold{
@@ -816,7 +816,7 @@ textarea.f-ctrl{resize:vertical;min-height:90px;}
 .upload-zone:hover{border-color:var(--maroon);background:#FDECEA;}
 .upload-zone:hover::before{opacity:1;}
 .upload-zone i{font-size:2rem;color:var(--txt3);margin-bottom:.6rem;display:block;transition:transform .3s,color .3s;}
-.upload-zone:hover i{transform:scale(1.15) translateY(-3px);color:var(--maroon);}
+.upload-zone:hover i{transform:scale(1.15);color:var(--maroon);}
 .upload-zone p{font-size:.82rem;color:var(--txt2);font-weight:600;}
 .upload-zone small{font-size:.72rem;color:var(--txt3);}
 #imgPrev{margin-top:.875rem;display:none;border-radius:var(--r1);overflow:hidden;}

@@ -505,7 +505,7 @@ body{
   padding:.4rem .875rem;border-radius:var(--r1);
   font-family:'DM Sans',sans-serif;font-size:.77rem;font-weight:700;
   cursor:pointer;border:none;transition:all .17s;text-decoration:none;white-space:nowrap;}
-.btn:hover{transform:translateY(-1px);}.btn:active{transform:translateY(0);}
+.btn:hover{transform:none;}.btn:active{transform:translateY(0);}
 .btn-maroon{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;box-shadow:none;}
 .btn-maroon:hover{box-shadow:none;}
 .btn-gold{background:linear-gradient(135deg,var(--g2),var(--g3));color:var(--m1);box-shadow:none;}
@@ -672,7 +672,7 @@ body{
   box-shadow:var(--sh0);position:relative;overflow:hidden;}
 .kcard::before{content:'';position:absolute;left:0;top:0;bottom:0;
   width:3px;background:var(--kbdr,var(--bdr));border-radius:3px 0 0 3px;}
-.kcard:hover{transform:translateY(-3px);box-shadow:var(--sh2);border-color:var(--kbdr,var(--bdr));}
+.kcard:hover{transform:none;box-shadow:var(--sh2);border-color:var(--kbdr,var(--bdr));}
 .kcard-id{font-family:'Outfit',sans-serif;font-size:.68rem;font-weight:800;
   color:var(--kc,var(--t3));margin-bottom:.28rem;}
 .kcard-eq{font-size:.8rem;font-weight:700;color:var(--t1);line-height:1.3;
@@ -959,7 +959,7 @@ textarea.fc{resize:vertical;min-height:70px;}
 .rpager .rp-btns{display:inline-flex;align-items:center;gap:.25rem;flex-wrap:wrap;padding:.28rem;background:var(--s2);border:1px solid var(--bdr);border-radius:999px;}
 .rpager .rp-gap{padding:0 .1rem;color:var(--t3);font-size:.85rem;font-weight:800;user-select:none;align-self:center;opacity:.6;}
 .rpager button{display:inline-flex;align-items:center;justify-content:center;min-width:2rem;height:2rem;padding:0 .6rem;border:none;background:transparent;color:var(--t2);border-radius:999px;font-size:.8rem;font-weight:700;cursor:pointer;line-height:1;transition:color .16s,background .16s,box-shadow .16s,transform .16s;}
-.rpager button:hover:not(:disabled):not(.on){background:var(--s1);color:var(--m3);box-shadow:0 1px 5px rgba(0,0,0,.09);transform:translateY(-1px);}
+.rpager button:hover:not(:disabled):not(.on){background:var(--s1);color:var(--m3);box-shadow:0 1px 5px rgba(0,0,0,.09);transform:none;}
 .rpager button.on{background:linear-gradient(135deg,#4A0E0E,#7B1D1D);color:#fff;box-shadow:0 3px 9px rgba(123,29,29,.34);transform:translateY(-1px);}
 .rpager button.rp-nav{width:2rem;min-width:2rem;padding:0;font-size:1rem;color:var(--t3);}
 .rpager button.rp-nav:hover:not(:disabled){color:var(--m3);}

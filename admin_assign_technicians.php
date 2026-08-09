@@ -253,7 +253,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   border-radius:var(--r1);font-family:'DM Sans',sans-serif;font-size:.77rem;
   font-weight:700;cursor:pointer;border:none;transition:all .17s;
   text-decoration:none;white-space:nowrap;}
-.btn:hover{transform:translateY(-1px);}.btn:active{transform:translateY(0);}
+.btn:hover{transform:none;}.btn:active{transform:translateY(0);}
 .btn-maroon{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;box-shadow:none;}
 .btn-maroon:hover{box-shadow:none;}
 .btn-gold{background:linear-gradient(135deg,var(--g2),var(--g3));color:var(--m1);box-shadow:none;}
@@ -360,7 +360,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   position:relative;overflow:hidden;}
 .tcard::before{content:'';position:absolute;left:0;top:0;bottom:0;
   width:3px;background:var(--bdr);border-radius:3px 0 0 3px;transition:all .22s;}
-.tcard:hover{transform:translateY(-3px) translateX(3px);box-shadow:var(--sh2);border-color:var(--m3);}
+.tcard:hover{transform:translateX(3px);box-shadow:var(--sh2);border-color:var(--m3);}
 .tcard:hover::before{background:var(--m3);}
 .tcard.selected{border-color:var(--m3);background:linear-gradient(135deg,#FFF5F5,#FFF8F0);
   box-shadow:0 0 0 3px rgba(123,29,29,.08),var(--sh2);}
@@ -789,7 +789,7 @@ textarea.fc{resize:vertical;min-height:80px;}
         <!-- Smart Technician Availability + Recommendation -->
         <style>
           .tech-card{transition:box-shadow .15s,transform .12s,border-color .15s;}
-          .tech-card:hover{box-shadow:0 8px 20px rgba(123,29,29,.16);transform:translateY(-2px);border-color:#C9960C !important;}
+          .tech-card:hover{box-shadow:0 8px 20px rgba(123,29,29,.16);transform:none;border-color:#C9960C !important;}
           .tech-card:active{transform:translateY(0);}
           .wbal-seg{transition:opacity .15s;} .wbal-seg:hover{opacity:.8;}
         </style>

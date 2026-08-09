@@ -601,6 +601,122 @@ if ($jc !== '' && is_array($inv) && isset($inventorySummaryLabels[$jc]) && isset
     }
 }
 
+/* ---- EXPORT ------------------------------------------------------------
+   Placed here on purpose: $items still holds every row that matches the
+   current filters. The old export read the rendered table instead, so it
+   only ever contained the page you were looking at (ten rows by default),
+   its Status column actually held the unit, and its Warranty column held the
+   empty action buttons. Reading the records themselves fixes all three. */
+$exportFmt = strtolower(trim((string)($_GET['export'] ?? '')));
+if (in_array($exportFmt, ['csv', 'xlsx', 'pdf'], true)) {
+    $expHeaders = ['Equipment ID', 'Equipment Name', 'Asset Tag', 'Category', 'Brand / Model',
+                   'Location', 'Department', 'Unit', 'Status', 'Condition', 'Open Defects', 'Warranty Expiry'];
+    $lbl = static function ($v, string $fallback = '—'): string {
+        $v = trim((string)$v);
+        return $v === '' ? $fallback : ucwords(str_replace('_', ' ', $v));
+    };
+    $expRows = [];
+    foreach ($items as $e) {
+        $brandModel = trim(($e['brand'] ?? '') . ' ' . ($e['model'] ?? ''));
+        $warranty   = trim((string)($e['warranty_expiry'] ?? ''));
+        $expRows[] = [
+            (string)($e['equipment_id'] ?? ''),
+            (string)($e['equipment_name'] ?? ''),
+            (string)($e['asset_tag'] ?? ''),
+            (string)($e['category'] ?? '') !== '' ? (string)$e['category'] : 'Uncategorized',
+            $brandModel !== '' ? $brandModel : '—',
+            (string)($e['location'] ?? '') !== '' ? (string)$e['location'] : 'Not specified',
+            (string)($e['department'] ?? '') !== '' ? (string)$e['department'] : '—',
+            strtoupper(trim((string)($e['unit'] ?? ''))) !== '' ? strtoupper(trim((string)$e['unit'])) : '—',
+            $lbl($e['status'] ?? '', 'Operational'),
+            $lbl($e['condition'] ?? ($e['condition_status'] ?? ''), 'Not recorded'),
+            (int)($e['open_defects'] ?? 0),
+            $warranty !== '' ? date('Y-m-d', strtotime($warranty)) : '—',
+        ];
+    }
+
+    $expCount = static fn(string $st) => count(array_filter($items, static fn($e) => (string)($e['status'] ?? '') === $st));
+    $expSummary = [
+        'Total Items'       => number_format(count($items)),
+        'Operational'       => number_format($expCount('operational')),
+        'Under Maintenance' => number_format($expCount('under_maintenance')),
+        'Faulty'            => number_format($expCount('faulty')),
+        'Retired'           => number_format($expCount('retired')),
+        'Open Defects'      => number_format(array_sum(array_map(static fn($e) => (int)($e['open_defects'] ?? 0), $items))),
+    ];
+    $expMeta = array_filter([
+        'Category Filter'   => $cf !== 'all' ? $cf : '',
+        'Status Filter'     => $sf !== 'all' ? ucwords(str_replace('_', ' ', $sf)) : '',
+        'Department Filter' => $df !== 'all' ? $df : '',
+        'Unit Filter'       => $uf !== 'all' ? $uf : '',
+        'Search'            => $sq !== '' ? $sq : '',
+    ]);
+
+    if ($exportFmt === 'csv') {
+        require_once __DIR__ . '/includes/csv_export.php';
+        $out = becCsvOpen('bec_inventory');
+        becCsvLetterhead($out, 'Equipment Inventory',
+            $expMeta + ['Total Records' => number_format(count($expRows))]);
+        becCsvSection($out, 'Executive Summary', ['Metric', 'Value'],
+            array_map(static fn($k, $v) => [$k, $v], array_keys($expSummary), array_values($expSummary)));
+        becCsvRow($out, ['EQUIPMENT RECORDS']);
+        becCsvRow($out, $expHeaders);
+        foreach ($expRows as $row) { becCsvRow($out, $row); }
+        becCsvBlank($out);
+        becCsvFooter($out, 'End of Equipment Inventory');
+        fclose($out);
+        exit;
+    }
+
+    if ($exportFmt === 'xlsx') {
+        require_once __DIR__ . '/includes/xlsx_writer.php';
+        becRenderBrandedXlsx('Equipment Inventory', $expHeaders, $expRows, $expSummary, $expMeta, 'bec_inventory', 5);
+        exit;
+    }
+
+    // pdf: the shared branded letterhead, printed from the browser
+    require_once __DIR__ . '/includes/export_branding.php';
+    $eh = static fn($v) => htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
+    header('Content-Type: text/html; charset=UTF-8');
+    echo '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">'
+       . '<meta name="viewport" content="width=device-width,initial-scale=1.0">'
+       . '<title>Equipment Inventory — BEC PMO</title>'
+       . '<link rel="icon" type="image/png" href="assets/logs.png">'
+       . '<style>' . becExportCss() . '@page{size:A4 landscape;margin:12mm 10mm;}</style></head><body>';
+    echo becExportToolbar();
+    echo becExportHeader('Equipment Inventory', $expMeta + ['Total Records' => number_format(count($expRows))]);
+    echo becExportSummaryCards($expSummary);
+    echo '<div class="sec-label">Equipment Records</div>';
+    echo '<table class="data-table"><thead><tr>';
+    foreach ($expHeaders as $hd) { echo '<th>' . $eh($hd) . '</th>'; }
+    echo '</tr></thead><tbody>';
+    if (!$expRows) {
+        echo '<tr><td colspan="' . count($expHeaders) . '" class="empty">No equipment matches the selected filters.</td></tr>';
+    } else {
+        $byLoc = [];
+        foreach ($expRows as $row) {
+            $key = trim((string)$row[5]);
+            if ($key === '' || $key === '—') { $key = 'Unspecified'; }
+            $byLoc[$key][] = $row;
+        }
+        ksort($byLoc, SORT_NATURAL | SORT_FLAG_CASE);
+        foreach ($byLoc as $loc => $group) {
+            echo '<tr class="grp"><td colspan="' . count($expHeaders) . '">' . $eh($loc) . ' (' . count($group) . ')</td></tr>';
+            foreach ($group as $row) {
+                echo '<tr>';
+                foreach ($row as $cell) { echo '<td>' . $eh($cell) . '</td>'; }
+                echo '</tr>';
+            }
+        }
+    }
+    echo '</tbody></table>';
+    echo becExportSignatures();
+    echo becExportFooter();
+    echo '<script>window.addEventListener("load",function(){setTimeout(function(){window.print();},400);});</script>';
+    echo '</body></html>';
+    exit;
+}
+
 // paginate current result set (applies to DB and JSON quick view)
 $total_items = count($items);
 $total_pages = max(1, (int)ceil($total_items / $per));
@@ -650,7 +766,8 @@ function qurl(array $params): string { return '?' . http_build_query($params); }
 <link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
 <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <link rel="stylesheet" href="css/typography.css">
-<script src="assets/vendor/js/xlsx.full.min.js"></script>
+<!-- SheetJS removed: the Excel export is built server-side by
+     includes/xlsx_writer.php, so this 861 KB bundle no longer loads. -->
 <link rel="stylesheet" href="assets/css/admin-shell.css">
 <style>
 
@@ -711,7 +828,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .btn{display:inline-flex;align-items:center;gap:.32rem;padding:.4rem .875rem;border-radius:var(--r1);
   font-family:'DM Sans',sans-serif;font-size:.77rem;font-weight:700;cursor:pointer;border:none;
   transition:all .17s;text-decoration:none;white-space:nowrap;}
-.btn:hover{transform:translateY(-1px);}.btn:active{transform:translateY(0);}
+.btn:hover{transform:none;}.btn:active{transform:translateY(0);}
 .btn-maroon{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;box-shadow:none;}
 .btn-maroon:hover{box-shadow:none;}
 .btn-gold{background:linear-gradient(135deg,var(--g2),var(--g3));color:var(--m1);box-shadow:none;}
@@ -844,7 +961,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .ecard{background:var(--s1);border-radius:var(--r3);border:1.5px solid var(--bdr);
   padding:0;position:relative;overflow:hidden;
   transition:all .24s cubic-bezier(.4,0,.2,1);box-shadow:var(--sh0);}
-.ecard:hover{transform:translateY(-5px) scale(1.012);box-shadow:var(--sh3);border-color:transparent;}
+.ecard:hover{transform:scale(1.012);box-shadow:var(--sh3);border-color:transparent;}
 .ec-stripe{height:5px;background:var(--stripe,var(--m3));}
 .ecard.st-op .ec-stripe{background:linear-gradient(to right,#15803D,#22C55E);}
 .ecard.st-maint .ec-stripe{background:linear-gradient(to right,#D97706,#FBBF24);}
@@ -1251,7 +1368,7 @@ textarea.fc{resize:vertical;min-height:72px;}
           $ws=warrantyStatus($e['warranty_expiry']??null);
           $stClass=['operational'=>'st-op','under_maintenance'=>'st-maint','faulty'=>'st-fault','retired'=>'st-ret'][$e['status']??'']??'st-op';
         ?>
-        <div class="ecard <?php echo $stClass;?>" style="animation-delay:<?php echo $i*.04;?>s;">
+        <div class="ecard <?php echo $stClass;?>" style="animation-delay:<?php echo min($i,25)*.04;?>s;">
           <div class="ec-stripe"></div>
           <div class="ec-body">
             <div class="ec-top">
@@ -1722,56 +1839,28 @@ function toggleExp(e){
 }
 document.addEventListener('click',()=>{const m=document.getElementById('expMenu');if(m)m.style.display='none';});
 
-function getRows(){
-  const h=['Equipment ID','Name','Asset Tag','Category','Brand/Model','Location','Department','Status','Condition','Open Defects','Warranty'];
-  const r=[];
-  document.querySelectorAll('#invTbl tbody tr').forEach(tr=>{
-    const tds=tr.querySelectorAll('td');if(tds.length<10)return;
-    r.push([
-      tds[0].textContent.trim(),(tds[1].querySelector('.en') ? tds[1].querySelector('.en').textContent.trim() : tds[1].textContent.trim()),
-      tds[2].textContent.trim(),tds[3].textContent.trim(),(tds[1].querySelector('.esl') ? tds[1].querySelector('.esl').textContent.trim() : ''),
-      tds[4].textContent.trim().replace(/\s+/g,' '),tds[5].textContent.trim(),
-      tds[6].textContent.trim().replace(/\s+/g,' '),tds[7].textContent.trim().replace(/\s+/g,' '),
-      tds[8].textContent.trim(),tds[9].textContent.trim(),
-    ]);
-  });
-  return{h,r};
+/* The export is built server-side from the records themselves (see the export
+   branch above the pagination slice). Scraping the rendered table only ever
+   caught the page on screen, and the badge markup did not line up with the
+   header labels. All the browser does now is carry the current filters over. */
+function exportUrl(format){
+  const u=new URL(location.href);
+  u.searchParams.delete('page');
+  u.searchParams.delete('per_page');
+  u.searchParams.set('export',format);
+  return u.toString();
 }
 function exportCSV(){
-  const{h,r}=getRows();
-  let c='BEC Inventory\nExported: '+new Date().toLocaleString()+'\n\n';
-  c+=h.join(',')+'\n';
-  r.forEach(row=>c+=row.map(v=>'"'+v.replace(/"/g,'""')+'"').join(',')+'\n');
-  const b=new Blob([c],{type:'text/csv'});const a=document.createElement('a');
-  a.href=URL.createObjectURL(b);a.download='inventory_'+new Date().toISOString().split('T')[0]+'.csv';a.click();
-  toast('ok',r.length+' items exported.','CSV Export');
+  window.location.href=exportUrl('csv');
+  toast('ok','All filtered items are being exported.','CSV Export');
 }
 function exportExcel(){
-  const{h,r}=getRows();
-  const ws=XLSX.utils.aoa_to_sheet([['BEC Inventory'],['Exported: '+new Date().toLocaleString()],[],h,...r]);
-  ws['!cols']=h.map(()=>({wch:18}));
-  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Inventory');
-  XLSX.writeFile(wb,'inventory_'+new Date().toISOString().split('T')[0]+'.xlsx');
-  toast('ok',r.length+' items exported.','Excel Export');
+  window.location.href=exportUrl('xlsx');
+  toast('ok','All filtered items are being exported.','Excel Export');
 }
 function exportPDF(){
-  const{h,r}=getRows();const dt=new Date().toLocaleString();
-  const win=window.open('','_blank');
-  win.document.write(`<!DOCTYPE html><html><head><title>BEC Inventory</title>
-  <style>body{font-family:'Segoe UI',sans-serif;margin:2cm;color:#1a0808;font-size:10px;}
-  h1{font-size:17px;color:#7B1D1D;margin-bottom:4px;}.sub{font-size:9px;color:#9a7a7a;margin-bottom:16px;}
-  table{width:100%;border-collapse:collapse;}th{background:#7B1D1D;color:#fff;padding:6px 7px;font-size:8px;text-align:left;text-transform:uppercase;letter-spacing:.4px;}
-  td{padding:5px 7px;border-bottom:1px solid #e5d9c6;font-size:9px;}tr:nth-child(even)td{background:#faf7f0;}
-  .foot{margin-top:16px;font-size:8px;color:#9a7a7a;border-top:1px solid #e5d9c6;padding-top:6px;}
-  @media print{@page{margin:1.5cm;size:A4 landscape;}}</style></head><body>
-  <h1>BEC Equipment Management - Inventory</h1>
-  <div class="sub">Generated: ${dt} &nbsp;|&nbsp; ${r.length} items</div>
-  <table><thead><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr></thead>
-  <tbody>${r.map(row=>'<tr>'+row.map(v=>`<td>${v}</td>`).join('')+'</tr>').join('')}</tbody></table>
-  <div class="foot">Batangas Eastern Colleges &nbsp;-&nbsp; Equipment Management System &nbsp;-&nbsp; ${dt}</div>
-  </body></html>`);
-  win.document.close();setTimeout(()=>{win.print();win.close();},400);
-  toast('ok','Print dialog opened.','PDF Export');
+  window.open(exportUrl('pdf'),'_blank');
+  toast('ok','Print view opened in a new tab.','PDF Export');
 }
 
 /* --- ANIMATED COUNTERS -------------------------------- */

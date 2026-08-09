@@ -993,7 +993,9 @@ body::after {
   background:var(--paper);border:1px solid var(--border);
   border-radius:10px;padding:.65rem .9rem;
 }
-.ro-label { font-size:.72rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:.2rem; }
+/* Matches .fl — these sit directly above the editable pickers in the same card,
+   and two label sizes one under the other read as a mistake. */
+.ro-label { font-size:.78rem;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:.2rem; }
 .ro-value { font-size:.85rem;color:var(--ink);font-weight:500; }
 
 /* ── FORM GRID ── */
@@ -1008,6 +1010,9 @@ body::after {
   text-transform:uppercase;letter-spacing:.8px;
 }
 .fl .req { color:var(--maroon);margin-left:.12rem; }
+/* "(optional)", "(if visible)" — was the same four inline properties repeated on
+   every label that needed it. */
+.fl .opt { color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0;margin-left:.2rem; }
 
 .fi-wrap { position:relative; }
 .fi-icon {
@@ -1026,7 +1031,12 @@ body::after {
 }
 .fi   { padding:.72rem 1rem .72rem 2.4rem; }
 .fsel { padding:.72rem 2.4rem .72rem 2.4rem; }
-.fta  { padding:.72rem .9rem;resize:vertical;min-height:100px; }
+/* Left inset matches .fi/.fsel so the description's first character sits on the
+   same line as every other field in the column. */
+.fta  { padding:.72rem .9rem .72rem 2.4rem;resize:vertical;min-height:100px; }
+/* The wrap is as tall as the textarea, so the icon is pinned near the top rather
+   than vertically centred the way it is beside a single-line input. */
+.fi-wrap-ta .fi-icon { top:1.15rem;transform:none; }
 .fi:focus,.fsel:focus,.fta:focus {
   border-color:var(--maroon);
   box-shadow:0 0 0 3px rgba(123,29,29,.09);
@@ -1034,8 +1044,6 @@ body::after {
 .fi::placeholder,.fta::placeholder { color:#C4AFA8;font-size:.82rem; }
 .fsel { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239E8070' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat:no-repeat;background-position:right .85rem center;cursor:pointer; }
 .fsel:disabled { background-color:#F5EFE6;color:var(--ink3);cursor:not-allowed;opacity:1; }
-.fi-wrap-sel { position:relative; }
-.fi-wrap-sel .fi-icon { pointer-events:none; }
 
 
 /* ── "Reporting as …" — the saved profile, offered for confirmation ── */
@@ -1512,7 +1520,7 @@ body::after {
   .submit-row { justify-content: center; }
   /* Card hover elevation. */
   .section-card { transition: box-shadow .2s ease, transform .2s ease, border-color .2s ease; }
-  .section-card:hover { box-shadow: 0 12px 32px rgba(123,29,29,.10); transform: translateY(-2px); }
+  .section-card:hover { box-shadow: 0 12px 32px rgba(123,29,29,.10); transform:none; }
   /* a card with an open search dropdown floats above its neighbour */
   .section-card:has(.search-dd.open),
   .section-card:has(.equip-dropdown.open) { z-index: 60; }
@@ -1704,7 +1712,7 @@ html { scroll-behavior: smooth; }
       </div>
       <div id="reporterFields"<?php echo $profileComplete ? ' hidden' : ''; ?>>
       <div class="fg" style="margin-top:.85rem;">
-        <label class="fl" for="rDept">Department / Academic Unit <span style="color:var(--maroon);">*</span></label>
+        <label class="fl" for="rDept">Department / Academic Unit <span class="req">*</span></label>
         <div class="fi-wrap">
           <i class="fas fa-building-columns fi-icon"></i>
           <select name="reporter_department" id="rDept" class="fsel" required>
@@ -1743,7 +1751,7 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
       <div class="fg" style="margin-top:.85rem;">
-        <label class="fl" for="rCourse">Course / Program <span id="rCourseOpt" style="color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(select a department first)</span></label>
+        <label class="fl" for="rCourse">Course / Program <span class="opt" id="rCourseOpt">(select a department first)</span></label>
         <div class="fi-wrap">
           <i class="fas fa-graduation-cap fi-icon"></i>
           <select name="reporter_course" id="rCourse" class="fsel" disabled>
@@ -1754,7 +1762,7 @@ html { scroll-behavior: smooth; }
       <!-- Shown only for Senior High and the colleges, where the programme
            alone does not say which year group the reporter is in. -->
       <div class="fg" id="rLevelWrap" style="margin-top:.85rem;display:none;">
-        <label class="fl" for="rLevel">Year / Grade Level <span style="color:var(--maroon);">*</span></label>
+        <label class="fl" for="rLevel">Year / Grade Level <span class="req">*</span></label>
         <div class="fi-wrap">
           <i class="fas fa-layer-group fi-icon"></i>
           <select name="reporter_level" id="rLevel" class="fsel">
@@ -1763,7 +1771,7 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
       <div style="margin-top:.85rem;">
-        <label class="fl" for="rPhone">Contact Number <span style="color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(optional)</span></label>
+        <label class="fl" for="rPhone">Contact Number <span class="opt">(optional)</span></label>
         <div class="fi-wrap">
           <i class="fas fa-phone fi-icon"></i>
           <input type="tel" name="student_phone" id="rPhone" class="fi" placeholder="e.g. 09171234567"
@@ -1798,7 +1806,11 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
 
-      <div class="form-grid">
+      <?php /* cols-2 is what the grid-column spans below were written for — without
+               it .form-grid is a single column and those spans do nothing. Category
+               and Asset Tag are the one genuine pair on the form; it collapses back
+               to one column at 768px. */ ?>
+      <div class="form-grid cols-2">
         <!-- Equipment search -->
         <div class="fg" style="grid-column:1/-1">
           <label class="fl" for="equip-search">Equipment Name <span class="req">*</span></label>
@@ -1820,7 +1832,7 @@ html { scroll-behavior: smooth; }
         <!-- Category -->
         <div class="fg">
           <label class="fl" for="cat-display">Category <span class="req">*</span></label>
-          <div class="fi-wrap fi-wrap-sel">
+          <div class="fi-wrap">
             <i class="fas fa-tag fi-icon"></i>
             <select id="cat-display" class="fsel" required>
               <option value="">Select category</option>
@@ -1835,7 +1847,7 @@ html { scroll-behavior: smooth; }
 
         <!-- Asset Tag -->
         <div class="fg">
-          <label class="fl" for="assetTag">Asset Tag / Equipment ID <span style="color:var(--ink3);font-weight:400;text-transform:none;letter-spacing:0">(if visible)</span></label>
+          <label class="fl" for="assetTag">Asset Tag / Equipment ID <span class="opt">(if visible)</span></label>
           <div class="fi-wrap">
             <i class="fas fa-barcode fi-icon"></i>
             <input type="text" name="asset_tag" id="assetTag" class="fi" placeholder="e.g. BEC-LAB2-PC05" maxlength="40"
@@ -1883,18 +1895,23 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
 
+      <?php /* Left as one column: pairing the date picker with anything here
+               would leave a half-width field beside empty space. */ ?>
       <div class="form-grid">
         <!-- Defect description -->
-        <div class="fg" style="grid-column:1/-1">
+        <div class="fg">
           <label class="fl" for="defectDesc">Description of Defect <span class="req">*</span></label>
-          <textarea name="defect_description" id="defectDesc" class="fta" rows="4" maxlength="1500"
-            placeholder="Describe what's wrong with the equipment. Include any error messages, sounds, or behaviors you observed…" required><?php echo htmlspecialchars($_POST['defect_description'] ?? ''); ?></textarea>
+          <div class="fi-wrap fi-wrap-ta">
+            <i class="fas fa-pen fi-icon"></i>
+            <textarea name="defect_description" id="defectDesc" class="fta" rows="4" maxlength="1500"
+              placeholder="Describe what's wrong with the equipment. Include any error messages, sounds, or behaviors you observed…" required><?php echo htmlspecialchars($_POST['defect_description'] ?? ''); ?></textarea>
+          </div>
           <div class="fi-hint"><i class="fas fa-pen"></i> Be as specific as possible — this helps technicians diagnose faster.</div>
         </div>
 
         <!-- Date/Time issue noticed -->
         <div class="fg">
-          <label class="fl" for="issueDate">Date & Time Issue Noticed <span class="req">*</span></label>
+          <label class="fl" for="issueDate">Date &amp; Time Issue Noticed <span class="req">*</span></label>
           <div class="fi-wrap">
             <i class="fas fa-calendar fi-icon"></i>
             <input type="datetime-local" name="issue_date" id="issueDate" class="fi" required
@@ -1903,9 +1920,11 @@ html { scroll-behavior: smooth; }
         </div>
 
         <!-- Still usable -->
-        <div class="fg" style="grid-column:1/-1">
-          <label class="fl">Is the equipment still usable? <span class="req">*</span></label>
-          <div class="usable-group">
+        <div class="fg">
+          <?php /* A plain <label> here labelled nothing — the three radios were
+                   announced without the question they answer. */ ?>
+          <span class="fl" id="usableLbl">Is the equipment still usable? <span class="req">*</span></span>
+          <div class="usable-group" role="radiogroup" aria-labelledby="usableLbl">
             <input type="radio" name="still_usable" id="use-yes" class="usable-opt" value="Yes" <?php echo (($_POST['still_usable']??'')==='Yes')?'checked':''; ?>>
             <label for="use-yes" class="usable-label yes"><i class="fas fa-check-circle"></i> Yes, still usable</label>
 
@@ -2019,13 +2038,16 @@ html { scroll-behavior: smooth; }
         course.appendChild(o);
       });
       course.disabled = false; course.required = true;
-      if (optHint) optHint.textContent = '*';
+      // Swap the class as well as the text: this asterisk means the same thing
+      // as every other one on the form, so it has to be the same maroon rather
+      // than the muted grey the "(optional)" wording uses.
+      if (optHint) { optHint.className = 'req'; optHint.textContent = '*'; }
     } else {
       var o = document.createElement('option');
       o.value = ''; o.textContent = dept.value ? 'Not applicable for this department' : '—';
       course.appendChild(o);
       course.disabled = true; course.required = false;
-      if (optHint) optHint.textContent = dept.value ? '(not applicable)' : '(select a department first)';
+      if (optHint) { optHint.className = 'opt'; optHint.textContent = dept.value ? '(not applicable)' : '(select a department first)'; }
     }
   }
   // Year / grade level, for the departments where the programme alone does not

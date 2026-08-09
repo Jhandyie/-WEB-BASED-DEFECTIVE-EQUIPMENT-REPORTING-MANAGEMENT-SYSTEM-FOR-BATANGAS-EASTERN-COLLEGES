@@ -398,7 +398,7 @@ body {
 }
 
 .stat-card:hover {
-    transform: translateY(-5px);
+    transform:none;
     box-shadow: 0 8px 20px rgba(0,0,0,0.12);
 }
 
@@ -521,7 +521,7 @@ body {
 
 .stat-card-enhanced:hover {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    transform: translateY(-2px);
+    transform:none;
 }
 
 .stat-card-enhanced.border-blue-500 { border-left-color: var(--color-blue-500); }
@@ -674,7 +674,7 @@ body {
 
 .btn-primary:hover {
     background: #b89020;
-    transform: translateY(-2px);
+    transform:none;
     box-shadow: 0 4px 12px rgba(201, 162, 39, 0.4);
 }
 
@@ -792,7 +792,7 @@ tr:hover {
 }
 
 .action-btn:hover {
-    transform: translateY(-2px);
+    transform:none;
     box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
 
@@ -1582,7 +1582,7 @@ border: 2px solid #000;
 }
 
 .update-btn:hover {
-    transform: translateY(-2px);
+    transform:none;
     box-shadow: 0 6px 20px rgba(128, 0, 0, 0.3);
     background: linear-gradient(135deg, #a30000 0%, var(--bec-maroon) 100%);
 }
@@ -1628,7 +1628,7 @@ border: 2px solid #000;
 }
 
 .cancel-btn:hover {
-    transform: translateY(-2px);
+    transform:none;
     box-shadow: 0 6px 20px rgba(107, 114, 128, 0.3);
     background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
 }
@@ -1695,7 +1695,7 @@ border: 2px solid #000;
 }
 
 .metric-card:hover {
-    transform: translateY(-5px);
+    transform:none;
 }
 
 .metric-card::before {

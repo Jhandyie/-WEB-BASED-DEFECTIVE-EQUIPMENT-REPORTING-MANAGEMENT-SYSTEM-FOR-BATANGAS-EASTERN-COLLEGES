@@ -26,7 +26,7 @@ try {
 ?>
 <style>
   .aia-fab{position:fixed;right:1.4rem;bottom:6rem;z-index:9990;display:flex;align-items:center;justify-content:center;width:62px;height:62px;padding:0;background:linear-gradient(135deg,rgba(74,14,14,.9),rgba(45,5,5,.9));-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:#fff;border:2px solid rgba(201,150,12,.6);border-radius:50%;cursor:pointer;box-shadow:0 10px 30px rgba(44,10,10,.4),0 0 20px rgba(201,150,12,.25);transition:transform .25s cubic-bezier(.22,1,.36,1),box-shadow .3s;animation:aiaFloat 6s ease-in-out infinite,aiaGlow 4.5s ease-in-out infinite;}
-  .aia-fab:hover{animation:none;transform:translateY(-4px) scale(1.06);box-shadow:0 16px 40px rgba(44,10,10,.5),0 0 32px rgba(201,150,12,.5);}
+  .aia-fab:hover{animation:none;transform:scale(1.06);box-shadow:0 16px 40px rgba(44,10,10,.5),0 0 32px rgba(201,150,12,.5);}
   @keyframes aiaFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
   @keyframes aiaGlow{0%,100%{box-shadow:0 10px 30px rgba(44,10,10,.4),0 0 16px rgba(201,150,12,.2);}50%{box-shadow:0 12px 34px rgba(44,10,10,.46),0 0 30px rgba(201,150,12,.45);}}
   .aia-fab .aia-ic{width:46px;height:46px;border-radius:50%;overflow:hidden;background:rgba(255,255,255,.13);border:1.5px solid rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;position:relative;}
@@ -60,7 +60,7 @@ try {
   .aia-b b,.aia-b strong{color:inherit;font-weight:700;}
   .aia-chips{display:flex;flex-wrap:wrap;gap:.35rem;padding:.5rem .9rem;border-top:1px solid #E2D9CC;background:#fff;flex-shrink:0;}
   .aia-chip{font-size:.72rem;padding:.34rem .72rem;border-radius:18px;border:1px solid rgba(123,29,29,.18);background:rgba(123,29,29,.05);color:#7B1D1D;cursor:pointer;font-family:inherit;font-weight:600;transition:all .15s;}
-  .aia-chip:hover{border-color:#7B1D1D;color:#7B1D1D;background:#FBF4F4;transform:translateY(-1px);box-shadow:0 2px 8px rgba(123,29,29,.12);}
+  .aia-chip:hover{border-color:#7B1D1D;color:#7B1D1D;background:#FBF4F4;transform:none;box-shadow:0 2px 8px rgba(123,29,29,.12);}
   .aia-inp{display:flex;gap:.5rem;padding:.7rem .8rem;border-top:1px solid #E2D9CC;background:#fff;flex-shrink:0;}
   .aia-inp textarea{flex:1;border:1.5px solid #E2D9CC;border-radius:11px;padding:.6rem .8rem;font:inherit;font-size:16px;resize:none;max-height:90px;outline:none;}
   .aia-inp textarea:focus{border-color:#7B1D1D;box-shadow:0 0 0 3px rgba(123,29,29,.09);}
@@ -80,7 +80,7 @@ try {
     display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:1.05rem;color:#7B1D1D;
     background:#fff;border:1.5px solid #E2D9CC;box-shadow:0 8px 22px rgba(44,10,10,.18);transition:all .18s;}
   .aia-bell:hover{color:#fff;background:linear-gradient(135deg,#4A0E0E,#7B1D1D);border-color:transparent;
-    transform:translateY(-2px);box-shadow:0 12px 28px rgba(74,14,14,.3);}
+    transform:none;box-shadow:0 12px 28px rgba(74,14,14,.3);}
   .aia-bell .ab-dot{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;
     background:linear-gradient(135deg,#DC2626,#B91C1C);color:#fff;font-size:.64rem;font-weight:800;
     display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(220,38,38,.4);}

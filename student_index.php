@@ -193,6 +193,25 @@ body {
   padding: 1.5rem; position: relative; overflow-x: hidden;
 }
 html { -webkit-text-size-adjust: 100%; }
+
+/* One focus ring for the whole page. Three controls further down defined their
+   own, but everything else — every input, the submit button, the links in the
+   brand panel — fell back to the browser default, which all but vanishes on
+   this cream paper and inside the maroon panel. :focus-visible keeps it off
+   mouse clicks; the narrower rules below still win where they apply. */
+:focus-visible { outline: 3px solid var(--maroon); outline-offset: 3px; }
+.brand :focus-visible { outline-color: #F0C040; }
+
+/* Skip link — the brand panel puts a screenful of copy before the form on a
+   narrow window, which is a long tab journey to reach the one thing this page
+   is for. Off-screen until focused. */
+.skip-link { position: absolute; left: .75rem; top: -3rem; z-index: 500;
+  padding: .7rem 1.2rem; border-radius: 0 0 10px 10px; background: var(--maroon);
+  color: #fff; text-decoration: none; font-size: .85rem; font-weight: 700;
+  transition: top .18s ease; }
+.skip-link:focus { top: 0; }
+@media (prefers-reduced-motion: reduce) { .skip-link { transition: none; } }
+
 body::before {
   content: ''; position: fixed; top: -180px; right: -180px;
   width: 520px; height: 520px; border-radius: 50%;
@@ -254,7 +273,7 @@ body::after {
   font-size: .8rem; font-weight: 600; text-decoration: none;
   -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
   transition: background .16s, transform .16s, border-color .16s; }
-.brand-home:hover { background: rgba(255,255,255,.22); border-color: rgba(255,255,255,.45); transform: translateY(-1px); }
+.brand-home:hover { background: rgba(255,255,255,.22); border-color: rgba(255,255,255,.45); transform:none; }
 .brand-home i { color: #F0C040; font-size: .82rem; }
 .brand-seal {
   width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0; background: #fff;
@@ -336,9 +355,11 @@ body::after {
 }
 .notice i { color: var(--gold); font-size: .78rem; margin-top: .12rem; flex-shrink: 0; }
 .fg { margin-bottom: 1.1rem; }
+/* Same size and tracking as the report form's .fl — "Full Name" must not
+   change size between the two steps of one sign-in. */
 .fl {
-  display: block; font-size: .72rem; font-weight: 600;
-  color: var(--ink2); margin-bottom: .4rem; text-transform: uppercase; letter-spacing: .9px;
+  display: block; font-size: .78rem; font-weight: 600;
+  color: var(--ink2); margin-bottom: .4rem; text-transform: uppercase; letter-spacing: .8px;
 }
 .fl .req { color: var(--maroon); margin-left: .12rem; }
 .fi-wrap { position: relative; }
@@ -427,6 +448,15 @@ body::after {
 .otp-foot { margin-top:1.1rem; padding-top:.9rem; border-top:1px solid var(--border);
   font-size:.72rem; color:var(--ink3); line-height:1.6; text-align:center; }
 .otp-foot i { color:var(--gold); margin-right:.25rem; }
+/* "Not you?" under the remembered-device card. Without this it rendered as a
+   bare browser button — system font, grey chrome — under a styled maroon one. */
+.otp-link { display:block; margin:.75rem auto 0; padding:.4rem .6rem;
+  background:none; border:none; cursor:pointer;
+  font-family:'DM Sans',sans-serif; font-size:.76rem; font-weight:600;
+  color:var(--ink3); text-decoration:underline; text-underline-offset:2px;
+  transition:color .16s; }
+.otp-link:hover { color:var(--maroon); }
+.otp-link:focus-visible { outline:2px solid var(--gold); outline-offset:2px; border-radius:6px; }
 @media (max-width:400px){
   .otp-input { font-size:1.5rem; letter-spacing:.35em; text-indent:.35em; }
   .otp-actions { grid-template-columns:1fr; }
@@ -521,7 +551,7 @@ body::after {
   text-decoration: none; transition: all .18s; background: #fff; text-align: center; line-height: 1.3;
 }
 .action-btn i { font-size: .95rem; color: var(--maroon); opacity: .75; transition: opacity .18s, transform .18s; }
-.action-btn:hover { border-color: var(--maroon); color: var(--maroon); background: var(--maroon-soft); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(123,29,29,.08); }
+.action-btn:hover { border-color: var(--maroon); color: var(--maroon); background: var(--maroon-soft); transform:none; box-shadow: 0 4px 12px rgba(123,29,29,.08); }
 .action-btn:hover i { opacity: 1; transform: scale(1.1); }
 .footer-link { text-align: center; font-size: .73rem; color: var(--ink3); padding-top: .5rem; border-top: 1px solid var(--border); }
 .footer-link a { color: var(--maroon); font-weight: 600; text-decoration: none; margin-left: .25rem; cursor: pointer; }
@@ -540,7 +570,7 @@ body::after {
   transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .3s ease;
   animation: fabFloat 6s ease-in-out infinite, fabGlow 4.5s ease-in-out infinite;
 }
-#chatFab:hover { animation: none; transform: translateY(-4px) scale(1.06); box-shadow: 0 16px 40px rgba(44,10,10,.5), 0 0 32px rgba(201,150,12,.5); }
+#chatFab:hover { animation: none; transform:scale(1.06); box-shadow: 0 16px 40px rgba(44,10,10,.5), 0 0 32px rgba(201,150,12,.5); }
 #chatFab:active { transform: translateY(-1px) scale(1); }
 #chatFab .fab-ic {
   width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
@@ -679,7 +709,7 @@ body::after {
   font-weight: 600; transition: all .15s; white-space: nowrap;
   text-transform: none; letter-spacing: 0; line-height: 1.25;
 }
-.chip:hover { border-color: var(--maroon); color: var(--maroon); background: var(--maroon-soft); transform: translateY(-1px); box-shadow: 0 2px 8px rgba(123,29,29,.12); }
+.chip:hover { border-color: var(--maroon); color: var(--maroon); background: var(--maroon-soft); transform:none; box-shadow: 0 2px 8px rgba(123,29,29,.12); }
 .rcard {
   margin-top: .52rem; padding: .62rem .78rem; border-radius: 10px;
   background: var(--gold-bg); border: 1px solid rgba(201,150,12,.2);
@@ -702,7 +732,7 @@ body::after {
   color: var(--maroon-d); text-decoration: none; font-size: .71rem; font-weight: 600;
   transition: all .14s;
 }
-.chat-link:hover { border-color: var(--maroon); background: var(--maroon-soft); transform: translateY(-1px); }
+.chat-link:hover { border-color: var(--maroon); background: var(--maroon-soft); transform:none; }
 .inp {
   padding: .72rem .85rem .78rem; border-top: 1px solid var(--border);
   background: var(--surface); flex-shrink: 0;
@@ -751,6 +781,20 @@ body::after {
      URL bar, clipping the header and hiding the input row) */
   #chatModal { max-width: 100%; width: 100%; border-radius: 20px 20px 0 0;
     height: 88vh; height: 88dvh; max-height: 88vh; max-height: 88dvh; }
+
+  /* ── touch ergonomics, part two: BECca's own controls ──────────────────
+     The 44px pass further down covers the sign-in form but stopped at the
+     chat panel, where the header buttons were 29px, the language toggles
+     23px and Send 40px. Sizing every one to a full 44 would blow out the
+     slim chat header, so these grow to the largest the panel carries
+     comfortably and Send — the one that actually posts — gets the full 44.
+     Deliberately not a hit-area pseudo-element: .ch-btns has only a 6px gap,
+     so 44px overlays would overlap and Close would start eating New chat. */
+  .ch-btn { width: 38px; height: 38px; font-size: .82rem; }
+  .lbtn { padding: .5rem .82rem; font-size: .7rem; }
+  .sbtn { width: 44px; height: 44px; font-size: .92rem; }
+  .ci { min-height: 44px; }
+  .chip { padding: .5rem .85rem; font-size: .75rem; }
 }
 @media (max-width: 560px) {
   /* clearance so the floating Becca orb never covers the footer links */
@@ -851,7 +895,8 @@ body::after {
 </style>
 </head>
 <body>
-<div class="bg-grid"></div>
+<a class="skip-link" href="#main">Skip to the report form</a>
+<div class="bg-grid" aria-hidden="true"></div>
 
 <div class="shell">
 
@@ -863,15 +908,15 @@ body::after {
         <strong>Batangas Eastern Colleges</strong>
         <span>Property Management Office</span>
       </div>
-      <a class="brand-home" href="index.php"><i class="fas fa-house"></i> Home</a>
+      <a class="brand-home" href="index.php"><i aria-hidden="true" class="fas fa-house"></i> Home</a>
     </div>
     <div class="brand-hero">
-      <span class="brand-tag"><i class="fas fa-building-shield"></i> Property Management Office · Official Portal</span>
+      <span class="brand-tag"><i aria-hidden="true" class="fas fa-building-shield"></i> Property Management Office · Official Portal</span>
       <h2>Defective Equipment <em>Reporting</em> System</h2>
       <p>The official channel of Batangas Eastern Colleges for reporting, tracking, and resolving campus equipment concerns — administered by the Property Management Office.</p>
     </div>
     <div class="brand-process">
-      <div class="bp-label"><i class="fas fa-diagram-project"></i> How your report is handled</div>
+      <div class="bp-label"><i aria-hidden="true" class="fas fa-diagram-project"></i> How your report is handled</div>
       <div class="brand-steps">
         <div class="bs-item"><span class="bs-num">1</span><div><b>Submit your report</b><i>Describe the defective equipment and its location.</i></div></div>
         <div class="bs-item"><span class="bs-num">2</span><div><b>PMO review &amp; assignment</b><i>The office verifies the request and assigns a technician.</i></div></div>
@@ -883,7 +928,7 @@ body::after {
   </aside>
 
   <!-- RIGHT — report entry form -->
-  <main class="panel">
+  <main id="main" class="panel">
     <div class="panel-eyebrow"><span class="pe-dot"></span> Equipment Defect Reporting</div>
     <h1 class="panel-title">Report <em>defective campus equipment</em></h1>
     <?php /* The panel beside this already introduces the office and the system,
@@ -894,26 +939,26 @@ body::after {
              first thing a reporter met on a sign-in page was a wall of text.
              It is one tap away, and repeated on the report form itself. */ ?>
     <details class="intro-card">
-      <summary><i class="fas fa-circle-info"></i> A few things to know<i class="fas fa-chevron-down intro-chev"></i></summary>
+      <summary><i aria-hidden="true" class="fas fa-circle-info"></i> A few things to know<i aria-hidden="true" class="fas fa-chevron-down intro-chev"></i></summary>
       <ul class="intro-list">
-        <li><i class="fas fa-id-card"></i><span><b>Who may report.</b> Any Batangas Eastern Colleges student, faculty, or staff member with an official <b>@bec.edu.ph</b> email account may file a report.</span></li>
-        <li><i class="fas fa-clipboard-list"></i><span><b>What to prepare.</b> Identify the equipment, where it is located, and a short description of the problem. Adding a photo helps the technicians assess it faster.</span></li>
-        <li><i class="fas fa-route"></i><span><b>What happens after you submit.</b> The PMO reviews your report, assigns a technician, and carries out the repair. You are updated by email at every key stage and can track the status online at any time.</span></li>
-        <li><i class="fas fa-user-shield"></i><span><b>How your information is used.</b> Your details are used only to process and deliver your report, kept confidential in line with the Data Privacy Act of 2012 (RA 10173).</span></li>
+        <li><i aria-hidden="true" class="fas fa-id-card"></i><span><b>Who may report.</b> Any Batangas Eastern Colleges student, faculty, or staff member with an official <b>@bec.edu.ph</b> email account may file a report.</span></li>
+        <li><i aria-hidden="true" class="fas fa-clipboard-list"></i><span><b>What to prepare.</b> Identify the equipment, where it is located, and a short description of the problem. Adding a photo helps the technicians assess it faster.</span></li>
+        <li><i aria-hidden="true" class="fas fa-route"></i><span><b>What happens after you submit.</b> The PMO reviews your report, assigns a technician, and carries out the repair. You are updated by email at every key stage and can track the status online at any time.</span></li>
+        <li><i aria-hidden="true" class="fas fa-user-shield"></i><span><b>How your information is used.</b> Your details are used only to process and deliver your report, kept confidential in line with the Data Privacy Act of 2012 (RA 10173).</span></li>
       </ul>
     </details>
     <?php if ($notice !== ''): ?>
-    <div class="alert alert-ok" role="status" aria-live="polite"><i class="fas fa-paper-plane"></i> <?php echo htmlspecialchars($notice); ?></div>
+    <div class="alert alert-ok" role="status" aria-live="polite"><i aria-hidden="true" class="fas fa-paper-plane"></i> <?php echo htmlspecialchars($notice); ?></div>
     <?php endif; ?>
     <?php if (!$error && isset($_GET['expired'])): ?>
     <div class="alert alert-note">
-      <i class="fas fa-clock-rotate-left"></i>
+      <i aria-hidden="true" class="fas fa-clock-rotate-left"></i>
       Your session ended after a period of inactivity. Please sign in again to continue — this keeps your details safe on shared computers.
     </div>
     <?php endif; ?>
     <?php if ($error): ?>
     <div class="alert alert-err" role="alert" aria-live="assertive">
-      <i class="fas fa-exclamation-circle"></i>
+      <i aria-hidden="true" class="fas fa-exclamation-circle"></i>
       <?php echo htmlspecialchars($error); ?>
     </div>
     <?php endif; ?>
@@ -941,7 +986,7 @@ body::after {
       <input type="hidden" name="eq" value="<?php echo htmlspecialchars($eq, ENT_QUOTES); ?>">
       <button type="submit" class="btn-submit trust-go">
         Continue as <?php echo htmlspecialchars($trustedFirst !== '' ? $trustedFirst : $trustedName); ?>
-        <span class="btn-arrow"><i class="fas fa-arrow-right"></i></span>
+        <span class="btn-arrow"><i aria-hidden="true" class="fas fa-arrow-right"></i></span>
       </button>
     </form>
     <form method="POST" action="" style="text-align:center;">
@@ -957,24 +1002,24 @@ body::after {
          is read from the session, never from the page, so a code cannot be
          redirected to a different account. -->
     <div class="otp-steps" aria-hidden="true">
-      <span class="otp-step done"><i class="fas fa-check"></i> Your details</span>
+      <span class="otp-step done"><i aria-hidden="true" class="fas fa-check"></i> Your details</span>
       <span class="otp-step-line"></span>
       <span class="otp-step now">2 · Verify your email</span>
     </div>
 
     <div class="otp-head">
-      <div class="otp-ic"><i class="fas fa-envelope-open-text"></i></div>
+      <div class="otp-ic"><i aria-hidden="true" class="fas fa-envelope-open-text"></i></div>
       <h2>Confirm it&rsquo;s you</h2>
       <p>For your security, the Property Management Office sends a 6-digit
       verification code to your official college email before accepting a report.</p>
       <div class="otp-to">
-        <i class="fas fa-paper-plane"></i>
+        <i aria-hidden="true" class="fas fa-paper-plane"></i>
         <span><?php echo htmlspecialchars((string)($_SESSION['otp_email'] ?? '')); ?></span>
       </div>
     </div>
 
     <?php if ($devCode !== ''): ?>
-    <div class="alert alert-note"><i class="fas fa-flask"></i> Local setup, mail not configured &mdash; your code is <strong><?php echo htmlspecialchars($devCode); ?></strong>.</div>
+    <div class="alert alert-note"><i aria-hidden="true" class="fas fa-flask"></i> Local setup, mail not configured &mdash; your code is <strong><?php echo htmlspecialchars($devCode); ?></strong>.</div>
     <?php endif; ?>
 
     <form method="POST" action="" id="otpForm" novalidate>
@@ -990,15 +1035,15 @@ body::after {
              data-left="<?php echo (int)$otpSecondsLeft; ?>"
              data-wait="<?php echo (int)max(0, REPORTER_OTP_RESEND_WAIT - (time() - $otpAskedAt)); ?>">
           <?php if ($otpSecondsLeft > 0): ?>
-            <i class="fas fa-clock"></i> This code is valid for a few more minutes.
+            <i aria-hidden="true" class="fas fa-clock"></i> This code is valid for a few more minutes.
           <?php else: ?>
-            <i class="fas fa-triangle-exclamation"></i> This code has expired &mdash; please request a new one.
+            <i aria-hidden="true" class="fas fa-triangle-exclamation"></i> This code has expired &mdash; please request a new one.
           <?php endif; ?>
         </div>
       </div>
       <button type="submit" class="btn-submit" id="otpSubmit">
         Verify and continue
-        <span class="btn-arrow"><i class="fas fa-arrow-right"></i></span>
+        <span class="btn-arrow"><i aria-hidden="true" class="fas fa-arrow-right"></i></span>
       </button>
     </form>
 
@@ -1008,48 +1053,56 @@ body::after {
         <input type="hidden" name="step" value="verify">
         <input type="hidden" name="resend" value="1">
         <button type="submit" class="otp-btn" id="otpResend">
-          <i class="fas fa-rotate-right"></i> <span>Send a new code</span>
+          <i aria-hidden="true" class="fas fa-rotate-right"></i> <span>Send a new code</span>
         </button>
       </form>
       <form method="POST" action="">
         <?php echo csrf_field(); ?>
         <input type="hidden" name="step" value="forget">
         <button type="submit" class="otp-btn">
-          <i class="fas fa-pen"></i> <span>Change email address</span>
+          <i aria-hidden="true" class="fas fa-pen"></i> <span>Change email address</span>
         </button>
       </form>
     </div>
 
     <p class="otp-foot">
-      <i class="fas fa-circle-info"></i>
+      <i aria-hidden="true" class="fas fa-circle-info"></i>
       Can&rsquo;t find it? Check your spam or junk folder. Codes are sent only to
       addresses on record with Batangas Eastern Colleges.
     </p>
     <?php else: ?>
 <form method="POST" action="" id="signinForm" onsubmit="if(window.AuthLoader)AuthLoader.show('Signing you in…','Preparing your report portal…');">
+      <?php /* Rendered here, not left to the JS injector: every POST on this page
+               is checked, and without a token the reporter is told their session
+               expired with no way through. Sign-in must not depend on a script. */ ?>
+      <?php echo csrf_field(); ?>
       <input type="hidden" name="eq" value="<?php echo htmlspecialchars($eq, ENT_QUOTES); ?>">
-      <?php if ($eq !== ''): ?><div class="notice" style="margin-bottom:.6rem;"><i class="fas fa-qrcode"></i> <span>You scanned an equipment QR — it will be pre-selected after you sign in.</span></div><?php endif; ?>
+      <?php if ($eq !== ''): ?><div class="notice" style="margin-bottom:.6rem;"><i aria-hidden="true" class="fas fa-qrcode"></i> <span>You scanned an equipment QR — it will be pre-selected after you sign in.</span></div><?php endif; ?>
       <div class="fg">
-        <label class="fl">Full Name <span class="req">*</span></label>
+        <label class="fl" for="signinName">Full Name <span class="req">*</span></label>
         <div class="fi-wrap">
-          <i class="fas fa-user fi-icon"></i>
-          <input type="text" name="full_name" class="fi" placeholder="e.g. Maria Santos"
+          <i aria-hidden="true" class="fas fa-user fi-icon"></i>
+          <input type="text" name="full_name" id="signinName" class="fi" placeholder="e.g. Maria Santos"
             value="<?php echo htmlspecialchars($_POST['full_name'] ?? ''); ?>"
             autocomplete="name" maxlength="80" data-guard="alpha" required>
         </div>
-        <div class="fi-hint"><i class="fas fa-id-card"></i> If Batangas Eastern Colleges holds a name for your account, your report will carry that official name.</div>
+        <div class="fi-hint"><i aria-hidden="true" class="fas fa-id-card"></i> If Batangas Eastern Colleges holds a name for your account, your report will carry that official name.</div>
       </div>
       <div class="fg">
-        <label class="fl">Email Address <span class="req">*</span></label>
+        <label class="fl" for="signinEmail">Email Address <span class="req">*</span></label>
         <div class="fi-wrap">
-          <i class="fas fa-envelope fi-icon"></i>
-          <input type="email" name="email" class="fi" placeholder="juan.delacruz@bec.edu.ph"
+          <i aria-hidden="true" class="fas fa-envelope fi-icon"></i>
+          <?php /* The domain is matched case-insensitively: a phone that
+                   autocapitalises to @BEC.edu.ph was blocked by the browser even
+                   though the address is lowercased server-side and would be
+                   accepted. `pattern` is anchored implicitly, so no trailing $. */ ?>
+          <input type="email" name="email" id="signinEmail" class="fi" placeholder="juan.delacruz@bec.edu.ph"
             value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>"
             autocomplete="email" maxlength="120" required
-            pattern="[a-zA-Z0-9._%+\-]+@bec\.edu\.ph$"
+            pattern="[a-zA-Z0-9._%+\-]+@[Bb][Ee][Cc]\.[Ee][Dd][Uu]\.[Pp][Hh]"
             title="Use your official BEC email ending in @bec.edu.ph">
         </div>
-        <div class="fi-hint"><i class="fas fa-id-badge"></i> Use your official BEC account (<strong>@bec.edu.ph</strong>). Your ticket confirmation will be sent here.</div>
+        <div class="fi-hint"><i aria-hidden="true" class="fas fa-id-badge"></i> Use your official BEC account (<strong>@bec.edu.ph</strong>). Your ticket confirmation will be sent here.</div>
       </div>
       <div class="pv-block">
         <label class="pv-consent">
@@ -1059,9 +1112,9 @@ body::after {
         <!-- Kept outside the <label> on purpose: inside it, every click would
              also toggle the consent checkbox. -->
         <button type="button" class="pv-toggle" id="pvToggle" aria-expanded="false" aria-controls="pvPanel">
-          <i class="fas fa-shield-halved"></i>
+          <i aria-hidden="true" class="fas fa-shield-halved"></i>
           <span id="pvToggleText">Read the full notice</span>
-          <i class="fas fa-chevron-down chev"></i>
+          <i aria-hidden="true" class="fas fa-chevron-down chev"></i>
         </button>
         <div class="pv-panel" id="pvPanel" role="region" aria-labelledby="pvToggle">
           <dl class="pv-inner">
@@ -1084,27 +1137,27 @@ body::after {
       </div>
       <button type="submit" class="btn-submit">
         Continue to Report Submission
-        <span class="btn-arrow"><i class="fas fa-arrow-right"></i></span>
+        <span class="btn-arrow"><i aria-hidden="true" class="fas fa-arrow-right"></i></span>
       </button>
     </form>
     <?php endif; ?>
     <div class="or-row">or</div>
     <div class="action-row">
       <a href="track_report.php" class="action-btn">
-        <i class="fas fa-ticket-alt"></i>Track existing report
+        <i aria-hidden="true" class="fas fa-ticket-alt"></i>Track existing report
       </a>
       <a href="public_reports.php" class="action-btn">
-        <i class="fas fa-table-list"></i>View all reports
+        <i aria-hidden="true" class="fas fa-table-list"></i>View all reports
       </a>
     </div>
     <div class="safety-note">
-      <i class="fas fa-triangle-exclamation"></i>
+      <i aria-hidden="true" class="fas fa-triangle-exclamation"></i>
       <span><strong>Safety first.</strong> For urgent hazards that put people at risk — live electrical faults, fire, gas, or water leaks — contact the PMO or campus security in person or by phone <em>immediately</em>. Use this portal for non-emergency equipment concerns.</span>
     </div>
     <div class="trust-strip">
-      <span><i class="fas fa-lock"></i> Confidential</span>
-      <span><i class="fas fa-circle-check"></i> Official @bec.edu.ph only</span>
-      <span><i class="fas fa-route"></i> Tracked end-to-end</span>
+      <span><i aria-hidden="true" class="fas fa-lock"></i> Confidential</span>
+      <span><i aria-hidden="true" class="fas fa-circle-check"></i> Official @bec.edu.ph only</span>
+      <span><i aria-hidden="true" class="fas fa-route"></i> Tracked end-to-end</span>
     </div>
     <div class="footer-link">
       Need help?<a onclick="openChat()" role="button" tabindex="0">Contact support</a>
@@ -1133,8 +1186,8 @@ body::after {
         <div class="ch-status">Online &middot; Ready to help</div>
       </div>
       <div class="ch-btns">
-        <button class="ch-btn" onclick="clearChat()" title="New chat" aria-label="Start a new chat"><i class="fas fa-rotate-right"></i></button>
-        <button class="ch-btn" onclick="closeChat()" title="Close" aria-label="Close chat"><i class="fas fa-xmark"></i></button>
+        <button class="ch-btn" onclick="clearChat()" title="New chat" aria-label="Start a new chat"><i aria-hidden="true" class="fas fa-rotate-right"></i></button>
+        <button class="ch-btn" onclick="closeChat()" title="Close" aria-label="Close chat"><i aria-hidden="true" class="fas fa-xmark"></i></button>
       </div>
     </div>
 
@@ -1156,10 +1209,10 @@ body::after {
             oninput="grow(this)"></textarea>
         </div>
         <button class="sbtn" id="sbtn" onclick="send()">
-          <i class="fas fa-paper-plane"></i>
+          <i aria-hidden="true" class="fas fa-paper-plane"></i>
         </button>
       </div>
-      <div class="inp-meta"><i class="fas fa-shield-alt"></i> AI-powered · BEC knowledge base · Urgent: ext. 215</div>
+      <div class="inp-meta"><i aria-hidden="true" class="fas fa-shield-alt"></i> AI-powered · BEC knowledge base · Urgent: ext. 215</div>
     </div>
 
   </div>
@@ -1205,11 +1258,11 @@ body::after {
   function paintTimer(){
     if (!timer) return;
     if (left <= 0) {
-      timer.innerHTML = '<i class="fas fa-triangle-exclamation"></i> This code has expired — please request a new one.';
+      timer.innerHTML = '<i aria-hidden="true" class="fas fa-triangle-exclamation"></i> This code has expired — please request a new one.';
       return;
     }
     var m = Math.floor(left / 60), sec = left % 60;
-    timer.innerHTML = '<i class="fas fa-clock"></i> This code expires in <strong>' +
+    timer.innerHTML = '<i aria-hidden="true" class="fas fa-clock"></i> This code expires in <strong>' +
       (m > 0 ? m + 'm ' : '') + (sec < 10 && m > 0 ? '0' : '') + sec + 's</strong>.';
     left--;
     setTimeout(paintTimer, 1000);
@@ -1427,17 +1480,17 @@ function addMsg(role, text, chips, suggest, actions = []) {
     const chatActions = getChatActions(text, suggest, actions);
     if (chatActions.length) {
       extra += '<div class="chat-actions">' +
-        chatActions.map(action => `<a class="chat-link" href="${escAttr(action.href)}"><i class="fas ${escAttr(action.icon || 'fa-arrow-right')}"></i>${esc(action.label || 'Open')}</a>`).join('') +
+        chatActions.map(action => `<a class="chat-link" href="${escAttr(action.href)}"><i aria-hidden="true" class="fas ${escAttr(action.icon || 'fa-arrow-right')}"></i>${esc(action.label || 'Open')}</a>`).join('') +
         '</div>';
     }
   }
   if (suggest) {
     extra += `<div class="rcard">
-      <strong><i class="fas fa-file-circle-exclamation" style="margin-right:.28rem"></i>${detectedLang === 'fil' ? 'Mag-submit ng Formal Report' : 'Submit a Formal Report'}</strong>
+      <strong><i aria-hidden="true" class="fas fa-file-circle-exclamation" style="margin-right:.28rem"></i>${detectedLang === 'fil' ? 'Mag-submit ng Formal Report' : 'Submit a Formal Report'}</strong>
       ${detectedLang === 'fil'
         ? 'Mukhang kailangan ito ng aktuwal na pagtingin. Gumawa ng opisyal na defect report para sa facilities team.'
         : 'This issue likely needs hands-on attention. Create an official defect report for the facilities team.'}
-      <br><a href="student_dashboard.php" class="rcard-btn"><i class="fas fa-plus"></i> ${detectedLang === 'fil' ? 'Gumawa ng Report' : 'Create Report'}</a>
+      <br><a href="student_dashboard.php" class="rcard-btn"><i aria-hidden="true" class="fas fa-plus"></i> ${detectedLang === 'fil' ? 'Gumawa ng Report' : 'Create Report'}</a>
     </div>`;
   }
 
@@ -1459,7 +1512,7 @@ function showTyping() {
   row.className = 'trow'; row.id = 'typing';
   row.innerHTML = `
     <div class="mav" style="background:var(--maroon);color:#fff;width:25px;height:25px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.6rem;flex-shrink:0">
-      <i class="fas fa-robot"></i>
+      <i aria-hidden="true" class="fas fa-robot"></i>
     </div>
     <div class="tbub"><div class="tdots"><span></span><span></span><span></span></div></div>`;
   box.appendChild(row);

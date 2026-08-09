@@ -307,7 +307,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 
 /* ── BUTTONS ──────────────────────────────────────── */
 .btn{display:inline-flex;align-items:center;gap:.32rem;padding:.4rem .875rem;border-radius:var(--r1);font-family:'DM Sans',sans-serif;font-size:.77rem;font-weight:700;cursor:pointer;border:none;transition:all .17s;text-decoration:none;white-space:nowrap;}
-.btn:hover{transform:translateY(-1px);}.btn:active{transform:translateY(0);}
+.btn:hover{transform:none;}.btn:active{transform:translateY(0);}
 .btn-maroon{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;box-shadow:none;}
 .btn-maroon:hover{box-shadow:none;}
 .btn-gold{background:linear-gradient(135deg,var(--g2),var(--g3));color:var(--m1);box-shadow:none;}
@@ -393,7 +393,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
   position:relative;overflow:hidden;transition:all .24s cubic-bezier(.4,0,.2,1);box-shadow:var(--sh0);}
 .scard::after{content:'';position:absolute;bottom:0;left:0;width:100%;height:3px;background:var(--sk,var(--m3));
   border-radius:0 0 var(--r3) var(--r3);transform:scaleX(0);transform-origin:left;transition:transform .3s;}
-.scard:hover{transform:translateY(-4px) scale(1.012);box-shadow:var(--sh2);border-color:transparent;}
+.scard:hover{transform:scale(1.012);box-shadow:var(--sh2);border-color:transparent;}
 .scard:hover::after{transform:scaleX(1);}
 .sico{width:34px;height:34px;border-radius:var(--r2);display:flex;align-items:center;justify-content:center;font-size:.8rem;margin-bottom:.45rem;background:var(--sib);color:var(--sic);box-shadow:none;transition:transform .24s;}
 .scard:hover .sico{transform:rotate(-8deg) scale(1.12);}
@@ -459,7 +459,7 @@ textarea.fc{resize:vertical;min-height:88px;}
 /* Target selector pills */
 .target-pills{display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.3rem;}
 .tpill{padding:.28rem .75rem;border-radius:20px;font-size:.72rem;font-weight:700;cursor:pointer;border:1.5px solid var(--bdr);background:var(--s2);color:var(--t2);transition:all .16s;}
-.tpill:hover{transform:translateY(-1px);}
+.tpill:hover{transform:none;}
 .tpill.sel{background:var(--m3);color:#fff;border-color:var(--m2);}
 
 /* ── TOAST ────────────────────────────────────────── */

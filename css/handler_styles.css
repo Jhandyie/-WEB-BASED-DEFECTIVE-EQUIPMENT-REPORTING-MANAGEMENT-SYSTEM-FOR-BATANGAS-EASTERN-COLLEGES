@@ -290,7 +290,7 @@ body {
 }
 
 .stat-card:hover {
-    transform: translateY(-5px);
+    transform:none;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
 }
 
@@ -554,7 +554,7 @@ tbody tr:hover {
 
 .btn-primary:hover {
     background: #b89020;
-    transform: translateY(-2px);
+    transform:none;
     box-shadow: 0 4px 12px rgba(201, 162, 39, 0.4);
 }
 
@@ -598,7 +598,7 @@ tbody tr:hover {
 }
 
 .action-btn:hover {
-    transform: translateY(-2px);
+    transform:none;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 

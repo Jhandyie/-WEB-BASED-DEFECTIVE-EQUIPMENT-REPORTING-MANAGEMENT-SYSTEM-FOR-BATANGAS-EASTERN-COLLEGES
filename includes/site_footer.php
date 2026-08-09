@@ -27,7 +27,7 @@ $bsfYear = date('Y');
 .bsfoot-contact i{color:#C9960C;font-size:.82rem;margin-top:.18rem;flex-shrink:0;}
 .bsfoot-social{display:flex;gap:.55rem;margin-top:1.05rem;}
 .bsfoot-social a{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.82);font-size:.95rem;text-decoration:none;transition:all .15s;}
-.bsfoot-social a:hover{background:#C9960C;color:#2D0505;border-color:#C9960C;transform:translateY(-2px);}
+.bsfoot-social a:hover{background:#C9960C;color:#2D0505;border-color:#C9960C;transform:none;}
 .bsfoot-div{height:1px;background:rgba(255,255,255,.12);margin:1.8rem 0 1.1rem;}
 .bsfoot-note{font-size:.72rem;line-height:1.7;color:rgba(255,255,255,.45);text-align:center;}
 @media(max-width:900px){.bsfoot-cols{grid-template-columns:1fr 1fr;gap:1.6rem;}}
@@ -69,10 +69,10 @@ $bsfYear = date('Y');
       <div class="bsfoot-col">
         <h4>Contact</h4>
         <ul class="bsfoot-contact">
-          <li><i class="fas fa-location-dot"></i> 02 Javier Street, Poblacion, San Juan, Batangas 4226</li>
-          <li><i class="fas fa-phone"></i> 043-575-3616</li>
-          <li><i class="fas fa-envelope"></i> info@bec.edu.ph</li>
-          <li><i class="fas fa-globe"></i> <a href="https://bec.edu.ph" target="_blank" rel="noopener">bec.edu.ph</a></li>
+          <li><i aria-hidden="true" class="fas fa-location-dot"></i> 02 Javier Street, Poblacion, San Juan, Batangas 4226</li>
+          <li><i aria-hidden="true" class="fas fa-phone"></i> 043-575-3616</li>
+          <li><i aria-hidden="true" class="fas fa-envelope"></i> info@bec.edu.ph</li>
+          <li><i aria-hidden="true" class="fas fa-globe"></i> <a href="https://bec.edu.ph" target="_blank" rel="noopener">bec.edu.ph</a></li>
         </ul>
         <div class="bsfoot-social">
           <!-- Inline marks rather than icon-font glyphs: these two were the only

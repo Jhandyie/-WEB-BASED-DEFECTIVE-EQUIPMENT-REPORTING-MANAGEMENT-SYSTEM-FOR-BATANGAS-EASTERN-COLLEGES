@@ -27,7 +27,11 @@ $__sections = [
         ['inventory',     'admin_inventory.php',          'fa-boxes',               'Inventory'],
         ['users',         'admin_users.php',              'fa-users',               'User Management'],
         ['directory',     'admin_bec_directory.php',      'fa-id-card',             'BEC Directory'],
-        ['notifications', 'admin_notifications.php',       'fa-bell',                'Notifications'],
+        // Notifications is deliberately NOT a nav item. It is a bell with an
+        // unread count in the header of every admin page (the page's own
+        // .ic-btn, or the .aia-bell that includes/admin_assistant.php relocates
+        // into the header on the pages without one). A destination you glance at
+        // does not need to sit in the list of places you go.
         ['backup',        'admin_backup.php',              'fa-database',            'Backup & Recovery'],
     ],
 ];

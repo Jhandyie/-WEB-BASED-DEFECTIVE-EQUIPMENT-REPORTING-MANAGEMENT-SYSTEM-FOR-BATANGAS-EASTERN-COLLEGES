@@ -316,7 +316,7 @@ h1 em{font-style:italic;color:var(--m);}
 /* ── STAT CARDS ── */
 .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:.75rem;margin-bottom:1.75rem;animation:fadeUp .5s ease .06s both;}
 .stat{background:var(--s);border:1px solid var(--b);border-radius:14px;padding:1rem 1.1rem;box-shadow:var(--sh);position:relative;overflow:hidden;transition:transform .18s,box-shadow .18s;}
-.stat:hover{transform:translateY(-2px);box-shadow:var(--sh2);}
+.stat:hover{transform:none;box-shadow:var(--sh2);}
 .stat::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;}
 .stat.s-total::before{background:var(--b2);}
 .stat.s-open::before{background:#F87171;}

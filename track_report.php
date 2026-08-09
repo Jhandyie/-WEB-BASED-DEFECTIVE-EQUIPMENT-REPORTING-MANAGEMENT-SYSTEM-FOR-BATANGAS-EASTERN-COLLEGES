@@ -391,6 +391,12 @@ html{font-size:106.25%;scrollbar-gutter:stable;}
 }
 *{box-sizing:border-box}
 body{margin:0;font-family:'DM Sans',sans-serif;background:var(--p);color:var(--k);padding:0}
+/* One focus ring for the page. This tracker is a form-first page reached from
+   the landing page's second CTA, and it had no focus style at all — the browser
+   default is nearly invisible on the maroon buttons and inside the status hero.
+   :focus-visible keeps it off mouse clicks. */
+:focus-visible{outline:3px solid var(--m);outline-offset:3px}
+.track-hero :focus-visible,.btn:focus-visible,.fu-btn.active:focus-visible{outline-color:#F0C040}
 .page{max-width:760px;margin:0 auto;padding:1.25rem}
 /* (page header now provided by the shared includes/site_nav.php) */
 .eyebrow{display:inline-flex;align-items:center;gap:.4rem;background:#FFF4DD;color:#92600A;border:1px solid rgba(201,150,12,.3);padding:.32rem .8rem;border-radius:999px;font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:.55rem}
@@ -492,17 +498,17 @@ form{display:flex;gap:.7rem;flex-wrap:wrap}
 @media (max-width:600px){.grid{grid-template-columns:1fr}h1{font-size:1.45rem}body{padding:.9rem}.mini-row{grid-template-columns:1fr}.mini-date{text-align:left}.track-hero{flex-wrap:wrap}.th-prog{order:3;width:100%;display:flex;align-items:center;justify-content:center;gap:.6rem}.th-ring{margin:0}.input{font-size:16px}}
 html{scroll-behavior:smooth}
 .item{transition:box-shadow .18s,transform .18s,border-color .18s}
-.item:hover{box-shadow:0 8px 22px rgba(123,29,29,.08);transform:translateY(-2px);border-color:rgba(201,150,12,.4)}
+.item:hover{box-shadow:0 8px 22px rgba(123,29,29,.08);transform:none;border-color:rgba(201,150,12,.4)}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 </style>
 </head>
 <body>
 <?php $nav_active = 'track'; require __DIR__ . '/includes/site_nav.php'; ?>
 <?php $hero_title = 'Track Your Report'; $hero_sub = 'Enter your report ticket, equipment ID, or asset tag to see the latest status and progress.'; require __DIR__ . '/includes/site_hero.php'; ?>
-  <div class="page">
+  <main id="main" class="page">
 
     <div class="card">
-      <div class="eyebrow"><i class="fas fa-magnifying-glass"></i> Report Tracker</div>
+      <div class="eyebrow"><i aria-hidden="true" class="fas fa-magnifying-glass"></i> Report Tracker</div>
       <h1>Track your ticket</h1>
       <div class="sub">Enter the report ticket, equipment ID, or asset tag to check both the report progress and the current equipment status.</div>
       <form method="GET" action="">
@@ -533,7 +539,7 @@ html{scroll-behavior:smooth}
           };
         ?>
         <div class="track-hero">
-          <div class="th-pulse"><i class="fas <?php echo $heroIcon; ?>"></i></div>
+          <div class="th-pulse"><i aria-hidden="true" class="fas <?php echo $heroIcon; ?>"></i></div>
           <div class="th-main">
             <small>Current status</small>
             <strong><?php echo htmlspecialchars($prog['current'] !== '' ? $prog['current'] : tr_status_label((string)$report['status'])); ?></strong>
@@ -600,15 +606,15 @@ html{scroll-behavior:smooth}
               <?php $shownNext = false; foreach ($tl as $step): ?>
               <div class="rt-step <?php echo htmlspecialchars($step['state']); ?>">
                 <div class="rt-marker">
-                  <?php if ($step['state'] === 'done'): ?><i class="fas fa-check"></i>
-                  <?php elseif ($step['state'] === 'active'): ?><i class="fas fa-screwdriver-wrench"></i>
-                  <?php else: ?><i class="fas fa-circle"></i><?php endif; ?>
+                  <?php if ($step['state'] === 'done'): ?><i aria-hidden="true" class="fas fa-check"></i>
+                  <?php elseif ($step['state'] === 'active'): ?><i aria-hidden="true" class="fas fa-screwdriver-wrench"></i>
+                  <?php else: ?><i aria-hidden="true" class="fas fa-circle"></i><?php endif; ?>
                 </div>
                 <div class="rt-body">
                   <div class="rt-title"><?php echo htmlspecialchars($step['label']); ?><?php if ($step['state'] === 'active'): ?> <span class="rt-live">In progress</span><?php endif; ?></div>
                   <?php if ($step['desc'] !== ''): ?><div class="rt-desc"><?php echo htmlspecialchars($step['desc']); ?></div><?php endif; ?>
                   <?php if (!empty($step['date'])): ?>
-                  <div class="rt-date"><i class="fas fa-clock"></i> <?php echo htmlspecialchars(tr_when($step['date'])); ?></div>
+                  <div class="rt-date"><i aria-hidden="true" class="fas fa-clock"></i> <?php echo htmlspecialchars(tr_when($step['date'])); ?></div>
                   <?php elseif ($step['state'] === 'pending' && !$shownNext): $shownNext = true; ?>
                   <div class="rt-next">Up next — no action yet</div>
                   <?php endif; ?>
@@ -626,7 +632,7 @@ html{scroll-behavior:smooth}
             // still sees the status — that is what tracking is for — but the
             // buttons that change something are theirs alone.
             $viewerOwnsReport = trackViewerOwnsReport($viewerEmail, $report);
-            $signInPrompt = '<div class="fu-flash err"><i class="fas fa-circle-info"></i> '
+            $signInPrompt = '<div class="fu-flash err"><i aria-hidden="true" class="fas fa-circle-info"></i> '
                 . 'Sign in with the BEC email you filed this report from to follow up or confirm the repair. '
                 . '<a href="student_index.php" style="color:inherit;text-decoration:underline;">Sign in</a></div>';
           ?>
@@ -634,14 +640,14 @@ html{scroll-behavior:smooth}
           <div class="item full">
             <div class="label">Was your issue resolved?</div>
             <div class="followup">
-              <?php if ($sat === 'ok'): ?><div class="fu-flash ok"><i class="fas fa-check-circle"></i> Thank you for your feedback!</div><?php endif; ?>
+              <?php if ($sat === 'ok'): ?><div class="fu-flash ok"><i aria-hidden="true" class="fas fa-check-circle"></i> Thank you for your feedback!</div><?php endif; ?>
               <?php if ($satGiven !== ''): ?>
                 <div style="display:flex;align-items:center;gap:.55rem;font-size:.9rem;font-weight:600;color:<?php echo $satGiven==='satisfied'?'#166534':'#9A3412'; ?>;">
-                  <i class="fas fa-<?php echo $satGiven==='satisfied'?'circle-check':'circle-exclamation'; ?>"></i>
+                  <i aria-hidden="true" class="fas fa-<?php echo $satGiven==='satisfied'?'circle-check':'circle-exclamation'; ?>"></i>
                   You marked this report as <strong><?php echo $satGiven==='satisfied'?'Resolved':'Not resolved'; ?></strong>.
                 </div>
               <?php elseif (!$viewerOwnsReport): ?>
-                <?php if ($sat === 'notyours'): ?><div class="fu-flash err"><i class="fas fa-circle-info"></i> Only the reporter who filed this ticket can confirm the repair.</div><?php endif; ?>
+                <?php if ($sat === 'notyours'): ?><div class="fu-flash err"><i aria-hidden="true" class="fas fa-circle-info"></i> Only the reporter who filed this ticket can confirm the repair.</div><?php endif; ?>
                 <p class="fu-copy">The repair has been marked done. The reporter who filed this ticket can confirm whether the issue was actually resolved.</p>
                 <?php echo $signInPrompt; ?>
               <?php else: ?>
@@ -650,8 +656,8 @@ html{scroll-behavior:smooth}
                   <input type="hidden" name="action" value="confirm_satisfaction">
                   <input type="hidden" name="report_id" value="<?php echo htmlspecialchars((string)$report['report_id']); ?>">
                   <input type="text" name="satisfaction_note" placeholder="Optional comment…" style="flex:1;min-width:150px;padding:.6rem .8rem;border:1.5px solid var(--b);border-radius:10px;font:inherit;">
-                  <button class="fu-btn active" type="submit" name="verdict" value="yes" style="background:linear-gradient(135deg,#15803d,#22c55e);"><i class="fas fa-thumbs-up"></i> Yes, resolved</button>
-                  <button class="fu-btn active" type="submit" name="verdict" value="no" style="background:linear-gradient(135deg,#b91c1c,#ef4444);"><i class="fas fa-thumbs-down"></i> Not fixed</button>
+                  <button class="fu-btn active" type="submit" name="verdict" value="yes" style="background:linear-gradient(135deg,#15803d,#22c55e);"><i aria-hidden="true" class="fas fa-thumbs-up"></i> Yes, resolved</button>
+                  <button class="fu-btn active" type="submit" name="verdict" value="no" style="background:linear-gradient(135deg,#b91c1c,#ef4444);"><i aria-hidden="true" class="fas fa-thumbs-down"></i> Not fixed</button>
                 </form>
               <?php endif; ?>
             </div>
@@ -667,13 +673,13 @@ html{scroll-behavior:smooth}
             <div class="label">Need an update?</div>
             <div class="followup">
               <?php if ($fu === 'ok'): ?>
-                <div class="fu-flash ok"><i class="fas fa-check-circle"></i> Follow-up sent to the PMO — they have been notified.</div>
+                <div class="fu-flash ok"><i aria-hidden="true" class="fas fa-check-circle"></i> Follow-up sent to the PMO — they have been notified.</div>
               <?php elseif ($fu === 'max'): ?>
-                <div class="fu-flash err"><i class="fas fa-circle-info"></i> You have reached the maximum of <?php echo $FOLLOW_UP_MAX; ?> follow-ups for this report.</div>
+                <div class="fu-flash err"><i aria-hidden="true" class="fas fa-circle-info"></i> You have reached the maximum of <?php echo $FOLLOW_UP_MAX; ?> follow-ups for this report.</div>
               <?php elseif ($fu === 'resolved'): ?>
-                <div class="fu-flash err"><i class="fas fa-circle-info"></i> This report is already resolved — no follow-up needed.</div>
+                <div class="fu-flash err"><i aria-hidden="true" class="fas fa-circle-info"></i> This report is already resolved — no follow-up needed.</div>
               <?php elseif ($fu === 'notyours'): ?>
-                <div class="fu-flash err"><i class="fas fa-circle-info"></i> Only the reporter who filed this ticket can send a follow-up.</div>
+                <div class="fu-flash err"><i aria-hidden="true" class="fas fa-circle-info"></i> Only the reporter who filed this ticket can send a follow-up.</div>
               <?php endif; ?>
               <p class="fu-copy">If your report hasn't moved in a while, you can gently nudge the Property Management Office. You may send up to <strong><?php echo $FOLLOW_UP_MAX; ?></strong> follow-ups per report.</p>
               <div class="fu-dots">
@@ -681,16 +687,16 @@ html{scroll-behavior:smooth}
                 <span class="fu-remaining"><?php echo $fuRemaining; ?> remaining</span>
               </div>
               <?php if ($fuResolved): ?>
-                <button class="fu-btn" disabled><i class="fas fa-check"></i> Report already resolved</button>
+                <button class="fu-btn" disabled><i aria-hidden="true" class="fas fa-check"></i> Report already resolved</button>
               <?php elseif ($fuCount >= $FOLLOW_UP_MAX): ?>
-                <button class="fu-btn" disabled><i class="fas fa-ban"></i> Follow-up limit reached</button>
+                <button class="fu-btn" disabled><i aria-hidden="true" class="fas fa-ban"></i> Follow-up limit reached</button>
               <?php elseif (!$viewerOwnsReport): ?>
                 <?php echo $signInPrompt; ?>
               <?php else: ?>
                 <form method="POST" action="track_report.php" style="margin:0;">
                   <input type="hidden" name="action" value="follow_up">
                   <input type="hidden" name="report_id" value="<?php echo htmlspecialchars((string)$report['report_id']); ?>">
-                  <button class="fu-btn active" type="submit"><i class="fas fa-bell"></i> Send Follow-Up #<?php echo $fuCount+1; ?></button>
+                  <button class="fu-btn active" type="submit"><i aria-hidden="true" class="fas fa-bell"></i> Send Follow-Up #<?php echo $fuCount+1; ?></button>
                 </form>
               <?php endif; ?>
             </div>
@@ -713,7 +719,7 @@ html{scroll-behavior:smooth}
       </div>
       <?php endif; ?>
     </div>
-  </div>
+  </main>
 <?php require __DIR__ . '/includes/site_footer.php'; ?>
 <?php require __DIR__ . '/includes/site_ui.php'; ?>
 <script>
@@ -767,7 +773,7 @@ function renderTrackDropdown(query) {
     const detailParts = [item.equipment_name, refs, item.location].filter(Boolean);
     return `
       <div class="search-item" data-value="${escapeHtml(item.report_id || item.equipment_id || item.asset_tag || '')}">
-        <span class="search-icon"><i class="fas fa-search"></i></span>
+        <span class="search-icon"><i aria-hidden="true" class="fas fa-search"></i></span>
         <span class="search-copy">
           <span class="search-title">${escapeHtml(title)}</span>
           <span class="search-meta">${escapeHtml(detailParts.join(' • '))}</span>

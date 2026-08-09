@@ -22,10 +22,29 @@ function lp_status_meta(string $status): array {
     return ['Open', '#7B1D1D', 'rgba(123,29,29,.08)'];
 }
 
-/* ── Public-reports preview (latest 4) — mirrors the visibility guard in includes/public_reports.php ── */
-$previewReports = [];
+/* Turn a timestamp into the "3h ago" phrasing the status widget shows. */
+function lp_ago(?string $ts): string {
+    if (!$ts) return '';
+    $t = strtotime($ts);
+    if (!$t) return '';
+    $d = max(60, time() - $t);
+    if ($d < 3600)  return floor($d / 60)    . 'm ago';
+    if ($d < 86400) return floor($d / 3600)  . 'h ago';
+    return floor($d / 86400) . 'd ago';
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Everything this page reads from the database, in one place. Both the
+   reports preview and the status widget render far down the page, but the
+   queries belong up here — the rest of the file is then pure markup.
+   ────────────────────────────────────────────────────────────────────────── */
+$previewReports = [];   // latest 4 public reports
+$sysOk          = false; // drives the "All systems operational" widget
+$lastAgo        = '';    // "12m ago" for the most recent report of any kind
+
 try {
-    $conn = getDBConnection();
+    $conn  = getDBConnection();
+    $sysOk = (bool)$conn;
 
     // The shared helper caches its result for the request, so anything else on
     // the page that needs the schema reuses it instead of asking again.
@@ -38,6 +57,7 @@ try {
         $publicFilter = "dr.status IN ('reported','assigned','in_progress','completed','verified','closed')";
     }
 
+    // Mirrors the visibility guard in includes/public_reports.php.
     $sql = "SELECT dr.report_id, e.equipment_name, e.location, dr.status, dr.priority, dr.report_date
             FROM defect_reports dr
             JOIN equipment e ON dr.equipment_id = e.equipment_id
@@ -47,13 +67,20 @@ try {
     if ($prRes = $conn->query($sql)) {
         while ($row = $prRes->fetch_assoc()) { $previewReports[] = $row; }
     }
+
+    // Deliberately not restricted to public reports — the widget reports on the
+    // platform being alive, not on what a visitor is allowed to see.
+    if ($sres = @$conn->query("SELECT MAX(report_date) AS m FROM defect_reports")) {
+        $srow    = $sres->fetch_assoc();
+        $lastAgo = lp_ago($srow['m'] ?? null);
+    }
 } catch (Throwable $e) {
-    // Landing page must always render; a DB hiccup just hides the preview.
+    // Landing page must always render; a DB hiccup just hides the preview and
+    // flips the status widget to "degraded".
     error_log('index.php public preview failed: ' . $e->getMessage());
     $previewReports = [];
+    $sysOk          = false;
 }
-
-$year = date('Y');
 
 /* Absolute base URL for social-share meta — works in any deployment (localhost or live host) */
 $lpScheme  = (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off') ? 'https' : 'http';
@@ -82,6 +109,11 @@ $lpBaseUrl = $lpScheme . '://' . $lpHost . $lpDir;
 <meta name="twitter:description" content="The official PMO channel for reporting, tracking, and resolving campus equipment concerns.">
 <meta name="twitter:image" content="<?php echo lp_e($lpBaseUrl . '/assets/logs.png'); ?>">
 
+<!-- The hero background is the largest thing the page paints. It is set from CSS,
+     so the browser only discovers it after the stylesheet parses — preloading it
+     starts the download with the HTML instead. -->
+<link rel="preload" as="image" href="assets/Landing%20Page%20Background.jpg" fetchpriority="high">
+
 <!-- Served from this server, not a CDN: on venue Wi-Fi that drops, the landing
      page lost every icon and fell back to a generic system font. -->
 <link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
@@ -93,9 +125,16 @@ $lpBaseUrl = $lpScheme . '://' . $lpHost . $lpDir;
 <link rel="apple-touch-icon" href="assets/logs.png">
 <link rel="shortcut icon" href="assets/logs.png">
 <style>
-/* Root size bump — MUST stay in <head>. Setting this from an end-of-body
+/* ══════════════════════════════════════════════════════════════════════════
+   1. ROOT — document, tokens, reset
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* The root size bump MUST stay in <head>. Setting it from an end-of-body
    include repaints, then re-lays-out, the whole page on every load. */
-html{font-size:106.25%;scrollbar-gutter:stable;}
+html { font-size: 106.25%; scrollbar-gutter: stable; -webkit-text-size-adjust: 100%; }
+/* Smooth scrolling is opt-out for anyone who asked the OS for less motion —
+   it also governs the nav's in-page anchors and the back-to-top button. */
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 
 :root {
   --maroon: #7B1D1D;
@@ -113,7 +152,6 @@ html{font-size:106.25%;scrollbar-gutter:stable;}
   --shadow: 0 2px 8px rgba(44,10,10,.06), 0 12px 40px rgba(44,10,10,.10);
 }
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
 body {
   font-family: 'DM Sans', sans-serif;
   background: var(--paper);
@@ -124,7 +162,18 @@ body {
 }
 a { text-decoration: none; color: inherit; }
 
-/* ambient background decor */
+/* One focus ring for the whole page. The browser default is a thin outline that
+   all but vanishes on the gold CTA and against the dark hero, so a keyboard user
+   could not see where they were. :focus-visible keeps it off mouse clicks, and
+   the outline follows each element's own border-radius. */
+:focus-visible { outline: 3px solid var(--maroon); outline-offset: 3px; }
+.hero :focus-visible, .about :focus-visible, .bsfoot :focus-visible { outline-color: #F0C040; }
+
+/* (the skip link is part of the shared nav — see includes/site_nav.php) */
+
+/* ══════════════════════════════════════════════════════════════════════════
+   2. LAYOUT — ambient decor, page wrapper, the one container width
+   ══════════════════════════════════════════════════════════════════════════ */
 .bg-glow-a, .bg-glow-b, .bg-grid { position: fixed; pointer-events: none; z-index: 0; }
 .bg-glow-a { top: -200px; right: -160px; width: 540px; height: 540px; border-radius: 50%;
   background: radial-gradient(circle, rgba(201,150,12,.12) 0%, transparent 65%); }
@@ -141,30 +190,28 @@ a { text-decoration: none; color: inherit; }
 
 /* NAV + FOOTER styles live in the shared includes (includes/site_nav.php & includes/site_footer.php) */
 
-/* ══ HERO ══ */
+/* ══════════════════════════════════════════════════════════════════════════
+   3. HERO
+   ══════════════════════════════════════════════════════════════════════════ */
 .hero { position: relative; display: flex; align-items: center; min-height: min(90vh, 780px); padding: 5rem 0; color: #fff; overflow: hidden; }
 /* On phones 90vh counts the strip under the collapsing address bar, so the hero
    stands taller than the screen and the page jolts when the bar hides. dvh
    tracks the space actually visible; browsers without it keep the vh rule. */
 @supports (height: 100dvh) { .hero { min-height: min(90dvh, 780px); } }
+/* A single cover image. There used to be a second one stacked underneath as a
+   fallback, but it is opaque and fully covered — never seen, always downloaded. */
 .hero::before { content: ''; position: absolute; inset: 0; z-index: 0;
   background:
     linear-gradient(100deg, rgba(44, 2, 2, 0.9) 0%, rgba(38, 2, 2, 0.82) 32%, rgba(55,9,9,.56) 55%, rgba(74,14,14,.22) 76%, rgba(74,14,14,0) 100%),
     linear-gradient(0deg, rgba(26,4,4,.55) 0%, rgba(26,4,4,0) 28%),
-    url('assets/Landing Page Background.jpg') center 42% / cover no-repeat,
-    url('assets/bec-background.jpg') center / cover no-repeat;
+    #2D0505 url('assets/Landing Page Background.jpg') center 42% / cover no-repeat;
   transform: scale(1.1) translate3d(0, var(--hero-par, 0px), 0); will-change: transform; }
+/* The hero shares the page container, so the headline sits on the same left
+   edge as every section heading below it. It used to run on a wider 1280px
+   container pulled further left again, which put it ~140px out of alignment
+   with the rest of the page on a desktop screen. */
 .hero .container { position: relative; z-index: 1; }
-.hero-content {
-    max-width: 620px;
-    text-align: left;
-    margin-left: calc(-1 * min(80px, max(0px, (100vw - 1280px) / 2)));   /* pull left on wide screens; never clips on smaller ones */
-    transition: transform .3s cubic-bezier(.22,1,.36,1);
-}.hero .container{
-    max-width: 1280px;
-    padding-left: 2rem;
-    padding-right: 2rem;
-}
+.hero-content { max-width: 620px; text-align: left; transition: transform .3s cubic-bezier(.22,1,.36,1); }
 @keyframes heroRise { from { opacity: 0; transform: perspective(900px) translateY(26px) rotateX(8deg); } to { opacity: 1; transform: perspective(900px) translateY(0) rotateX(0); } }
 .hero-content > * { opacity: 0; animation: heroRise .8s cubic-bezier(.22,1,.36,1) forwards; transform-origin: 20% bottom; }
 .hero-content > *:nth-child(1) { animation-delay: .05s; }
@@ -179,10 +226,6 @@ a { text-decoration: none; color: inherit; }
 .hero-orb.o2 { width: 9px;  height: 9px;  background: radial-gradient(circle, #fff, transparent 70%); top: 66%; left: 72%; animation: orbFloat 12s ease-in-out infinite reverse; }
 .hero-orb.o3 { width: 18px; height: 18px; background: radial-gradient(circle, rgba(201,150,12,.8), transparent 70%); top: 42%; left: 84%; animation: orbFloat 14s ease-in-out infinite; }
 @keyframes orbFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-16px); } }
-/* CTA ripple micro-interaction */
-.btn { position: relative; overflow: hidden; }
-.btn-ripple { position: absolute; border-radius: 50%; background: rgba(255,255,255,.4); transform: scale(0); animation: btnRipple .6s ease-out; pointer-events: none; }
-@keyframes btnRipple { to { transform: scale(2.3); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .hero-orb { animation: none; } }
 .hero-eyebrow { display: inline-flex; align-items: center; gap: .5rem; margin-bottom: 1.3rem;
   padding: .42rem .95rem; border-radius: 20px; font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.4px;
@@ -193,22 +236,38 @@ a { text-decoration: none; color: inherit; }
 .hero h1 em { font-style: italic; color: #F0C040; }
 .hero-sub { font-size: 1.06rem; line-height: 1.7; color: rgba(255,255,255,.9); max-width: 50ch; margin: 0 0 2rem; text-shadow: 0 1px 14px rgba(0,0,0,.4); }
 .hero-cta { display: flex; flex-wrap: wrap; gap: .7rem; justify-content: flex-start; margin-bottom: 1.9rem; }
-.btn { display: inline-flex; align-items: center; gap: .55rem; padding: .9rem 1.6rem; border-radius: 12px;
-  font-family: 'DM Sans', sans-serif; font-size: .95rem; font-weight: 600; cursor: pointer; text-decoration: none; transition: all .22s cubic-bezier(.22,1,.36,1); }
-.btn-primary { background: var(--gold); color: var(--maroon-dd); box-shadow:0 10px 24px rgba(0,0,0,.3); }
-.btn-primary:hover { background: #E0AC1E; transform:none; box-shadow:0 16px 30px rgba(0,0,0,.35); }
-.btn-primary:active { transform:none; box-shadow:none; }
-.btn-ghost { background: rgba(255,255,255,.12); color: #fff; border: 1.5px solid rgba(255,255,255,.55); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
-.btn-ghost:hover { background: rgba(255,255,255,.22); border-color: #fff; transform: translateY(-2px); }
-.btn-arrow { width: 20px; height: 20px; background: rgba(0,0,0,.15); border-radius: 50%;
-  display: flex; align-items: center; justify-content: center; font-size: .65rem; transition: transform .2s; }
-.btn-primary:hover .btn-arrow { transform: translateX(3px); }
 .hero-pills { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: flex-start; padding-top: 1.4rem; border-top: 1px solid rgba(255,255,255,.16); }
 .hpill { display: inline-flex; align-items: center; gap: .4rem; padding: .4rem .85rem; border-radius: 20px;
   background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.28); font-size: .72rem; font-weight: 600; color: #fff; -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
 .hpill i { color: var(--gold); font-size: .68rem; }
 
-/* ══ SCROLL-REVEAL + 3D TILT (subtle, professional) ══ */
+/* ══════════════════════════════════════════════════════════════════════════
+   4. BUTTONS — shared by the hero and the Becca section
+   ══════════════════════════════════════════════════════════════════════════ */
+/* `border: 0` matters: "Ask Becca" is a real <button>, so without it that one
+   CTA drew the browser's default 2px border while the identical-looking <a>
+   buttons did not. `position/overflow` are what clip the click ripple.
+   The transition names its properties — `all` also animated the width change
+   the phone breakpoint applies, so the buttons visibly grew on load. */
+.btn { position: relative; overflow: hidden; display: inline-flex; align-items: center; gap: .55rem;
+  padding: .9rem 1.6rem; border: 0; border-radius: 12px; line-height: 1.25;
+  font-family: 'DM Sans', sans-serif; font-size: .95rem; font-weight: 600; cursor: pointer; text-decoration: none;
+  transition: background .22s cubic-bezier(.22,1,.36,1), border-color .22s, box-shadow .22s, transform .22s cubic-bezier(.22,1,.36,1); }
+.btn-primary { background: var(--gold); color: var(--maroon-dd); box-shadow: 0 10px 24px rgba(0,0,0,.3); }
+.btn-primary:hover { background: #E0AC1E; box-shadow: 0 16px 30px rgba(0,0,0,.35); }
+.btn-primary:active { box-shadow: none; }
+.btn-ghost { background: rgba(255,255,255,.12); color: #fff; border: 1.5px solid rgba(255,255,255,.55); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+.btn-ghost:hover { background: rgba(255,255,255,.22); border-color: #fff; transform:none; }
+.btn-arrow { width: 20px; height: 20px; background: rgba(0,0,0,.15); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; font-size: .65rem; transition: transform .2s; }
+.btn-primary:hover .btn-arrow { transform: translateX(3px); }
+/* click ripple */
+.btn-ripple { position: absolute; border-radius: 50%; background: rgba(255,255,255,.4); transform: scale(0); animation: btnRipple .6s ease-out; pointer-events: none; }
+@keyframes btnRipple { to { transform: scale(2.3); opacity: 0; } }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   5. MOTION — scroll reveal, progress bar, card tilt + cursor spotlight
+   ══════════════════════════════════════════════════════════════════════════ */
 .reveal { opacity: 0; transform: translateY(26px); transition: opacity .6s cubic-bezier(.22,1,.36,1), transform .6s cubic-bezier(.22,1,.36,1); }
 .reveal.in { opacity: 1; transform: none; }
 .tilt { will-change: transform; }
@@ -223,26 +282,25 @@ a { text-decoration: none; color: inherit; }
 .portal-card > *, .mod-card > * { position: relative; z-index: 1; }
 @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1 !important; transform: none !important; transition: none; } }
 
-/* ══ CREDIBILITY STRIP ══ */
+/* ══════════════════════════════════════════════════════════════════════════
+   6. CREDIBILITY STRIP — institution facts, directly under the hero
+   ══════════════════════════════════════════════════════════════════════════ */
 .cred { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); background: rgba(255,255,255,.5); }
 .cred-in { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .6rem 1.5rem; padding: .65rem 1.5rem; }
 .cred-item { display: inline-flex; align-items: center; gap: .5rem; font-size: .73rem; font-weight: 600; color: var(--ink2); text-transform: uppercase; letter-spacing: .8px; }
 .cred-item i { color: var(--gold); font-size: .82rem; }
-.cred-sep { width: 4px; height: 4px; border-radius: 50%; background: var(--border); }
 @media (max-width: 640px) {
-  /* keep the wrapped, centered, dot-separated layout (like desktop),
-     just tighter so it reads cleanly on phones/tablets */
+  /* keep the wrapped, centered layout, just tighter so it reads on phones */
   .cred-in { gap: .5rem .95rem; padding: .6rem 1.1rem; }
   .cred-item { font-size: .7rem; letter-spacing: .4px; }
-  .cred-item i { font-size: .82rem; }
-}
-/* very narrow phones: items stack one-per-row, so drop the trailing dots */
-@media (max-width: 479px) {
-  .cred-sep { display: none; }
 }
 
-/* ══ SECTION SCAFFOLD ══ */
+/* ══════════════════════════════════════════════════════════════════════════
+   7. SECTION SCAFFOLD — the heading pattern every band below reuses
+   ══════════════════════════════════════════════════════════════════════════ */
 .section { padding: 3.6rem 0; }
+/* status widget: sits directly under the Becca band, so it drops its top pad */
+.section--tight { padding-top: 0; }
 .sec-head { text-align: center; max-width: 60ch; margin: 0 auto 2.4rem; }
 .sec-eyebrow { display: inline-flex; align-items: center; gap: .5rem; font-size: .64rem; font-weight: 700;
   text-transform: uppercase; letter-spacing: 1.6px; color: var(--maroon); margin-bottom: .7rem; }
@@ -251,15 +309,17 @@ a { text-decoration: none; color: inherit; }
 .sec-title em { font-style: italic; color: var(--maroon); }
 .sec-sub { font-size: .96rem; color: var(--ink2); line-height: 1.65; margin-top: .7rem; }
 
-/* ══ PORTALS ══ */
-.portal-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.1rem; }
-.portal-grid--single { grid-template-columns: minmax(0, 460px); justify-content: center; }
+/* ══════════════════════════════════════════════════════════════════════════
+   8. GET STARTED — the reporter portal card beside the numbered steps
+   (This used to be a 3-across .portal-grid of portal cards. The other two
+   portals moved to the footer, so only the card styling is still needed.)
+   ══════════════════════════════════════════════════════════════════════════ */
 .portal-card { position: relative; display: flex; flex-direction: column; background: var(--surface);
   border: 1px solid var(--border); border-radius: 18px; padding: 1.8rem 1.6rem; box-shadow: var(--shadow);
   transition: transform .22s cubic-bezier(.22,1,.36,1), box-shadow .22s, border-color .22s; overflow: hidden; }
 .portal-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
   background: linear-gradient(90deg, var(--maroon-d), var(--maroon) 60%, var(--gold)); transform: scaleX(0); transform-origin: left; transition: transform .25s; }
-.portal-card:hover { transform: translateY(-5px); border-color: rgba(123,29,29,.25); box-shadow: 0 10px 24px rgba(74,14,14,.14), 0 20px 50px rgba(74,14,14,.10); }
+.portal-card:hover { transform:none; border-color: rgba(123,29,29,.25); box-shadow: 0 10px 24px rgba(74,14,14,.14), 0 20px 50px rgba(74,14,14,.10); }
 .portal-card:hover::before { transform: scaleX(1); }
 .pc-ic { width: 52px; height: 52px; border-radius: 14px; display: flex; align-items: center; justify-content: center;
   font-size: 1.3rem; color: var(--maroon); background: var(--maroon-soft); border: 1px solid rgba(123,29,29,.14); margin-bottom: 1.1rem; }
@@ -284,7 +344,9 @@ a { text-decoration: none; color: inherit; }
 .cs-tx strong { color: var(--maroon); font-weight: 700; }
 @media (max-width: 760px) { .cta-portal { grid-template-columns: 1fr; } }
 
-/* ══ MODULES / CAPABILITIES ══ */
+/* ══════════════════════════════════════════════════════════════════════════
+   9. CAPABILITIES — the module card grid
+   ══════════════════════════════════════════════════════════════════════════ */
 .mod-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
 .mod-card { position: relative; overflow: hidden; display: flex; gap: .9rem; align-items: flex-start; background: var(--surface); border: 1px solid var(--border);
   border-radius: 16px; padding: 1.3rem 1.3rem; box-shadow: 0 2px 8px rgba(44,10,10,.05);
@@ -292,13 +354,13 @@ a { text-decoration: none; color: inherit; }
 .mod-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px;
   background: linear-gradient(90deg, var(--maroon-d), var(--maroon) 60%, var(--gold)); transform: scaleX(0); transform-origin: left; transition: transform .3s ease; }
 .mod-card::after { content: ''; position: absolute; top: -30px; right: -30px; width: 96px; height: 96px; border-radius: 50%; background: var(--maroon); opacity: 0; transition: opacity .3s, transform .3s; }
-.mod-card:hover { transform: translateY(-5px); border-color: rgba(123,29,29,.2); box-shadow: 0 14px 30px rgba(74,14,14,.13); }
+.mod-card:hover { transform:none; border-color: rgba(123,29,29,.2); box-shadow: 0 14px 30px rgba(74,14,14,.13); }
 .mod-card:hover::before { transform: scaleX(1); }
 .mod-card:hover::after { opacity: .05; transform: scale(1.4); }
 .mod-card.feat { grid-column: span 2; background: linear-gradient(135deg, var(--surface) 55%, var(--maroon-soft)); border-color: rgba(123,29,29,.16); }
 .mod-card.feat .mod-ic { background: linear-gradient(135deg, var(--maroon-d), var(--maroon)); color: #fff; border-color: transparent; box-shadow: 0 4px 12px rgba(123,29,29,.28); }
 .mod-ic { position: relative; z-index: 1; width: 46px; height: 46px; border-radius: 13px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-  font-size: 1.1rem; color: var(--maroon); background: var(--maroon-soft); border: 1px solid rgba(123,29,29,.14); box-shadow:none;
+  font-size: 1.1rem; color: var(--maroon); background: var(--maroon-soft); border: 1px solid rgba(123,29,29,.14);
   transition: transform .26s, background .26s, color .26s, border-color .26s; }
 .mod-card:hover .mod-ic { transform: rotate(-8deg) scale(1.1); background: linear-gradient(135deg, var(--maroon-d), var(--maroon)); color: #fff; border-color: transparent; }
 .mod-tx { position: relative; z-index: 1; }
@@ -307,7 +369,9 @@ a { text-decoration: none; color: inherit; }
 @media (max-width: 900px) { .mod-grid { grid-template-columns: repeat(2, 1fr); } .mod-card.feat { grid-column: span 2; } }
 @media (max-width: 640px) { .mod-grid { grid-template-columns: 1fr; } .mod-card.feat { grid-column: auto; } }
 
-/* ══ ABOUT THE PMO (dark band) ══ */
+/* ══════════════════════════════════════════════════════════════════════════
+   10. ABOUT THE PMO — dark band
+   ══════════════════════════════════════════════════════════════════════════ */
 .about { position: relative; overflow: hidden; color: #fff; border-radius: 26px; margin: 1rem 0;
   padding: 3.2rem 2.8rem;
   background: radial-gradient(120% 90% at 0% 0%, rgba(201,150,12,.2) 0%, transparent 45%),
@@ -340,11 +404,13 @@ a { text-decoration: none; color: inherit; }
 .about-point > div b { display: block; font-size: .9rem; font-weight: 700; color: #fff; }
 .about-point > div span { display: block; font-size: .78rem; line-height: 1.5; color: rgba(255,255,255,.66); margin-top: .15rem; }
 
-/* ══ PUBLIC REPORTS PREVIEW ══ */
+/* ══════════════════════════════════════════════════════════════════════════
+   11. PUBLIC REPORTS PREVIEW
+   ══════════════════════════════════════════════════════════════════════════ */
 .rep-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
 .rep-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.15rem 1.15rem 1.25rem;
   box-shadow: 0 2px 8px rgba(44,10,10,.05); transition: transform .2s, box-shadow .2s, border-color .2s; }
-.rep-card:hover { transform: translateY(-3px); border-color: rgba(123,29,29,.2); box-shadow: 0 8px 20px rgba(74,14,14,.10); }
+.rep-card:hover { transform:none; border-color: rgba(123,29,29,.2); box-shadow: 0 8px 20px rgba(74,14,14,.10); }
 .rc-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: .7rem; }
 .rc-id { font-size: .72rem; font-weight: 700; color: var(--ink3); letter-spacing: .02em; }
 .badge { font-size: .62rem; font-weight: 700; padding: .22rem .55rem; border-radius: 20px; letter-spacing: .02em; }
@@ -360,13 +426,20 @@ a { text-decoration: none; color: inherit; }
 .rep-all a i { transition: transform .2s; }
 .rep-all a:hover i { transform: translateX(4px); }
 
-/* ══ SHOWCASE / 3D DASHBOARD ══ */
+/* ══════════════════════════════════════════════════════════════════════════
+   12. SHOWCASE — split copy + the 3D dashboard mockup
+   ══════════════════════════════════════════════════════════════════════════ */
 .showcase-in { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; }
-.showcase-copy .sec-eyebrow { justify-content: flex-start; }
 .showcase-copy .sec-title { max-width: 18ch; }
-.showcase-feats { display: flex; flex-direction: column; gap: .7rem; margin-top: 1.4rem; }
-.showcase-feats span { display: inline-flex; align-items: center; gap: .6rem; font-size: .88rem; font-weight: 600; color: var(--ink2); }
-.showcase-feats i { color: var(--gold); width: 18px; text-align: center; }
+
+/* The showcase and Becca bands both use the same gold-ticked feature list; it
+   is defined once here. They had drifted to different gaps (.7 vs .6rem). */
+.showcase-feats, .becca-feats { display: flex; flex-direction: column; gap: .7rem; }
+.showcase-feats { margin-top: 1.4rem; }
+.becca-feats { margin: 1.3rem 0 1.6rem; }
+.showcase-feats span, .becca-feats span { display: inline-flex; align-items: center; gap: .6rem; font-size: .88rem; font-weight: 600; color: var(--ink2); }
+.showcase-feats i, .becca-feats i { color: var(--gold); width: 18px; text-align: center; }
+
 .showcase-visual { position: relative; perspective: 1400px; min-height: 340px; display: flex; align-items: center; justify-content: center; transition: transform .3s cubic-bezier(.22,1,.36,1); }
 .dash3d { width: 100%; max-width: 420px; border-radius: 18px; overflow: hidden; background: rgba(255,255,255,.72);
   -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,.7);
@@ -399,7 +472,9 @@ a { text-decoration: none; color: inherit; }
 @keyframes notifFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
 @keyframes barGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 
-/* ══ LIVE SYSTEM STATUS ══ */
+/* ══════════════════════════════════════════════════════════════════════════
+   13. LIVE SYSTEM STATUS
+   ══════════════════════════════════════════════════════════════════════════ */
 .status-widget { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem 1.5rem;
   background: rgba(255,255,255,.7); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
   border: 1px solid var(--border); border-radius: 16px; padding: 1.1rem 1.5rem; box-shadow: 0 4px 16px rgba(44,10,10,.06); }
@@ -422,13 +497,11 @@ a { text-decoration: none; color: inherit; }
 }
 @media (prefers-reduced-motion: reduce) { .dash3d, .dash-notif, .dash-chart i, .sw-dot.ok { animation: none; } }
 
-/* ══ BECCA AI SHOWCASE ══ */
+/* ══════════════════════════════════════════════════════════════════════════
+   14. BECCA — AI assistant band (feature-list styles live in section 12)
+   ══════════════════════════════════════════════════════════════════════════ */
 .becca-in { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; }
-.becca-copy .sec-eyebrow { justify-content: flex-start; }
 .becca-copy .sec-title { max-width: 16ch; }
-.becca-feats { display: flex; flex-direction: column; gap: .6rem; margin: 1.3rem 0 1.6rem; }
-.becca-feats span { display: inline-flex; align-items: center; gap: .6rem; font-size: .88rem; font-weight: 600; color: var(--ink2); }
-.becca-feats i { color: var(--gold); width: 18px; text-align: center; }
 .becca-visual { display: flex; justify-content: center; }
 .becca-card { width: 100%; max-width: 380px; border-radius: 20px; overflow: hidden;
   background: rgba(255,255,255,.8); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
@@ -453,7 +526,9 @@ a { text-decoration: none; color: inherit; }
 @media (max-width: 860px) { .becca-in { grid-template-columns: 1fr; gap: 2rem; } }
 @media (prefers-reduced-motion: reduce) { .becca-card { animation: none; } }
 
-/* ══ FAQ ══ */
+/* ══════════════════════════════════════════════════════════════════════════
+   15. FAQ
+   ══════════════════════════════════════════════════════════════════════════ */
 .faq-wrap { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: .7rem; }
 .faq-item { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 2px 8px rgba(44,10,10,.05); overflow: hidden; transition: border-color .2s, box-shadow .2s; }
 .faq-item[open] { border-color: rgba(123,29,29,.25); box-shadow: 0 8px 22px rgba(74,14,14,.10); }
@@ -483,81 +558,65 @@ a { text-decoration: none; color: inherit; }
 
 /* (footer styles: see includes/site_footer.php) */
 
-/* ══ RESPONSIVE ══ */
+/* ══════════════════════════════════════════════════════════════════════════
+   16. BACK TO TOP — floating button, appears after the first screen
+   (Lived in a second <style> tag near the bottom of <body>, which makes the
+   browser re-do style resolution mid-parse. It belongs up here.)
+   ══════════════════════════════════════════════════════════════════════════ */
+#toTop { position: fixed; right: 1.35rem; bottom: 1.35rem; z-index: 9996; width: 48px; height: 48px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  background: linear-gradient(135deg, var(--maroon-d), var(--maroon)); color: #fff; border: 1px solid rgba(201,150,12,.4);
+  box-shadow: 0 8px 24px rgba(74,14,14,.32), 0 0 0 1px rgba(255,255,255,.06) inset;
+  opacity: 0; visibility: hidden; transform: translateY(14px) scale(.9); pointer-events: none;
+  transition: opacity .28s ease, transform .28s cubic-bezier(.22,1,.36,1), visibility .28s, box-shadow .2s; }
+#toTop.show { opacity: 1; visibility: visible; transform: none; pointer-events: auto; }
+#toTop:hover { box-shadow: 0 12px 30px rgba(74,14,14,.42), 0 0 20px rgba(201,150,12,.35); transform:none; }
+#toTop:active { transform: translateY(0); }
+#toTop i { font-size: 1rem; color: #F0C040; }
+@media (max-width: 560px) { #toTop { width: 46px; height: 46px; right: 1rem; bottom: 1.2rem; } }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   17. RESPONSIVE — tablet, then phone
+   Section-local breakpoints (.mod-grid, .showcase-in, .becca-in, .cta-portal,
+   .faq-wrap, .cred) stay next to the rules they modify; only the cross-section
+   ones live here.
+   ══════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 900px) {
-  .portal-grid { grid-template-columns: 1fr; }
   .rep-grid { grid-template-columns: repeat(2, 1fr); }
   .about { padding: 2.4rem 1.8rem; }
   .about-grid { grid-template-columns: 1fr; gap: 1.6rem; }
   .hero h1 { font-size: 2.5rem; }
 }
+
 @media (max-width: 640px) {
+  /* ── layout rhythm: less scrolling on a phone, mockups kept ── */
+  .section { padding: 2.3rem 0; }
+  .sec-head { margin-bottom: 1.5rem; }
+  .sec-title { font-size: 1.35rem; }
+  .sec-sub { font-size: .86rem; }
+  /* One padding rule, not two. A later `padding: 0 1.1rem` shorthand used to
+     follow this and quietly cancelled the notch inset in landscape. */
+  .container { padding-left: max(1.1rem, env(safe-area-inset-left));
+               padding-right: max(1.1rem, env(safe-area-inset-right)); }
+
+  /* ── hero ── */
   .hero { min-height: auto; padding: 2.8rem 0 2.4rem; }
   .hero::before { background:
     linear-gradient(180deg, rgba(38,4,4,.86) 0%, rgba(45,5,5,.78) 45%, rgba(74,14,14,.9) 100%),
-    url('assets/Landing Page Background.jpg') center 40% / cover no-repeat,
-    url('assets/bec-background.jpg') center / cover no-repeat; }
+    #2D0505 url('assets/Landing Page Background.jpg') center 40% / cover no-repeat; }
+  /* Slightly tighter than the page gutter so the pill pair below fits; still
+     clears the notch. */
+  .hero .container { padding-left: max(.9rem, env(safe-area-inset-left));
+                     padding-right: max(.9rem, env(safe-area-inset-right)); }
   .hero-content { max-width: 100%; }
   /* calmer type scale on phones — the long headline was overwhelming at 2.15rem */
   .hero h1 { font-size: 1.7rem; line-height: 1.2; max-width: none; }
   .hero-sub { font-size: .88rem; margin-bottom: 1.4rem; }
   .hero-eyebrow { font-size: .58rem; padding: .36rem .8rem; margin-bottom: 1rem; }
-  /* recent public reports: compact 2x2 mini-cards instead of a tall single column */
-  .rep-grid { grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: .6rem; }
-  .rep-card { padding: .75rem .8rem .85rem; border-radius: 12px; min-width: 0; overflow: hidden; }
-  .rc-top { margin-bottom: .45rem; gap: .3rem; }
-  /* The ticket number, its status and the date are what a person actually reads
-     here, and they were the smallest type on the page at 9-10px. The number was
-     also being cut off ("BEC-2026-0000…") because it shared a row with the
-     status badge inside a 164px card, so on phones the two now stack and the
-     number gets the full width. The decorative eyebrows and pills stay small
-     by design. */
-  .rc-top { flex-direction: column; align-items: flex-start; gap: .25rem; }
-  .rc-id { font-size: .72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .badge { font-size: .62rem; padding: .2rem .45rem; flex-shrink: 0; }
-  .rc-eq { font-size: .86rem; margin-bottom: .3rem; }
-  .rc-meta { font-size: .68rem; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .rc-date { font-size: .72rem; margin-top: .4rem; }
-  .sec-title { font-size: 1.35rem; }
-  .btn { width: 100%; justify-content: center; padding: .82rem 1.4rem; font-size: .9rem; }
   .hero-cta { flex-direction: column; }
-
-  /* ── touch ergonomics ──────────────────────────────────────────────
-     WCAG 2.5.5 and both platform guidelines put the smallest comfortable
-     touch target at 44px; most links here sat at 20-39px, close enough to
-     each other that a thumb catches the wrong one. The padding is vertical
-     only, so nothing moves visually — the tappable area just grows. */
-  /* The shared nav and footer carry their own 44px rules (site_nav.php,
-     site_footer.php) so every public page gets them, not just this one. These
-     are the selectors that only exist on the landing page. */
-  .rep-all a,
-  .faq-a a,
-  a.link-more { min-height: 44px; display: inline-flex; align-items: center; }
-  /* Room for the notch in landscape. */
-  .container { padding-left: max(1.1rem, env(safe-area-inset-left));
-               padding-right: max(1.1rem, env(safe-area-inset-right)); }
-
-  /* ── tighter rhythm = less scrolling on phones (mockups kept) ── */
-  .section { padding: 2.3rem 0; }
-  .sec-head { margin-bottom: 1.5rem; }
-  .sec-sub { font-size: .86rem; }
-  .container { padding: 0 1.1rem; }
-  .about { padding: 2rem 1.4rem; margin: 0; }
-  .about h2 { font-size: 1.3rem; }
-  .about p { font-size: .86rem; }
-  /* mockup floating chips: keep them clear of the mockup's title bar */
-  .dash-notif { font-size: .68rem; padding: .4rem .65rem; }
-  .dash-notif.n1 { top: -14px; right: 0; }
-  .dash-notif.n2 { bottom: -10px; left: 0; }
-  /* compact capability cards — same content, less height */
-  .mod-card { padding: .95rem 1rem; gap: .75rem; border-radius: 14px; }
-  .mod-ic { width: 40px; height: 40px; font-size: .95rem; border-radius: 11px; }
-  .mod-tx b { font-size: .9rem; margin-bottom: .15rem; }
-  .mod-tx span { font-size: .76rem; }
-  .mod-grid { gap: .65rem; }
+  .btn { width: 100%; justify-content: center; padding: .82rem 1.4rem; font-size: .9rem; }
   /* full-label pills — exactly 2 on top + 1 centered below.
      Font scales with the viewport so the pair always fits, as big as possible. */
-  .hero .container { padding-left: .9rem; padding-right: .9rem; }
   .hero-pills { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem .35rem;
     padding-top: 1.15rem; justify-items: center; }
   .hpill { font-size: clamp(.55rem, 2.42vw, .7rem); padding: .48rem .5rem; white-space: nowrap;
@@ -565,43 +624,93 @@ a { text-decoration: none; color: inherit; }
     border-color: rgba(255,255,255,.34); }
   .hpill:nth-child(3) { grid-column: 1 / -1; width: auto; padding: .48rem 1.05rem; }
   .hpill i { font-size: .92em; }
+
+  /* ── capability cards: same content, less height ── */
+  .mod-grid { gap: .65rem; }
+  .mod-card { padding: .95rem 1rem; gap: .75rem; border-radius: 14px; }
+  .mod-ic { width: 40px; height: 40px; font-size: .95rem; border-radius: 11px; }
+  .mod-tx b { font-size: .9rem; margin-bottom: .15rem; }
+  .mod-tx span { font-size: .76rem; }
+
+  /* ── about band ── */
+  .about { padding: 2rem 1.4rem; margin: 0; }
+  .about h2 { font-size: 1.3rem; }
+  .about p { font-size: .86rem; }
+
+  /* ── mockup floating chips: keep them clear of the mockup's title bar ── */
+  .dash-notif { font-size: .68rem; padding: .4rem .65rem; }
+  .dash-notif.n1 { top: -14px; right: 0; }
+  .dash-notif.n2 { bottom: -10px; left: 0; }
+
+  /* ── recent public reports: compact 2x2 mini-cards, not a tall column ──
+     The ticket number, its status and the date are what a person actually reads
+     here, and they were the smallest type on the page at 9-10px. The number was
+     also being cut off ("BEC-2026-0000…") because it shared a row with the
+     status badge inside a 164px card, so on phones the two stack and the number
+     gets the full width. The decorative eyebrows and pills stay small by design. */
+  .rep-grid { grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: .6rem; }
+  .rep-card { padding: .75rem .8rem .85rem; border-radius: 12px; min-width: 0; overflow: hidden; }
+  .rc-top { flex-direction: column; align-items: flex-start; gap: .25rem; margin-bottom: .45rem; }
+  .rc-id { font-size: .72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .badge { font-size: .62rem; padding: .2rem .45rem; flex-shrink: 0; }
+  .rc-eq { font-size: .86rem; margin-bottom: .3rem; }
+  .rc-meta { font-size: .68rem; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rc-date { font-size: .72rem; margin-top: .4rem; }
+
+  /* ── touch ergonomics ──────────────────────────────────────────────
+     WCAG 2.5.5 and both platform guidelines put the smallest comfortable
+     touch target at 44px; most links here sat at 20-39px, close enough to
+     each other that a thumb catches the wrong one. The padding is vertical
+     only, so nothing moves visually — the tappable area just grows.
+     The shared nav and footer carry their own 44px rules (site_nav.php,
+     site_footer.php); these are the selectors that only exist on this page. */
+  .rep-all a,
+  .faq-a a,
+  a.link-more { min-height: 44px; display: inline-flex; align-items: center; }
 }
 </style>
 </head>
 <body>
-<div class="bg-glow-a"></div><div class="bg-glow-b"></div><div class="bg-grid"></div>
+<div class="bg-glow-a" aria-hidden="true"></div><div class="bg-glow-b" aria-hidden="true"></div><div class="bg-grid" aria-hidden="true"></div>
 
-<div class="scroll-prog" id="scrollProg"></div>
+<div class="scroll-prog" id="scrollProg" aria-hidden="true"></div>
 <div class="wrap">
 
   <!-- shared top navigation -->
   <?php $nav_active = 'home'; require __DIR__ . '/includes/site_nav.php'; ?>
 
+  <main id="main">
+
   <!-- ══ HERO ══ -->
   <header class="hero">
-    <span class="hero-orb o1"></span><span class="hero-orb o2"></span><span class="hero-orb o3"></span>
+    <span class="hero-orb o1" aria-hidden="true"></span><span class="hero-orb o2" aria-hidden="true"></span><span class="hero-orb o3" aria-hidden="true"></span>
     <div class="container">
       <div class="hero-content">
-      <span class="hero-eyebrow"><i class="fas fa-building-shield"></i> Batangas Eastern Colleges · Property Management Office</span>
+      <span class="hero-eyebrow"><i class="fas fa-building-shield" aria-hidden="true"></i> Batangas Eastern Colleges · Property Management Office</span>
       <h1>Defective Equipment Reporting &amp; Maintenance Management, <em>handled by the PMO</em></h1>
       <p class="hero-sub">The official Batangas Eastern Colleges channel for reporting, tracking, and resolving campus equipment concerns — verified and managed end-to-end by the Property Management Office.</p>
       <div class="hero-cta">
-        <a class="btn btn-primary" href="student_index.php">Report defective equipment <span class="btn-arrow"><i class="fas fa-arrow-right"></i></span></a>
-        <a class="btn btn-ghost" href="track_report.php"><i class="fas fa-magnifying-glass"></i> Track a report</a>
+        <a class="btn btn-primary" href="student_index.php">Report defective equipment <span class="btn-arrow"><i class="fas fa-arrow-right" aria-hidden="true"></i></span></a>
+        <a class="btn btn-ghost" href="track_report.php"><i class="fas fa-magnifying-glass" aria-hidden="true"></i> Track a report</a>
       </div>
       <div class="hero-pills">
-        <span class="hpill"><i class="fas fa-certificate"></i> Official institutional system</span>
-        <span class="hpill"><i class="fas fa-building-columns"></i> Property Management Office</span>
-        <span class="hpill"><i class="fas fa-shield-halved"></i> Secure OTP-protected access</span>
+        <span class="hpill"><i class="fas fa-certificate" aria-hidden="true"></i> Official institutional system</span>
+        <span class="hpill"><i class="fas fa-building-columns" aria-hidden="true"></i> Property Management Office</span>
+        <span class="hpill"><i class="fas fa-shield-halved" aria-hidden="true"></i> Verified BEC email sign-in</span>
       </div>
       </div>
     </div>
   </header>
 
-  <!-- ══ CREDIBILITY STRIP ══ -->
+  <!-- ══ CREDIBILITY STRIP ══
+       Institution facts, deliberately a different register from the hero pills
+       above (which describe the system). Three of these used to live here and
+       moved into the pills, leaving a full-width band holding one line. -->
   <div class="cred">
     <div class="container cred-in">
-      <span class="cred-item"><i class="fas fa-award"></i> Batangas Eastern Colleges · Est. 1940</span>
+      <span class="cred-item"><i class="fas fa-award" aria-hidden="true"></i> Batangas Eastern Colleges · Est. 1940</span>
+      <span class="cred-item"><i class="fas fa-location-dot" aria-hidden="true"></i> San Juan, Batangas</span>
+      <span class="cred-item"><i class="fas fa-lock" aria-hidden="true"></i> Data Privacy Act · RA 10173</span>
     </div>
   </div>
 
@@ -613,19 +722,22 @@ a { text-decoration: none; color: inherit; }
         <h2 class="sec-title">One dashboard for the <em>entire equipment lifecycle</em></h2>
         <p class="sec-sub">Report, review, assign, repair, and resolve — the PMO tracks every case from submission to sign-off, with real-time status and email updates at each step.</p>
         <div class="showcase-feats">
-          <span><i class="fas fa-bolt"></i> Real-time status tracking</span>
-          <span><i class="fas fa-envelope-circle-check"></i> Automated email confirmations</span>
-          <span><i class="fas fa-shield-halved"></i> Secure, OTP-protected access</span>
+          <span><i class="fas fa-bolt" aria-hidden="true"></i> Real-time status tracking</span>
+          <span><i class="fas fa-envelope-circle-check" aria-hidden="true"></i> Automated email confirmations</span>
+          <span><i class="fas fa-shield-halved" aria-hidden="true"></i> Verified BEC email sign-in</span>
         </div>
       </div>
-      <div class="showcase-visual">
+      <!-- Decorative mockup: a screen reader was announcing the fake dashboard's
+           labels ("Open… In Progress… New report received") as if they were real
+           page content. It illustrates the copy on the left, so it is hidden. -->
+      <div class="showcase-visual" aria-hidden="true">
         <div class="dash3d">
           <div class="dash-bar"><span></span><span></span><span></span><b>PMO Dashboard</b></div>
           <div class="dash-body">
             <div class="dash-tiles">
-              <div class="dtile"><i class="fas fa-inbox"></i><small>Open</small></div>
-              <div class="dtile"><i class="fas fa-gears"></i><small>In Progress</small></div>
-              <div class="dtile"><i class="fas fa-circle-check"></i><small>Resolved</small></div>
+              <div class="dtile"><i class="fas fa-inbox" aria-hidden="true"></i><small>Open</small></div>
+              <div class="dtile"><i class="fas fa-gears" aria-hidden="true"></i><small>In Progress</small></div>
+              <div class="dtile"><i class="fas fa-circle-check" aria-hidden="true"></i><small>Resolved</small></div>
             </div>
             <div class="dash-chart"><i style="--h:42%"></i><i style="--h:68%"></i><i style="--h:54%"></i><i style="--h:86%"></i><i style="--h:60%"></i><i style="--h:94%"></i></div>
             <div class="dash-rows">
@@ -635,24 +747,11 @@ a { text-decoration: none; color: inherit; }
             </div>
           </div>
         </div>
-        <div class="dash-notif n1"><i class="fas fa-bell"></i> New report received</div>
-        <div class="dash-notif n2"><i class="fas fa-check"></i> Report resolved</div>
+        <div class="dash-notif n1"><i class="fas fa-bell" aria-hidden="true"></i> New report received</div>
+        <div class="dash-notif n2"><i class="fas fa-check" aria-hidden="true"></i> Report resolved</div>
       </div>
     </div>
   </section>
-  <script>
-  (function () {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || window.matchMedia('(pointer: coarse)').matches) return;
-    var host = document.querySelector('.showcase'), sc = document.querySelector('.showcase-visual');
-    if (!host || !sc) return;
-    host.addEventListener('mousemove', function (e) {
-      var r = host.getBoundingClientRect();
-      var x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
-      sc.style.transform = 'translate(' + (x * 14).toFixed(1) + 'px,' + (y * 12).toFixed(1) + 'px)';
-    });
-    host.addEventListener('mouseleave', function () { sc.style.transform = ''; });
-  })();
-  </script>
 
   <!-- ══ PORTALS ══ -->
   <section class="section" id="portals">
@@ -664,10 +763,10 @@ a { text-decoration: none; color: inherit; }
       </div>
       <div class="cta-portal">
         <a class="portal-card cta-main" href="student_index.php">
-          <div class="pc-ic"><i class="fas fa-user-graduate"></i></div>
+          <div class="pc-ic"><i class="fas fa-user-graduate" aria-hidden="true"></i></div>
           <div class="pc-title">Reporter Portal</div>
           <p class="pc-desc">For students, faculty, and staff — file a defect report with your official BEC email and track it through to resolution.</p>
-          <span class="pc-enter">Enter portal <i class="fas fa-arrow-right"></i></span>
+          <span class="pc-enter">Enter portal <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
         </a>
         <ul class="cta-steps">
           <li><span class="cs-n">1</span><div class="cs-tx"><b>Sign in with your BEC email</b><span>Use your official <strong>@bec.edu.ph</strong> account — no separate registration needed.</span></div></li>
@@ -687,15 +786,15 @@ a { text-decoration: none; color: inherit; }
         <p class="sec-sub">From the moment a defect is reported to its final resolution — the platform covers the full equipment-management workflow.</p>
       </div>
       <div class="mod-grid">
-        <div class="mod-card feat"><div class="mod-ic"><i class="fas fa-clipboard-list"></i></div><div class="mod-tx"><b>Defect Reporting</b><span>Reporters log equipment issues with photo or video evidence, location, and priority.</span></div></div>
-        <div class="mod-card"><div class="mod-ic"><i class="fas fa-clipboard-check"></i></div><div class="mod-tx"><b>Review &amp; Approval</b><span>The PMO verifies every report before any work begins.</span></div></div>
-        <div class="mod-card"><div class="mod-ic"><i class="fas fa-people-carry-box"></i></div><div class="mod-tx"><b>Technician Assignment</b><span>Cases route to the right unit — PMO or ITSO — with balanced technician workloads.</span></div></div>
-        <div class="mod-card"><div class="mod-ic"><i class="fas fa-screwdriver-wrench"></i></div><div class="mod-tx"><b>Work Orders</b><span>Technicians track repair progress through to completion.</span></div></div>
-        <div class="mod-card feat"><div class="mod-ic"><i class="fas fa-boxes-stacked"></i></div><div class="mod-tx"><b>Inventory</b><span>Maintain equipment records, asset tags, and locations.</span></div></div>
-        <div class="mod-card"><div class="mod-ic"><i class="fas fa-calendar-check"></i></div><div class="mod-tx"><b>Preventive Maintenance</b><span>Schedule recurring upkeep before equipment fails.</span></div></div>
-        <div class="mod-card"><div class="mod-ic"><i class="fas fa-database"></i></div><div class="mod-tx"><b>Backup &amp; Recovery</b><span>Automated snapshots with one-click data recovery.</span></div></div>
-        <div class="mod-card"><div class="mod-ic"><i class="fas fa-chart-line"></i></div><div class="mod-tx"><b>Analytics &amp; Reports</b><span>Dashboards and exports for data-driven decisions.</span></div></div>
-        <div class="mod-card feat"><div class="mod-ic"><i class="fas fa-robot"></i></div><div class="mod-tx"><b>AI Assistant (Becca)</b><span>Built-in guidance and troubleshooting, anytime.</span></div></div>
+        <div class="mod-card feat"><div class="mod-ic"><i class="fas fa-clipboard-list" aria-hidden="true"></i></div><div class="mod-tx"><b>Defect Reporting</b><span>Reporters log equipment issues with photo or video evidence, location, and priority.</span></div></div>
+        <div class="mod-card"><div class="mod-ic"><i class="fas fa-clipboard-check" aria-hidden="true"></i></div><div class="mod-tx"><b>Review &amp; Approval</b><span>The PMO verifies every report before any work begins.</span></div></div>
+        <div class="mod-card"><div class="mod-ic"><i class="fas fa-people-carry-box" aria-hidden="true"></i></div><div class="mod-tx"><b>Technician Assignment</b><span>Cases route to the right unit — PMO or ITSO — with balanced technician workloads.</span></div></div>
+        <div class="mod-card"><div class="mod-ic"><i class="fas fa-screwdriver-wrench" aria-hidden="true"></i></div><div class="mod-tx"><b>Repair Tracking</b><span>Technicians accept a case, log progress, and file a service report.</span></div></div>
+        <div class="mod-card feat"><div class="mod-ic"><i class="fas fa-boxes-stacked" aria-hidden="true"></i></div><div class="mod-tx"><b>Inventory</b><span>Maintain equipment records, asset tags, and locations.</span></div></div>
+        <div class="mod-card"><div class="mod-ic"><i class="fas fa-calendar-check" aria-hidden="true"></i></div><div class="mod-tx"><b>Preventive Maintenance</b><span>Schedule recurring upkeep before equipment fails.</span></div></div>
+        <div class="mod-card"><div class="mod-ic"><i class="fas fa-database" aria-hidden="true"></i></div><div class="mod-tx"><b>Backup &amp; Recovery</b><span>Automated snapshots with one-click data recovery.</span></div></div>
+        <div class="mod-card"><div class="mod-ic"><i class="fas fa-chart-line" aria-hidden="true"></i></div><div class="mod-tx"><b>Analytics &amp; Reports</b><span>Dashboards and exports for data-driven decisions.</span></div></div>
+        <div class="mod-card feat"><div class="mod-ic"><i class="fas fa-robot" aria-hidden="true"></i></div><div class="mod-tx"><b>AI Assistant (Becca)</b><span>Built-in guidance and troubleshooting, anytime.</span></div></div>
       </div>
     </div>
   </section>
@@ -712,15 +811,15 @@ a { text-decoration: none; color: inherit; }
           </div>
           <div class="about-points">
             <div class="about-point">
-              <span class="ap-ic"><i class="fas fa-shield-halved"></i></span>
+              <span class="ap-ic"><i class="fas fa-shield-halved" aria-hidden="true"></i></span>
               <div><b>Verification &amp; approval</b><span>Every report is reviewed by the PMO before work begins.</span></div>
             </div>
             <div class="about-point">
-              <span class="ap-ic"><i class="fas fa-user-gear"></i></span>
+              <span class="ap-ic"><i class="fas fa-user-gear" aria-hidden="true"></i></span>
               <div><b>Technician assignment</b><span>Cases are routed to the right personnel with balanced workloads.</span></div>
             </div>
             <div class="about-point">
-              <span class="ap-ic"><i class="fas fa-timeline"></i></span>
+              <span class="ap-ic"><i class="fas fa-timeline" aria-hidden="true"></i></span>
               <div><b>Accountability &amp; tracking</b><span>Status, history, and resolution are recorded end-to-end.</span></div>
             </div>
           </div>
@@ -737,13 +836,14 @@ a { text-decoration: none; color: inherit; }
         <h2 class="sec-title">Meet <em>Becca</em>, your PMO support assistant</h2>
         <p class="sec-sub">Becca answers questions, guides you through filing a report, and helps troubleshoot common equipment issues — anytime, in English or Filipino.</p>
         <div class="becca-feats">
-          <span><i class="fas fa-comments"></i> Instant answers &amp; step-by-step guidance</span>
-          <span><i class="fas fa-language"></i> English &amp; Filipino</span>
-          <span><i class="fas fa-clock"></i> Available 24/7</span>
+          <span><i class="fas fa-comments" aria-hidden="true"></i> Instant answers &amp; step-by-step guidance</span>
+          <span><i class="fas fa-language" aria-hidden="true"></i> English &amp; Filipino</span>
+          <span><i class="fas fa-clock" aria-hidden="true"></i> Available 24/7</span>
         </div>
-        <button class="btn btn-primary" type="button" onclick="if(window.openChat)openChat()">Ask Becca <span class="btn-arrow"><i class="fas fa-arrow-right"></i></span></button>
+        <button class="btn btn-primary" type="button" onclick="if(window.openChat)openChat()">Ask Becca <span class="btn-arrow"><i class="fas fa-arrow-right" aria-hidden="true"></i></span></button>
       </div>
-      <div class="becca-visual">
+      <!-- Decorative mockup: a scripted sample conversation, not real content. -->
+      <div class="becca-visual" aria-hidden="true">
         <div class="becca-card">
           <div class="bc-head">
             <span class="bc-av"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="Becca" width="180" height="260" loading="lazy" decoding="async"></span>
@@ -765,29 +865,8 @@ a { text-decoration: none; color: inherit; }
     </div>
   </section>
 
-  <!-- ══ LIVE SYSTEM STATUS ══ -->
-  <?php
-    $sysOk = false; $lastActivity = null;
-    try {
-      $sconn = getDBConnection();
-      if ($sconn) {
-        $sysOk = true;
-        $sres = @$sconn->query("SELECT MAX(report_date) AS m FROM defect_reports");
-        if ($sres) { $srow = $sres->fetch_assoc(); if (!empty($srow['m'])) { $lastActivity = $srow['m']; } }
-      }
-    } catch (\Throwable $e) { $sysOk = false; }
-    $lastAgo = '';
-    if ($lastActivity) {
-      $t = strtotime($lastActivity);
-      if ($t) {
-        $d = max(60, time() - $t);
-        if ($d < 3600) { $lastAgo = floor($d / 60) . 'm ago'; }
-        elseif ($d < 86400) { $lastAgo = floor($d / 3600) . 'h ago'; }
-        else { $lastAgo = floor($d / 86400) . 'd ago'; }
-      }
-    }
-  ?>
-  <section class="section" style="padding-top:0;">
+  <!-- ══ LIVE SYSTEM STATUS ══ (data fetched at the top of this file) -->
+  <section class="section section--tight">
     <div class="container">
       <div class="status-widget">
         <div class="sw-main">
@@ -798,9 +877,9 @@ a { text-decoration: none; color: inherit; }
           </div>
         </div>
         <div class="sw-items">
-          <span class="sw-item"><i class="fas fa-database"></i> Database <em class="<?php echo $sysOk ? 'ok' : 'bad'; ?>"><?php echo $sysOk ? 'Connected' : 'Unavailable'; ?></em></span>
-          <span class="sw-item"><i class="fas fa-clipboard-list"></i> Reporting <em class="<?php echo $sysOk ? 'ok' : 'bad'; ?>"><?php echo $sysOk ? 'Online' : 'Offline'; ?></em></span>
-          <?php if ($lastAgo): ?><span class="sw-item"><i class="fas fa-clock"></i> Last activity <em><?php echo htmlspecialchars($lastAgo); ?></em></span><?php endif; ?>
+          <span class="sw-item"><i class="fas fa-database" aria-hidden="true"></i> Database <em class="<?php echo $sysOk ? 'ok' : 'bad'; ?>"><?php echo $sysOk ? 'Connected' : 'Unavailable'; ?></em></span>
+          <span class="sw-item"><i class="fas fa-clipboard-list" aria-hidden="true"></i> Reporting <em class="<?php echo $sysOk ? 'ok' : 'bad'; ?>"><?php echo $sysOk ? 'Online' : 'Offline'; ?></em></span>
+          <?php if ($lastAgo !== ''): ?><span class="sw-item"><i class="fas fa-clock" aria-hidden="true"></i> Last activity <em><?php echo lp_e($lastAgo); ?></em></span><?php endif; ?>
         </div>
       </div>
     </div>
@@ -816,7 +895,7 @@ a { text-decoration: none; color: inherit; }
       </div>
       <div class="rep-grid">
         <?php if (empty($previewReports)): ?>
-          <div class="rep-empty"><i class="fas fa-inbox"></i> &nbsp;No public reports to display yet.</div>
+          <div class="rep-empty"><i class="fas fa-inbox" aria-hidden="true"></i> &nbsp;No public reports to display yet.</div>
         <?php else: foreach ($previewReports as $r):
           [$badgeLabel, $badgeColor, $badgeBg] = lp_status_meta((string)($r['status'] ?? ''));
           $when = !empty($r['report_date']) ? date('M j, Y', strtotime((string)$r['report_date'])) : '';
@@ -827,12 +906,12 @@ a { text-decoration: none; color: inherit; }
               <span class="badge" style="color:<?php echo $badgeColor; ?>;background:<?php echo $badgeBg; ?>;"><?php echo lp_e($badgeLabel); ?></span>
             </div>
             <div class="rc-eq"><?php echo lp_e($r['equipment_name'] ?? 'Equipment'); ?></div>
-            <div class="rc-meta"><i class="fas fa-location-dot"></i> <?php echo lp_e($r['location'] ?? 'Not specified'); ?></div>
-            <?php if ($when !== ''): ?><div class="rc-date"><i class="fas fa-clock"></i> <?php echo lp_e($when); ?></div><?php endif; ?>
+            <div class="rc-meta"><i class="fas fa-location-dot" aria-hidden="true"></i> <?php echo lp_e($r['location'] ?? 'Not specified'); ?></div>
+            <?php if ($when !== ''): ?><div class="rc-date"><i class="fas fa-clock" aria-hidden="true"></i> <?php echo lp_e($when); ?></div><?php endif; ?>
           </a>
         <?php endforeach; endif; ?>
       </div>
-      <div class="rep-all"><a href="public_reports.php">View all public reports <i class="fas fa-arrow-right"></i></a></div>
+      <div class="rep-all"><a href="public_reports.php">View all public reports <i class="fas fa-arrow-right" aria-hidden="true"></i></a></div>
     </div>
   </section>
 
@@ -846,23 +925,23 @@ a { text-decoration: none; color: inherit; }
       </div>
       <div class="faq-wrap">
         <details class="faq-item">
-          <summary><span class="fq-ic"><i class="fas fa-user-check"></i></span> Who can report defective equipment?<i class="fas fa-chevron-down fq-ch"></i></summary>
+          <summary><span class="fq-ic"><i class="fas fa-user-check" aria-hidden="true"></i></span> Who can report defective equipment?<i class="fas fa-chevron-down fq-ch" aria-hidden="true"></i></summary>
           <div class="faq-a">Any <strong>student, teacher, or staff member</strong> of Batangas Eastern Colleges. You only need your official <strong>BEC email address</strong> — it's verified at sign-in so reports always come from the campus community.</div>
         </details>
         <details class="faq-item">
-          <summary><span class="fq-ic"><i class="fas fa-key"></i></span> Do I need to create an account?<i class="fas fa-chevron-down fq-ch"></i></summary>
+          <summary><span class="fq-ic"><i class="fas fa-key" aria-hidden="true"></i></span> Do I need to create an account?<i class="fas fa-chevron-down fq-ch" aria-hidden="true"></i></summary>
           <div class="faq-a">No. Enter your <strong>name and BEC email</strong> and you're in — no password, no registration. (PMO administrators and technicians have their own secured logins.)</div>
         </details>
         <details class="faq-item">
-          <summary><span class="fq-ic"><i class="fas fa-qrcode"></i></span> What's the fastest way to report?<i class="fas fa-chevron-down fq-ch"></i></summary>
+          <summary><span class="fq-ic"><i class="fas fa-qrcode" aria-hidden="true"></i></span> What's the fastest way to report?<i class="fas fa-chevron-down fq-ch" aria-hidden="true"></i></summary>
           <div class="faq-a"><strong>Scan the QR sticker</strong> on the equipment — the report form opens with that exact unit already selected. Just describe the problem and submit. No sticker? Use <a href="student_index.php">Report defective equipment</a> and search for the item.</div>
         </details>
         <details class="faq-item faq-more">
-          <summary><span class="fq-ic"><i class="fas fa-route"></i></span> How do I follow up on my report?<i class="fas fa-chevron-down fq-ch"></i></summary>
+          <summary><span class="fq-ic"><i class="fas fa-route" aria-hidden="true"></i></span> How do I follow up on my report?<i class="fas fa-chevron-down fq-ch" aria-hidden="true"></i></summary>
           <div class="faq-a">You get a <strong>ticket number</strong> on screen and by email the moment you submit. Enter it on the <a href="track_report.php">Track Report</a> page anytime to see the live status — and you'll receive an email at every stage: received, approved, technician assigned, and repaired. Once fixed, we'll ask you to confirm the issue is really resolved.</div>
         </details>
         <details class="faq-item faq-more">
-          <summary><span class="fq-ic"><i class="fas fa-stopwatch"></i></span> How fast will it be repaired?<i class="fas fa-chevron-down fq-ch"></i></summary>
+          <summary><span class="fq-ic"><i class="fas fa-stopwatch" aria-hidden="true"></i></span> How fast will it be repaired?<i class="fas fa-chevron-down fq-ch" aria-hidden="true"></i></summary>
           <div class="faq-a"><?php
             require_once __DIR__ . '/config/sla.php';
             $faqH = becSlaHours();
@@ -870,41 +949,47 @@ a { text-decoration: none; color: inherit; }
           ?>Every report gets a priority with a target timeline: <strong>critical ≈ <?php echo $faqD($faqH['critical']); ?> day(s)</strong>, high ≈ <?php echo $faqD($faqH['high']); ?> days, medium ≈ <?php echo $faqD($faqH['medium']); ?> days, and low ≈ <?php echo $faqD($faqH['low']); ?> days. Reports that pass their target are automatically escalated to the PMO.</div>
         </details>
         <details class="faq-item faq-more">
-          <summary><span class="fq-ic"><i class="fas fa-user-shield"></i></span> Is my information safe?<i class="fas fa-chevron-down fq-ch"></i></summary>
+          <summary><span class="fq-ic"><i class="fas fa-user-shield" aria-hidden="true"></i></span> Is my information safe?<i class="fas fa-chevron-down fq-ch" aria-hidden="true"></i></summary>
           <div class="faq-a">Yes. Your name, email, and report details are used <strong>solely for maintenance and follow-ups</strong>, in line with the <strong>Data Privacy Act of 2012 (RA 10173)</strong> — you give explicit consent at sign-in. Publicly visible reports show only the equipment and status, never your personal details.</div>
         </details>
         <button class="faq-toggle" type="button" id="faqToggle" aria-expanded="false">
-          <i class="fas fa-chevron-down"></i> <span>More questions</span>
+          <i class="fas fa-chevron-down" aria-hidden="true"></i> <span>More questions</span>
         </button>
       </div>
-      <script>
-      (function () {
-        var t = document.getElementById('faqToggle');
-        if (!t) return;
-        t.addEventListener('click', function () {
-          var wrap = t.closest('.faq-wrap');
-          var open = wrap.classList.toggle('expanded');
-          t.setAttribute('aria-expanded', open ? 'true' : 'false');
-          t.querySelector('span').textContent = open ? 'Show fewer' : 'More questions';
-        });
-      })();
-      </script>
     </div>
   </section>
+
+  </main>
 
   <!-- shared footer -->
   <?php require __DIR__ . '/includes/site_footer.php'; ?>
 
 </div>
 
+<!-- ══ BACK TO TOP ══ (styles in section 16 of the head stylesheet).
+     Must precede the script block below, which wires it up. -->
+<button id="toTop" type="button" aria-label="Back to top"><i class="fas fa-arrow-up" aria-hidden="true"></i></button>
+
 <script>
+/* ══════════════════════════════════════════════════════════════════════════
+   Landing page behaviour — one block, in the order things happen.
+   This used to be four separate IIFEs scattered through the file. Two of them
+   each bound their own mousemove listener to the same cards (one for tilt, one
+   for the cursor spotlight) and two bound their own scroll listener, so every
+   pointer move ran two handlers and every scroll frame ran two more.
+   1. reveal on scroll   2. pointer effects   3. scroll effects   4. widgets
+   ══════════════════════════════════════════════════════════════════════════ */
 (function () {
-  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  // stagger cards within each grid
-  document.querySelectorAll('.portal-grid,.mod-grid,.rep-grid').forEach(function (grid) {
+  var reduce   = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var coarse   = window.matchMedia('(pointer: coarse)').matches;
+  var richHover = !reduce && !coarse;   // gates every pointer-driven effect
+
+  /* ── 1. Scroll reveal ─────────────────────────────────────────────────── */
+  // stagger the cards inside each grid so they arrive in sequence
+  document.querySelectorAll('.mod-grid,.rep-grid,.cta-steps').forEach(function (grid) {
     Array.prototype.forEach.call(grid.children, function (c, i) { c.style.transitionDelay = (i * 60) + 'ms'; });
   });
-  // scroll-reveal
+
   var els = document.querySelectorAll('.sec-head,.portal-card,.mod-card,.about,.rep-card,.rep-all,.cred,.showcase-copy,.status-widget,.becca-copy,.faq-item');
   if (reduce || !('IntersectionObserver' in window)) {
     els.forEach(function (el) { el.classList.add('reveal', 'in'); });
@@ -914,107 +999,114 @@ a { text-decoration: none; color: inherit; }
       entries.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
     }, { threshold: .12, rootMargin: '0px 0px -40px 0px' });
     els.forEach(function (el) { io.observe(el); });
+    // safety net: never leave content hidden if the observer misbehaves
+    setTimeout(function () { els.forEach(function (el) { el.classList.add('in'); }); }, 1500);
   }
-  // safety net: never leave content hidden if the observer misbehaves
-  setTimeout(function () { document.querySelectorAll('.reveal').forEach(function (el) { el.classList.add('in'); }); }, 1500);
-  // subtle 3D tilt on cards (pointer devices only)
-  if (!reduce && !window.matchMedia('(pointer: coarse)').matches) {
+
+  /* ── 2. Pointer effects (mouse only) ──────────────────────────────────── */
+  if (richHover) {
+    // Cards: 3D tilt and the cursor spotlight are the same gesture, so they
+    // share one listener and one getBoundingClientRect per move.
     document.querySelectorAll('.portal-card,.mod-card').forEach(function (card) {
       card.classList.add('tilt');
       card.addEventListener('mousemove', function (e) {
-        var r = card.getBoundingClientRect();
-        var px = (e.clientX - r.left) / r.width - 0.5, py = (e.clientY - r.top) / r.height - 0.5;
+        var r  = card.getBoundingClientRect();
+        var lx = e.clientX - r.left, ly = e.clientY - r.top;
+        var px = lx / r.width - 0.5,  py = ly / r.height - 0.5;
         card.style.transform = 'perspective(720px) rotateY(' + (px * 5).toFixed(2) + 'deg) rotateX(' + (-py * 5).toFixed(2) + 'deg) translateY(-4px)';
+        card.style.setProperty('--mx', lx + 'px');
+        card.style.setProperty('--my', ly + 'px');
       });
       card.addEventListener('mouseleave', function () { card.style.transform = ''; });
     });
+
+    // Hero: orbs and the headline drift with the cursor.
+    var hero = document.querySelector('.hero');
+    if (hero) {
+      var orbs = hero.querySelectorAll('.hero-orb');
+      var heroContent = hero.querySelector('.hero-content');
+      hero.addEventListener('mousemove', function (e) {
+        var r = hero.getBoundingClientRect();
+        var x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
+        orbs.forEach(function (o, i) { var d = (i + 1) * 12; o.style.transform = 'translate(' + (x * d).toFixed(1) + 'px,' + (y * d).toFixed(1) + 'px)'; });
+        if (heroContent) heroContent.style.transform = 'translate(' + (x * 6).toFixed(1) + 'px,' + (y * 5).toFixed(1) + 'px)';
+      });
+      hero.addEventListener('mouseleave', function () {
+        orbs.forEach(function (o) { o.style.transform = ''; });
+        if (heroContent) heroContent.style.transform = '';
+      });
+    }
+
+    // Showcase: the dashboard mockup drifts against the copy beside it.
+    var showcase = document.querySelector('.showcase'), visual = document.querySelector('.showcase-visual');
+    if (showcase && visual) {
+      showcase.addEventListener('mousemove', function (e) {
+        var r = showcase.getBoundingClientRect();
+        var x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
+        visual.style.transform = 'translate(' + (x * 14).toFixed(1) + 'px,' + (y * 12).toFixed(1) + 'px)';
+      });
+      showcase.addEventListener('mouseleave', function () { visual.style.transform = ''; });
+    }
   }
-})();
-</script>
-<script>
-(function () {
-  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  var hero = document.querySelector('.hero');
-  if (hero && !reduce && !window.matchMedia('(pointer: coarse)').matches) {
-    var orbs = hero.querySelectorAll('.hero-orb');
-    var content = hero.querySelector('.hero-content');
-    hero.addEventListener('mousemove', function (e) {
-      var r = hero.getBoundingClientRect();
-      var x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
-      orbs.forEach(function (o, i) { var d = (i + 1) * 12; o.style.transform = 'translate(' + (x * d).toFixed(1) + 'px,' + (y * d).toFixed(1) + 'px)'; });
-      if (content) content.style.transform = 'translate(' + (x * 6).toFixed(1) + 'px,' + (y * 5).toFixed(1) + 'px)';
-    });
-    hero.addEventListener('mouseleave', function () {
-      orbs.forEach(function (o) { o.style.transform = ''; });
-      if (content) content.style.transform = '';
+
+  /* ── 3. Scroll effects — one listener, batched into an animation frame ── */
+  // Skip the hero parallax on touch devices: moving the background image on
+  // every scroll frame looks laggy on phones.
+  var bar    = document.getElementById('scrollProg');
+  var toTop  = document.getElementById('toTop');
+  var heroEl = document.querySelector('.hero');
+  var ticking = false;
+
+  function paintScroll() {
+    ticking = false;
+    var y = window.pageYOffset || document.documentElement.scrollTop || 0;
+    if (bar) {
+      var docH = document.documentElement.scrollHeight - window.innerHeight;
+      bar.style.transform = 'scaleX(' + (docH > 0 ? Math.min(y / docH, 1) : 0).toFixed(4) + ')';
+    }
+    if (heroEl && richHover) { heroEl.style.setProperty('--hero-par', Math.min(y * 0.15, 60).toFixed(1) + 'px'); }
+    if (toTop) { toTop.classList.toggle('show', y > 560); }
+  }
+  function onScroll() { if (!ticking) { ticking = true; window.requestAnimationFrame(paintScroll); } }
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll, { passive: true });
+  paintScroll();
+
+  /* ── 4. Widgets ───────────────────────────────────────────────────────── */
+  // Back to top
+  if (toTop) {
+    toTop.addEventListener('click', function () {
+      window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
     });
   }
-  // ripple micro-interaction on buttons
+
+  // FAQ "more questions" expander (phone layout only; the CSS hides the button
+  // on desktop, where every question is already open)
+  var faqBtn = document.getElementById('faqToggle');
+  if (faqBtn) {
+    faqBtn.addEventListener('click', function () {
+      var open = faqBtn.closest('.faq-wrap').classList.toggle('expanded');
+      faqBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      faqBtn.querySelector('span').textContent = open ? 'Show fewer' : 'More questions';
+    });
+  }
+
+  // Click ripple on every CTA
   document.querySelectorAll('.btn').forEach(function (btn) {
     btn.addEventListener('click', function (e) {
       var r = btn.getBoundingClientRect(), size = Math.max(r.width, r.height);
       var s = document.createElement('span');
       s.className = 'btn-ripple';
       s.style.width = s.style.height = size + 'px';
-      s.style.left = (e.clientX - r.left - size / 2) + 'px';
-      s.style.top = (e.clientY - r.top - size / 2) + 'px';
+      s.style.left  = (e.clientX - r.left - size / 2) + 'px';
+      s.style.top   = (e.clientY - r.top  - size / 2) + 'px';
       btn.appendChild(s);
       setTimeout(function () { s.remove(); }, 600);
     });
   });
 })();
 </script>
-<script>
-(function () {
-  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  // Skip the hero parallax on touch devices — moving the background image on
-  // every scroll frame looks laggy/juddery on phones.
-  var noParallax = reduce || window.matchMedia('(pointer: coarse)').matches;
-  var bar = document.getElementById('scrollProg');
-  var hero = document.querySelector('.hero');
-  function onScroll() {
-    var y = window.pageYOffset || document.documentElement.scrollTop || 0;
-    if (bar) { var docH = document.documentElement.scrollHeight - window.innerHeight; bar.style.transform = 'scaleX(' + (docH > 0 ? Math.min(y / docH, 1) : 0).toFixed(4) + ')'; }
-    if (hero && !noParallax) { hero.style.setProperty('--hero-par', Math.min(y * 0.15, 60).toFixed(1) + 'px'); }
-  }
-  window.addEventListener('scroll', onScroll, { passive: true });
-  window.addEventListener('resize', onScroll, { passive: true });
-  onScroll();
-  // cursor spotlight on cards
-  if (!reduce && !window.matchMedia('(pointer: coarse)').matches) {
-    document.querySelectorAll('.portal-card,.mod-card').forEach(function (card) {
-      card.addEventListener('mousemove', function (e) {
-        var r = card.getBoundingClientRect();
-        card.style.setProperty('--mx', (e.clientX - r.left) + 'px');
-        card.style.setProperty('--my', (e.clientY - r.top) + 'px');
-      });
-    });
-  }
-})();
-</script>
-<!-- ══ BACK TO TOP ══ -->
-<style>
-#toTop{position:fixed;right:1.35rem;bottom:1.35rem;z-index:9996;width:48px;height:48px;border-radius:14px;
-  display:flex;align-items:center;justify-content:center;cursor:pointer;
-  background:linear-gradient(135deg,var(--maroon-d),var(--maroon));color:#fff;border:1px solid rgba(201,150,12,.4);
-  box-shadow:0 8px 24px rgba(74,14,14,.32),0 0 0 1px rgba(255,255,255,.06) inset;
-  opacity:0;visibility:hidden;transform:translateY(14px) scale(.9);pointer-events:none;
-  transition:opacity .28s ease,transform .28s cubic-bezier(.22,1,.36,1),visibility .28s,box-shadow .2s;}
-#toTop.show{opacity:1;visibility:visible;transform:none;pointer-events:auto;}
-#toTop:hover{box-shadow:0 12px 30px rgba(74,14,14,.42),0 0 20px rgba(201,150,12,.35);transform:translateY(-3px);}
-#toTop:active{transform:translateY(0);}
-#toTop i{font-size:1rem;color:#F0C040;}
-@media(max-width:560px){#toTop{width:46px;height:46px;right:1rem;bottom:1.2rem;}}
-</style>
-<button id="toTop" type="button" aria-label="Back to top"><i class="fas fa-arrow-up"></i></button>
-<script>(function(){
-  var b=document.getElementById('toTop');if(!b)return;
-  var reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function t(){b.classList.toggle('show',(window.pageYOffset||document.documentElement.scrollTop||0)>560);}
-  window.addEventListener('scroll',t,{passive:true});t();
-  b.addEventListener('click',function(){window.scrollTo({top:0,behavior:reduce?'auto':'smooth'});});
-})();</script>
-
 <?php require __DIR__ . '/includes/site_ui.php'; ?>
 <?php require __DIR__ . '/includes/becca_widget.php'; ?>
 </body>

@@ -596,8 +596,17 @@ $yearAll = [];
 $yearRankCase = '';   // '{col}' placeholder, filled in per table below
 try {
     $pdoC = getPgsqlPdoConnection();
-    foreach ($pdoC->query("SELECT " . $dirTypeSql('') . " AS ut, COUNT(*) AS c
-                           FROM public.bec_directory GROUP BY 1", PDO::FETCH_ASSOC) as $r) {
+    // Somebody who is in the roster AND holds an account is ONE person. The list
+    // already de-duplicates them (the directory half carries the same NOT EXISTS),
+    // so counting the raw roster here made the headline disagree with the list:
+    // 3,598 in the stat card and the affiliation dropdown against 1-50 of 3,595
+    // underneath it. Three people, counted twice, on the same screen.
+    foreach ($pdoC->query("SELECT " . $dirTypeSql('bd.') . " AS ut, COUNT(*) AS c
+                           FROM public.bec_directory bd
+                          WHERE NOT EXISTS (SELECT 1 FROM {$usersTable} u
+                                             WHERE LOWER(u.email) = LOWER(bd.email)
+                                               AND COALESCE(u.status,'') <> 'deleted')
+                          GROUP BY 1", PDO::FETCH_ASSOC) as $r) {
         $ut = (string)$r['ut'];
         if (!isset($dirByType[$ut])) { $ut = 'student'; }
         $dirByType[$ut] += (int)$r['c'];
@@ -1185,7 +1194,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .btn{display:inline-flex;align-items:center;gap:.32rem;padding:.4rem .875rem;
   border-radius:var(--r1);font-family:'DM Sans',sans-serif;font-size:.77rem;font-weight:700;
   cursor:pointer;border:none;transition:all .17s;text-decoration:none;white-space:nowrap;}
-.btn:hover{transform:translateY(-1px);}.btn:active{transform:translateY(0);}
+.btn:hover{transform:none;}.btn:active{transform:translateY(0);}
 .btn-maroon{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;box-shadow:none;}
 .btn-maroon:hover{box-shadow:none;}
 .btn-gold{background:linear-gradient(135deg,var(--g2),var(--g3));color:var(--m1);box-shadow:none;}
@@ -1264,7 +1273,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   padding:.34rem .7rem;border-radius:var(--r1);border:1.5px solid var(--bdr);
   background:var(--s1);color:var(--t2);font-family:'DM Sans',sans-serif;
   font-size:.72rem;font-weight:700;text-decoration:none;transition:all .17s;}
-.pgb:hover{border-color:var(--m3);color:var(--m3);transform:translateY(-1px);}
+.pgb:hover{border-color:var(--m3);color:var(--m3);transform:none;}
 .pgb.on{background:var(--m3);border-color:var(--m2);color:#fff;cursor:default;}
 .pgb.on:hover{transform:none;color:#fff;}
 .pgb.off{opacity:.4;cursor:not-allowed;}
@@ -1278,7 +1287,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .rtab{display:inline-flex;align-items:center;gap:.3rem;padding:.3rem .75rem;border-radius:20px;
   font-size:.72rem;font-weight:700;cursor:pointer;text-decoration:none;border:1.5px solid transparent;
   transition:all .17s;background:var(--s1);color:var(--t2);border-color:var(--bdr);}
-.rtab:hover{transform:translateY(-1px);}
+.rtab:hover{transform:none;}
 .rtab.on{background:var(--m3);color:#fff;border-color:var(--m2);}
 .rtab-admin.on{background:linear-gradient(135deg,var(--m3),var(--m4));border-color:var(--m2);}
 .rtab-tech.on{background:linear-gradient(135deg,#1D4ED8,#60A5FA);border-color:#1E40AF;}
@@ -1310,7 +1319,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .fgo{display:inline-flex;align-items:center;justify-content:center;min-width:2.4rem;
   background:var(--m3);color:#fff;border:1.5px solid var(--m2);border-radius:var(--r1);
   cursor:pointer;font-size:.8rem;transition:background .17s,transform .17s;}
-.fgo:hover{background:var(--m2);transform:translateY(-1px);}
+.fgo:hover{background:var(--m2);transform:none;}
 .fclr{display:inline-flex;align-items:center;gap:.35rem;padding:0 .8rem;border:1.5px solid var(--bdr);
   border-radius:var(--r1);background:var(--s1);color:var(--t3);font-size:.75rem;font-weight:700;
   text-decoration:none;transition:all .17s;}
@@ -1680,20 +1689,30 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
         <?php
         // Counts ride in the labels: the chips they replace carried them, and
         // "Students (3,587)" is the fastest way to see the roster is loaded.
+        // An affiliation nobody holds is not a filter, it is a dead end. The
+        // registrar's export types every person in it as a student, so Faculty
+        // stood at 0 and could only ever return an empty table. Options with no
+        // rows are dropped unless one is currently selected, in which case it
+        // has to stay so the <select> still reflects the applied filter.
         foreach ([
           ['all',     'All affiliations', $c_total],
           ['student', 'Students',         $c_student],
           ['faculty', 'Faculty',          $c_faculty],
           ['staff',   'Staff',            $c_staff],
-        ] as [$tval,$tlbl,$tnum]): ?>
+        ] as [$tval,$tlbl,$tnum]):
+          if ($tval !== 'all' && (int)$tnum === 0 && $tf !== $tval) { continue; } ?>
         <option value="<?php echo esc($tval); ?>"<?php echo $tf===$tval?' selected':''; ?>><?php
           echo esc($tlbl) . ' (' . number_format((int)$tnum) . ')'; ?></option>
         <?php endforeach; ?>
       </select>
 
       <?php if ($deptOptions): ?>
+      <?php // The lists narrow each other, but the narrowing happens on reload and
+            // is easy to miss — the box still reads "All departments" even when only
+            // one department can match. Say so on the placeholder. ?>
       <select class="fsel" aria-label="Filter by department or academic unit" onchange="go({dept:this.value})">
-        <option value="all"<?php echo $df==='all'?' selected':''; ?>>All departments</option>
+        <option value="all"<?php echo $df==='all'?' selected':''; ?>>All departments<?php
+          echo count($deptOptions) === 1 ? ' — 1 match' : ''; ?></option>
         <?php foreach($deptOptions as $dopt): ?>
         <option value="<?php echo esc($dopt); ?>"<?php echo $df===$dopt?' selected':''; ?>><?php echo esc($dopt); ?></option>
         <?php endforeach; ?>
@@ -1702,7 +1721,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 
       <?php if ($yearOptions): ?>
       <select class="fsel" aria-label="Filter by year level" onchange="go({year:this.value})">
-        <option value="all"<?php echo $yl==='all'?' selected':''; ?>>All year levels</option>
+        <option value="all"<?php echo $yl==='all'?' selected':''; ?>>All year levels<?php
+          echo count($yearOptions) === 1 ? ' — 1 match' : ''; ?></option>
         <?php foreach($yearOptions as $yOpt): ?>
         <option value="<?php echo esc($yOpt); ?>"<?php echo $yl===$yOpt?' selected':''; ?>><?php echo esc($yOpt); ?></option>
         <?php endforeach; ?>

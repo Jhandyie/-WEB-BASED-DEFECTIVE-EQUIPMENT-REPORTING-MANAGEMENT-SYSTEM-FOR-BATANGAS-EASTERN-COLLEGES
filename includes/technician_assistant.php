@@ -8,7 +8,7 @@
 ?>
 <style>
   .tia-fab{position:fixed;right:1.4rem;bottom:1.4rem;z-index:1500;display:flex;align-items:center;justify-content:center;width:62px;height:62px;padding:0;background:linear-gradient(135deg,rgba(74,14,14,.9),rgba(45,5,5,.9));-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:#fff;border:2px solid rgba(201,150,12,.6);border-radius:50%;cursor:pointer;box-shadow:0 10px 30px rgba(44,10,10,.4),0 0 20px rgba(201,150,12,.25);transition:transform .25s cubic-bezier(.22,1,.36,1),box-shadow .3s;animation:tiaFloat 6s ease-in-out infinite,tiaGlow 4.5s ease-in-out infinite;}
-  .tia-fab:hover{animation:none;transform:translateY(-4px) scale(1.06);box-shadow:0 16px 40px rgba(44,10,10,.5),0 0 32px rgba(201,150,12,.5);}
+  .tia-fab:hover{animation:none;transform:scale(1.06);box-shadow:0 16px 40px rgba(44,10,10,.5),0 0 32px rgba(201,150,12,.5);}
   @keyframes tiaFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
   @keyframes tiaGlow{0%,100%{box-shadow:0 10px 30px rgba(44,10,10,.4),0 0 16px rgba(201,150,12,.2);}50%{box-shadow:0 12px 34px rgba(44,10,10,.46),0 0 30px rgba(201,150,12,.45);}}
   .tia-fab .tia-ic{width:46px;height:46px;border-radius:50%;overflow:hidden;background:rgba(255,255,255,.13);border:1.5px solid rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;position:relative;}
@@ -44,7 +44,7 @@
   .tia-b b,.tia-b strong{color:inherit;font-weight:700;}
   .tia-chips{display:flex;flex-wrap:wrap;gap:.35rem;padding:.5rem .9rem;border-top:1px solid #E2D9CC;background:#fff;flex-shrink:0;}
   .tia-chip{font-size:.72rem;padding:.34rem .72rem;border-radius:18px;border:1px solid rgba(123,29,29,.18);background:rgba(123,29,29,.05);color:#7B1D1D;cursor:pointer;font-family:inherit;font-weight:600;transition:all .15s;}
-  .tia-chip:hover{border-color:#7B1D1D;color:#7B1D1D;background:#FBF4F4;transform:translateY(-1px);box-shadow:0 2px 8px rgba(123,29,29,.12);}
+  .tia-chip:hover{border-color:#7B1D1D;color:#7B1D1D;background:#FBF4F4;transform:none;box-shadow:0 2px 8px rgba(123,29,29,.12);}
   .tia-inp{display:flex;gap:.5rem;padding:.7rem .8rem;border-top:1px solid #E2D9CC;background:#fff;flex-shrink:0;}
   .tia-inp textarea{flex:1;border:1.5px solid #E2D9CC;border-radius:11px;padding:.6rem .8rem;font:inherit;font-size:16px;resize:none;max-height:90px;outline:none;}
   .tia-inp textarea:focus{border-color:#7B1D1D;box-shadow:0 0 0 3px rgba(123,29,29,.09);}
