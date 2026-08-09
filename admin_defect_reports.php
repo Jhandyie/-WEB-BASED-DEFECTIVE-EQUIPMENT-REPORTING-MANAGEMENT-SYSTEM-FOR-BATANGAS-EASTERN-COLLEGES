@@ -849,6 +849,186 @@ textarea.fc{resize:vertical;min-height:70px;}
   display:flex;justify-content:flex-end;gap:.45rem;flex-wrap:wrap;background:var(--s2);
   border-radius:0 0 var(--r4) var(--r4);}
 
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DEFECT REPORT WORKSPACE  (.dr-*)
+   A service-desk record, not a form in a box. Replaces the old .mw/.m2col
+   modal, whose every fact sat in its own bordered tile with a gradient icon —
+   eight boxes of chrome for eight single-line values.
+   Structure: header (sticky) · summary strip · two columns · footer (sticky).
+   ══════════════════════════════════════════════════════════════════════════ */
+.dr-shell{background:#fff;width:min(1200px,calc(100vw - 48px));max-height:calc(100vh - 48px);
+  display:flex;flex-direction:column;border-radius:18px;overflow:hidden;
+  box-shadow:0 24px 70px rgba(28,16,8,.28),0 2px 8px rgba(28,16,8,.10);}
+
+/* ── header ─────────────────────────────────────────────────────────────── */
+.dr-head{position:sticky;top:0;z-index:3;flex-shrink:0;
+  display:flex;align-items:flex-start;gap:1.25rem;
+  padding:1.15rem 1.5rem 1.05rem;background:#fff;
+  border-bottom:1px solid #EDE4D6;}
+.dr-head-main{min-width:0;flex:1;}
+.dr-eyebrow{font-size:.6rem;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;
+  color:#C9960C;margin-bottom:.28rem;}
+.dr-title{font-family:'Outfit',sans-serif;font-size:1.5rem;font-weight:800;
+  color:#1C1008;line-height:1.15;letter-spacing:-.015em;margin:0 0 .3rem;}
+.dr-sub{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;
+  font-size:.76rem;color:#8A7060;}
+.dr-sub .tk{font-family:'Outfit',sans-serif;font-weight:800;color:#7B1D1D;letter-spacing:.02em;}
+.dr-sub .sep{color:#D8CCBD;}
+
+/* status + priority as blocks, not pills */
+.dr-keys{display:flex;gap:.6rem;flex-shrink:0;}
+.dr-key{min-width:8.5rem;padding:.55rem .8rem;border-radius:12px;
+  border:1px solid #EDE4D6;background:#FCFAF6;}
+.dr-key-l{font-size:.56rem;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;
+  color:#A08C7C;margin-bottom:.2rem;}
+.dr-key-v{display:flex;align-items:center;gap:.4rem;
+  font-size:.86rem;font-weight:800;color:#1C1008;line-height:1.2;}
+.dr-key-v .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.dr-key.is-status{background:#FFFBEF;border-color:#EBD9A8;}
+.dr-key-when{font-size:.62rem;color:#A08C7C;margin-top:.18rem;}
+.dr-head-btns{display:flex;gap:.35rem;flex-shrink:0;}
+.dr-ic{width:34px;height:34px;border-radius:10px;border:1px solid #EDE4D6;background:#fff;
+  color:#6B5344;font-size:.85rem;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;transition:background .15s,color .15s,border-color .15s;}
+.dr-ic:hover{background:#7B1D1D;border-color:#7B1D1D;color:#fff;}
+.dr-ic:focus-visible{outline:2px solid #7B1D1D;outline-offset:2px;}
+
+/* ── summary strip ──────────────────────────────────────────────────────── */
+.dr-summary{flex-shrink:0;display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
+  background:#EDE4D6;border-bottom:1px solid #EDE4D6;}
+.dr-sum{background:#F8F3EA;padding:.72rem 1rem;min-width:0;}
+.dr-sum-l{display:flex;align-items:center;gap:.32rem;
+  font-size:.56rem;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;
+  color:#A08C7C;margin-bottom:.22rem;}
+.dr-sum-l i{font-size:.6rem;color:#C9960C;}
+.dr-sum-v{font-size:.84rem;font-weight:700;color:#1C1008;line-height:1.3;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dr-sum-s{font-size:.66rem;color:#8A7060;margin-top:.1rem;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* ── body ───────────────────────────────────────────────────────────────── */
+.dr-body{flex:1;min-height:0;overflow-y:auto;display:grid;
+  grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:0;background:#fff;}
+.dr-col{padding:1.25rem 1.5rem 1.5rem;min-width:0;}
+.dr-col + .dr-col{border-left:1px solid #EDE4D6;background:#FDFBF7;}
+
+.dr-card{border:1px solid #EDE4D6;border-radius:14px;background:#fff;
+  padding:1rem 1.1rem;margin-bottom:1rem;}
+.dr-card:last-child{margin-bottom:0;}
+.dr-card-h{display:flex;align-items:center;gap:.45rem;margin-bottom:.75rem;}
+.dr-card-h i{color:#7B1D1D;font-size:.82rem;}
+.dr-card-h h3{font-family:'Outfit',sans-serif;font-size:.88rem;font-weight:800;
+  color:#1C1008;margin:0;letter-spacing:-.01em;}
+
+/* compact label/value rows — the replacement for eight bordered tiles */
+.dr-rows{display:grid;gap:.05rem;}
+.dr-row{display:grid;grid-template-columns:8.5rem minmax(0,1fr);gap:.75rem;
+  padding:.44rem 0;border-bottom:1px solid #F4EDE2;align-items:baseline;}
+.dr-row:last-child{border-bottom:none;}
+.dr-row dt{font-size:.7rem;font-weight:700;color:#8A7060;}
+.dr-row dd{margin:0;font-size:.82rem;color:#1C1008;font-weight:600;line-height:1.45;
+  overflow-wrap:anywhere;}
+.dr-row dd a{color:#7B1D1D;text-decoration:none;}
+.dr-row dd a:hover{text-decoration:underline;}
+.dr-row dd.muted{color:#A08C7C;font-weight:500;}
+
+/* equipment condition — severity, stated once and clearly */
+.dr-cond{display:flex;align-items:center;gap:.55rem;padding:.6rem .8rem;border-radius:11px;
+  border:1px solid;font-size:.8rem;font-weight:800;margin-bottom:.9rem;}
+.dr-cond .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.dr-cond.sev-broken{background:#FEF2F2;border-color:#F4C7C7;color:#B91C1C;}
+.dr-cond.sev-partial{background:#FFF7ED;border-color:#F6D9B8;color:#C2410C;}
+.dr-cond.sev-usable{background:#F0FDF4;border-color:#BBE8CB;color:#15803D;}
+.dr-cond.sev-unknown{background:#F8F3EA;border-color:#EDE4D6;color:#6B5344;}
+
+.dr-desc{background:#F8F3EA;border-left:3px solid #C9960C;border-radius:0 10px 10px 0;
+  padding:.7rem .9rem;font-size:.84rem;line-height:1.6;color:#1C1008;}
+.dr-desc.empty{color:#A08C7C;font-style:italic;border-left-color:#DCD0BE;}
+
+/* ── evidence ───────────────────────────────────────────────────────────── */
+.dr-ev{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:.5rem;}
+.dr-ev-item{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;
+  border:1px solid #EDE4D6;background:#F8F3EA;cursor:pointer;padding:0;
+  display:flex;align-items:center;justify-content:center;}
+.dr-ev-item img{width:100%;height:100%;object-fit:cover;display:block;}
+.dr-ev-item:hover{border-color:#C9960C;}
+.dr-ev-item:focus-visible{outline:2px solid #7B1D1D;outline-offset:2px;}
+.dr-ev-item .vid{color:#7B1D1D;font-size:1.3rem;}
+.dr-ev-item .tag{position:absolute;left:0;right:0;bottom:0;background:rgba(28,16,8,.72);
+  color:#fff;font-size:.56rem;font-weight:700;letter-spacing:.5px;padding:.16rem 0;
+  text-align:center;text-transform:uppercase;}
+.dr-none{display:flex;align-items:center;gap:.45rem;font-size:.76rem;color:#A08C7C;
+  padding:.6rem .8rem;background:#F8F3EA;border-radius:10px;}
+
+/* ── timeline ───────────────────────────────────────────────────────────── */
+.dr-tl{display:grid;gap:0;}
+.dr-tl-step{display:grid;grid-template-columns:26px minmax(0,1fr);gap:.7rem;
+  position:relative;padding-bottom:.85rem;}
+.dr-tl-step:last-child{padding-bottom:0;}
+.dr-tl-step::before{content:'';position:absolute;left:12px;top:26px;bottom:0;width:2px;
+  background:#EDE4D6;}
+.dr-tl-step:last-child::before{display:none;}
+.dr-tl-step.done::before{background:#16A34A;}
+.dr-tl-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-size:.66rem;flex-shrink:0;position:relative;z-index:1;
+  border:2px solid #EDE4D6;background:#fff;color:#C0AC9C;}
+.dr-tl-step.done .dr-tl-dot{background:#16A34A;border-color:#16A34A;color:#fff;}
+.dr-tl-step.now .dr-tl-dot{background:#7B1D1D;border-color:#7B1D1D;color:#fff;
+  box-shadow:0 0 0 4px rgba(123,29,29,.14);}
+.dr-tl-b{padding-top:.15rem;min-width:0;}
+.dr-tl-n{font-size:.8rem;font-weight:700;color:#A08C7C;line-height:1.25;}
+.dr-tl-step.done .dr-tl-n,.dr-tl-step.now .dr-tl-n{color:#1C1008;}
+.dr-tl-step.now .dr-tl-n{font-weight:800;}
+.dr-tl-when{font-size:.66rem;color:#7B1D1D;font-weight:700;margin-top:.08rem;}
+.dr-tl-d{font-size:.68rem;color:#A08C7C;margin-top:.08rem;line-height:1.4;}
+.dr-tl-now-tag{display:inline-block;margin-left:.35rem;font-size:.55rem;font-weight:800;
+  letter-spacing:.8px;text-transform:uppercase;color:#7B1D1D;
+  background:#FFFBEF;border:1px solid #EBD9A8;border-radius:20px;padding:.05rem .4rem;
+  vertical-align:middle;}
+
+/* ── activity log (collapsible) ─────────────────────────────────────────── */
+.dr-log summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:.45rem;
+  font-family:'Outfit',sans-serif;font-size:.88rem;font-weight:800;color:#1C1008;}
+.dr-log summary::-webkit-details-marker{display:none;}
+.dr-log summary i.chev{margin-left:auto;color:#A08C7C;font-size:.7rem;transition:transform .18s;}
+.dr-log[open] summary i.chev{transform:rotate(180deg);}
+.dr-log-list{margin-top:.8rem;display:grid;gap:.55rem;max-height:15rem;overflow-y:auto;}
+.dr-log-item{display:grid;grid-template-columns:auto minmax(0,1fr);gap:.6rem;
+  font-size:.74rem;padding-bottom:.55rem;border-bottom:1px solid #F4EDE2;}
+.dr-log-item:last-child{border-bottom:none;padding-bottom:0;}
+.dr-log-when{color:#A08C7C;white-space:nowrap;font-size:.68rem;}
+.dr-log-what{color:#1C1008;line-height:1.45;}
+.dr-log-who{color:#8A7060;}
+
+/* ── footer ─────────────────────────────────────────────────────────────── */
+.dr-foot{position:sticky;bottom:0;z-index:3;flex-shrink:0;
+  display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;
+  padding:.85rem 1.5rem;background:#fff;border-top:1px solid #EDE4D6;}
+.dr-foot-r{margin-left:auto;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
+
+/* ── responsive ─────────────────────────────────────────────────────────── */
+@media(max-width:1024px){
+  .dr-body{grid-template-columns:1fr;}
+  .dr-col + .dr-col{border-left:none;border-top:1px solid #EDE4D6;}
+  .dr-summary{grid-template-columns:1fr 1fr;}
+}
+@media(max-width:720px){
+  .dr-shell{width:100vw;max-height:100vh;border-radius:0;}
+  .dr-head{flex-wrap:wrap;gap:.75rem;padding:1rem 1.1rem;}
+  .dr-keys{width:100%;}
+  .dr-key{flex:1;min-width:0;}
+  .dr-summary{grid-template-columns:1fr;}
+  .dr-col{padding:1rem 1.1rem 1.25rem;}
+  .dr-row{grid-template-columns:1fr;gap:.1rem;}
+  .dr-foot{padding:.75rem 1.1rem;}
+  .dr-foot-r{width:100%;margin-left:0;}
+  .dr-foot-r .btn{flex:1;justify-content:center;}
+}
+@media(prefers-reduced-motion:reduce){
+  .dr-log summary i.chev{transition:none;}
+}
+
 /* ── LIGHTBOX ────────────────────────────────────────── */
 #lbVid video{max-width:90vw;max-height:88vh;border-radius:var(--r2);display:block;}
 
@@ -1199,219 +1379,267 @@ textarea.fc{resize:vertical;min-height:70px;}
 <!-- ════ DETAIL / ACTION MODAL ════════════════════════ -->
 <?php if($vr): ?>
 <div class="mo open" id="detmo" onclick="if(event.target===this)closeDet()">
-  <div class="mw">
-    <!-- Header -->
-    <div class="mhd">
-      <div class="mhd-t">
-        <div class="mhd-eyebrow">
-          <span><i class="fas fa-hashtag" style="font-size:.66rem;"></i> <?php echo esc($vr['report_id']); ?></span>
-          <span class="dot">&bull;</span>
-          <span class="when"><i class="fas fa-clock" style="font-size:.66rem;"></i> <?php echo date('M j, Y \a\t g:i A',strtotime($vr['report_date'])); ?></span>
-        </div>
-        <h2><?php echo esc($vr['equipment_name']); ?></h2>
-        <div class="mhd-pills">
-          <span class="bdg b-<?php echo prCls($vr['priority']); ?>"><?php echo prLbl($vr['priority']); ?> Priority</span>
-          <span class="bdg b-<?php echo stCls($vr['status']); ?>"><?php echo stLbl($vr['status']); ?></span>
+  <div class="dr-shell" role="dialog" aria-modal="true" aria-labelledby="drTitle">
+  <?php
+    /* ── data the record view reads, resolved once ─────────────────────────
+       Nothing here is new: every value already existed on $vr or in
+       activity_log. The redesign is presentational — the workflow, the forms
+       and the POST actions below are untouched. */
+    $drUs  = trim((string)($vr['usable_status'] ?? ''));
+    $drCond = [
+      'Yes'       => ['sev-usable',  '#16A34A', 'Still usable'],
+      'Partially' => ['sev-partial', '#D97706', 'Partially usable'],
+      'No'        => ['sev-broken',  '#DC2626', 'Completely broken'],
+    ][$drUs] ?? ['sev-unknown', '#8A7466', $drUs !== '' ? $drUs : 'Not stated'];
+
+    $drWhen = static fn($v) => !empty($v) ? date('M j, Y · g:i A', strtotime((string)$v)) : null;
+
+    /* The stepper reads the timestamps the workflow actually writes, so a stage
+       shows when it happened rather than a generic label. A null stamp means the
+       stage has not been reached — which is also how "future" is decided. */
+    $drRejected = strtolower((string)$vr['status']) === 'rejected';
+    $drStages = [
+      ['Submitted',       'fa-paper-plane',   $vr['report_date']        ?? null, 'Reported and logged.'],
+      ['Received by PMO', 'fa-inbox',         $vr['received_by_pmo_at'] ?? null, 'Acknowledged for review.'],
+      ['Assigned',        'fa-user-plus',     $vr['assigned_date']      ?? null, 'Routed to a technician.'],
+      ['Accepted',        'fa-handshake',     $vr['accepted_at']        ?? null, 'Technician took the job.'],
+      ['In Progress',     'fa-screwdriver-wrench', $vr['started_at']    ?? null, 'Repair under way.'],
+      ['Completed',       'fa-clipboard-check',    $vr['completion_date'] ?? null, 'Work reported finished.'],
+      ['Verified & Closed','fa-circle-check', in_array($vr['status'], ['verified','closed'], true) ? ($vr['completion_date'] ?? null) : null, 'Confirmed by the office.'],
+    ];
+    // the current stage is the last one with a timestamp
+    $drNow = 0;
+    foreach ($drStages as $i => $s) { if (!empty($s[2])) { $drNow = $i; } }
+
+    /* Audit trail for this ticket. activity_log.action is dead in every row and
+       some legacy rows are column-shifted, so the description is resolved across
+       the columns that actually carry it rather than trusting one. */
+    $drLog = [];
+    try {
+        $drSt = getPgsqlPdoConnection()->prepare(
+            "SELECT created_at, user_id, user_role, action_type, action_description, details
+               FROM activity_log
+              WHERE action_description ILIKE :a OR details ILIKE :b
+              ORDER BY created_at DESC LIMIT 25");
+        $drSt->execute(['a' => '%' . $vr['report_id'] . '%', 'b' => '%' . $vr['report_id'] . '%']);
+        $drLog = $drSt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (\Throwable $e) { $drLog = []; }
+  ?>
+
+    <!-- ── ReportHeader ─────────────────────────────────────────────────── -->
+    <header class="dr-head">
+      <div class="dr-head-main">
+        <div class="dr-eyebrow">Defect Report</div>
+        <h2 class="dr-title" id="drTitle"><?php echo esc($vr['equipment_name']); ?></h2>
+        <div class="dr-sub">
+          <span class="tk">#<?php echo esc($vr['report_id']); ?></span>
+          <span class="sep">&bull;</span>
+          <span>Submitted <?php echo $drWhen($vr['report_date']) ?? '—'; ?></span>
         </div>
       </div>
-      <button class="mx" onclick="closeDet()"><i class="fas fa-times"></i></button>
+
+      <div class="dr-keys">
+        <div class="dr-key is-status">
+          <div class="dr-key-l">Status</div>
+          <div class="dr-key-v">
+            <span class="dot" style="background:<?php echo $drRejected ? '#DC2626' : '#7B1D1D'; ?>;"></span>
+            <?php echo esc(stLbl($vr['status'])); ?>
+          </div>
+          <?php if ($w = $drWhen($vr['received_by_pmo_at'] ?? null)): ?>
+          <div class="dr-key-when"><?php echo $w; ?></div>
+          <?php endif; ?>
+        </div>
+        <div class="dr-key">
+          <div class="dr-key-l">Priority</div>
+          <div class="dr-key-v">
+            <span class="dot" style="background:<?php
+              echo ['low'=>'#2563EB','medium'=>'#C9960C','high'=>'#EA580C','critical'=>'#DC2626'][strtolower((string)$vr['priority'])] ?? '#8A7466'; ?>;"></span>
+            <?php echo esc(prLbl($vr['priority'])); ?>
+          </div>
+        </div>
+      </div>
+
+      <div class="dr-head-btns">
+        <a class="dr-ic" href="defect_report_ticket.php?report=<?php echo urlencode($vr['report_id']); ?>"
+           target="_blank" rel="noopener" data-tip="Print ticket" aria-label="Print ticket">
+          <i class="fas fa-print" aria-hidden="true"></i></a>
+        <button type="button" class="dr-ic" onclick="closeDet()" data-tip="Close" aria-label="Close report">
+          <i class="fas fa-times" aria-hidden="true"></i></button>
+      </div>
+    </header>
+
+    <!-- ── ReportSummary ────────────────────────────────────────────────── -->
+    <div class="dr-summary">
+      <div class="dr-sum">
+        <div class="dr-sum-l"><i class="fas fa-user" aria-hidden="true"></i> Reporter</div>
+        <div class="dr-sum-v" title="<?php echo esc($vr['reporter_name']); ?>"><?php echo esc($vr['reporter_name']); ?></div>
+        <?php if (!empty($vr['reporter_email'])): ?>
+        <div class="dr-sum-s" title="<?php echo esc($vr['reporter_email']); ?>"><?php echo esc($vr['reporter_email']); ?></div>
+        <?php endif; ?>
+      </div>
+      <div class="dr-sum">
+        <div class="dr-sum-l"><i class="fas fa-location-dot" aria-hidden="true"></i> Location</div>
+        <?php $drLoc = (string)($vr['location'] ?? '—'); $drLocHead = trim(explode('•', $drLoc)[0]); ?>
+        <div class="dr-sum-v" title="<?php echo esc($drLoc); ?>"><?php echo esc($drLocHead ?: '—'); ?></div>
+        <?php if ($drLocHead !== '' && $drLocHead !== $drLoc): ?>
+        <div class="dr-sum-s" title="<?php echo esc($drLoc); ?>"><?php echo esc(trim(substr($drLoc, strlen($drLocHead) + 1), " •")); ?></div>
+        <?php endif; ?>
+      </div>
+      <div class="dr-sum">
+        <div class="dr-sum-l"><i class="fas fa-building-columns" aria-hidden="true"></i> Department</div>
+        <div class="dr-sum-v" title="<?php echo esc($vr['reporter_department'] ?? ''); ?>"><?php echo esc($vr['reporter_department'] ?: '—'); ?></div>
+        <?php if (!empty($vr['reporter_course'])): ?>
+        <div class="dr-sum-s" title="<?php echo esc($vr['reporter_course']); ?>"><?php echo esc($vr['reporter_course']); ?></div>
+        <?php endif; ?>
+      </div>
+      <div class="dr-sum">
+        <div class="dr-sum-l"><i class="fas fa-screwdriver-wrench" aria-hidden="true"></i> Equipment</div>
+        <div class="dr-sum-v" title="<?php echo esc($vr['equipment_name']); ?>"><?php echo esc($vr['equipment_name']); ?></div>
+        <div class="dr-sum-s"><?php echo esc($vr['asset_tag'] ?: 'No asset tag'); ?></div>
+      </div>
     </div>
 
-    <!-- Two-col body -->
-    <div class="m2col">
-      <!-- LEFT: Report info -->
-      <div class="mleft">
-        <div class="sec-lbl"><i class="fas fa-circle-info"></i> Report Information</div>
+    <!-- ── body ─────────────────────────────────────────────────────────── -->
+    <div class="dr-body">
 
-        <div class="info-grid">
-          <div class="info-tile">
-            <div class="info-ic"><i class="fas fa-tag"></i></div>
-            <div class="info-b"><div class="info-l">Asset Tag</div><div class="info-v"><?php echo esc($vr['asset_tag']); ?></div></div>
+      <!-- LEFT ─────────────────────────────────────────────────────────── -->
+      <div class="dr-col">
+
+        <!-- IssueDetails -->
+        <section class="dr-card">
+          <div class="dr-card-h"><i class="fas fa-circle-info" aria-hidden="true"></i><h3>Issue Details</h3></div>
+
+          <div class="dr-cond <?php echo $drCond[0]; ?>">
+            <span class="dot" style="background:<?php echo $drCond[1]; ?>;"></span>
+            <span><?php echo esc(strtoupper($drCond[2])); ?></span>
           </div>
-          <div class="info-tile">
-            <div class="info-ic"><i class="fas fa-user"></i></div>
-            <div class="info-b"><div class="info-l">Reported By</div><div class="info-v"><?php echo esc($vr['reporter_name']); ?></div></div>
+
+          <dl class="dr-rows">
+            <div class="dr-row"><dt>Equipment</dt><dd><?php echo esc($vr['equipment_name']); ?></dd></div>
+            <div class="dr-row"><dt>Asset Tag</dt><dd><?php echo esc($vr['asset_tag'] ?: '—'); ?></dd></div>
+            <div class="dr-row"><dt>Location</dt><dd><?php echo esc($vr['location'] ?: '—'); ?></dd></div>
+            <div class="dr-row"><dt>Reported by</dt><dd><?php echo esc($vr['reporter_name']); ?></dd></div>
+            <?php if (!empty($vr['reporter_email'])): ?>
+            <div class="dr-row"><dt>Contact</dt><dd><a href="mailto:<?php echo esc($vr['reporter_email']); ?>"><?php echo esc($vr['reporter_email']); ?></a></dd></div>
+            <?php endif; ?>
+            <?php if (!empty($vr['reporter_course'])): ?>
+            <div class="dr-row"><dt>Course / Program</dt><dd><?php echo esc($vr['reporter_course']); ?></dd></div>
+            <?php endif; ?>
+            <div class="dr-row"><dt>Responsible Unit</dt>
+              <dd class="<?php echo empty($vr['department_assigned']) ? 'muted' : ''; ?>">
+                <?php echo esc($vr['department_assigned'] ?: 'Not routed yet'); ?></dd></div>
+            <div class="dr-row"><dt>Technician</dt>
+              <dd class="<?php echo ($vr['technician_name'] === 'Unassigned') ? 'muted' : ''; ?>">
+                <?php echo esc($vr['technician_name']); ?></dd></div>
+          </dl>
+
+          <div class="dr-card-h" style="margin:1rem 0 .5rem;">
+            <i class="fas fa-align-left" aria-hidden="true"></i><h3>Description</h3>
           </div>
+          <div class="dr-desc<?php echo trim((string)$vr['issue_description']) === '' ? ' empty' : ''; ?>">
+            <?php echo trim((string)$vr['issue_description']) !== ''
+              ? nl2br(esc($vr['issue_description']))
+              : 'No description was given.'; ?>
+          </div>
+          <?php if (!empty($vr['admin_notes'])): ?>
+          <div class="dr-card-h" style="margin:1rem 0 .5rem;">
+            <i class="fas fa-note-sticky" aria-hidden="true"></i><h3>PMO Notes</h3>
+          </div>
+          <div class="dr-desc"><?php echo nl2br(esc($vr['admin_notes'])); ?></div>
+          <?php endif; ?>
+        </section>
+
+        <!-- Evidence -->
+        <section class="dr-card">
+          <div class="dr-card-h"><i class="fas fa-camera" aria-hidden="true"></i><h3>Evidence</h3></div>
           <?php
-            $us = trim((string)($vr['usable_status'] ?? ''));
-            if ($us !== ''):
-              $usMap = [
-                'Yes'       => ['#16A34A', 'fa-circle-check',          'Yes — still usable'],
-                'Partially' => ['#D97706', 'fa-triangle-exclamation',  'Partially usable'],
-                'No'        => ['#DC2626', 'fa-circle-xmark',          'No — completely broken'],
-              ];
-              $u = $usMap[$us] ?? ['#8A7466', 'fa-circle-question', esc($us)];
+            $drPhotos = !empty($vr['photo_urls']) ? $vr['photo_urls'] : [];
+            $drVideos = !empty($vr['video_urls']) ? $vr['video_urls'] : [];
           ?>
-          <div class="info-tile">
-            <div class="info-ic" style="background:<?php echo $u[0]; ?>;"><i class="fas <?php echo $u[1]; ?>"></i></div>
-            <div class="info-b"><div class="info-l">Still Usable?</div><div class="info-v" style="color:<?php echo $u[0]; ?>;font-weight:700;"><?php echo $u[2]; ?></div></div>
-          </div>
-          <?php endif; ?>
-          <div class="info-tile wide">
-            <div class="info-ic"><i class="fas fa-location-dot"></i></div>
-            <div class="info-b"><div class="info-l">Location</div><div class="info-v"><?php echo esc($vr['location']); ?></div></div>
-          </div>
-          <?php if (!empty($vr['reporter_email'])): ?>
-          <div class="info-tile">
-            <div class="info-ic"><i class="fas fa-envelope"></i></div>
-            <div class="info-b"><div class="info-l">Contact</div><div class="info-v"><a href="mailto:<?php echo esc($vr['reporter_email']); ?>"><?php echo esc($vr['reporter_email']); ?></a></div></div>
-          </div>
-          <?php endif; ?>
-          <?php if (!empty($vr['reporter_department'])): ?>
-          <div class="info-tile">
-            <div class="info-ic"><i class="fas fa-sitemap"></i></div>
-            <div class="info-b"><div class="info-l">Department</div><div class="info-v"><?php echo esc($vr['reporter_department']); ?></div></div>
-          </div>
-          <?php endif; ?>
-          <?php if (!empty($vr['reporter_course'])): ?>
-          <div class="info-tile">
-            <div class="info-ic"><i class="fas fa-graduation-cap"></i></div>
-            <div class="info-b"><div class="info-l">Course / Program</div><div class="info-v"><?php echo esc($vr['reporter_course']); ?></div></div>
-          </div>
-          <?php endif; ?>
-        </div>
-
-        <?php /* A horizontal Workflow Progress stepper stood here. It drew the
-             same journey as the Progress Timeline in the right column, in eight
-             cramped steps that needed their own horizontal scrollbar to read,
-             and the two did not agree on how many stages there were. The
-             timeline states it once, legibly, with what each stage means. */ ?>
-
-        <?php $dp=$vr['department_assigned']??''; $techAssigned = !empty($vr['technician_name']) && strtolower(trim((string)$vr['technician_name'])) !== 'unassigned'; ?>
-        <div class="info-grid">
-          <div class="info-tile">
-            <div class="info-ic<?php echo $dp===''?' muted':''; ?>"><i class="fas fa-building-shield"></i></div>
-            <div class="info-b"><div class="info-l">Responsible Unit</div><div class="info-v<?php echo $dp===''?' muted':''; ?>">
-              <?php if($dp==='ITSO') echo '<span class="dept-itso"><i class="fas fa-laptop-code"></i> ITSO</span>';
-              elseif($dp==='PMO') echo '<span class="dept-pmo"><i class="fas fa-building"></i> PMO</span>';
-              else echo 'Not assigned yet'; ?>
-            </div></div>
-          </div>
-          <div class="info-tile">
-            <div class="info-ic<?php echo !$techAssigned?' muted':''; ?>"><i class="fas fa-user-gear"></i></div>
-            <div class="info-b"><div class="info-l">Assigned Technician</div><div class="info-v<?php echo !$techAssigned?' muted':''; ?>"><?php echo $techAssigned ? esc($vr['technician_name']) : 'Unassigned'; ?></div></div>
-          </div>
-        </div>
-
-        <div style="margin-top:.3rem;">
-          <div class="sec-lbl"><i class="fas fa-align-left"></i> Issue Description</div>
-          <div class="desc-box"><?php echo nl2br(esc($vr['issue_description']??'—')); ?></div>
-        </div>
-
-        <?php if(!empty($vr['admin_notes'])): ?>
-        <div style="margin-top:.85rem;">
-          <div class="sec-lbl"><i class="fas fa-note-sticky"></i> Admin Notes</div>
-          <div class="notes-box"><?php echo nl2br(esc($vr['admin_notes'])); ?></div>
-        </div>
-        <?php endif; ?>
-        <?php if(!empty($vr['pmo_notes'])): ?>
-        <div style="margin-top:.85rem;">
-          <div class="sec-lbl"><i class="fas fa-note-sticky"></i> PMO Notes</div>
-          <div class="notes-box"><?php echo nl2br(esc($vr['pmo_notes'])); ?></div>
-        </div>
-        <?php endif; ?>
-        <!-- Photo -->
-        <?php $vrPhotoList = !empty($vr['photo_urls']) ? $vr['photo_urls'] : (!empty($vr['photo_url']) ? [$vr['photo_url']] : []); if(!empty($vrPhotoList)): ?>
-        <div style="margin-top:.95rem;">
-          <div class="sec-lbl"><i class="fas fa-camera"></i> Photo Evidence</div>
-          <div class="photo-wrap" onclick="openLb('<?php echo esc($vrPhotoList[0]); ?>')">
-            <img id="mainRptPhoto" src="<?php echo esc($vrPhotoList[0]); ?>" alt="Defect photo">
-            <div class="photo-hint"><i class="fas fa-expand-alt"></i></div>
-          </div>
-          <?php if(count($vrPhotoList)>1): ?>
-          <div class="photo-thumbs">
-            <?php foreach($vrPhotoList as $i=>$pp): ?>
-            <img src="<?php echo esc($pp); ?>" class="<?php echo $i===0?'act':''; ?>" alt="Photo <?php echo $i+1; ?>" onclick="event.stopPropagation();setMainPhoto('<?php echo esc($pp); ?>',this)">
+          <?php if ($drPhotos || $drVideos): ?>
+          <div class="dr-ev">
+            <?php foreach ($drPhotos as $drP): ?>
+            <button type="button" class="dr-ev-item" onclick="openLb('<?php echo esc($drP); ?>')"
+                    aria-label="View photo evidence">
+              <img src="<?php echo esc($drP); ?>" alt="Reported defect" loading="lazy">
+            </button>
+            <?php endforeach; ?>
+            <?php foreach ($drVideos as $drV): ?>
+            <button type="button" class="dr-ev-item" onclick="openVidLb('<?php echo esc($drV); ?>')"
+                    aria-label="Play video evidence">
+              <i class="fas fa-circle-play vid" aria-hidden="true"></i>
+              <span class="tag">Video</span>
+            </button>
             <?php endforeach; ?>
           </div>
+          <?php else: ?>
+          <div class="dr-none"><i class="fas fa-image" aria-hidden="true"></i> No evidence attached</div>
           <?php endif; ?>
-        </div>
-        <?php endif; ?>
-        <?php if(!empty($vr['video_urls'])): ?>
-        <div style="margin-top:.95rem;">
-          <div class="sec-lbl"><i class="fas fa-video"></i> Video Evidence</div>
-          <?php foreach($vr['video_urls'] as $vv): ?>
-          <video src="<?php echo esc($vv); ?>" controls preload="metadata" playsinline style="width:100%;max-height:340px;border-radius:10px;border:2px solid var(--bdr);background:#000;margin-bottom:.5rem;"></video>
-          <?php endforeach; ?>
-        </div>
-        <?php endif; ?>
+        </section>
+
+        <!-- ActivityLog -->
+        <details class="dr-card dr-log">
+          <summary>
+            <i class="fas fa-clock-rotate-left" aria-hidden="true" style="color:#7B1D1D;font-size:.82rem;"></i>
+            Activity &amp; Audit Log
+            <span style="font-size:.66rem;font-weight:600;color:#A08C7C;">(<?php echo count($drLog); ?>)</span>
+            <i class="fas fa-chevron-down chev" aria-hidden="true"></i>
+          </summary>
+          <?php if ($drLog): ?>
+          <div class="dr-log-list">
+            <?php foreach ($drLog as $drE): ?>
+            <div class="dr-log-item">
+              <span class="dr-log-when"><?php echo date('M j · g:i A', strtotime((string)$drE['created_at'])); ?></span>
+              <span class="dr-log-what">
+                <?php
+                  $drTxt = trim((string)($drE['action_description'] ?: $drE['details'] ?: $drE['action_type']));
+                  echo esc($drTxt !== '' ? $drTxt : 'Activity recorded');
+                ?>
+                <?php if (!empty($drE['user_id'])): ?>
+                <span class="dr-log-who">— <?php echo esc($drE['user_id']); ?><?php
+                  echo !empty($drE['user_role']) ? ' (' . esc($drE['user_role']) . ')' : ''; ?></span>
+                <?php endif; ?>
+              </span>
+            </div>
+            <?php endforeach; ?>
+          </div>
+          <?php else: ?>
+          <div class="dr-none" style="margin-top:.7rem;"><i class="fas fa-inbox" aria-hidden="true"></i> No recorded activity for this ticket yet</div>
+          <?php endif; ?>
+        </details>
       </div>
 
-      <!-- RIGHT: Timeline + Actions -->
-      <div class="mright">
-        <!-- Progress Timeline -->
-        <div class="sec-lbl" style="margin-bottom:.7rem;"><i class="fas fa-timeline"></i> Progress Timeline</div>
-        <div class="tl">
-          <?php
-          $st = $vr['status'];
-          $steps = [
-            ['Submitted',         'Report received and logged.',           true,  false],
-            ['Pending',    'Awaiting admin review.',                $st!=='reported', false],
-            ['Received',          'Categorised & dispatched.',             in_array($st,['assigned','in_progress','completed','verified','closed']), false],
-            ['In Progress',       'Technician working on repair.',         in_array($st,['in_progress','completed','verified','closed']), $st==='in_progress'],
-            ['Completed',         'Repair completed by technician.',       in_array($st,['completed','verified','closed']), false],
-            ['Verified & Closed', 'Admin confirmed and closed.',           in_array($st,['verified','closed']), false],
-          ];
-          if($st==='rejected') $steps[1]=['Rejected','Report rejected by admin.',true,false];
-          foreach($steps as [$lbl,$sub,$done,$act]): ?>
-          <div class="tls">
-            <div class="tlb <?php echo $done?'done':($act?'act':'idle'); ?>">
-              <i class="fas fa-<?php echo $done?'check':($act?'wrench':'clock'); ?>"></i>
-            </div>
-            <div class="tlt">
-              <strong><?php echo $lbl; ?></strong>
-              <span><?php echo $sub; ?></span>
-            </div>
-          </div>
-          <?php endforeach; ?>
-        </div>
+      <!-- RIGHT ────────────────────────────────────────────────────────── -->
+      <div class="dr-col">
 
-        <?php
-          $hasCompletion = in_array($vr['status'], ['completed','verified','closed'], true)
-            || trim((string)($vr['work_performed'] ?? '')) !== ''
-            || trim((string)($vr['findings'] ?? '')) !== '';
-          if ($hasCompletion):
-            $relPhotos = function($raw){
-              $raw = trim((string)$raw); if($raw==='') return [];
-              $d = json_decode($raw, true);
-              $arr = (json_last_error()===JSON_ERROR_NONE && is_array($d)) ? $d : [$raw];
-              $out=[];
-              foreach($arr as $v){ $v=str_replace('\\','/',trim((string)$v)); if($v==='') continue; $pos=strpos($v,'uploads/'); $out[]= $pos!==false?substr($v,$pos):$v; }
-              return $out;
-            };
-            $before=$relPhotos($vr['before_photos']??''); $during=$relPhotos($vr['during_photos']??''); $after=$relPhotos($vr['after_photos']??''); $work=$relPhotos($vr['work_photos']??'');
-            $toolsMaterials = trim(implode(', ', array_filter([trim((string)($vr['tools_used']??'')), trim((string)($vr['materials_used']??''))])));
-            $fmtCost = fn($v) => (($v??'')!=='' && $v!==null && (float)$v > 0) ? ('₱'.number_format((float)$v,2)) : '';
-            $logRows = [
-              'Date Started'=>$vr['date_started']??'', 'Completion Date'=>$vr['completion_date']??'', 'Repair Duration'=>$vr['repair_duration']??'',
-              'Estimated Cost'=>$fmtCost($vr['estimated_cost']??''),
-              'Actual Cost'=>$fmtCost($vr['repair_cost']??''),
-              'Diagnosis'=>$vr['diagnosis']??'', 'Actions Performed'=>$vr['actions_performed']??'', 'Repair Procedures'=>$vr['repair_procedures']??'',
-              'Repair Summary'=>$vr['work_performed']??'', 'Parts Replaced'=>$vr['parts_replaced']??'', 'Tools & Materials'=>$toolsMaterials,
-              'Final Findings'=>$vr['findings']??'', 'Recommendations'=>$vr['recommendations']??'',
-            ];
-        ?>
-        <div class="af" style="background:#f6fbf7;border:1px solid #cfe9d6;margin-bottom:.6rem;">
-          <div class="af-title"><i class="fas fa-clipboard-check"></i> Technician Completion Report</div>
-          <div style="display:grid;gap:.4rem;margin-top:.4rem;">
-          <?php $anyRow=false; foreach($logRows as $lbl=>$val): $val=trim((string)$val); if($val==='') continue; $anyRow=true; ?>
-            <div style="display:flex;gap:.6rem;font-size:.82rem;align-items:flex-start;">
-              <strong style="min-width:128px;color:#5C3838;flex-shrink:0;"><?php echo $lbl; ?></strong>
-              <span style="color:#1C1008;"><?php echo nl2br(esc($val)); ?></span>
-            </div>
-          <?php endforeach; if(!$anyRow): ?><div style="font-size:.8rem;color:#8A7466;">No structured repair log recorded.</div><?php endif; ?>
-          </div>
-          <?php foreach(['Before'=>$before,'During'=>$during,'After'=>$after,'Work'=>$work] as $stage=>$pics): if(!$pics) continue; ?>
-            <div style="margin-top:.6rem;">
-              <div style="font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#8A7466;margin-bottom:.3rem;"><?php echo $stage; ?> Repair</div>
-              <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                <?php foreach($pics as $p): ?><a href="<?php echo esc($p); ?>" target="_blank"><img src="<?php echo esc($p); ?>" alt="<?php echo $stage; ?> photo" style="width:84px;height:84px;object-fit:cover;border-radius:8px;border:1px solid #E2D9CC;"></a><?php endforeach; ?>
+        <!-- WorkflowTimeline -->
+        <section class="dr-card">
+          <div class="dr-card-h"><i class="fas fa-timeline" aria-hidden="true"></i><h3>Workflow</h3></div>
+          <div class="dr-tl">
+            <?php foreach ($drStages as $drI => [$drN, $drIco, $drTs, $drD]):
+              $drDone = !empty($drTs) && $drI < $drNow;
+              $drIsNow = ($drI === $drNow);
+              $drCls = $drRejected && $drIsNow ? 'now' : ($drDone ? 'done' : ($drIsNow ? 'now' : ''));
+            ?>
+            <div class="dr-tl-step <?php echo $drCls; ?>">
+              <div class="dr-tl-dot">
+                <i class="fas <?php echo $drDone ? 'fa-check' : $drIco; ?>" aria-hidden="true"></i>
+              </div>
+              <div class="dr-tl-b">
+                <div class="dr-tl-n"><?php echo esc($drN); ?><?php
+                  if ($drIsNow) echo '<span class="dr-tl-now-tag">Now</span>'; ?></div>
+                <?php if ($w = $drWhen($drTs)): ?>
+                <div class="dr-tl-when"><?php echo $w; ?></div>
+                <?php endif; ?>
+                <div class="dr-tl-d"><?php echo esc($drD); ?></div>
               </div>
             </div>
-          <?php endforeach; ?>
-        </div>
-        <?php endif; ?>
+            <?php endforeach; ?>
+          </div>
+        </section>
 
+        <!-- Workflow actions — carried through unchanged from the previous
+             implementation. Same forms, same POST targets, same validation. -->
         <!-- ── ACTION FORMS ────────────────────────── -->
         <?php if(in_array($vr['status'], ['reported','pmo_review'], true)): ?>
         <!-- REVIEW / ROUTE -->
@@ -1514,8 +1742,10 @@ textarea.fc{resize:vertical;min-height:70px;}
         </div>
         <?php endif; ?>
 
-      </div><!-- /mright -->
-    </div><!-- /m2col -->
+      </div><!-- /right col -->
+    </div><!-- /dr-body -->
+
+    <!-- ── ModalFooter ─────────────────────────────────────────────── -->
 
     <div class="mfoot">
       <button class="btn btn-ghost btn-sm" onclick="closeDet()">Close</button>
@@ -1541,7 +1771,7 @@ textarea.fc{resize:vertical;min-height:70px;}
       </a>
       <?php endif; ?>
     </div>
-  </div><!-- /mw -->
+  </div><!-- /dr-shell -->
 </div><!-- /detmo -->
 <?php endif; ?>
 
@@ -1619,6 +1849,20 @@ let dbt; function debounceGo() { clearTimeout(dbt); dbt = setTimeout(go, 500); }
     window.scrollTo(0, parseInt(y, 10) || 0);
   });
 })();
+
+/* Video evidence opens in the shared lightbox. #lbImg is hidden rather than
+   replaced, because replacing the lightbox markup destroys it and photo viewing
+   stops working for the rest of the session. */
+function openVidLb(src) {
+  const img = document.getElementById('lbImg');
+  if (img) { img.style.display = 'none'; }
+  const box = document.getElementById('lbVid');
+  if (box) {
+    box.innerHTML = '<video src="' + String(src).replace(/"/g, '&quot;') +
+                    '" controls autoplay playsinline></video>';
+  }
+  document.getElementById('lb').classList.add('open');
+}
 
 function closeDet() {
   const mo = document.getElementById('detmo');
