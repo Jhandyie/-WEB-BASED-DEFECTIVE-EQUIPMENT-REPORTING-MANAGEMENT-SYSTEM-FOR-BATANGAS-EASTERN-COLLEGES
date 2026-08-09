@@ -1224,8 +1224,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   background:var(--sk);opacity:.04;transition:all .28s;}
 .scard::after{content:'';position:absolute;bottom:0;left:0;width:100%;height:3px;background:var(--sk);
   border-radius:0 0 var(--r3) var(--r3);transform:scaleX(0);transform-origin:left;transition:transform .32s;}
-.scard:hover{transform:scale(1.015);box-shadow:var(--sh3);border-color:transparent;}
-.scard:hover::before{transform:scale(1.5);opacity:.08;}
+.scard:hover{transform:none;box-shadow:var(--sh3);border-color:transparent;}
+.scard:hover::before{transform:none;opacity:.08;}
 .scard:hover::after{transform:scaleX(1);}
 .sc-a{--sk:var(--m3);--skl:rgba(123,29,29,.14);}
 .sc-b{--sk:#C2410C;--skl:rgba(194,65,12,.14);}
@@ -1236,7 +1236,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .sico{width:36px;height:36px;border-radius:var(--r2);display:flex;align-items:center;justify-content:center;
   font-size:.84rem;margin-bottom:.5rem;background:var(--sib);color:var(--sic);
   box-shadow:none;transition:all .26s;position:relative;z-index:1;}
-.scard:hover .sico{transform:rotate(-8deg) scale(1.15);}
+.scard:hover .sico{transform:none;}
 .sc-a .sico{--sib:#FDECEA;--sic:var(--m3);}
 .sc-b .sico{--sib:#FFF7ED;--sic:#C2410C;}
 .sc-c .sico{--sib:#EFF6FF;--sic:#2563EB;}
@@ -1348,35 +1348,40 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .vt-b:not(.on):hover{color:var(--t2);}
 
 /* Table */
-.tbl{width:100%;border-collapse:collapse;}
-.tbl thead th{padding:.52rem 1rem;font-size:.6rem;text-transform:uppercase;letter-spacing:.85px;
-  color:var(--t3);font-weight:800;text-align:left;background:var(--s2);border-bottom:1.5px solid var(--bdr);white-space:nowrap;}
-.tbl tbody td{padding:.68rem 1rem;font-size:.79rem;color:var(--t1);border-bottom:1px solid var(--bdr);vertical-align:middle;}
+/* Table type, header treatment, cell padding and row hover all come from
+   .tbl in assets/css/admin-shell.css so this table and the BEC Directory are
+   the same table. Only column behaviour specific to this page stays below. */
 .tblwrap{overflow-x:auto;}
 /* Column alignment, set once. Counts and dates centre under their headings and
    never wrap; only the name, email and department columns are free to reflow,
    which is what keeps a 100-row page reading as columns rather than as prose. */
 .tbl th.c,.tbl td.c{text-align:center;}
 .tbl th.nw,.tbl td.nw{white-space:nowrap;}
-.tbl td.num{font-family:'Outfit',sans-serif;font-weight:800;font-size:.85rem;font-variant-numeric:tabular-nums;}
 /* No break rule here on purpose. Letting the address break mid-word lets the
    auto table layout collapse this column to a few characters wide once the
    columns beside it stop wrapping, and the email prints one letter per line. */
-.tbl td.temail{font-size:.77rem;}
-.tbl tbody tr:last-child td{border-bottom:none;}
 .tbl tbody tr{transition:background .1s,transform .1s;}
 .tbl tbody tr.urow{cursor:pointer;}
-.tbl tbody tr:hover td{background:var(--s2);}
-.tbl tbody tr:hover{transform:translateX(2px);}
+.tbl tbody tr:hover{transform:none;}
 
 /* User avatar in table */
 .tav{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;
   font-family:'Outfit',sans-serif;font-weight:800;font-size:.77rem;color:#fff;
   flex-shrink:0;box-shadow:none;transition:transform .22s;}
-.tbl tbody tr:hover .tav{transform:scale(1.08) rotate(-5deg);}
-.tuser{display:flex;align-items:center;gap:.625rem;}
-.tname{font-weight:700;font-size:.83rem;}
-.tuid{font-size:.63rem;color:var(--t3);font-family:'Outfit',sans-serif;font-weight:700;}
+.tbl tbody tr:hover .tav{transform:none;}
+/* Every row the same height. The name wrapped onto a second line for anyone
+   called "Danalyn R. Sabile" and the department badge wrapped for "College of
+   Business", so rows ran to two and three lines at random down the page. Each
+   is held to one line and ellipsised; the full value is on the row's own
+   detail view, and the name column is wide enough that truncation is rare. */
+.tbl tbody tr{height:3.4rem;}
+.tuser{display:flex;align-items:center;gap:.625rem;min-width:0;}
+.tuser > div{min-width:0;}
+.tname{font-weight:700;font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tuid{font-size:.66rem;color:var(--t3);font-family:'Outfit',sans-serif;font-weight:700;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tbl td.temail{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:15rem;}
+.tbl td .dept-pmo,.tbl td .dept-itso,.tbl td .dept-gen{white-space:nowrap;max-width:100%;overflow:hidden;}
 
 /* Badges */
 .bdg{display:inline-flex;align-items:center;gap:.22rem;padding:.2rem .58rem;border-radius:20px;
@@ -1410,8 +1415,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .ucard::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px;
   background:var(--ucol,var(--m3));border-radius:0 0 var(--r3) var(--r3);
   transform:scaleX(0);transform-origin:left;transition:transform .3s;}
-.ucard:hover{transform:scale(1.012);box-shadow:var(--sh3);border-color:transparent;}
-.ucard:hover::before{transform:scale(1.6);opacity:.08;}
+.ucard:hover{transform:none;box-shadow:var(--sh3);border-color:transparent;}
+.ucard:hover::before{transform:none;opacity:.08;}
 .ucard:hover::after{transform:scaleX(1);}
 .ucard.role-admin{--ucol:var(--m3);--ucol-s:rgba(123,29,29,.12);}
 .ucard.role-pmo{--ucol:#C2410C;--ucol-s:rgba(194,65,12,.12);}
@@ -1425,7 +1430,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .uc-av{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;
   font-family:'Outfit',sans-serif;font-weight:900;font-size:1.1rem;color:#fff;
   box-shadow:none;transition:transform .25s;flex-shrink:0;position:relative;z-index:1;}
-.ucard:hover .uc-av{transform:scale(1.08) rotate(-6deg);}
+.ucard:hover .uc-av{transform:none;}
 .uc-status{flex-shrink:0;}
 .uc-name{font-family:'Outfit',sans-serif;font-size:.95rem;font-weight:800;color:var(--t1);
   line-height:1.2;margin-bottom:.12rem;position:relative;z-index:1;}

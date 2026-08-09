@@ -137,10 +137,10 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
   .stat::before{content:'';position:absolute;top:-24px;right:-24px;width:88px;height:88px;border-radius:50%;background:var(--sk,var(--maroon));opacity:.05;transition:transform .3s,opacity .3s;}
   .stat::after{content:'';position:absolute;left:0;bottom:0;width:100%;height:3px;background:var(--sk,var(--maroon));transform:scaleX(0);transform-origin:left;transition:transform .32s;}
   .stat:hover{transform:none;box-shadow:0 12px 28px rgba(28,16,8,.1);}
-  .stat:hover::before{transform:scale(1.5);opacity:.09;}
+  .stat:hover::before{transform:none;opacity:.09;}
   .stat:hover::after{transform:scaleX(1);}
   .stat .s-ic{position:relative;z-index:1;width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:1.15rem;flex-shrink:0;box-shadow:none;transition:transform .26s;}
-  .stat:hover .s-ic{transform:rotate(-8deg) scale(1.1);}
+  .stat:hover .s-ic{transform:none;}
   .stat .s-tx{position:relative;z-index:1;min-width:0;}
   .stat.s-m{--sk:var(--maroon);} .stat.s-m .s-ic{background:rgba(123,29,29,.1);color:var(--maroon);}
   .stat.s-a{--sk:#1D4ED8;} .stat.s-a .s-ic{background:#E8EFFF;color:#1D4ED8;}

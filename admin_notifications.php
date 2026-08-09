@@ -367,7 +367,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 
 /* Notification icon bubble */
 .ni-ico{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.88rem;flex-shrink:0;box-shadow:none;transition:transform .22s;position:relative;}
-.ni-item:hover .ni-ico{transform:scale(1.08) rotate(-6deg);}
+.ni-item:hover .ni-ico{transform:none;}
 .ni-ico .unread-dot{position:absolute;top:0;right:0;width:10px;height:10px;background:var(--m3);border-radius:50%;border:2px solid var(--s1);animation:nbp 2.2s ease-in-out infinite;}
 
 /* Content */
@@ -393,10 +393,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
   position:relative;overflow:hidden;transition:all .24s cubic-bezier(.4,0,.2,1);box-shadow:var(--sh0);}
 .scard::after{content:'';position:absolute;bottom:0;left:0;width:100%;height:3px;background:var(--sk,var(--m3));
   border-radius:0 0 var(--r3) var(--r3);transform:scaleX(0);transform-origin:left;transition:transform .3s;}
-.scard:hover{transform:scale(1.012);box-shadow:var(--sh2);border-color:transparent;}
+.scard:hover{transform:none;box-shadow:var(--sh2);border-color:transparent;}
 .scard:hover::after{transform:scaleX(1);}
 .sico{width:34px;height:34px;border-radius:var(--r2);display:flex;align-items:center;justify-content:center;font-size:.8rem;margin-bottom:.45rem;background:var(--sib);color:var(--sic);box-shadow:none;transition:transform .24s;}
-.scard:hover .sico{transform:rotate(-8deg) scale(1.12);}
+.scard:hover .sico{transform:none;}
 .snum{font-family:'Outfit',sans-serif;font-size:1.7rem;font-weight:800;color:var(--t1);line-height:1;transition:color .24s;}
 .scard:hover .snum{color:var(--sk,var(--m3));}
 .slbl{font-size:.57rem;text-transform:uppercase;letter-spacing:.7px;color:var(--t3);font-weight:700;margin-top:.08rem;}

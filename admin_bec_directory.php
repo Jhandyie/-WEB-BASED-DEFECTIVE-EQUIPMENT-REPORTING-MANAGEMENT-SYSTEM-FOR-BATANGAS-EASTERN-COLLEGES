@@ -242,10 +242,10 @@ $hasFilter = ($search !== '' || $tf !== 'all' || $df !== 'all' || $yf !== 'all')
   input[type=file]{font:inherit;}
   .btn{display:inline-flex;align-items:center;gap:.5rem;padding:.6rem 1.1rem;border-radius:10px;border:none;font:inherit;font-weight:700;font-size:.82rem;cursor:pointer;text-decoration:none;}
   .btn.m{background:var(--m);color:#fff;}.btn.g{background:var(--g);color:#fff;}.btn.ghost{background:#f1eadf;color:var(--ink2);}.btn.red{background:var(--danger);color:#fff;}
-  table{width:100%;border-collapse:collapse;font-size:.82rem;}
-  th{text-align:left;padding:.55rem .6rem;background:var(--m);color:#fff;font-size:.68rem;text-transform:uppercase;letter-spacing:.4px;}
-  td{padding:.5rem .6rem;border-bottom:1px solid var(--border);}
-  tr:nth-child(even) td{background:#faf7f0;}
+  /* Table type and spacing come from .adm-table in assets/css/admin-shell.css,
+     so this page matches User Management instead of drawing its own maroon
+     header bar at its own font size. Zebra striping is gone with it — the row
+     separators already do that job, and the stripe fought the hover state. */
   .tt{display:inline-block;font-size:.62rem;font-weight:700;padding:.1rem .5rem;border-radius:999px;text-transform:uppercase;}
   .tt.student{background:#E8EFFF;color:#1D4ED8;}.tt.faculty{background:#FBF3DF;color:#92600A;}.tt.staff{background:#E9F9EF;color:#166534;}.tt.x{background:#eee;color:#666;}
   .search{display:flex;gap:.5rem;margin-bottom:.8rem;}
@@ -377,7 +377,11 @@ $hasFilter = ($search !== '' || $tf !== 'all' || $df !== 'all' || $yf !== 'all')
       </div>
 
       <div class="panel">
-        <h2><i class="fas fa-address-book"></i> Directory Records <?php if($total>200): ?><span style="font-size:.7rem;color:var(--ink3);font-weight:400;">(showing latest 200)</span><?php endif; ?></h2>
+        <?php // "(showing latest 200)" was left over from the old LIMIT 200. The
+              // list is paged in SQL now — 50 a page, every record reachable —
+              // and the pager underneath reports the range, so this said a number
+              // that had stopped being true. ?>
+        <h2><i class="fas fa-address-book"></i> Directory Records</h2>
         <form class="search" method="get">
           <input type="text" name="q" value="<?php echo bd_e($search); ?>" placeholder="Search name, email, student no., or program…">
           <select name="type" class="fsel" onchange="this.form.submit()" aria-label="Filter by affiliation">
@@ -425,17 +429,25 @@ $hasFilter = ($search !== '' || $tf !== 'all' || $df !== 'all' || $yf !== 'all')
           <!-- No data-paginate: this list is paged in SQL. The client paginator
                would slice the 50 rows the server already chose, leaving two
                pagers disagreeing about what "page 1" means. -->
-          <table>
+          <table class="adm-table">
+            <?php /* Widths declared once so the fixed layout has something to
+                     honour; without them every column would be an equal seventh
+                     and the email would truncate while Year Level sat half empty. */ ?>
+            <colgroup>
+              <col style="width:17%"><col style="width:21%"><col style="width:9%">
+              <col style="width:15%"><col style="width:9%"><col style="width:18%">
+              <col style="width:11%">
+            </colgroup>
             <thead><tr><th>Name</th><th>Email</th><th>Affiliation</th><th>Department</th><th>Year Level</th><th>Program</th><th>Emp/Student No.</th></tr></thead>
             <tbody>
               <?php foreach ($rows as $r): $ut = $r['user_type'] ?: 'x'; ?>
               <tr>
-                <td><?php echo bd_e($r['full_name'] ?: '—'); ?></td>
-                <td><?php echo bd_e($r['email']); ?></td>
+                <td title="<?php echo bd_e($r['full_name'] ?: ''); ?>"><?php echo bd_e($r['full_name'] ?: '—'); ?></td>
+                <td title="<?php echo bd_e($r['email']); ?>"><?php echo bd_e($r['email']); ?></td>
                 <td><span class="tt <?php echo bd_e(in_array($ut,['student','faculty','staff'],true)?$ut:'x'); ?>"><?php echo bd_e($r['user_type'] ?: 'N/A'); ?></span></td>
-                <td><?php echo bd_e($r['department'] ?: '—'); ?></td>
+                <td title="<?php echo bd_e($r['department'] ?: ''); ?>"><?php echo bd_e($r['department'] ?: '—'); ?></td>
                 <td><?php echo bd_e($r['year_level'] ?? '' ?: '—'); ?></td>
-                <td><?php echo bd_e($r['program'] ?: '—'); ?></td>
+                <td title="<?php echo bd_e($r['program'] ?: ''); ?>"><?php echo bd_e($r['program'] ?: '—'); ?></td>
                 <td><?php echo bd_e($r['employee_number'] ?: ($r['student_number'] ?: '—')); ?></td>
               </tr>
               <?php endforeach; ?>

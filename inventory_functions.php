@@ -856,8 +856,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
   background:var(--sk);opacity:.04;transition:all .28s;}
 .scard::after{content:'';position:absolute;bottom:0;left:0;width:100%;height:3px;background:var(--sk);
   border-radius:0 0 var(--r3) var(--r3);transform:scaleX(0);transform-origin:left;transition:transform .32s;}
-.scard:hover{transform:scale(1.015);box-shadow:var(--sh3);border-color:transparent;}
-.scard:hover::before{transform:scale(1.5);opacity:.08;}
+.scard:hover{transform:none;box-shadow:var(--sh3);border-color:transparent;}
+.scard:hover::before{transform:none;opacity:.08;}
 .scard:hover::after{transform:scaleX(1);}
 .sc-a{--sk:var(--m3);--skl:rgba(123,29,29,.14);}
 .sc-b{--sk:#16A34A;--skl:rgba(22,163,74,.14);}
@@ -869,7 +869,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .sico{width:36px;height:36px;border-radius:var(--r2);display:flex;align-items:center;justify-content:center;
   font-size:.84rem;margin-bottom:.5rem;background:var(--sib);color:var(--sic);
   box-shadow:none;transition:all .26s;position:relative;z-index:1;}
-.scard:hover .sico{transform:rotate(-8deg) scale(1.15);}
+.scard:hover .sico{transform:none;}
 .sc-a .sico{--sib:#FDECEA;--sic:var(--m3);}
 .sc-b .sico{--sib:#F0FDF4;--sic:#16A34A;}
 .sc-c .sico{--sib:#FFFBEB;--sic:#D97706;}
@@ -961,7 +961,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .ecard{background:var(--s1);border-radius:var(--r3);border:1.5px solid var(--bdr);
   padding:0;position:relative;overflow:hidden;
   transition:all .24s cubic-bezier(.4,0,.2,1);box-shadow:var(--sh0);}
-.ecard:hover{transform:scale(1.012);box-shadow:var(--sh3);border-color:transparent;}
+.ecard:hover{transform:none;box-shadow:var(--sh3);border-color:transparent;}
 .ec-stripe{height:5px;background:var(--stripe,var(--m3));}
 .ecard.st-op .ec-stripe{background:linear-gradient(to right,#15803D,#22C55E);}
 .ecard.st-maint .ec-stripe{background:linear-gradient(to right,#D97706,#FBBF24);}
@@ -972,7 +972,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .ec-ico{width:42px;height:42px;border-radius:var(--r2);display:flex;align-items:center;justify-content:center;
   font-size:1rem;background:var(--s2);color:var(--m3);
   box-shadow:none;flex-shrink:0;transition:transform .25s;}
-.ecard:hover .ec-ico{transform:rotate(-8deg) scale(1.1);}
+.ecard:hover .ec-ico{transform:none;}
 .ec-id{font-family:'Outfit',sans-serif;font-size:.66rem;font-weight:800;color:var(--m3);}
 .ec-name{font-family:'Outfit',sans-serif;font-size:.95rem;font-weight:800;color:var(--t1);
   line-height:1.2;margin-bottom:.2rem;

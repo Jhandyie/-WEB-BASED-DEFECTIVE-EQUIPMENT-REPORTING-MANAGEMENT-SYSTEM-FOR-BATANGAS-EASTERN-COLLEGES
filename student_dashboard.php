@@ -1229,7 +1229,7 @@ body::after {
 .btn-submit:hover { background:var(--maroon);transform:none;box-shadow:0 14px 28px rgba(74,14,14,.3); }
 .btn-submit:active { transform:none;box-shadow:none; }
 .btn-arrow { width:20px;height:20px;background:rgba(255,255,255,.18);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.65rem;transition:transform .2s; }
-.btn-submit:hover .btn-arrow { transform:translateX(3px); }
+.btn-submit:hover .btn-arrow { transform:none; }
 .btn-submit.is-loading {
   pointer-events:none;opacity:.82;transform:none;
 }

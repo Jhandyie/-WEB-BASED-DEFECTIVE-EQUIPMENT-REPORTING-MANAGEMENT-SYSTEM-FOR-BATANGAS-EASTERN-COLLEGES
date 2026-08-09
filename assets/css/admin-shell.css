@@ -81,7 +81,7 @@ html{font-size:106.25%;scrollbar-gutter:stable;}
   display:flex;align-items:center;justify-content:center;
   font-family:'Outfit',sans-serif;font-weight:900;font-size:.77rem;color:#fff;
   box-shadow:none;transition:transform .22s;}
-.sb-user:hover .uav{transform:scale(1.1) rotate(-6deg);}
+.sb-user:hover .uav{transform:none;}
 .uname{font-size:.8rem;color:#fff;font-weight:600;display:block;line-height:1.2;}
 .urole{font-size:.58rem;color:rgba(255,255,255,.32);text-transform:uppercase;letter-spacing:1px;}
 
@@ -101,7 +101,7 @@ html{font-size:106.25%;scrollbar-gutter:stable;}
   display:flex;align-items:center;justify-content:center;
   font-size:.78rem;background:rgba(255,255,255,.05);flex-shrink:0;transition:all .22s;}
 .ni:hover{color:rgba(255,255,255,.82);}
-.ni:hover .ni-ic{background:rgba(255,255,255,.1);transform:scale(1.08);}
+.ni:hover .ni-ic{background:rgba(255,255,255,.1);transform:none;}
 .ni.on{color:#fff;font-weight:600;}
 .ni.on .ni-ic{background:linear-gradient(135deg,var(--g2,#D4A017),var(--g3,#F0C040));
   color:var(--m1,#2D0505);box-shadow:0 4px 12px rgba(212,160,23,.25);}
@@ -149,6 +149,43 @@ html{font-size:106.25%;scrollbar-gutter:stable;}
    at the full root size (17px) while everywhere else it was 14.875px. Declared
    here so every page starts from the same base — a page may still override it. */
 body{font-size:.875rem;}
+
+/* ---- data tables --------------------------------------------------------- */
+/* One type scale for every admin table. They had drifted badly: User Management
+   drew .6rem headers on a light bar with .79rem cells, while the BEC Directory
+   drew .68rem headers reversed out of solid maroon with .82rem cells and zebra
+   striping — two tables in the same product that shared nothing. Cell sizes
+   inside a single row varied too (.79 body, .85 numeric, .77 email), which is
+   what made the rows look ragged.
+   A page can still override; nothing here is !important. */
+.tbl,.adm-table{width:100%;border-collapse:collapse;
+  font-family:'DM Sans',system-ui,sans-serif;font-size:.8rem;color:var(--t1,#1A0808);}
+.tbl thead th,.adm-table thead th{
+  text-align:left;padding:.55rem .9rem;
+  background:var(--s2,#FAF7F0);color:var(--t3,#9C7A7A);
+  font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;
+  border-bottom:1px solid var(--bdr,#E5D9C6);white-space:nowrap;}
+.tbl tbody td,.adm-table tbody td{
+  padding:.7rem .9rem;font-size:.8rem;vertical-align:middle;
+  border-bottom:1px solid var(--bdr,#E5D9C6);}
+.tbl tbody tr:last-child td,.adm-table tbody tr:last-child td{border-bottom:none;}
+/* Numbers line up under each other and read as a column, not as prose. */
+.tbl td.num,.tbl th.num,.adm-table td.num,.adm-table th.num{
+  text-align:right;font-variant-numeric:tabular-nums;font-size:.8rem;font-weight:700;}
+/* Secondary text on a row — an ID under a name, an email — one step down, once. */
+.tbl .t-sub,.adm-table .t-sub{font-size:.72rem;color:var(--t3,#9C7A7A);}
+.tbl tbody tr:hover td,.adm-table tbody tr:hover td{background:var(--s2,#FAF7F0);}
+
+/* Every row the same height.
+   Left to itself the roster wrapped "Technical-Vocational Center" onto two
+   lines and "Electronic Product Assembly and Services NC II" onto three, so
+   rows ran anywhere from 68px to 96px and the table read as ragged. Fixed
+   layout plus a colgroup means each column keeps its width, one line per cell,
+   and anything too long ends in an ellipsis rather than pushing the row taller.
+   The full value stays available through the cell's title. */
+.adm-table{table-layout:fixed;}
+.adm-table tbody td{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;height:2.9rem;}
+.adm-table thead th{overflow:hidden;text-overflow:ellipsis;}
 
 /* ---- page heading block -------------------------------------------------- */
 .head{margin-bottom:18px;}

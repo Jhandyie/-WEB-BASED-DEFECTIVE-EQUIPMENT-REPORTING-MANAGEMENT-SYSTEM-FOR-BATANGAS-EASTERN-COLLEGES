@@ -537,7 +537,7 @@ body::after {
   width: 20px; height: 20px; background: rgba(255,255,255,.18); border-radius: 50%;
   display: flex; align-items: center; justify-content: center; font-size: .65rem; transition: transform .2s;
 }
-.btn-submit:hover .btn-arrow { transform: translateX(3px); }
+.btn-submit:hover .btn-arrow { transform:none; }
 .or-row {
   display: flex; align-items: center; gap: .75rem; margin: 1.35rem 0;
   font-size: .67rem; color: var(--ink3); text-transform: uppercase; letter-spacing: 1.5px;
@@ -552,7 +552,7 @@ body::after {
 }
 .action-btn i { font-size: .95rem; color: var(--maroon); opacity: .75; transition: opacity .18s, transform .18s; }
 .action-btn:hover { border-color: var(--maroon); color: var(--maroon); background: var(--maroon-soft); transform:none; box-shadow: 0 4px 12px rgba(123,29,29,.08); }
-.action-btn:hover i { opacity: 1; transform: scale(1.1); }
+.action-btn:hover i { opacity: 1; transform:none; }
 .footer-link { text-align: center; font-size: .73rem; color: var(--ink3); padding-top: .5rem; border-top: 1px solid var(--border); }
 .footer-link a { color: var(--maroon); font-weight: 600; text-decoration: none; margin-left: .25rem; cursor: pointer; }
 .footer-link a:hover { text-decoration: underline; }
@@ -570,7 +570,7 @@ body::after {
   transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .3s ease;
   animation: fabFloat 6s ease-in-out infinite, fabGlow 4.5s ease-in-out infinite;
 }
-#chatFab:hover { animation: none; transform:scale(1.06); box-shadow: 0 16px 40px rgba(44,10,10,.5), 0 0 32px rgba(201,150,12,.5); }
+#chatFab:hover { animation: none; transform:none; box-shadow: 0 16px 40px rgba(44,10,10,.5), 0 0 32px rgba(201,150,12,.5); }
 #chatFab:active { transform: translateY(-1px) scale(1); }
 #chatFab .fab-ic {
   width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0; overflow: hidden;

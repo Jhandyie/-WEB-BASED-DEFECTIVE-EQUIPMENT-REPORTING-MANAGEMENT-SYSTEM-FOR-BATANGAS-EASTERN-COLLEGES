@@ -26,7 +26,7 @@
 
 .photo-thumbnail:hover {
     border-color: #2563eb; /* Tech blue */
-    transform: scale(1.1);
+    transform:none;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
