@@ -326,6 +326,12 @@ if (isset($_GET['view_id'])) {
         $vr['location']        = $eq['location']        ?? '—';
         $vr['reporter_name']   = $vr['reporter_name']   ?? 'N/A';
         $vr['technician_name'] = !empty($vr['technician_name']) ? $vr['technician_name'] : 'Unassigned';
+        // Both, not just video. Every row in the LIST gets photo_urls from
+        // photoListFromRow() in the loop below, but the single record never did,
+        // so the one screen built to show the evidence was the one screen that
+        // could not: the template fell back to the raw photo_url column, which
+        // holds an unresolved path, and rendered nothing.
+        $vr['photo_urls']      = photoListFromRow($vr);
         $vr['video_urls']      = videoListFromRow($vr);
     }
 }
