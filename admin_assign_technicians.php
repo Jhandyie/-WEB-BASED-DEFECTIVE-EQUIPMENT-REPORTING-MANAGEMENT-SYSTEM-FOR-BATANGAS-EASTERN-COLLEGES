@@ -352,7 +352,51 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 
 /* The chosen technician is stated on the card you clicked, not only in a select
    the card happens to drive. */
-.tech-card.on{border-color:var(--m3) !important;box-shadow:0 0 0 2px rgba(123,29,29,.14);}
+/* ── technician card ──────────────────────────────────────────────────────
+   Name, what they do, where they sit, whether they are free and how loaded —
+   the five things needed to choose someone, on the card you click. */
+.tcd{position:relative;border:1.5px solid #E8DFD0;border-radius:14px;background:#fff;
+  padding:.85rem .9rem;transition:border-color .15s,box-shadow .15s;}
+.tech-card{cursor:pointer;}
+.tech-card:hover{border-color:#C9960C;box-shadow:0 6px 18px rgba(123,29,29,.10);}
+.tech-card:focus-visible{outline:2px solid var(--m3);outline-offset:2px;}
+.tcd-off{opacity:.55;background:#FAF7F0;}
+.tcd[data-recommended="1"]{border-color:#C9960C;}
+.tcd-rec{position:absolute;top:-9px;left:12px;background:#C9960C;color:#fff;
+  font-size:.56rem;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
+  padding:.12rem .5rem;border-radius:20px;}
+/* Selected is a check and a border, not only a colour. */
+.tcd-check{position:absolute;top:.7rem;right:.7rem;width:20px;height:20px;border-radius:50%;
+  background:var(--m3);color:#fff;font-size:.6rem;display:none;
+  align-items:center;justify-content:center;}
+.tech-card.on{border-color:var(--m3);box-shadow:0 0 0 2px rgba(123,29,29,.14);}
+.tech-card.on .tcd-check{display:flex;}
+.tech-card.on .tcd-cta{color:var(--m3);font-weight:800;}
+.tcd-top{display:flex;align-items:center;gap:.6rem;}
+.tcd-av{width:38px;height:38px;border-radius:50%;flex-shrink:0;color:#fff;
+  background:linear-gradient(135deg,var(--m3),var(--m4));
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Outfit',sans-serif;font-weight:900;font-size:.78rem;}
+.tcd-id{flex:1;min-width:0;}
+.tcd-name{font-weight:700;font-size:.86rem;color:var(--t1);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tcd-meta{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;margin-top:.12rem;}
+.tcd-spec{font-size:.68rem;color:#8A6D5A;white-space:nowrap;}
+.tcd-spec i{font-size:.6rem;color:#C9960C;}
+.tcd-dept{font-size:.6rem;color:#8A6D5A;background:#F8F3EA;border:1px solid #EDE4D6;
+  border-radius:20px;padding:.05rem .4rem;white-space:nowrap;
+  max-width:9rem;overflow:hidden;text-overflow:ellipsis;}
+.tcd-avail{display:inline-flex;align-items:center;gap:.28rem;flex-shrink:0;
+  font-size:.6rem;font-weight:800;padding:.18rem .5rem;border-radius:20px;}
+.tcd-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.tcd-load{margin-top:.6rem;}
+.tcd-load-l{display:flex;justify-content:space-between;align-items:baseline;
+  font-size:.62rem;color:#8A6D5A;margin-bottom:.22rem;}
+.tcd-load-n{font-weight:700;color:var(--t2);}
+.tcd-bar{height:5px;background:#F0E7D8;border-radius:4px;overflow:hidden;}
+.tcd-bar span{display:block;height:100%;border-radius:4px;}
+.tcd-cta{margin-top:.5rem;font-size:.62rem;color:#B08D4F;text-align:right;}
+.tcd-cta-off{color:#9C8A7A;}
 
 .tblwrap{overflow-x:auto;}
 /* These two tables carry six and seven columns inside a panel that lost 40px
@@ -1015,23 +1059,55 @@ textarea.fc{resize:vertical;min-height:80px;}
                 $isRec = ($recommendedTid !== null && $tid === $recommendedTid);
                 $disabled = $t['avail'] === 'unavailable';
             ?>
-            <div class="<?php echo $disabled?'':'tech-card'; ?>" <?php echo $disabled ? '' : 'onclick="assignFromCard(this)"'; ?>
-                 data-tid="<?php echo esc($tid); ?>" data-name="<?php echo esc($t['fullname']??'Technician'); ?>"
-                 style="position:relative;border:1.5px solid <?php echo $isRec?'#C9960C':'#e8dfd0'; ?>;border-radius:14px;padding:.72rem .8rem;background:<?php echo $isRec?'#FFFCF3':'#fff'; ?>;cursor:<?php echo $disabled?'not-allowed':'pointer'; ?>;opacity:<?php echo $disabled?'.62':'1'; ?>;">
-              <?php if($isRec): ?><div style="position:absolute;top:-9px;left:12px;background:#C9960C;color:#fff;font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:.14rem .5rem;border-radius:999px;"><i class="fas fa-star"></i> Recommended</div><?php endif; ?>
-              <div style="display:flex;align-items:center;gap:.6rem;">
-                <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--m3),var(--m4));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:.76rem;flex-shrink:0;"><?php echo $initials; ?></div>
-                <div style="flex:1;min-width:0;">
-                  <div style="font-weight:700;font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?php echo esc($t['fullname']??'Technician'); ?></div>
-                  <div style="font-size:.7rem;color:#8a6d5a;"><i class="fas fa-screwdriver-wrench" style="font-size:.6rem;"></i> <?php echo esc($t['spec']); ?><?php if(!empty($t['dept']) && strtolower($t['dept'])!==strtolower($t['spec'])): ?> · <?php echo esc($t['dept']); ?><?php endif; ?></div>
+            <div class="<?php echo $disabled ? 'tcd tcd-off' : 'tech-card tcd'; ?>"
+                 <?php echo $disabled ? '' : 'onclick="assignFromCard(this)" tabindex="0" role="button" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();assignFromCard(this);}"'; ?>
+                 data-tid="<?php echo esc($tid); ?>" data-name="<?php echo esc($t['fullname'] ?? 'Technician'); ?>"
+                 aria-label="Select <?php echo esc($t['fullname'] ?? 'technician'); ?><?php echo $disabled ? ' (unavailable)' : ''; ?>"
+                 <?php echo $isRec ? 'data-recommended="1"' : ''; ?>>
+
+              <?php if ($isRec): ?><span class="tcd-rec"><i class="fas fa-star" aria-hidden="true"></i> Recommended</span><?php endif; ?>
+              <span class="tcd-check" aria-hidden="true"><i class="fas fa-check"></i></span>
+
+              <div class="tcd-top">
+                <div class="tcd-av"><?php echo esc($initials); ?></div>
+                <div class="tcd-id">
+                  <div class="tcd-name"><?php echo esc($t['fullname'] ?? 'Technician'); ?></div>
+                  <div class="tcd-meta">
+                    <span class="tcd-spec"><i class="fas fa-screwdriver-wrench" aria-hidden="true"></i> <?php echo esc($t['spec']); ?></span>
+                    <?php /* $t['dept'] falls back to specialization when the account
+                             has no department, which printed "General General". Only
+                             show it when it says something the line before did not. */
+                          if (!empty($t['dept']) && strcasecmp(trim((string)$t['dept']), trim((string)$t['spec'])) !== 0): ?>
+                    <span class="tcd-dept"><?php echo esc($t['dept']); ?></span>
+                    <?php endif; ?>
+                  </div>
                 </div>
-                <div style="text-align:right;flex-shrink:0;">
-                  <span style="display:inline-flex;align-items:center;gap:.25rem;font-size:.62rem;font-weight:700;color:<?php echo $aColor; ?>;background:<?php echo $aBg; ?>;padding:.18rem .5rem;border-radius:999px;"><i class="fas <?php echo $aIcon; ?>"></i> <?php echo $aLbl; ?></span>
-                  <div style="font-size:.62rem;color:#8a6d5a;margin-top:.28rem;"><?php echo $wl; ?> active task<?php echo $wl!=1?'s':''; ?></div>
+                <span class="tcd-avail" style="color:<?php echo $aColor; ?>;background:<?php echo $aBg; ?>;">
+                  <span class="tcd-dot" style="background:<?php echo $aColor; ?>;"></span><?php echo esc($aLbl); ?>
+                </span>
+              </div>
+
+              <?php /* Workload is stated as a real count and drawn relative to the
+                       busiest technician on the team. There is no capacity column in
+                       the schema, so a "3 / 5" bar would be inventing the 5 — this
+                       compares technicians against each other, which is the question
+                       actually being asked: who is freest right now. */ ?>
+              <div class="tcd-load">
+                <div class="tcd-load-l">
+                  <span>Workload</span>
+                  <span class="tcd-load-n"><?php echo $wl; ?> active <?php echo $wl === 1 ? 'task' : 'tasks'; ?></span>
+                </div>
+                <div class="tcd-bar" role="img"
+                     aria-label="<?php echo $wl; ?> active tasks, busiest on the team has <?php echo (int)$maxWl; ?>">
+                  <span style="width:<?php echo $wl > 0 ? max(6, (int)$pct) : 0; ?>%;background:<?php echo $aColor; ?>;"></span>
                 </div>
               </div>
-              <div style="height:5px;background:#f0e7d8;border-radius:4px;margin-top:.55rem;overflow:hidden;"><div style="height:100%;width:<?php echo $pct; ?>%;background:<?php echo wlColor($wl); ?>;"></div></div>
-              <?php if(!$disabled): ?><div style="font-size:.6rem;color:#b08d4f;margin-top:.42rem;text-align:right;font-weight:700;"><i class="fas fa-hand-pointer"></i> Click to assign</div><?php endif; ?>
+
+              <?php if (!$disabled): ?>
+              <div class="tcd-cta"><i class="fas fa-hand-pointer" aria-hidden="true"></i> Select technician</div>
+              <?php else: ?>
+              <div class="tcd-cta tcd-cta-off"><i class="fas fa-ban" aria-hidden="true"></i> Account inactive</div>
+              <?php endif; ?>
             </div>
             <?php endforeach; endif; ?>
           </div>
