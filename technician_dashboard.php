@@ -762,7 +762,15 @@ body.modal-open .bell-fab{display:none;}
   background:linear-gradient(135deg,#fff 60%,var(--field));box-shadow:0 1px 3px rgba(44,10,10,.04);}
 .facts>div::before{content:'';position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:linear-gradient(180deg,var(--gold),var(--maroon));}
 .facts small{display:block;font-size:.58rem;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--gold);margin-bottom:3px;}
-.facts strong{font-size:.85rem;color:var(--ink);font-weight:700;line-height:1.35;word-break:break-word;}
+/* Two lines, then ellipsis, with the full value on the tile's title.
+   A grid row stretches every tile to the tallest one, and the location runs to
+   "Annex 1 Campus • Building 13 – BEC Skills Training Center • BSTC Rm 203
+   (Computer Lab)" — five lines — so Asset Tag and Category sat in tiles four
+   fifths empty beside it. overflow-wrap replaces word-break:break-word, which
+   split words mid-letter even when they would have fitted. */
+.facts strong{font-size:.85rem;color:var(--ink);font-weight:700;line-height:1.35;
+  overflow-wrap:anywhere;word-break:normal;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;}
 .photos img{width:100%;height:110px;object-fit:cover;border-radius:10px;border:1px solid var(--bdr);cursor:zoom-in;transition:transform .12s,box-shadow .12s;}
 .vids{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;}
@@ -1245,7 +1253,7 @@ body.modal-open{overflow:hidden;}
               </div>
               <div class="facts">
                 <div><small>Asset Tag</small><strong><?php echo e((string)($row['asset_tag'] ?? 'Not specified')); ?></strong></div>
-                <div><small>Location</small><strong><?php echo e((string)($row['location'] ?? 'Unspecified')); ?></strong></div>
+                <div title="<?php echo e((string)($row['location'] ?? '')); ?>"><small>Location</small><strong><?php echo e((string)($row['location'] ?? 'Unspecified')); ?></strong></div>
                 <div><small>Category</small><strong><?php echo e((string)($row['category_name'] ?? 'Not specified')); ?></strong></div>
                 <div><small>Reported</small><strong><?php echo e(fdt((string)($row['report_date'] ?? ''))); ?></strong></div>
               </div>
@@ -1568,8 +1576,15 @@ document.querySelectorAll('[data-ws-back]').forEach(function (b) {
     if (q) q.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 });
-/* Deep link (?report=...) — scroll to the preselected panel */
+/* Deep link (?report=...) — scroll to the preselected panel.
+   The guard was missing: this ran on EVERY load, so simply opening the portal
+   threw the page down to the active task a quarter of a second after it
+   appeared, past the header and the task list. Only a deep link asked to be
+   taken somewhere. */
 (function () {
+  let deepLink = false;
+  try { deepLink = new URLSearchParams(location.search).has('report'); } catch (_) {}
+  if (!deepLink) { return; }
   const pre = document.querySelector('.ws-panel.active');
   if (pre) setTimeout(function () { pre.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 250);
 })();
