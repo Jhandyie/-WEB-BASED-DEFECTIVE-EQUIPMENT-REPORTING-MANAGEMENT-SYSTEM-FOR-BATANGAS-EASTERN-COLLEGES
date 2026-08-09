@@ -334,6 +334,26 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
    and made every row a different height. */
 /* The panel clips (rounded corners), so without a scroll container the Action
    column — the Assign button itself — was cut off at the right edge. */
+/* Segmented priority control — four choices shown at once instead of hidden
+   behind a dropdown. The radio itself is the state; the label is the target, so
+   it stays keyboard-reachable and needs no JS. */
+.prio-seg{display:grid;grid-template-columns:repeat(4,1fr);gap:.3rem;}
+.ps-opt{position:relative;display:block;cursor:pointer;}
+.ps-opt input{position:absolute;opacity:0;width:0;height:0;}
+.ps-opt span{display:block;text-align:center;padding:.46rem .2rem;border-radius:var(--r1);
+  border:1.5px solid var(--bdr);background:var(--s1);
+  font-size:.74rem;font-weight:700;color:var(--t2);transition:all .15s;}
+.ps-opt:hover span{border-color:var(--bdr2);}
+.ps-opt input:focus-visible + span{outline:2px solid var(--m3);outline-offset:2px;}
+.ps-low     input:checked + span{background:#EFF6FF;border-color:#2563EB;color:#1D4ED8;}
+.ps-medium  input:checked + span{background:#FFFBEB;border-color:#D4A017;color:#92600A;}
+.ps-high    input:checked + span{background:#FFF7ED;border-color:#EA580C;color:#C2410C;}
+.ps-critical input:checked + span{background:#FEF2F2;border-color:#DC2626;color:#B91C1C;}
+
+/* The chosen technician is stated on the card you clicked, not only in a select
+   the card happens to drive. */
+.tech-card.on{border-color:var(--m3) !important;box-shadow:0 0 0 2px rgba(123,29,29,.14);}
+
 .tblwrap{overflow-x:auto;}
 /* These two tables carry six and seven columns inside a panel that lost 40px
    when the technician picker moved into the right column, so the Action cell —
@@ -912,16 +932,21 @@ textarea.fc{resize:vertical;min-height:80px;}
               </select>
             </div>
 
-            <!-- Priority -->
+            <!-- Priority: four fixed choices, so it is four buttons rather than a
+                 dropdown you have to open to discover what is in it. Matches the
+                 segmented control the report record already uses for the same
+                 field, so the two screens ask the question the same way.
+                 (The old dropdown also read "Critical Critical".) -->
             <div class="fg">
               <label class="fl">Priority Level <span>*</span></label>
-              <select name="priority" id="fPrio" class="fc" required>
-                <option value="">Select priority...</option>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="critical" style="color:#C2410C;font-weight:700;">Critical Critical</option>
-              </select>
+              <div class="prio-seg" role="radiogroup" aria-label="Priority level">
+                <?php foreach ([['low','Low'],['medium','Medium'],['high','High'],['critical','Critical']] as [$pv,$pl]): ?>
+                <label class="ps-opt ps-<?php echo $pv; ?>">
+                  <input type="radio" name="priority" value="<?php echo $pv; ?>" required>
+                  <span><?php echo $pl; ?></span>
+                </label>
+                <?php endforeach; ?>
+              </div>
             </div>
 
             <!-- Instructions -->
@@ -1153,7 +1178,12 @@ function selectReport(data) {
 
   // Fill form
   document.getElementById('fRid').value = data.id;
-  if (data.priority) document.getElementById('fPrio').value = data.priority;
+  // Priority is a radio group now, not a select — tick the matching option so
+  // picking a report still pre-fills the priority it was reported with.
+  if (data.priority) {
+    const p = document.querySelector('.prio-seg input[value="' + data.priority + '"]');
+    if (p) { p.checked = true; }
+  }
   if (data.dept)     document.getElementById('fDept').value = data.dept;
 
   // Highlight row
@@ -1192,6 +1222,12 @@ function clearAll() {
 function techChanged(sel) {
   const opt = sel.options[sel.selectedIndex];
   const prev = document.getElementById('techPrev');
+
+  /* Mark the availability card for whoever is now chosen. The cards already set
+     this select when clicked, but nothing pointed back the other way, so after
+     picking someone the list gave no sign of who that was. */
+  document.querySelectorAll('.tech-card').forEach(c =>
+    c.classList.toggle('on', !!sel.value && c.getAttribute('data-tid') === sel.value));
 
   if (!opt.value) {
     prev.classList.remove('show');

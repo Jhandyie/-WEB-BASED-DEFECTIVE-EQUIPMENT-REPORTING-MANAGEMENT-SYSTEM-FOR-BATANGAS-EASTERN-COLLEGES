@@ -1265,32 +1265,11 @@ textarea.fc{resize:vertical;min-height:70px;}
           <?php endif; ?>
         </div>
 
-        <?php
-          $__sIdx = ['reported'=>0,'pmo_review'=>1,'ready_for_assignment'=>2,'assigned'=>3,'accepted'=>4,'in_progress'=>5,'waiting_for_materials'=>5,'for_replacement'=>5,'completed'=>6,'verified'=>7,'closed'=>7];
-          $__cur = $__sIdx[strtolower((string)$vr['status'])] ?? 0;
-          $__rej = strtolower((string)$vr['status']) === 'rejected';
-          $__steps = $__rej ? ['Submitted','Received by PMO','Rejected'] : ['Submitted','Received by PMO','Approved','Assigned','Received by Tech','In Progress','Completed','Closed'];
-        ?>
-        <div class="wf-card">
-          <div class="sec-lbl" style="margin-bottom:.7rem;"><i class="fas fa-route"></i> Workflow Progress</div>
-          <div style="display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding:.25rem .1rem .1rem;">
-            <?php foreach($__steps as $__i=>$__lbl):
-              $__rejStep = $__rej && $__i === 2;
-              $__done = $__rej ? ($__i < 2) : ($__i < $__cur);
-              $__active = $__rej ? ($__i === 2) : ($__i === $__cur);
-              $__reached = $__done || $__active;
-              $__dot = $__rejStep ? '#DC2626' : ($__done ? '#16A34A' : ($__active ? '#7B1D1D' : '#D8CCBD'));
-              $__txt = $__rejStep ? '#DC2626' : ($__reached ? '#1C1008' : '#9E8070');
-              $__line = $__reached ? ($__rejStep ? '#DC2626' : '#16A34A') : '#E8DDD0';
-            ?>
-            <div style="flex:1;min-width:74px;text-align:center;position:relative;">
-              <?php if($__i>0): ?><div style="position:absolute;top:11px;left:-50%;width:100%;height:3px;background:<?php echo $__line; ?>;z-index:0;"></div><?php endif; ?>
-              <div style="position:relative;z-index:1;width:24px;height:24px;margin:0 auto;border-radius:50%;background:<?php echo $__dot; ?>;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.62rem;font-weight:800;<?php echo $__active?'box-shadow:0 0 0 4px rgba(123,29,29,.16);':''; ?>"><?php echo $__done ? '<i class="fas fa-check"></i>' : ($__rejStep ? '<i class="fas fa-xmark"></i>' : ($__i+1)); ?></div>
-              <div style="font-size:.6rem;margin-top:.32rem;color:<?php echo $__txt; ?>;font-weight:<?php echo $__active?'700':'500'; ?>;line-height:1.2;"><?php echo $__lbl; ?></div>
-            </div>
-            <?php endforeach; ?>
-          </div>
-        </div>
+        <?php /* A horizontal Workflow Progress stepper stood here. It drew the
+             same journey as the Progress Timeline in the right column, in eight
+             cramped steps that needed their own horizontal scrollbar to read,
+             and the two did not agree on how many stages there were. The
+             timeline states it once, legibly, with what each stage means. */ ?>
 
         <?php $dp=$vr['department_assigned']??''; $techAssigned = !empty($vr['technician_name']) && strtolower(trim((string)$vr['technician_name'])) !== 'unassigned'; ?>
         <div class="info-grid">
@@ -1613,6 +1592,28 @@ function go() {
 let dbt; function debounceGo() { clearTimeout(dbt); dbt = setTimeout(go, 500); }
 
 /* ── DETAIL MODAL ─────────────────────────────────── */
+/* Opening a report and closing it are both real navigations, so the browser put
+   the list back at the top each time — that is the jump when a record opens or
+   closes, and why it reads as the page refreshing itself. Remember where the
+   list was and restore it, so the page you come back to is the page you left.
+   pagehide covers both directions, so neither the row handler nor closeDet has
+   to know about any of this. */
+(function () {
+  const KEY = 'becDrScroll';
+  if ('scrollRestoration' in history) { history.scrollRestoration = 'manual'; }
+  window.addEventListener('pagehide', function () {
+    try { sessionStorage.setItem(KEY, String(window.scrollY || 0)); } catch (_) {}
+  });
+  window.addEventListener('load', function () {
+    let y = null;
+    try { y = sessionStorage.getItem(KEY); } catch (_) {}
+    if (y === null) { return; }
+    // on load, not DOMContentLoaded: the table and its images have settled by
+    // then, so the offset we stored still points at the same row
+    window.scrollTo(0, parseInt(y, 10) || 0);
+  });
+})();
+
 function closeDet() {
   const mo = document.getElementById('detmo');
   if (!mo) return;
