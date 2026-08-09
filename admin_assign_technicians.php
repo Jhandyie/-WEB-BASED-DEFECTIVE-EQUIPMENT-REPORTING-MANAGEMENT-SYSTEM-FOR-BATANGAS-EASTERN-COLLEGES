@@ -311,7 +311,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .smicro i{font-size:.62rem;}
 
 /* -- MAIN GRID ------------------------------------- */
-.main-grid{display:grid;grid-template-columns:1fr 360px;gap:1.25rem;align-items:start;}
+/* 400px, not 360: the technician cards now live in this column and a name plus
+   a workload bar plus an Available pill does not fit comfortably in 360. */
+.main-grid{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:1.25rem;align-items:start;}
 
 /* -- PANEL ----------------------------------------- */
 .panel{background:var(--s1);border-radius:var(--r3);border:1px solid var(--bdr);
@@ -325,15 +327,26 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .ph3 h3 i{color:var(--m3);}
 
 /* -- TABLE ----------------------------------------- */
-.tbl{width:100%;border-collapse:collapse;}
-.tbl thead th{padding:.52rem 1rem;font-size:.6rem;text-transform:uppercase;
-  letter-spacing:.85px;color:var(--t3);font-weight:800;text-align:left;
-  background:var(--s2);border-bottom:1.5px solid var(--bdr);white-space:nowrap;}
-.tbl tbody td{padding:.7rem 1rem;font-size:.79rem;color:var(--t1);
-  border-bottom:1px solid var(--bdr);vertical-align:middle;}
-.tbl tbody tr:last-child td{border-bottom:none;}
+/* Table type comes from .tbl in assets/css/admin-shell.css — this page had
+   its own copy, like the other two rosters did. Only the column behaviour
+   specific to these tables stays here. A ticket number and a date are
+   single tokens: letting them wrap turned BEC-2026-000097 into three lines
+   and made every row a different height. */
+/* The panel clips (rounded corners), so without a scroll container the Action
+   column — the Assign button itself — was cut off at the right edge. */
+.tblwrap{overflow-x:auto;}
+/* These two tables carry six and seven columns inside a panel that lost 40px
+   when the technician picker moved into the right column, so the Action cell —
+   the Assign button — fell off the edge. Tighter gutters and a ceiling on the
+   free-text column bring it back on screen; the wrapper above is the safety net
+   for narrow displays, not the normal way to reach the button. */
+.tbl thead th,.tbl tbody td{padding-left:.62rem;padding-right:.62rem;}
+.tbl td .esl{white-space:nowrap;}
+#unTbl td:nth-child(3){max-width:11rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tbl td:last-child,.tbl th:last-child{white-space:nowrap;width:1%;}
+.tbl td .rid,.tbl td.nw,.tbl th.nw{white-space:nowrap;}
+.tbl tbody td:first-child,.tbl tbody td:nth-last-child(2){white-space:nowrap;}
 .tbl tbody tr{transition:background .1s,transform .1s;}
-.tbl tbody tr:hover td{background:var(--s2);}
 .tbl tbody tr:hover{transform:none;}
 .rid{font-family:'Outfit',sans-serif;font-weight:800;color:var(--m3);font-size:.78rem;}
 .en{font-weight:700;}.esl{font-size:.64rem;color:var(--t3);}
@@ -408,9 +421,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   background:var(--s2);color:var(--t2);border:1px solid var(--bdr);}
 
 /* -- ASSIGNMENT PANEL ------------------------------ */
+/* The right column is the decision: the report you picked, the technicians who
+   could take it, and the confirm — stacked in the order you actually work. It
+   sticks as one unit so the queue on the left can scroll beneath it. The form
+   used to stick on its own while the technician list sat at the bottom of the
+   left column, so the two halves of one choice were never on screen together. */
+.assign-col{position:sticky;top:72px;display:flex;flex-direction:column;gap:1rem;
+  max-height:calc(100vh - 88px);overflow-y:auto;overscroll-behavior:contain;
+  scrollbar-width:thin;scrollbar-color:var(--bdr2,#D0C0A8) transparent;}
+.assign-col::-webkit-scrollbar{width:6px;}
+.assign-col::-webkit-scrollbar-thumb{background:var(--bdr2,#D0C0A8);border-radius:3px;}
 .assign-panel{background:var(--s1);border-radius:var(--r3);
-  border:1.5px solid var(--bdr);box-shadow:var(--sh1);overflow:hidden;
-  position:sticky;top:72px;}
+  border:1.5px solid var(--bdr);box-shadow:var(--sh1);overflow:hidden;flex-shrink:0;}
 .ap-head{padding:1rem 1.25rem;background:linear-gradient(125deg,var(--m1),var(--m3));
   position:relative;overflow:hidden;}
 .ap-head::after{content:'';position:absolute;right:-10px;top:-10px;
@@ -569,7 +591,7 @@ textarea.fc{resize:vertical;min-height:80px;}
 
 /* -- RESPONSIVE ------------------------------------ */
 @media(max-width:1200px){.main-grid{grid-template-columns:1fr;}
-  .assign-panel{position:static;}}
+  .assign-col{position:static;max-height:none;overflow:visible;}}
 @media(max-width:768px){.sb{transform:translateX(-100%);}.sb.open{transform:translateX(0);}
   .wrap{margin-left:0;}.pg{padding:1rem;}.mob-tog{display:flex;}
   .sums{grid-template-columns:1fr 1fr;}}
@@ -687,7 +709,7 @@ textarea.fc{resize:vertical;min-height:80px;}
               <i class="fas fa-external-link-alt"></i> View All
             </a>
           </div>
-          <table class="tbl" id="unTbl">
+          <div class="tblwrap"><table class="tbl" id="unTbl">
             <thead>
               <tr>
                 <th>Report ID</th><th>Equipment</th><th>Issue</th>
@@ -738,7 +760,7 @@ textarea.fc{resize:vertical;min-height:80px;}
               </tr>
               <?php endforeach; endif; ?>
             </tbody>
-          </table>
+          </table></div>
         </div>
 
         <!-- Active Assignments Panel -->
@@ -747,7 +769,7 @@ textarea.fc{resize:vertical;min-height:80px;}
             <h3><i class="fas fa-tasks"></i> Active Assignments</h3>
             <span style="font-size:.72rem;color:var(--t3);"><?php echo $totalInProgress; ?> reports in progress</span>
           </div>
-          <table class="tbl">
+          <div class="tblwrap"><table class="tbl">
             <thead>
               <tr>
                 <th>Report ID</th><th>Equipment</th><th>Technician</th>
@@ -783,81 +805,18 @@ textarea.fc{resize:vertical;min-height:80px;}
               </tr>
               <?php endforeach; endif; ?>
             </tbody>
-          </table>
+          </table></div>
         </div>
 
-        <!-- Smart Technician Availability + Recommendation -->
-        <style>
-          .tech-card{transition:box-shadow .15s,transform .12s,border-color .15s;}
-          .tech-card:hover{box-shadow:0 8px 20px rgba(123,29,29,.16);transform:none;border-color:#C9960C !important;}
-          .tech-card:active{transform:translateY(0);}
-          .wbal-seg{transition:opacity .15s;} .wbal-seg:hover{opacity:.8;}
-        </style>
-        <div class="panel">
-          <div class="ph3">
-            <h3><i class="fas fa-user-gear"></i> Technician Availability</h3>
-            <?php if($recommendedTech): ?><span style="font-size:.68rem;color:#92600A;background:#FFF4DD;padding:.2rem .55rem;border-radius:999px;font-weight:700;"><i class="fas fa-wand-magic-sparkles"></i> Best match ready</span><?php endif; ?>
-          </div>
-          <?php
-            $teamTotal = (int)array_sum(array_column($technicians,'workload'));
-            $avgLoad = $totalTechs > 0 ? round($teamTotal / $totalTechs, 1) : 0;
-          ?>
-          <?php if(!empty($technicians)): ?>
-          <div style="padding:.65rem .8rem .2rem;">
-            <div style="display:flex;justify-content:space-between;align-items:center;font-size:.62rem;color:#8a6d5a;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.4rem;">
-              <span><i class="fas fa-scale-balanced"></i> Team Workload Balance</span>
-              <span><?php echo $teamTotal; ?> active · avg <?php echo $avgLoad; ?>/tech</span>
-            </div>
-            <div style="display:flex;height:16px;border-radius:8px;overflow:hidden;background:#f0e7d8;gap:1px;">
-              <?php if($teamTotal > 0): foreach($technicians as $t): $wlb=(int)$t['workload']; if($wlb<=0) continue;
-                $share = ($wlb / $teamTotal) * 100;
-                $col = ($t['avail']==='overloaded') ? '#DC2626' : (($t['avail']==='unavailable') ? '#9ca3af' : '#16A34A');
-              ?>
-                <div class="wbal-seg" title="<?php echo esc($t['fullname']).' — '.$wlb.' active task(s)'; ?>" style="width:<?php echo $share; ?>%;background:<?php echo $col; ?>;min-width:3px;"></div>
-              <?php endforeach; else: ?>
-                <div style="width:100%;display:flex;align-items:center;justify-content:center;font-size:.6rem;color:#8a6d5a;">No active tasks assigned yet — everyone is free</div>
-              <?php endif; ?>
-            </div>
-          </div>
-          <?php endif; ?>
-          <div style="padding:.6rem;display:grid;gap:.6rem;">
-            <?php if(empty($technicians)): ?>
-            <div class="empty"><i class="fas fa-users-slash"></i>No technicians registered.</div>
-            <?php else:
-              $maxWl = max(1, max(array_column($technicians,'workload')));
-              foreach($technicians as $t):
-                $wl = (int)$t['workload']; $tid = $t['tid'];
-                $pct = min(100, ($wl / max(1,$maxWl)) * 100);
-                $initials = strtoupper(implode('',array_map(fn($p)=>substr($p,0,1),array_slice(explode(' ',$t['fullname']??'??'),0,2))));
-                [$aLbl,$aColor,$aIcon,$aBg] = availMeta($t['avail']);
-                $isRec = ($recommendedTid !== null && $tid === $recommendedTid);
-                $disabled = $t['avail'] === 'unavailable';
-            ?>
-            <div class="<?php echo $disabled?'':'tech-card'; ?>" <?php echo $disabled ? '' : 'onclick="assignFromCard(this)"'; ?>
-                 data-tid="<?php echo esc($tid); ?>" data-name="<?php echo esc($t['fullname']??'Technician'); ?>"
-                 style="position:relative;border:1.5px solid <?php echo $isRec?'#C9960C':'#e8dfd0'; ?>;border-radius:14px;padding:.72rem .8rem;background:<?php echo $isRec?'#FFFCF3':'#fff'; ?>;cursor:<?php echo $disabled?'not-allowed':'pointer'; ?>;opacity:<?php echo $disabled?'.62':'1'; ?>;">
-              <?php if($isRec): ?><div style="position:absolute;top:-9px;left:12px;background:#C9960C;color:#fff;font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:.14rem .5rem;border-radius:999px;"><i class="fas fa-star"></i> Recommended</div><?php endif; ?>
-              <div style="display:flex;align-items:center;gap:.6rem;">
-                <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--m3),var(--m4));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:.76rem;flex-shrink:0;"><?php echo $initials; ?></div>
-                <div style="flex:1;min-width:0;">
-                  <div style="font-weight:700;font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?php echo esc($t['fullname']??'Technician'); ?></div>
-                  <div style="font-size:.7rem;color:#8a6d5a;"><i class="fas fa-screwdriver-wrench" style="font-size:.6rem;"></i> <?php echo esc($t['spec']); ?><?php if(!empty($t['dept']) && strtolower($t['dept'])!==strtolower($t['spec'])): ?> · <?php echo esc($t['dept']); ?><?php endif; ?></div>
-                </div>
-                <div style="text-align:right;flex-shrink:0;">
-                  <span style="display:inline-flex;align-items:center;gap:.25rem;font-size:.62rem;font-weight:700;color:<?php echo $aColor; ?>;background:<?php echo $aBg; ?>;padding:.18rem .5rem;border-radius:999px;"><i class="fas <?php echo $aIcon; ?>"></i> <?php echo $aLbl; ?></span>
-                  <div style="font-size:.62rem;color:#8a6d5a;margin-top:.28rem;"><?php echo $wl; ?> active task<?php echo $wl!=1?'s':''; ?></div>
-                </div>
-              </div>
-              <div style="height:5px;background:#f0e7d8;border-radius:4px;margin-top:.55rem;overflow:hidden;"><div style="height:100%;width:<?php echo $pct; ?>%;background:<?php echo wlColor($wl); ?>;"></div></div>
-              <?php if(!$disabled): ?><div style="font-size:.6rem;color:#b08d4f;margin-top:.42rem;text-align:right;font-weight:700;"><i class="fas fa-hand-pointer"></i> Click to assign</div><?php endif; ?>
-            </div>
-            <?php endforeach; endif; ?>
-          </div>
-        </div>
 
       </div><!-- /left col -->
 
       <!-- RIGHT: Assignment form panel -->
+      <!-- RIGHT: the whole assignment decision in one column — the report you
+           picked, who is free to take it, and the confirm. The technician list
+           used to sit at the bottom of the LEFT column, about 1,200px away from
+           the form that asked which technician to use. -->
+      <div class="assign-col">
       <div class="assign-panel">
         <div class="ap-head">
           <h3><i class="fas fa-user-plus"></i> Assignment Form</h3>
@@ -984,6 +943,75 @@ textarea.fc{resize:vertical;min-height:80px;}
 
         </div><!-- /ap-body -->
       </div><!-- /assign-panel -->
+        <!-- Smart Technician Availability + Recommendation -->
+        <style>
+          .tech-card{transition:box-shadow .15s,transform .12s,border-color .15s;}
+          .tech-card:hover{box-shadow:0 8px 20px rgba(123,29,29,.16);transform:none;border-color:#C9960C !important;}
+          .tech-card:active{transform:translateY(0);}
+          .wbal-seg{transition:opacity .15s;} .wbal-seg:hover{opacity:.8;}
+        </style>
+        <div class="panel">
+          <div class="ph3">
+            <h3><i class="fas fa-user-gear"></i> Technician Availability</h3>
+            <?php if($recommendedTech): ?><span style="font-size:.68rem;color:#92600A;background:#FFF4DD;padding:.2rem .55rem;border-radius:999px;font-weight:700;"><i class="fas fa-wand-magic-sparkles"></i> Best match ready</span><?php endif; ?>
+          </div>
+          <?php
+            $teamTotal = (int)array_sum(array_column($technicians,'workload'));
+            $avgLoad = $totalTechs > 0 ? round($teamTotal / $totalTechs, 1) : 0;
+          ?>
+          <?php if(!empty($technicians)): ?>
+          <div style="padding:.65rem .8rem .2rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:.62rem;color:#8a6d5a;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.4rem;">
+              <span><i class="fas fa-scale-balanced"></i> Team Workload Balance</span>
+              <span><?php echo $teamTotal; ?> active · avg <?php echo $avgLoad; ?>/tech</span>
+            </div>
+            <div style="display:flex;height:16px;border-radius:8px;overflow:hidden;background:#f0e7d8;gap:1px;">
+              <?php if($teamTotal > 0): foreach($technicians as $t): $wlb=(int)$t['workload']; if($wlb<=0) continue;
+                $share = ($wlb / $teamTotal) * 100;
+                $col = ($t['avail']==='overloaded') ? '#DC2626' : (($t['avail']==='unavailable') ? '#9ca3af' : '#16A34A');
+              ?>
+                <div class="wbal-seg" title="<?php echo esc($t['fullname']).' — '.$wlb.' active task(s)'; ?>" style="width:<?php echo $share; ?>%;background:<?php echo $col; ?>;min-width:3px;"></div>
+              <?php endforeach; else: ?>
+                <div style="width:100%;display:flex;align-items:center;justify-content:center;font-size:.6rem;color:#8a6d5a;">No active tasks assigned yet — everyone is free</div>
+              <?php endif; ?>
+            </div>
+          </div>
+          <?php endif; ?>
+          <div style="padding:.6rem;display:grid;gap:.6rem;">
+            <?php if(empty($technicians)): ?>
+            <div class="empty"><i class="fas fa-users-slash"></i>No technicians registered.</div>
+            <?php else:
+              $maxWl = max(1, max(array_column($technicians,'workload')));
+              foreach($technicians as $t):
+                $wl = (int)$t['workload']; $tid = $t['tid'];
+                $pct = min(100, ($wl / max(1,$maxWl)) * 100);
+                $initials = strtoupper(implode('',array_map(fn($p)=>substr($p,0,1),array_slice(explode(' ',$t['fullname']??'??'),0,2))));
+                [$aLbl,$aColor,$aIcon,$aBg] = availMeta($t['avail']);
+                $isRec = ($recommendedTid !== null && $tid === $recommendedTid);
+                $disabled = $t['avail'] === 'unavailable';
+            ?>
+            <div class="<?php echo $disabled?'':'tech-card'; ?>" <?php echo $disabled ? '' : 'onclick="assignFromCard(this)"'; ?>
+                 data-tid="<?php echo esc($tid); ?>" data-name="<?php echo esc($t['fullname']??'Technician'); ?>"
+                 style="position:relative;border:1.5px solid <?php echo $isRec?'#C9960C':'#e8dfd0'; ?>;border-radius:14px;padding:.72rem .8rem;background:<?php echo $isRec?'#FFFCF3':'#fff'; ?>;cursor:<?php echo $disabled?'not-allowed':'pointer'; ?>;opacity:<?php echo $disabled?'.62':'1'; ?>;">
+              <?php if($isRec): ?><div style="position:absolute;top:-9px;left:12px;background:#C9960C;color:#fff;font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:.14rem .5rem;border-radius:999px;"><i class="fas fa-star"></i> Recommended</div><?php endif; ?>
+              <div style="display:flex;align-items:center;gap:.6rem;">
+                <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--m3),var(--m4));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:.76rem;flex-shrink:0;"><?php echo $initials; ?></div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-weight:700;font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?php echo esc($t['fullname']??'Technician'); ?></div>
+                  <div style="font-size:.7rem;color:#8a6d5a;"><i class="fas fa-screwdriver-wrench" style="font-size:.6rem;"></i> <?php echo esc($t['spec']); ?><?php if(!empty($t['dept']) && strtolower($t['dept'])!==strtolower($t['spec'])): ?> · <?php echo esc($t['dept']); ?><?php endif; ?></div>
+                </div>
+                <div style="text-align:right;flex-shrink:0;">
+                  <span style="display:inline-flex;align-items:center;gap:.25rem;font-size:.62rem;font-weight:700;color:<?php echo $aColor; ?>;background:<?php echo $aBg; ?>;padding:.18rem .5rem;border-radius:999px;"><i class="fas <?php echo $aIcon; ?>"></i> <?php echo $aLbl; ?></span>
+                  <div style="font-size:.62rem;color:#8a6d5a;margin-top:.28rem;"><?php echo $wl; ?> active task<?php echo $wl!=1?'s':''; ?></div>
+                </div>
+              </div>
+              <div style="height:5px;background:#f0e7d8;border-radius:4px;margin-top:.55rem;overflow:hidden;"><div style="height:100%;width:<?php echo $pct; ?>%;background:<?php echo wlColor($wl); ?>;"></div></div>
+              <?php if(!$disabled): ?><div style="font-size:.6rem;color:#b08d4f;margin-top:.42rem;text-align:right;font-weight:700;"><i class="fas fa-hand-pointer"></i> Click to assign</div><?php endif; ?>
+            </div>
+            <?php endforeach; endif; ?>
+          </div>
+        </div>
+    </div><!-- /assign-col -->
 
     </div><!-- /main-grid -->
   </div><!-- /pg -->
