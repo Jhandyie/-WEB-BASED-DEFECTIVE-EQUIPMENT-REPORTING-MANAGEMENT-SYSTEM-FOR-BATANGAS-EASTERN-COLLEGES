@@ -541,6 +541,22 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .tbl tbody tr{transition:background .1s,transform .1s;}
 .tbl tbody tr:hover{transform:none;}
 .rid{font-family:'Outfit',sans-serif;font-weight:800;color:var(--m3);font-size:.78rem;}
+/* The ticket number is the way into the full record. Underlined only on hover
+   so a column of them does not read as a wall of links. */
+.rid-lnk{text-decoration:none;border-bottom:1px solid transparent;
+  transition:color .15s,border-color .15s;}
+.rid-lnk:hover{color:var(--m2);border-bottom-color:currentColor;}
+.rid-lnk:focus-visible{outline:2px solid var(--m3);outline-offset:2px;border-radius:3px;}
+
+/* Ticket number and the way to the full record, on one baseline. */
+.rep-idrow{display:flex;align-items:center;justify-content:space-between;gap:.5rem;}
+.rep-full{display:inline-flex;align-items:center;gap:.3rem;flex-shrink:0;
+  font-size:.66rem;font-weight:700;color:var(--m3);text-decoration:none;
+  padding:.2rem .5rem;border:1px solid var(--bdr);border-radius:20px;background:var(--s1);
+  transition:background .15s,color .15s,border-color .15s;}
+.rep-full i{font-size:.6rem;}
+.rep-full:hover{background:var(--m3);border-color:var(--m3);color:#fff;}
+.rep-full:focus-visible{outline:2px solid var(--m3);outline-offset:2px;}
 .en{font-weight:700;}.esl{font-size:.64rem;color:var(--t3);}
 
 /* -- QUEUE TOOLBAR --------------------------------- */
@@ -735,7 +751,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   background:rgba(28,16,8,.42);opacity:0;visibility:hidden;
   transition:opacity .22s ease,visibility .22s;}
 .dw.open{opacity:1;visibility:visible;}
-.dw-panel{width:min(580px,100%);height:100%;background:var(--bg);
+/* 720, arrived at by measurement rather than taste. A card's top row spends 38px
+   on the avatar, 73px on the availability pill, 22px on the info button and 29px
+   on gaps before the name gets anything. Two cards to a row plus the drawer and
+   panel padding means the name is left 25px at 580 and 75px at 680 — both less
+   than "Michelle A. Dino" needs. At 720 it gets about 140px and reads. */
+.dw-panel{width:min(720px,100%);height:100%;background:var(--bg);
   display:flex;flex-direction:column;box-shadow:-18px 0 50px rgba(28,16,8,.22);
   transform:translateX(100%);transition:transform .26s cubic-bezier(.4,0,.2,1);}
 .dw.open .dw-panel{transform:translateX(0);}
@@ -763,8 +784,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
    said, so it goes; the drawer is the workspace now. */
 .dw .ap-head{display:none;}
 /* 580px is wide enough to compare technicians side by side, which a 400px
-   column never was — the whole point of the list is choosing between them. */
-.dw .tech-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;}
+   column never was — the whole point of the list is choosing between them.
+   minmax(0,1fr), not 1fr: a plain fr floors at the column's min-content, so the
+   card holding the longest name came out 4px wider than the one beside it and
+   the two columns never lined up. */
+.dw .tech-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem;}
+/* Cards sit on a shared baseline whatever their content does. */
+.dw .tech-grid > *{min-width:0;}
+/* A name is the one thing on this card that must not be traded away for layout.
+   If a longer one than the current roster ever appears, it wraps to a second
+   line rather than being ellipsised into initials — the grid row equalises the
+   heights, so a taller card costs nothing but a few pixels. */
+.dw .tcd-name{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.25;}
 
 /* Outside the scroll container, so the decision is on screen no matter how far
    down the technician list you have read. */
@@ -1154,7 +1185,9 @@ textarea.fc{resize:vertical;min-height:80px;}
                   data-rank="<?php echo $rowRank; ?>"
                   data-age="<?php echo $rowAge === null ? -1 : (int)$rowAge; ?>"
                   data-stale="<?php echo ($rowAge !== null && $rowAge >= 172800) ? '1' : '0'; ?>">
-                <td><span class="rid"><?php echo esc($r['report_id']); ?></span></td>
+                <td><a class="rid rid-lnk" title="Open the full record in a new tab"
+                       target="_blank" rel="noopener"
+                       href="admin_defect_reports.php?view_id=<?php echo urlencode($r['report_id']); ?>"><?php echo esc($r['report_id']); ?></a></td>
                 <td>
                   <div class="en"><?php echo esc($r['equipment_name']??'N/A'); ?></div>
                   <?php if(!empty($r['asset_tag'])): ?><div class="esl"><?php echo esc($r['asset_tag']); ?></div><?php endif; ?>
@@ -1290,7 +1323,19 @@ textarea.fc{resize:vertical;min-height:80px;}
               <button class="rep-clear" onclick="clearReport()" title="Clear selection">
                 <i class="fas fa-times"></i>
               </button>
-              <div class="rep-id" id="rpId">-</div>
+              <?php /* The preview carries what the dispatch decision needs. The
+                       whole record — timeline, activity log, PMO notes, every
+                       photo — lives on the Defect Reports page, so this links
+                       there rather than duplicating it. New tab, because losing
+                       a half-filled assignment to a navigation is worse than a
+                       second tab. */ ?>
+              <div class="rep-idrow">
+                <div class="rep-id" id="rpId">-</div>
+                <a class="rep-full" id="rpFull" href="#" target="_blank" rel="noopener"
+                   title="Open the full record in a new tab">
+                  <i class="fas fa-arrow-up-right-from-square"></i> Full record
+                </a>
+              </div>
               <div class="rep-eq" id="rpEq">-</div>
               <div class="rep-facts" id="rpFacts"></div>
               <div class="rep-desc" id="rpDesc">-</div>
@@ -1337,73 +1382,6 @@ textarea.fc{resize:vertical;min-height:80px;}
               </select>
             </div>
 
-            <!-- Selected tech preview -->
-            <div class="tech-prev" id="techPrev">
-              <div class="tp-av" id="tpAv">??</div>
-              <div>
-                <div class="tp-name" id="tpName">-</div>
-                <div style="display:flex;gap:.3rem;margin-top:.2rem;flex-wrap:wrap;" id="tpMeta"></div>
-              </div>
-            </div>
-
-            <!-- Responsible unit. Two options behind a dropdown you had to open to
-                 discover it held two. As cards they state what each unit covers,
-                 which is the part an administrator is actually deciding. -->
-            <div class="fg">
-              <label class="fl">Responsible Unit <span>*</span></label>
-              <div class="unit-seg" role="radiogroup" aria-label="Responsible unit">
-                <?php foreach ([
-                  ['PMO',  'fa-building',     'PMO',  'Physical maintenance &amp; facilities'],
-                  ['ITSO', 'fa-laptop-code',  'ITSO', 'IT equipment &amp; computer labs'],
-                ] as [$uv, $uic, $ut, $ud]): ?>
-                <label class="unit-opt unit-<?php echo strtolower($uv); ?>">
-                  <input type="radio" name="department" value="<?php echo $uv; ?>" required>
-                  <span class="unit-box">
-                    <span class="unit-check" aria-hidden="true"><i class="fas fa-check"></i></span>
-                    <i class="fas <?php echo $uic; ?> unit-ic" aria-hidden="true"></i>
-                    <span class="unit-t"><?php echo $ut; ?></span>
-                    <span class="unit-d"><?php echo $ud; ?></span>
-                  </span>
-                </label>
-                <?php endforeach; ?>
-              </div>
-            </div>
-
-            <!-- Priority: four fixed choices, so it is four buttons rather than a
-                 dropdown you have to open to discover what is in it. Matches the
-                 segmented control the report record already uses for the same
-                 field, so the two screens ask the question the same way.
-                 (The old dropdown also read "Critical Critical".) -->
-            <div class="fg">
-              <label class="fl">Priority Level <span>*</span></label>
-              <div class="prio-seg" role="radiogroup" aria-label="Priority level">
-                <?php foreach ([['low','Low'],['medium','Medium'],['high','High'],['critical','Critical']] as [$pv,$pl]): ?>
-                <label class="ps-opt ps-<?php echo $pv; ?>">
-                  <input type="radio" name="priority" value="<?php echo $pv; ?>" required>
-                  <span><?php echo $pl; ?></span>
-                </label>
-                <?php endforeach; ?>
-              </div>
-            </div>
-
-            <!-- Instructions -->
-            <div class="fg">
-              <label class="fl">Handler Instructions</label>
-              <textarea name="instructions" id="fInstr" class="fc"
-                placeholder="Provide specific instructions for the technician (tools needed, safety notes, access info)..."></textarea>
-            </div>
-
-            <?php /* Confirm and Clear used to sit here, at the end of the form
-                     and therefore above the technician cards that follow it —
-                     in a scrolling drawer that meant meeting the primary action
-                     before the chooser step 2 asks for. They are in the drawer's
-                     sticky footer now, tied back to this form by the form=
-                     attribute, so the decision is always in reach and never
-                     arrives before the choice. */ ?>
-          </form>
-
-        </div><!-- /ap-body -->
-      </div><!-- /assign-panel -->
         <!-- Smart Technician Availability + Recommendation -->
         <style>
           .tech-card{transition:box-shadow .15s,transform .12s,border-color .15s;}
@@ -1514,6 +1492,73 @@ textarea.fc{resize:vertical;min-height:80px;}
             <?php endforeach; endif; ?>
           </div>
         </div>
+            <!-- Selected tech preview -->
+            <div class="tech-prev" id="techPrev">
+              <div class="tp-av" id="tpAv">??</div>
+              <div>
+                <div class="tp-name" id="tpName">-</div>
+                <div style="display:flex;gap:.3rem;margin-top:.2rem;flex-wrap:wrap;" id="tpMeta"></div>
+              </div>
+            </div>
+
+            <!-- Responsible unit. Two options behind a dropdown you had to open to
+                 discover it held two. As cards they state what each unit covers,
+                 which is the part an administrator is actually deciding. -->
+            <div class="fg">
+              <label class="fl">Responsible Unit <span>*</span></label>
+              <div class="unit-seg" role="radiogroup" aria-label="Responsible unit">
+                <?php foreach ([
+                  ['PMO',  'fa-building',     'PMO',  'Physical maintenance &amp; facilities'],
+                  ['ITSO', 'fa-laptop-code',  'ITSO', 'IT equipment &amp; computer labs'],
+                ] as [$uv, $uic, $ut, $ud]): ?>
+                <label class="unit-opt unit-<?php echo strtolower($uv); ?>">
+                  <input type="radio" name="department" value="<?php echo $uv; ?>" required>
+                  <span class="unit-box">
+                    <span class="unit-check" aria-hidden="true"><i class="fas fa-check"></i></span>
+                    <i class="fas <?php echo $uic; ?> unit-ic" aria-hidden="true"></i>
+                    <span class="unit-t"><?php echo $ut; ?></span>
+                    <span class="unit-d"><?php echo $ud; ?></span>
+                  </span>
+                </label>
+                <?php endforeach; ?>
+              </div>
+            </div>
+
+            <!-- Priority: four fixed choices, so it is four buttons rather than a
+                 dropdown you have to open to discover what is in it. Matches the
+                 segmented control the report record already uses for the same
+                 field, so the two screens ask the question the same way.
+                 (The old dropdown also read "Critical Critical".) -->
+            <div class="fg">
+              <label class="fl">Priority Level <span>*</span></label>
+              <div class="prio-seg" role="radiogroup" aria-label="Priority level">
+                <?php foreach ([['low','Low'],['medium','Medium'],['high','High'],['critical','Critical']] as [$pv,$pl]): ?>
+                <label class="ps-opt ps-<?php echo $pv; ?>">
+                  <input type="radio" name="priority" value="<?php echo $pv; ?>" required>
+                  <span><?php echo $pl; ?></span>
+                </label>
+                <?php endforeach; ?>
+              </div>
+            </div>
+
+            <!-- Instructions -->
+            <div class="fg">
+              <label class="fl">Handler Instructions</label>
+              <textarea name="instructions" id="fInstr" class="fc"
+                placeholder="Provide specific instructions for the technician (tools needed, safety notes, access info)..."></textarea>
+            </div>
+
+            <?php /* Confirm and Clear used to sit here, at the end of the form
+                     and therefore above the technician cards that follow it —
+                     in a scrolling drawer that meant meeting the primary action
+                     before the chooser step 2 asks for. They are in the drawer's
+                     sticky footer now, tied back to this form by the form=
+                     attribute, so the decision is always in reach and never
+                     arrives before the choice. */ ?>
+          </form>
+
+        </div><!-- /ap-body -->
+      </div><!-- /assign-panel -->
     </div><!-- /assign-col -->
         <div class="dw-foot">
           <button type="button" class="btn btn-ghost" onclick="clearAll()">
@@ -1643,7 +1688,9 @@ textarea.fc{resize:vertical;min-height:80px;}
               <tr data-hay="<?php echo esc($aHay); ?>"
                   data-tech="<?php echo esc($aTid); ?>"
                   data-status="<?php echo esc((string)($r['status'] ?? '')); ?>">
-                <td><span class="rid"><?php echo esc($r['report_id']); ?></span></td>
+                <td><a class="rid rid-lnk" title="Open the full record in a new tab"
+                       target="_blank" rel="noopener"
+                       href="admin_defect_reports.php?view_id=<?php echo urlencode($r['report_id']); ?>"><?php echo esc($r['report_id']); ?></a></td>
                 <td>
                   <div class="en"><?php echo esc($r['equipment_name']??'N/A'); ?></div>
                   <?php if(!empty($r['asset_tag'])): ?><div class="esl"><?php echo esc($r['asset_tag']); ?></div><?php endif; ?>
@@ -2060,6 +2107,9 @@ function selectReport(data) {
   document.getElementById('repFilled').style.display = 'block';
   document.getElementById('repPrev').classList.add('filled');
   document.getElementById('rpId').textContent = '#' + data.id;
+  /* encodeURIComponent, not raw: the id is a stored value going into a URL. */
+  document.getElementById('rpFull').href =
+    'admin_defect_reports.php?view_id=' + encodeURIComponent(data.id);
   document.getElementById('rpEq').textContent = data.equipment + (data.asset ? '  -  ' + data.asset : '');
   document.getElementById('rpDesc').textContent = data.issue || 'No description given.';
 
