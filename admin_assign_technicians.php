@@ -675,6 +675,14 @@ textarea.fc{resize:vertical;min-height:80px;}
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
   transition:all .18s;position:relative;z-index:1;}
 .mx:hover{background:rgba(255,255,255,.22);color:#fff;transform:rotate(90deg);}
+/* Dispatch summary: label/value rows, so what is about to happen reads in one
+   pass rather than as a sentence to parse. */
+.asg-sum{display:grid;grid-template-columns:7rem minmax(0,1fr);gap:.1rem .9rem;margin:0;}
+.asg-sum dt{font-size:.7rem;font-weight:700;color:var(--t3);padding:.4rem 0;
+  border-bottom:1px solid var(--bdr);}
+.asg-sum dd{margin:0;font-size:.8rem;font-weight:600;color:var(--t1);padding:.4rem 0;
+  border-bottom:1px solid var(--bdr);overflow-wrap:anywhere;}
+.asg-sum dt:last-of-type,.asg-sum dd:last-of-type{border-bottom:none;}
 .mb{padding:1.375rem 1.5rem;}
 .mf{padding:.8rem 1.5rem 1.25rem;border-top:1px solid var(--bdr);
   display:flex;justify-content:flex-end;gap:.45rem;
@@ -826,8 +834,13 @@ textarea.fc{resize:vertical;min-height:80px;}
           <div class="tblwrap"><table class="tbl" id="unTbl">
             <thead>
               <tr>
-                <th>Report ID</th><th>Equipment</th><th>Issue</th>
-                <th>Priority</th><th>Date</th><th style="text-align:center;">Action</th>
+                <?php /* Location replaces the Issue stub. The stub was the first 50
+                         characters and an ellipsis — never enough to judge a fault by,
+                         and the full text is in the panel the moment a report is
+                         selected. Where the equipment is decides who can go, so it
+                         earns the column more than half a sentence does. */ ?>
+                <th>Report</th><th>Equipment</th><th>Location</th>
+                <th>Priority</th><th>Waiting</th><th style="text-align:center;">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -843,13 +856,31 @@ textarea.fc{resize:vertical;min-height:80px;}
                   <div class="en"><?php echo esc($r['equipment_name']??'N/A'); ?></div>
                   <?php if(!empty($r['asset_tag'])): ?><div class="esl"><?php echo esc($r['asset_tag']); ?></div><?php endif; ?>
                 </td>
-                <td style="max-width:180px;">
-                  <div style="font-size:.77rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                    <?php echo esc(substr($r['issue_description']??'',0,50)); ?>...
-                  </div>
+                <?php
+                  /* The head of the location is the campus/building — the part that
+                     decides who can walk there. The rest stays on the title. */
+                  $uLoc  = trim((string)($r['location'] ?? ''));
+                  $uHead = trim(explode('•', $uLoc)[0]);
+                  /* How long this has been sitting unassigned. A queue is judged by
+                     its oldest item, and a date alone makes you do the arithmetic. */
+                  $uAge  = !empty($r['report_date']) ? (time() - strtotime((string)$r['report_date'])) : null;
+                  $uAgeT = $uAge === null ? '—'
+                         : ($uAge < 3600   ? max(1, (int)floor($uAge / 60)) . 'm'
+                         : ($uAge < 86400  ? (int)floor($uAge / 3600) . 'h'
+                         :                   (int)floor($uAge / 86400) . 'd'));
+                  $uStale = $uAge !== null && $uAge >= 172800;   // two days unassigned
+                ?>
+                <td style="max-width:190px;" title="<?php echo esc($uLoc); ?>">
+                  <div class="en" style="font-weight:600;font-size:.78rem;"><?php echo esc($uHead ?: '—'); ?></div>
+                  <?php if ($uHead !== '' && $uHead !== $uLoc): ?>
+                  <div class="esl"><?php echo esc(trim(substr($uLoc, strlen($uHead) + 1), " •")); ?></div>
+                  <?php endif; ?>
                 </td>
                 <td><span class="bdg b-<?php echo prCls($r['priority']); ?>"><?php echo prLbl($r['priority']); ?></span></td>
-                <td style="font-size:.73rem;color:var(--t3);"><?php echo date('M j, Y',strtotime($r['report_date'])); ?></td>
+                <td class="nw" style="font-size:.75rem;<?php echo $uStale ? 'color:#C2410C;font-weight:800;' : 'color:var(--t3);'; ?>"
+                    title="Reported <?php echo esc(date('M j, Y · g:i A', strtotime((string)$r['report_date']))); ?>">
+                  <?php echo $uAgeT; ?><?php echo $uStale ? ' <i class="fas fa-triangle-exclamation" style="font-size:.6rem;"></i>' : ''; ?>
+                </td>
                 <td style="text-align:center;">
                   <button class="btn btn-maroon btn-sm"
                     onclick="selectReport(<?php echo htmlspecialchars(json_encode([
@@ -1091,6 +1122,7 @@ textarea.fc{resize:vertical;min-height:80px;}
             <div class="<?php echo $disabled ? 'tcd tcd-off' : 'tech-card tcd'; ?>"
                  <?php echo $disabled ? '' : 'onclick="assignFromCard(this)" tabindex="0" role="button" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();assignFromCard(this);}"'; ?>
                  data-tid="<?php echo esc($tid); ?>" data-name="<?php echo esc($t['fullname'] ?? 'Technician'); ?>"
+                 data-load="<?php echo (int)$wl; ?>"
                  aria-label="Select <?php echo esc($t['fullname'] ?? 'technician'); ?><?php echo $disabled ? ' (unavailable)' : ''; ?>"
                  <?php echo $isRec ? 'data-recommended="1"' : ''; ?>>
 
@@ -1202,6 +1234,35 @@ textarea.fc{resize:vertical;min-height:80px;}
 <div class="media-lb" id="mediaLb" onclick="if(event.target===this)closeMedia()">
   <button type="button" class="media-lb-x" onclick="closeMedia()" aria-label="Close"><i class="fas fa-times"></i></button>
   <div class="media-lb-body" id="mediaLbBody"></div>
+</div>
+
+<!-- Dispatch confirmation. Assigning sends an email and moves the report into a
+     technician's queue, so it is worth one look at what is about to happen —
+     especially the technician's current load, which is the thing most easily got
+     wrong when several people are free. -->
+<div class="mo" id="asgMo" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="mw">
+    <div class="mhd">
+      <div class="mhd-t">
+        <h2><i class="fas fa-paper-plane" style="margin-right:.3rem;opacity:.8;"></i> Dispatch this repair?</h2>
+        <p>The technician is notified by email and the report moves into their queue.</p>
+      </div>
+      <button class="mx" onclick="document.getElementById('asgMo').classList.remove('open')" aria-label="Cancel"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="mb">
+      <dl class="asg-sum" id="asgSum"></dl>
+      <div id="asgWarn" style="display:none;margin-top:.7rem;" class="conf-panel">
+        <div class="conf-icon"><i class="fas fa-triangle-exclamation"></i></div>
+        <div style="font-size:.78rem;color:var(--t2);line-height:1.5;" id="asgWarnTxt"></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('asgMo').classList.remove('open')">Back &amp; edit</button>
+      <button type="button" class="btn btn-green btn-sm" id="asgGo" onclick="confirmAssign()">
+        <i class="fas fa-paper-plane"></i> Confirm assignment
+      </button>
+    </div>
+  </div>
 </div>
 
 <div class="mo" id="unMo" onclick="if(event.target===this)this.classList.remove('open')">
@@ -1495,16 +1556,82 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 
 /* --- VALIDATION ----------------------------------- */
+/* Set only by the confirmation dialog, so the form cannot post until the summary
+   has actually been seen. Reset immediately after, so a second assignment on the
+   same page still has to be confirmed. */
+let _asgOK = false;
+
 function validateAssign() {
   if (!document.getElementById('fRid').value) {
     toast('err', 'Please select a report first.', 'Missing Report');
     return false;
   }
-  if (!document.getElementById('fTech').value) {
+  const techSel = document.getElementById('fTech');
+  if (!techSel.value) {
     toast('err', 'Please select a technician.', 'Missing Technician');
     return false;
   }
-  return true;
+  if (!document.querySelector('.unit-seg input:checked')) {
+    toast('err', 'Please choose the responsible unit.', 'Missing Unit');
+    return false;
+  }
+  if (!document.querySelector('.prio-seg input:checked')) {
+    toast('err', 'Please set a priority level.', 'Missing Priority');
+    return false;
+  }
+  if (_asgOK) { _asgOK = false; return true; }   // came back from the dialog
+
+  /* Build the summary from what is actually selected, not from a copy kept in
+     JS that could drift out of step with the form. */
+  const rid   = document.getElementById('fRid').value;
+  const eqEl  = document.getElementById('rpEq');
+  const tOpt  = techSel.options[techSel.selectedIndex];
+  const unit  = document.querySelector('.unit-seg input:checked').value;
+  const prio  = document.querySelector('.prio-seg input:checked').value;
+  const card  = document.querySelector('.tech-card[data-tid="' + (window.CSS && CSS.escape ? CSS.escape(techSel.value) : techSel.value) + '"]');
+  const instr = (document.getElementById('fInstr').value || '').trim();
+
+  const row = (k, v) => '<dt>' + k + '</dt><dd>' + dEscA(v) + '</dd>';
+  document.getElementById('asgSum').innerHTML =
+      row('Report',     rid + (eqEl && eqEl.textContent.trim() ? ' — ' + eqEl.textContent.trim() : ''))
+    + row('Technician', (tOpt ? tOpt.textContent : '').replace(/\s+/g, ' ').trim())
+    + row('Unit',       unit)
+    + row('Priority',   prio.charAt(0).toUpperCase() + prio.slice(1))
+    + row('Instructions', instr !== '' ? instr : 'None given');
+
+  /* Overload is the one thing worth interrupting for: everything else on this
+     form is visible, but how much that technician is already carrying is not. */
+  const warn = document.getElementById('asgWarn');
+  const load = card ? parseInt(card.getAttribute('data-load') || '0', 10) : 0;
+  if (load >= 4) {
+    document.getElementById('asgWarnTxt').innerHTML =
+      '<b>Heavy workload.</b> This technician already has ' + load +
+      ' open repairs. Assigning anyway is allowed — it is recorded either way.';
+    warn.style.display = 'flex';
+  } else {
+    warn.style.display = 'none';
+  }
+
+  document.getElementById('asgMo').classList.add('open');
+  setTimeout(function () { document.getElementById('asgGo').focus(); }, 60);
+  return false;   // hold the submit until the dialog says go
+}
+
+function dEscA(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function confirmAssign() {
+  _asgOK = true;
+  document.getElementById('asgMo').classList.remove('open');
+  const btn = document.getElementById('asgGo');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Dispatching…';
+  document.getElementById('assignForm').requestSubmit
+    ? document.getElementById('assignForm').requestSubmit()
+    : document.getElementById('assignForm').submit();
 }
 
 /* --- UNASSIGN MODAL ------------------------------- */
