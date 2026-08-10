@@ -199,6 +199,11 @@ $hasFilter = ($search !== '' || $tf !== 'all' || $df !== 'all' || $yf !== 'all')
 <link rel="stylesheet" href="assets/css/admin-shell.css">
 <style>
 
+  /* One scale for type and one for space, shared with the defect record so
+     the two admin pages agree instead of each being consistent in its own
+     dialect. Steps only — nothing lives between them. */
+  :root{--fs-xs:.6rem;--fs-sm:.68rem;--fs-base:.76rem;--fs-md:.82rem;--fs-lg:.88rem;
+    --sp-0:.125rem;--sp-1:.25rem;--sp-2:.5rem;--sp-3:.75rem;--sp-4:1rem;--sp-5:1.5rem;}
   :root{--m:#7B1D1D;--md:#4A0E0E;--g:#C9960C;--ink:#1A0808;--ink2:#5C3838;--ink3:#9C7A7A;--paper:#F4EFE6;--surface:#fff;--border:#E5D9C6;--sb:262px;--danger:#B42318;--success:#1A7A33;--m1:#2D0505;--g2:#D4A017;--g3:#F0C040;--r1:8px;--r2:12px;}
   *{box-sizing:border-box}
   body{margin:0;font-family:'DM Sans',sans-serif;background:var(--paper);color:var(--ink);min-height:100vh;}
@@ -207,63 +212,71 @@ $hasFilter = ($search !== '' || $tf !== 'all' || $df !== 'all' || $yf !== 'all')
   .main{margin-left:var(--sb);transition:margin-left .26s ease;}
   body.becSbHide .main{margin-left:0 !important;}
   .wrap{max-width:none;margin:0;padding:22px 28px 60px;} /* full-width desktop view */
-  .flash{padding:.8rem 1rem;border-radius:10px;margin-bottom:1rem;font-size:.86rem;}
+  .flash{padding:var(--sp-3) var(--sp-4);border-radius:10px;margin-bottom:var(--sp-4);font-size:var(--fs-lg);}
   .flash.ok{background:#E9F9EF;border:1px solid #b6e6c6;color:var(--success);}
   .flash.err{background:#FEF2F2;border:1px solid #FECACA;color:var(--danger);}
   /* post-import report */
-  .imp{padding:.85rem 1rem;border-radius:10px;margin-bottom:1rem;font-size:.82rem;line-height:1.6;border:1px solid var(--border);background:var(--surface);}
-  .imp b{display:block;font-size:.88rem;margin-bottom:.25rem;}
-  .imp p{margin:.1rem 0 .55rem;color:var(--ink2);}
-  .imp ul{margin:0;padding-left:1.1rem;max-height:15rem;overflow-y:auto;}
-  .imp li{margin-bottom:.22rem;color:var(--ink2);}
-  .imp code{background:rgba(0,0,0,.05);padding:.05rem .3rem;border-radius:4px;font-size:.95em;word-break:break-all;}
-  .imp .more{margin:.45rem 0 0;font-style:italic;}
+  .imp{padding:var(--sp-3) var(--sp-4);border-radius:10px;margin-bottom:var(--sp-4);font-size:var(--fs-md);line-height:1.6;border:1px solid var(--border);background:var(--surface);}
+  .imp b{display:block;font-size:var(--fs-lg);margin-bottom:var(--sp-1);}
+  .imp p{margin:var(--sp-0) 0 var(--sp-2);color:var(--ink2);}
+  .imp ul{margin:0;padding-left:var(--sp-4);max-height:15rem;overflow-y:auto;}
+  .imp li{margin-bottom:var(--sp-1);color:var(--ink2);}
+  .imp code{background:rgba(0,0,0,.05);padding:var(--sp-0) var(--sp-1);border-radius:4px;font-size:.95em;word-break:break-all;}
+  .imp .more{margin:var(--sp-2) 0 0;font-style:italic;}
   .imp-warn{background:#FFFBEF;border-color:#F0D79A;border-left:3px solid var(--g);}
   .imp-warn b{color:#8A5A00;}
   .imp-err{background:#FEF2F2;border-color:#FECACA;border-left:3px solid var(--danger);}
   .imp-err b{color:var(--danger);}
   .imp-ok{background:#F3F8F4;border-color:#CFE6D6;border-left:3px solid var(--success);}
   .imp-ok b{color:var(--success);}
-  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:.8rem;margin-bottom:1.2rem;}
-  .stat{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--m);border-radius:12px;padding:.9rem 1rem;}
-  .stat .n{font-size:1.6rem;font-weight:800;color:var(--m);}.stat .l{font-size:.66rem;text-transform:uppercase;letter-spacing:.5px;color:var(--ink3);font-weight:700;}
-  .panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.2rem;margin-bottom:1.2rem;}
-  .panel h2{margin:0 0 .3rem;font-size:1rem;color:var(--m);}
-  .panel p.note{font-size:.8rem;color:var(--ink2);line-height:1.55;margin:.2rem 0 1rem;}
+  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-3);margin-bottom:var(--sp-3);}
+  /* Sits directly under the cards it explains, quiet enough to read as a
+     footnote to them rather than as an error the page is reporting. */
+  .cards-note{display:flex;align-items:flex-start;gap:var(--sp-2);
+    margin:0 0 var(--sp-4);padding:var(--sp-3) var(--sp-4);
+    background:#FBF8F1;border:1px solid var(--border);border-left:3px solid var(--g);
+    border-radius:10px;font-size:var(--fs-base);line-height:1.55;color:var(--ink2);}
+  .cards-note i{color:var(--g);margin-top:.15em;flex-shrink:0;}
+  .cards-note em{font-style:normal;font-weight:700;color:var(--ink);}
+  .stat{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--m);border-radius:12px;padding:var(--sp-4) var(--sp-4);}
+  .stat .n{font-size:1.6rem;font-weight:800;color:var(--m);}.stat .l{font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.5px;color:var(--ink3);font-weight:700;}
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:var(--sp-4);margin-bottom:var(--sp-4);}
+  .panel h2{margin:0 0 var(--sp-1);font-size:1rem;color:var(--m);}
+  .panel p.note{font-size:var(--fs-md);color:var(--ink2);line-height:1.55;margin:var(--sp-1) 0 var(--sp-4);}
   /* The import guidance is reference material, not something read every visit. */
   details.note-guide{padding:0;}
   details.note-guide > summary{cursor:pointer;list-style:none;display:flex;align-items:center;
-    gap:.5rem;padding:.6rem .8rem;font-size:.82rem;}
+    gap:var(--sp-2);padding:var(--sp-2) var(--sp-3);font-size:var(--fs-md);}
   details.note-guide > summary::-webkit-details-marker{display:none;}
   details.note-guide > summary::after{content:'\f078';font-family:'Font Awesome 6 Free';font-weight:900;
-    margin-left:auto;font-size:.62rem;color:var(--ink3);transition:transform .18s;}
+    margin-left:auto;font-size:var(--fs-xs);color:var(--ink3);transition:transform .18s;}
   details.note-guide[open] > summary::after{transform:rotate(180deg);}
   details.note-guide > summary:focus-visible{outline:2px solid var(--m);outline-offset:2px;}
-  details.note-guide .guide-hint{font-size:.68rem;font-weight:500;color:var(--ink3);}
-  details.note-guide ul{margin:0;padding:.1rem .9rem .8rem 2rem;}
+  details.note-guide .guide-hint{font-size:var(--fs-sm);font-weight:500;color:var(--ink3);}
+  details.note-guide ul{margin:0;padding:var(--sp-0) var(--sp-4) var(--sp-3) 2rem;}
   @media(prefers-reduced-motion:reduce){details.note-guide > summary::after{transition:none;}}
-  .note-guide{font-size:.8rem;color:var(--ink2);line-height:1.55;margin:.2rem 0 1rem;
+  .note-guide{font-size:var(--fs-md);color:var(--ink2);line-height:1.55;margin:var(--sp-1) 0 var(--sp-4);
     background:#FBF8F1;border:1px solid var(--border);border-left:3px solid var(--g);
-    border-radius:10px;padding:.75rem .95rem;}
-  .note-guide > b{display:flex;align-items:center;gap:.45rem;margin-bottom:.45rem;color:var(--ink);}
+    border-radius:10px;padding:var(--sp-3) var(--sp-4);}
+  .note-guide > b{display:flex;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-2);color:var(--ink);}
   .note-guide > b i{color:var(--g);}
-  .note-guide ul{margin:0;padding-left:1.1rem;display:flex;flex-direction:column;gap:.32rem;}
-  .note-guide li{padding-left:.15rem;}
+  .note-guide ul{margin:0;padding-left:var(--sp-4);display:flex;flex-direction:column;gap:var(--sp-1);}
+  .note-guide li{padding-left:var(--sp-0);}
   .note-guide em{font-style:normal;font-weight:600;color:var(--ink);}
-  .uprow{display:flex;gap:.7rem;flex-wrap:wrap;align-items:center;}
+  .uprow{display:flex;gap:var(--sp-3);flex-wrap:wrap;align-items:center;}
   input[type=file]{font:inherit;}
-  .btn{display:inline-flex;align-items:center;gap:.5rem;padding:.6rem 1.1rem;border-radius:10px;border:none;font:inherit;font-weight:700;font-size:.82rem;cursor:pointer;text-decoration:none;}
+  .btn{display:inline-flex;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-4);border-radius:10px;border:none;font:inherit;font-weight:700;font-size:var(--fs-md);cursor:pointer;text-decoration:none;}
   .btn.m{background:var(--m);color:#fff;}.btn.g{background:var(--g);color:#fff;}.btn.ghost{background:#f1eadf;color:var(--ink2);}.btn.red{background:var(--danger);color:#fff;}
   /* Table type and spacing come from .adm-table in assets/css/admin-shell.css,
      so this page matches User Management instead of drawing its own maroon
      header bar at its own font size. Zebra striping is gone with it — the row
      separators already do that job, and the stripe fought the hover state. */
-  .tt{display:inline-block;font-size:.62rem;font-weight:700;padding:.1rem .5rem;border-radius:999px;text-transform:uppercase;}
+  .tt{display:inline-block;font-size:var(--fs-xs);font-weight:700;padding:var(--sp-0) var(--sp-2);border-radius:999px;text-transform:uppercase;}
   .tt.student{background:#E8EFFF;color:#1D4ED8;}.tt.faculty{background:#FBF3DF;color:#92600A;}.tt.staff{background:#E9F9EF;color:#166534;}.tt.x{background:#eee;color:#666;}
-  .search{display:flex;gap:.5rem;margin-bottom:.8rem;}
+  .search{display:flex;gap:var(--sp-2);margin-bottom:var(--sp-3);}
   .search{flex-wrap:wrap;}
-  .search input{flex:1 1 220px;padding:.55rem .8rem;border:1.5px solid var(--border);border-radius:9px;font:inherit;}
-  .fsel{padding:.55rem .7rem;border:1.5px solid var(--border);border-radius:9px;font:inherit;
+  .search input{flex:1 1 220px;padding:var(--sp-2) var(--sp-3);border:1.5px solid var(--border);border-radius:9px;font:inherit;}
+  .fsel{padding:var(--sp-2) var(--sp-3);border:1.5px solid var(--border);border-radius:9px;font:inherit;
         background:#fff;color:var(--ink);cursor:pointer;max-width:210px;}
   .fsel:focus{outline:2px solid var(--brand,#7B1E22);outline-offset:1px;}
   .empty{text-align:center;color:var(--ink3);padding:2rem;}
@@ -352,12 +365,33 @@ $hasFilter = ($search !== '' || $tf !== 'all' || $df !== 'all' || $yf !== 'all')
         <?php endif; ?>
       <?php endif; ?>
 
+      <?php
+        $nStudent = (int)($byType['student'] ?? 0);
+        $nFaculty = (int)($byType['faculty'] ?? 0);
+        $nStaff   = (int)($byType['staff']   ?? 0);
+        /* Faculty and Staff read zero because the registrar's export types every
+           row as a student, not because nobody works here. A card that will show
+           0 until someone else changes a file elsewhere is not a statistic, it
+           is an unexplained defect sitting on the page — and this page is shown
+           to a panel. State the reason next to the number instead. */
+        $typedOnly = ($nStudent > 0 && $nFaculty === 0 && $nStaff === 0);
+      ?>
       <div class="cards">
         <div class="stat"><div class="n"><?php echo (int)$total; ?></div><div class="l">Total Records</div></div>
-        <div class="stat"><div class="n"><?php echo (int)($byType['student'] ?? 0); ?></div><div class="l">Students</div></div>
-        <div class="stat"><div class="n"><?php echo (int)($byType['faculty'] ?? 0); ?></div><div class="l">Faculty</div></div>
-        <div class="stat"><div class="n"><?php echo (int)($byType['staff'] ?? 0); ?></div><div class="l">Staff</div></div>
+        <div class="stat"><div class="n"><?php echo $nStudent; ?></div><div class="l">Students</div></div>
+        <div class="stat"><div class="n"><?php echo $nFaculty; ?></div><div class="l">Faculty</div></div>
+        <div class="stat"><div class="n"><?php echo $nStaff; ?></div><div class="l">Staff</div></div>
       </div>
+      <?php if ($typedOnly): ?>
+      <p class="cards-note">
+        <i class="fas fa-circle-info" aria-hidden="true"></i>
+        Faculty and Staff show zero because every row in the registrar's export
+        is typed <em>student</em>. The people are in the directory and can sign
+        in — only the type column is wrong. Re-import with the
+        <em>User Type</em> column filled, or upload a separate faculty and staff
+        file below, and these counts fill in.
+      </p>
+      <?php endif; ?>
 
       <div class="panel">
         <h2><i class="fas fa-file-import"></i> Import Directory</h2>
