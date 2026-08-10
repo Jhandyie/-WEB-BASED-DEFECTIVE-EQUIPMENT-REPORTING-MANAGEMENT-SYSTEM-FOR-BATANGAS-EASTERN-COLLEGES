@@ -887,10 +887,7 @@ textarea.fc{resize:vertical;min-height:70px;}
 
 /* ══════════════════════════════════════════════════════════════════════════
    DEFECT REPORT WORKSPACE  (.dr-*)
-/* Six steps, and nothing between them. Declared here so the scale is a fact
-   of the component rather than something rediscovered per rule. */
-.dr-shell{--fs-xs:.6rem;--fs-sm:.68rem;--fs-base:.76rem;--fs-md:.82rem;--fs-lg:.88rem;
-  --sp-1:.25rem;--sp-2:.5rem;--sp-3:.75rem;--sp-4:1rem;--sp-5:1.5rem;}
+
    A service-desk record, not a form in a box. Replaces the old .mw/.m2col
    modal, whose every fact sat in its own bordered tile with a gradient icon —
    eight boxes of chrome for eight single-line values.
@@ -898,7 +895,13 @@ textarea.fc{resize:vertical;min-height:70px;}
    ══════════════════════════════════════════════════════════════════════════ */
 .dr-shell{background:#fff;width:min(1200px,calc(100vw - 48px));max-height:calc(100vh - 48px);
   display:flex;flex-direction:column;border-radius:18px;overflow:hidden;
-  box-shadow:0 24px 70px rgba(28,16,8,.28),0 2px 8px rgba(28,16,8,.10);}
+  box-shadow:0 24px 70px rgba(28,16,8,.28),0 2px 8px rgba(28,16,8,.10);
+  /* Six steps and five spaces, and nothing between them. Declared on the
+     component so the scale is a fact of it, not something rediscovered per
+     rule. Keep these in the same block as the layout: a second .dr-shell rule
+     is one more thing to keep in sync for no benefit. */
+  --fs-xs:.6rem;--fs-sm:.68rem;--fs-base:.76rem;--fs-md:.82rem;--fs-lg:.88rem;
+  --sp-1:.25rem;--sp-2:.5rem;--sp-3:.75rem;--sp-4:1rem;--sp-5:1.5rem;}
 
 /* ── header ─────────────────────────────────────────────────────────────── */
 .dr-head{position:sticky;top:0;z-index:3;flex-shrink:0;
