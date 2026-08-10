@@ -186,10 +186,13 @@ if (isset($_GET['report'])) {
     }
 }
 
-// Smart recommendation for the currently selected report (if any).
-$recommendedTid = recommendTechnician($technicians, $preReport);
-$recommendedTech = null;
-foreach ($technicians as $t) { if (($t['tid'] ?? '') === $recommendedTid) { $recommendedTech = $t; break; } }
+/* The "smart recommendation" is gone. It ranked technicians on workload and a
+   loose string match against a free-text specialization field, then presented
+   the winner as a best match — a confidence the inputs could not support, and
+   one that quietly pushed work toward whoever happened to be typed as
+   "Electrical". Choosing who goes is the dispatcher's judgement; the page's job
+   is to show what they need to make it (who is free, who is carrying what) and
+   then get out of the way. */
 
 // Stats
 $totalTechs      = count($technicians);
@@ -204,9 +207,10 @@ function prLbl($p){return ucfirst($p??'-');}
 function stLbl($s){return['ready_for_assignment'=>'Ready','assigned'=>'Assigned','in_progress'=>'In Progress','for_replacement'=>'For Replacement'][$s]??ucfirst(str_replace('_',' ',$s));}
 function stCls($s){return['ready_for_assignment'=>'pend','assigned'=>'prog','in_progress'=>'prog2','for_replacement'=>'rej'][$s]??'pend';}
 function esc($s){return htmlspecialchars((string)($s??'-'),ENT_QUOTES,'UTF-8');}
-function wlClass($n){return $n>=4?'wl-over':'wl-ok';}
-function wlLabel($n){return $n>=4?'Overloaded':'Available';}
-function wlColor($n){return $n>=4?'#DC2626':'#16A34A';}
+/* wlClass/wlLabel/wlColor lived here and had no callers. Availability comes
+   from availMeta() now, which returns the label, colour, icon and background
+   together — the three of them classified the same number three ways and could
+   disagree. */
 function deptClass($d){
     $d=strtolower($d??'');
     if(strpos($d,'itso')!==false||strpos($d,'it')!==false||strpos($d,'computer')!==false||strpos($d,'tech')!==false)return'itso';
@@ -219,29 +223,6 @@ function availMeta($a){
         'overloaded'  => ['Overloaded','#DC2626','fa-triangle-exclamation','#FDECEC'],
         'unavailable' => ['Unavailable','#6B7280','fa-ban','#F1F1F1'],
     ][$a] ?? ['Available','#16A34A','fa-circle-check','#E9F9EF'];
-}
-/** Best-match technician for a report: skips unavailable/overloaded, scores
- *  specialization match + availability + lighter workload. */
-function recommendTechnician(array $technicians, ?array $report): ?string {
-    if (!$report) return null;
-    $hay = strtolower(trim(($report['equipment_name'] ?? '') . ' ' . ($report['category_name'] ?? '') . ' ' . ($report['issue_description'] ?? '') . ' ' . ($report['department_assigned'] ?? '')));
-    $best = null; $bestScore = -1;
-    foreach ($technicians as $t) {
-        if (in_array($t['avail'] ?? '', ['unavailable','overloaded'], true)) continue;
-        $score = 0;
-        $spec = strtolower(trim((string)($t['spec'] ?? 'General')));
-        if ($hay !== '' && $spec !== '' && $spec !== 'general') {
-            foreach (preg_split('/[\s\/,&-]+/', $spec) as $word) {
-                if (strlen($word) >= 3 && str_contains($hay, $word)) { $score += 50; break; }
-            }
-        }
-        $dept = strtolower(trim((string)($t['dept'] ?? '')));
-        if ($dept !== '' && $hay !== '' && str_contains($hay, $dept)) { $score += 15; }
-        $score += ($t['avail'] === 'available') ? 20 : 5;
-        $score += max(0, 20 - ((int)($t['workload'] ?? 0)) * 4);
-        if ($score > $bestScore) { $bestScore = $score; $best = $t['tid'] ?? ($t['technician_id'] ?? ''); }
-    }
-    return $best;
 }
 ?><!DOCTYPE html>
 <html lang="en">
@@ -260,8 +241,8 @@ function recommendTechnician(array $technicians, ?array $report): ?string {
    Maroon x Gold x Warm | Outfit + DM Sans
 ======================================================= */
 :root{
-  --m1:#2D0505;--m2:#4A0E0E;--m3:#7B1D1D;--m4:#9B2C2C;--m5:#C53030;
-  --g1:#92600A;--g2:#D4A017;--g3:#F0C040;--gp:#FEF9E7;
+  --m1:#2D0505;--m2:#4A0E0E;--m3:#7B1D1D;--m4:#9B2C2C;
+  --g2:#D4A017;--g3:#F0C040;
   --bg:#F4EFE6;--s1:#FFFFFF;--s2:#FAF7F0;--s3:#F2EAD9;
   --bdr:#E5D9C6;--bdr2:#D0C0A8;
   --t1:#1A0808;--t2:#5C3838;--t3:#9C7A7A;--t4:#C8ABAB;
@@ -269,10 +250,15 @@ function recommendTechnician(array $technicians, ?array $report): ?string {
   --sh1:0 2px 8px rgba(45,5,5,.07),0 1px 3px rgba(45,5,5,.04);
   --sh2:0 6px 20px rgba(45,5,5,.09),0 2px 6px rgba(45,5,5,.05);
   --sh3:0 14px 40px rgba(45,5,5,.13),0 4px 10px rgba(45,5,5,.07);
-  --sh3d:0 6px 0 rgba(45,5,5,.16),0 12px 32px rgba(45,5,5,.11);
-  --sh3dh:0 11px 0 rgba(45,5,5,.2),0 18px 48px rgba(45,5,5,.15);
   --r1:8px;--r2:12px;--r3:18px;--r4:26px;--sb:262px;
+  --fs-xs:.6rem;--fs-sm:.68rem;--fs-base:.76rem;--fs-md:.82rem;--fs-lg:.88rem;--fs-xl:1.02rem;
+  --sp-0:.125rem;--sp-1:.25rem;--sp-2:.5rem;--sp-3:.75rem;--sp-4:1rem;--sp-5:1.5rem;
 }
+/* Six type steps and six spaces, matching admin_defect_reports.php. This page
+   had 37 different font sizes — .62 and .63 and .64rem all in play, none of the
+   differences meaning anything — so the scale is the whole point: sizes below
+   are var(--fs-*) and never literals. Three things stay literal on purpose and
+   are not type: the page h1, the stat number, and the empty-state icon. */
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
 html{scroll-behavior:smooth;}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
@@ -290,15 +276,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   display:flex;align-items:center;justify-content:space-between;
   position:sticky;top:0;z-index:200;box-shadow:var(--sh0);}
 .tb-l{display:flex;align-items:center;gap:.55rem;}
-.mob-tog{display:none;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--t2);}
-.pg-title{font-family:'Outfit',sans-serif;font-weight:700;font-size:1rem;color:var(--t1);}
-.bc{font-size:.68rem;color:var(--t3);display:flex;align-items:center;gap:.25rem;}
+.mob-tog{display:none;background:none;border:none;font-size:var(--fs-xl);cursor:pointer;color:var(--t2);}
+.pg-title{font-family:'Outfit',sans-serif;font-weight:700;font-size:var(--fs-xl);color:var(--t1);}
+.bc{font-size:var(--fs-sm);color:var(--t3);display:flex;align-items:center;gap:.25rem;}
 .bc a{color:var(--t3);text-decoration:none;}.bc a:hover{color:var(--m3);}
-.bc i{font-size:.55rem;}
+.bc i{font-size:var(--fs-xs);}
 .tb-r{display:flex;align-items:center;gap:.55rem;}
 .ic-btn{width:34px;height:34px;background:var(--s2);border:1px solid var(--bdr);
   border-radius:var(--r1);display:flex;align-items:center;justify-content:center;
-  cursor:pointer;color:var(--t2);font-size:.85rem;transition:all .17s;
+  cursor:pointer;color:var(--t2);font-size:var(--fs-lg);transition:all .17s;
   text-decoration:none;position:relative;box-shadow:none;}
 .ic-btn:hover{background:var(--m3);color:#fff;transform:none;box-shadow:none;}
 .pip{position:absolute;top:5px;right:5px;width:7px;height:7px;
@@ -309,7 +295,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 
 /* -- FLASH ----------------------------------------- */
 .flash{display:flex;align-items:center;gap:.65rem;padding:.7rem 1.1rem;
-  border-radius:var(--r2);margin-bottom:1.125rem;font-size:.81rem;font-weight:600;
+  border-radius:var(--r2);margin-bottom:1.125rem;font-size:var(--fs-md);font-weight:600;
   animation:fIn .25s ease;border-left:3px solid;}
 @keyframes fIn{from{opacity:0;transform:translateY(-5px);}to{opacity:1;transform:translateY(0);}}
 .flash.ok{background:#F0FDF4;color:#15803D;border-color:#22C55E;}
@@ -321,31 +307,28 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .ph h1{font-family:'Outfit',sans-serif;font-size:1.45rem;font-weight:800;
   display:flex;align-items:center;gap:.45rem;}
 .ph h1 i{color:var(--m3);}
-.ph-sub{font-size:.78rem;color:var(--t3);margin-top:.18rem;}
+.ph-sub{font-size:var(--fs-base);color:var(--t3);margin-top:.18rem;}
 .ph-acts{display:flex;gap:.45rem;}
 
 /* -- BTN SYSTEM ------------------------------------ */
 .btn{display:inline-flex;align-items:center;gap:.32rem;padding:.4rem .875rem;
-  border-radius:var(--r1);font-family:'DM Sans',sans-serif;font-size:.77rem;
+  border-radius:var(--r1);font-family:'DM Sans',sans-serif;font-size:var(--fs-base);
   font-weight:700;cursor:pointer;border:none;transition:all .17s;
   text-decoration:none;white-space:nowrap;}
 .btn:hover{transform:none;}.btn:active{transform:translateY(0);}
 .btn-maroon{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;box-shadow:none;}
 .btn-maroon:hover{box-shadow:none;}
-.btn-gold{background:linear-gradient(135deg,var(--g2),var(--g3));color:var(--m1);box-shadow:none;}
-.btn-gold:hover{box-shadow:none;}
 .btn-green{background:linear-gradient(135deg,#15803D,#22C55E);color:#fff;box-shadow:none;}
 .btn-green:hover{box-shadow:none;}
 .btn-red{background:linear-gradient(135deg,#B91C1C,#EF4444);color:#fff;box-shadow:none;}
 .btn-red:hover{box-shadow:none;}
 .btn-ghost{background:var(--s2);color:var(--t2);border:1px solid var(--bdr);}
 .btn-ghost:hover{background:var(--s3);}
-.btn-sm{padding:.3rem .65rem;font-size:.71rem;}
-.btn-xs{padding:.22rem .5rem;font-size:.66rem;}
+.btn-sm{padding:.3rem .65rem;font-size:var(--fs-sm);}
+/* .bico is the square icon button. Only the destructive tint is still used —
+   the view and accept tints went with the buttons that had them. */
 .bico{width:26px;height:26px;padding:0;display:flex;align-items:center;
-  justify-content:center;border-radius:var(--r1);font-size:.7rem;}
-.bi-v{background:#EFF6FF;color:#1D4ED8;}.bi-v:hover{background:#DBEAFE;}
-.bi-a{background:#F0FDF4;color:#15803D;}.bi-a:hover{background:#DCFCE7;}
+  justify-content:center;border-radius:var(--r1);font-size:var(--fs-sm);}
 .bi-d{background:#FFF1F2;color:#BE123C;}.bi-d:hover{background:#FFE4E6;}
 
 /* -- SUMMARY CARDS --------------------------------- */
@@ -368,7 +351,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .sc-c{--sk:#D97706;--skl:rgba(217,119,6,.14);}
 .sc-d{--sk:#7C3AED;--skl:rgba(124,58,237,.14);}
 .sico{width:40px;height:40px;border-radius:var(--r2);display:flex;align-items:center;
-  justify-content:center;font-size:.92rem;margin-bottom:.625rem;
+  justify-content:center;font-size:var(--fs-lg);margin-bottom:.625rem;
   background:var(--sib);color:var(--sic);
   box-shadow:none;transition:all .26s;position:relative;z-index:1;}
 .scard:hover .sico{transform:none;}
@@ -380,11 +363,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   color:var(--t1);line-height:1;margin-bottom:.15rem;
   position:relative;z-index:1;transition:color .26s;}
 .scard:hover .snum{color:var(--sk);}
-.slbl{font-size:.62rem;text-transform:uppercase;letter-spacing:.7px;
+.slbl{font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.7px;
   color:var(--t3);font-weight:700;position:relative;z-index:1;}
-.smicro{font-size:.68rem;color:var(--t3);margin-top:.22rem;
+.smicro{font-size:var(--fs-sm);color:var(--t3);margin-top:.22rem;
   position:relative;z-index:1;display:flex;align-items:center;gap:.3rem;}
-.smicro i{font-size:.62rem;}
+.smicro i{font-size:var(--fs-xs);}
 
 /* -- MAIN GRID ------------------------------------- */
 /* 400px, not 360: the technician cards now live in this column and a name plus
@@ -401,7 +384,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .ph3{padding:.875rem 1.25rem;border-bottom:1px solid var(--bdr);
   display:flex;align-items:center;justify-content:space-between;
   background:linear-gradient(to right,var(--s2),var(--s1));}
-.ph3 h3{font-family:'Outfit',sans-serif;font-size:.9rem;font-weight:700;
+.ph3 h3{font-family:'Outfit',sans-serif;font-size:var(--fs-lg);font-weight:700;
   color:var(--t1);display:flex;align-items:center;gap:.35rem;margin:0;}
 .ph3 h3 i{color:var(--m3);}
 
@@ -421,7 +404,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .ps-opt input{position:absolute;opacity:0;width:0;height:0;}
 .ps-opt span{display:block;text-align:center;padding:.46rem .2rem;border-radius:var(--r1);
   border:1.5px solid var(--bdr);background:var(--s1);
-  font-size:.74rem;font-weight:700;color:var(--t2);transition:all .15s;}
+  font-size:var(--fs-base);font-weight:700;color:var(--t2);transition:all .15s;}
 .ps-opt:hover span{border-color:var(--bdr2);}
 .ps-opt input:focus-visible + span{outline:2px solid var(--m3);outline-offset:2px;}
 .ps-low     input:checked + span{background:#EFF6FF;border-color:#2563EB;color:#1D4ED8;}
@@ -441,11 +424,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   border:1.5px solid var(--bdr);background:var(--s1);transition:all .15s;}
 .unit-opt:hover .unit-box{border-color:var(--bdr2);}
 .unit-opt input:focus-visible + .unit-box{outline:2px solid var(--m3);outline-offset:2px;}
-.unit-ic{display:block;font-size:.85rem;color:var(--t3);margin-bottom:.25rem;}
-.unit-t{display:block;font-family:'Outfit',sans-serif;font-size:.8rem;font-weight:800;color:var(--t1);}
-.unit-d{display:block;font-size:.62rem;color:var(--t3);line-height:1.35;margin-top:.1rem;}
+.unit-ic{display:block;font-size:var(--fs-lg);color:var(--t3);margin-bottom:.25rem;}
+.unit-t{display:block;font-family:'Outfit',sans-serif;font-size:var(--fs-md);font-weight:800;color:var(--t1);}
+.unit-d{display:block;font-size:var(--fs-xs);color:var(--t3);line-height:1.35;margin-top:.1rem;}
 .unit-check{position:absolute;top:.45rem;right:.45rem;width:17px;height:17px;border-radius:50%;
-  background:var(--m3);color:#fff;font-size:.52rem;display:none;align-items:center;justify-content:center;}
+  background:var(--m3);color:#fff;font-size:var(--fs-xs);display:none;align-items:center;justify-content:center;}
 .unit-opt input:checked + .unit-box{border-color:var(--m3);background:#FDF6F6;}
 .unit-opt input:checked + .unit-box .unit-check{display:flex;}
 .unit-opt input:checked + .unit-box .unit-ic{color:var(--m3);}
@@ -458,12 +441,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
    column of unlabelled fields. Driven by what has actually been chosen. */
 .asg-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:.3rem;
   padding:.7rem .9rem;border-bottom:1px solid var(--bdr);background:var(--s2);}
-.asg-step{text-align:center;font-size:.58rem;font-weight:700;color:var(--t4);
+.asg-step{text-align:center;font-size:var(--fs-xs);font-weight:700;color:var(--t4);
   letter-spacing:.3px;text-transform:uppercase;}
 .asg-step span{display:flex;align-items:center;justify-content:center;
   width:20px;height:20px;margin:0 auto .18rem;border-radius:50%;
   border:1.5px solid var(--bdr);background:var(--s1);
-  font-size:.58rem;font-weight:800;color:var(--t4);}
+  font-size:var(--fs-xs);font-weight:800;color:var(--t4);}
 .asg-step.done{color:var(--t2);}
 .asg-step.done span{background:#16A34A;border-color:#16A34A;color:#fff;}
 .asg-step.now{color:var(--m3);}
@@ -479,13 +462,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .tech-card:hover{border-color:#C9960C;box-shadow:0 6px 18px rgba(123,29,29,.10);}
 .tech-card:focus-visible{outline:2px solid var(--m3);outline-offset:2px;}
 .tcd-off{opacity:.55;background:#FAF7F0;}
-.tcd[data-recommended="1"]{border-color:#C9960C;}
-.tcd-rec{position:absolute;top:-9px;left:12px;background:#C9960C;color:#fff;
-  font-size:.56rem;font-weight:800;letter-spacing:.6px;text-transform:uppercase;
-  padding:.12rem .5rem;border-radius:20px;}
+
 /* Selected is a check and a border, not only a colour. */
 .tcd-check{position:absolute;top:.7rem;right:.7rem;width:20px;height:20px;border-radius:50%;
-  background:var(--m3);color:#fff;font-size:.6rem;display:none;
+  background:var(--m3);color:#fff;font-size:var(--fs-xs);display:none;
   align-items:center;justify-content:center;}
 .tech-card.on{border-color:var(--m3);box-shadow:0 0 0 2px rgba(123,29,29,.14);}
 .tech-card.on .tcd-check{display:flex;}
@@ -494,26 +474,26 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .tcd-av{width:38px;height:38px;border-radius:50%;flex-shrink:0;color:#fff;
   background:linear-gradient(135deg,var(--m3),var(--m4));
   display:flex;align-items:center;justify-content:center;
-  font-family:'Outfit',sans-serif;font-weight:900;font-size:.78rem;}
+  font-family:'Outfit',sans-serif;font-weight:900;font-size:var(--fs-base);}
 .tcd-id{flex:1;min-width:0;}
-.tcd-name{font-weight:700;font-size:.86rem;color:var(--t1);
+.tcd-name{font-weight:700;font-size:var(--fs-lg);color:var(--t1);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .tcd-meta{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;margin-top:.12rem;}
-.tcd-spec{font-size:.68rem;color:#8A6D5A;white-space:nowrap;}
-.tcd-spec i{font-size:.6rem;color:#C9960C;}
-.tcd-dept{font-size:.6rem;color:#8A6D5A;background:#F8F3EA;border:1px solid #EDE4D6;
+.tcd-spec{font-size:var(--fs-sm);color:#8A6D5A;white-space:nowrap;}
+.tcd-spec i{font-size:var(--fs-xs);color:#C9960C;}
+.tcd-dept{font-size:var(--fs-xs);color:#8A6D5A;background:#F8F3EA;border:1px solid #EDE4D6;
   border-radius:20px;padding:.05rem .4rem;white-space:nowrap;
   max-width:9rem;overflow:hidden;text-overflow:ellipsis;}
 .tcd-avail{display:inline-flex;align-items:center;gap:.28rem;flex-shrink:0;
-  font-size:.6rem;font-weight:800;padding:.18rem .5rem;border-radius:20px;}
+  font-size:var(--fs-xs);font-weight:800;padding:.18rem .5rem;border-radius:20px;}
 .tcd-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
 .tcd-load{margin-top:.6rem;}
 .tcd-load-l{display:flex;justify-content:space-between;align-items:baseline;
-  font-size:.62rem;color:#8A6D5A;margin-bottom:.22rem;}
+  font-size:var(--fs-xs);color:#8A6D5A;margin-bottom:.22rem;}
 .tcd-load-n{font-weight:700;color:var(--t2);}
 .tcd-bar{height:5px;background:#F0E7D8;border-radius:4px;overflow:hidden;}
 .tcd-bar span{display:block;height:100%;border-radius:4px;}
-.tcd-cta{margin-top:.5rem;font-size:.62rem;color:#B08D4F;text-align:right;}
+.tcd-cta{margin-top:.5rem;font-size:var(--fs-xs);color:#B08D4F;text-align:right;}
 .tcd-cta-off{color:#9C8A7A;}
 
 .tblwrap{overflow-x:auto;}
@@ -540,7 +520,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .tbl tbody td:first-child,.tbl tbody td:nth-last-child(2){white-space:nowrap;}
 .tbl tbody tr{transition:background .1s,transform .1s;}
 .tbl tbody tr:hover{transform:none;}
-.rid{font-family:'Outfit',sans-serif;font-weight:800;color:var(--m3);font-size:.78rem;}
+.rid{font-family:'Outfit',sans-serif;font-weight:800;color:var(--m3);font-size:var(--fs-base);}
 /* The ticket number is the way into the full record. Underlined only on hover
    so a column of them does not read as a wall of links. */
 .rid-lnk{text-decoration:none;border-bottom:1px solid transparent;
@@ -551,13 +531,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 /* Ticket number and the way to the full record, on one baseline. */
 .rep-idrow{display:flex;align-items:center;justify-content:space-between;gap:.5rem;}
 .rep-full{display:inline-flex;align-items:center;gap:.3rem;flex-shrink:0;
-  font-size:.66rem;font-weight:700;color:var(--m3);text-decoration:none;
+  font-size:var(--fs-sm);font-weight:700;color:var(--m3);text-decoration:none;
   padding:.2rem .5rem;border:1px solid var(--bdr);border-radius:20px;background:var(--s1);
   transition:background .15s,color .15s,border-color .15s;}
-.rep-full i{font-size:.6rem;}
+.rep-full i{font-size:var(--fs-xs);}
 .rep-full:hover{background:var(--m3);border-color:var(--m3);color:#fff;}
 .rep-full:focus-visible{outline:2px solid var(--m3);outline-offset:2px;}
-.en{font-weight:700;}.esl{font-size:.64rem;color:var(--t3);}
+.en{font-weight:700;}.esl{font-size:var(--fs-sm);color:var(--t3);}
 
 /* -- QUEUE TOOLBAR --------------------------------- */
 /* The toolbar's controls are labelled for screen readers but their purpose is
@@ -575,23 +555,23 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .qbar{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;
   padding:.7rem 1.25rem;border-bottom:1px solid var(--bdr);background:var(--s2);}
 .qsearch{position:relative;flex:1 1 15rem;min-width:11rem;display:flex;align-items:center;}
-.qsearch > i{position:absolute;left:.6rem;font-size:.7rem;color:var(--t3);pointer-events:none;}
+.qsearch > i{position:absolute;left:.6rem;font-size:var(--fs-sm);color:var(--t3);pointer-events:none;}
 .qsearch input{width:100%;height:2rem;padding:0 1.9rem 0 1.9rem;border-radius:var(--r1);
   border:1.5px solid var(--bdr);background:var(--s1);font-family:'DM Sans',sans-serif;
-  font-size:.76rem;color:var(--t1);transition:border-color .15s,box-shadow .15s;}
+  font-size:var(--fs-base);color:var(--t1);transition:border-color .15s,box-shadow .15s;}
 .qsearch input::placeholder{color:var(--t3);}
 .qsearch input:focus{outline:none;border-color:var(--m3);box-shadow:0 0 0 3px rgba(123,29,29,.10);}
 /* The browser's own search-clear only appears in some engines and sits at a
    different inset in each, so the control is ours and always in one place. */
 .qsearch input::-webkit-search-cancel-button{display:none;}
 .qclear{position:absolute;right:.4rem;width:1.25rem;height:1.25rem;border:0;padding:0;
-  border-radius:50%;background:var(--bdr);color:var(--t2);cursor:pointer;font-size:.62rem;
+  border-radius:50%;background:var(--bdr);color:var(--t2);cursor:pointer;font-size:var(--fs-xs);
   display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s;}
 .qclear:hover{background:var(--m3);color:#fff;}
 .qclear[hidden]{display:none;}
 .qsel{height:2rem;padding:0 1.7rem 0 .6rem;border-radius:var(--r1);border:1.5px solid var(--bdr);
   background:var(--s1) url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239C7A7A' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right .55rem center;
-  font-family:'DM Sans',sans-serif;font-size:.74rem;font-weight:600;color:var(--t2);
+  font-family:'DM Sans',sans-serif;font-size:var(--fs-base);font-weight:600;color:var(--t2);
   cursor:pointer;appearance:none;-webkit-appearance:none;transition:border-color .15s;}
 .qsel:hover{border-color:var(--bdr2);}
 .qsel:focus-visible{outline:2px solid var(--m3);outline-offset:1px;}
@@ -601,13 +581,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .qchip input{position:absolute;opacity:0;width:0;height:0;}
 .qchip span{display:flex;align-items:center;gap:.3rem;height:2rem;padding:0 .7rem;
   border-radius:var(--r1);border:1.5px solid var(--bdr);background:var(--s1);
-  font-size:.72rem;font-weight:700;color:var(--t2);white-space:nowrap;transition:all .15s;}
-.qchip span i{font-size:.66rem;color:#C2410C;}
+  font-size:var(--fs-base);font-weight:700;color:var(--t2);white-space:nowrap;transition:all .15s;}
+.qchip span i{font-size:var(--fs-sm);color:#C2410C;}
 .qchip:hover span{border-color:var(--bdr2);}
 .qchip input:focus-visible + span{outline:2px solid var(--m3);outline-offset:2px;}
 .qchip input:checked + span{background:#FFF7ED;border-color:#EA580C;color:#C2410C;}
 .qchip input:checked + span i{color:#C2410C;}
-.qcount{margin-left:auto;font-size:.7rem;color:var(--t3);white-space:nowrap;font-weight:600;}
+.qcount{margin-left:auto;font-size:var(--fs-sm);color:var(--t3);white-space:nowrap;font-weight:600;}
 .qcount b{color:var(--t1);font-weight:800;}
 /* Filtering to nothing is a result, not a blank panel. Both tables use it. */
 .tbl tr.qhide{display:none;}
@@ -617,11 +597,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
    for. Dispatched-and-not-accepted is the state the dispatcher can still act
    on, so it is the only thing here that gets a colour. */
 .ph3-r{display:flex;align-items:center;gap:.5rem;}
-.ph3-n{font-size:.72rem;color:var(--t3);white-space:nowrap;}
+.ph3-n{font-size:var(--fs-base);color:var(--t3);white-space:nowrap;}
 .ph3-warn{display:inline-flex;align-items:center;gap:.3rem;white-space:nowrap;
-  padding:.16rem .55rem;border-radius:20px;font-size:.66rem;font-weight:800;
+  padding:.16rem .55rem;border-radius:20px;font-size:var(--fs-sm);font-weight:800;
   background:#FFF7ED;border:1px solid #F6D9B8;color:#C2410C;}
-.ph3-warn i{font-size:.6rem;}
+.ph3-warn i{font-size:var(--fs-xs);}
 
 /* The monitoring table has the full page width, so its columns are declared in
    a colgroup and stop being re-decided by whichever equipment name is longest.
@@ -634,7 +614,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
    availability pill sits against so the top row keeps its baseline. */
 .tcd-info{width:22px;height:22px;flex-shrink:0;margin-left:.25rem;padding:0;
   border:1px solid var(--bdr);border-radius:50%;background:var(--s1);color:var(--t3);
-  font-size:.62rem;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:var(--fs-xs);cursor:pointer;display:flex;align-items:center;justify-content:center;
   transition:background .15s,color .15s,border-color .15s;}
 .tcd-info:hover{background:var(--m3);border-color:var(--m3);color:#fff;}
 .tcd-info:focus-visible{outline:2px solid var(--m3);outline-offset:2px;}
@@ -643,21 +623,21 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .tprof-hd{display:flex;align-items:center;gap:.7rem;min-width:0;}
 .tprof-av{width:42px;height:42px;border-radius:50%;flex-shrink:0;
   background:linear-gradient(135deg,var(--m3),var(--m2));color:#fff;
-  font-family:'Outfit',sans-serif;font-weight:800;font-size:.9rem;
+  font-family:'Outfit',sans-serif;font-weight:800;font-size:var(--fs-lg);
   display:flex;align-items:center;justify-content:center;}
 #tprofMo .mhd-t h2{margin:0;}
 #tprofMo .mhd-t p{margin:.1rem 0 0;}
 .tprof-rows{display:grid;grid-template-columns:auto minmax(0,1fr);gap:.4rem .9rem;margin:0 0 1rem;}
-.tprof-rows dt{font-size:.7rem;font-weight:700;color:var(--t3);white-space:nowrap;}
-.tprof-rows dd{margin:0;font-size:.78rem;color:var(--t1);font-weight:600;overflow-wrap:anywhere;}
+.tprof-rows dt{font-size:var(--fs-sm);font-weight:700;color:var(--t3);white-space:nowrap;}
+.tprof-rows dd{margin:0;font-size:var(--fs-base);color:var(--t1);font-weight:600;overflow-wrap:anywhere;}
 .tprof-rows dd a{color:var(--m3);text-decoration:none;}
 .tprof-rows dd a:hover{text-decoration:underline;}
 .tprof-rows dd.none{color:var(--t3);font-weight:500;font-style:italic;}
 .tprof-sec{border-top:1px solid var(--bdr);padding-top:.85rem;}
-.tprof-sec h4{font-family:'Outfit',sans-serif;font-size:.8rem;font-weight:800;color:var(--t1);
+.tprof-sec h4{font-family:'Outfit',sans-serif;font-size:var(--fs-md);font-weight:800;color:var(--t1);
   margin:0 0 .6rem;display:flex;align-items:center;gap:.35rem;}
-.tprof-sec h4 i{color:var(--m3);font-size:.75rem;}
-.tprof-n{margin-left:auto;font-size:.66rem;font-weight:800;color:var(--t2);
+.tprof-sec h4 i{color:var(--m3);font-size:var(--fs-base);}
+.tprof-n{margin-left:auto;font-size:var(--fs-sm);font-weight:800;color:var(--t2);
   background:var(--s3);border-radius:20px;padding:.1rem .5rem;}
 /* One line per report they are holding: the ticket, what it is, and where it
    has got to. Enough to answer "can they take another one" without leaving. */
@@ -665,16 +645,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   border:1px solid var(--bdr);border-radius:var(--r1);background:var(--s2);margin-bottom:.4rem;}
 .tprof-job:last-child{margin-bottom:0;}
 .tprof-job-id{font-family:'Outfit',sans-serif;font-weight:800;color:var(--m3);
-  font-size:.72rem;white-space:nowrap;}
-.tprof-job-eq{flex:1;min-width:0;font-size:.75rem;color:var(--t1);font-weight:600;
+  font-size:var(--fs-base);white-space:nowrap;}
+.tprof-job-eq{flex:1;min-width:0;font-size:var(--fs-base);color:var(--t1);font-weight:600;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.tprof-job-when{font-size:.64rem;color:var(--t3);white-space:nowrap;}
-.tprof-free{display:flex;align-items:center;gap:.45rem;font-size:.76rem;color:#15803D;
+.tprof-job-when{font-size:var(--fs-sm);color:var(--t3);white-space:nowrap;}
+.tprof-free{display:flex;align-items:center;gap:.45rem;font-size:var(--fs-base);color:#15803D;
   background:#F0FDF4;border:1px solid #BBE8CB;border-radius:var(--r1);padding:.6rem .75rem;}
 
 /* -- BADGES ---------------------------------------- */
 .bdg{display:inline-flex;align-items:center;gap:.22rem;padding:.2rem .58rem;
-  border-radius:20px;font-size:.6rem;font-weight:800;
+  border-radius:20px;font-size:var(--fs-xs);font-weight:800;
   text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;}
 .bdg::before{content:'';width:4px;height:4px;border-radius:50%;
   background:currentColor;flex-shrink:0;animation:dot 2.2s ease-in-out infinite;}
@@ -686,59 +666,30 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .b-hi{background:#FFFBEB;color:#B45309;}
 .b-med{background:#EFF6FF;color:#1D4ED8;}
 .b-lo{background:#F0FDF4;color:#15803D;}
+/* stCls() maps for_replacement to 'rej', and this rule was never written — so a
+   For Replacement row rendered .bdg with no background and no colour, a pill
+   shape holding dark body text while every other status was tinted. Rose, the
+   same family .bi-d uses for the destructive action. */
+.b-rej{background:#FFF1F2;color:#BE123C;}
 
 /* -- TECHNICIAN CARDS ------------------------------ */
+/* The card that does the choosing is .tcd / .tech-card, further up. An earlier
+   .tcard — with its own avatar, name, dept line and workload bar — was replaced
+   by it and left behind whole: ~40 rules that matched no element on the page,
+   plus a wl-* workload bar fed by wlClass()/wlLabel()/wlColor(), none of which
+   were called any more. Removed rather than kept "in case", because two card
+   vocabularies in one file is how the next edit lands on the dead one. */
 .tech-grid{display:flex;flex-direction:column;gap:.625rem;padding:.875rem;}
-.tcard{background:var(--s1);border:1.5px solid var(--bdr);border-radius:var(--r2);
-  padding:.875rem 1rem;cursor:pointer;transition:all .22s cubic-bezier(.4,0,.2,1);
-  position:relative;overflow:hidden;}
-.tcard::before{content:'';position:absolute;left:0;top:0;bottom:0;
-  width:3px;background:var(--bdr);border-radius:3px 0 0 3px;transition:all .22s;}
-.tcard:hover{transform:none;box-shadow:var(--sh2);border-color:var(--m3);}
-.tcard:hover::before{background:var(--m3);}
-.tcard.selected{border-color:var(--m3);background:linear-gradient(135deg,#FFF5F5,#FFF8F0);
-  box-shadow:0 0 0 3px rgba(123,29,29,.08),var(--sh2);}
-.tcard.selected::before{background:var(--m3);width:4px;}
-.tc-top{display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem;margin-bottom:.55rem;}
-.tc-info{display:flex;align-items:center;gap:.625rem;flex:1;min-width:0;}
-.tav{width:38px;height:38px;border-radius:50%;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;
-  font-family:'Outfit',sans-serif;font-weight:800;font-size:.85rem;
-  box-shadow:none;transition:transform .25s;position:relative;}
-.tcard:hover .tav{transform:none;}
-.selected .tav{box-shadow:0 0 0 3px rgba(123,29,29,.15);}
-.tc-name{font-weight:700;font-size:.85rem;color:var(--t1);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.tc-dept{font-size:.65rem;color:var(--t3);margin-top:.08rem;}
-.tc-badge{flex-shrink:0;}
-
-/* Workload bar */
-.wl-wrap{margin-top:.5rem;}
-.wl-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.3rem;}
-.wl-lbl{font-size:.62rem;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
-.wl-cnt{font-size:.62rem;font-weight:800;}
-.wl-bar{height:5px;background:var(--s3);border-radius:5px;overflow:hidden;}
-.wl-fill{height:100%;border-radius:5px;transition:width .6s cubic-bezier(.4,0,.2,1);}
-.wl-free .wl-fill{background:linear-gradient(to right,#16A34A,#22C55E);}
-.wl-ok   .wl-fill{background:linear-gradient(to right,#2563EB,#60A5FA);}
-.wl-busy .wl-fill{background:linear-gradient(to right,#D97706,#FBBF24);}
-.wl-over .wl-fill{background:linear-gradient(to right,#DC2626,#F87171);}
-.wl-status{display:inline-flex;align-items:center;gap:.22rem;
-  padding:.15rem .45rem;border-radius:20px;font-size:.58rem;font-weight:800;margin-top:.32rem;}
-.wl-free .wl-status{background:#F0FDF4;color:#16A34A;}
-.wl-ok   .wl-status{background:#EFF6FF;color:#2563EB;}
-.wl-busy .wl-status{background:#FFFBEB;color:#D97706;}
-.wl-over .wl-status{background:#FFF1F2;color:#DC2626;}
 
 /* Dept badges */
 .dept-itso{display:inline-flex;align-items:center;gap:.22rem;padding:.18rem .55rem;
-  border-radius:20px;font-size:.6rem;font-weight:800;
+  border-radius:20px;font-size:var(--fs-xs);font-weight:800;
   background:#ECFEFF;color:#0891B2;border:1px solid #A5F3FC;}
 .dept-pmo{display:inline-flex;align-items:center;gap:.22rem;padding:.18rem .55rem;
-  border-radius:20px;font-size:.6rem;font-weight:800;
+  border-radius:20px;font-size:var(--fs-xs);font-weight:800;
   background:#F5F3FF;color:#7C3AED;border:1px solid #DDD6FE;}
 .dept-gen{display:inline-flex;align-items:center;gap:.22rem;padding:.18rem .55rem;
-  border-radius:20px;font-size:.6rem;font-weight:800;
+  border-radius:20px;font-size:var(--fs-xs);font-weight:800;
   background:var(--s2);color:var(--t2);border:1px solid var(--bdr);}
 
 /* -- ASSIGNMENT PANEL ------------------------------ */
@@ -763,12 +714,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .dw-hd{flex-shrink:0;display:flex;align-items:flex-start;gap:.75rem;
   padding:1.05rem 1.25rem;background:linear-gradient(125deg,var(--m1),var(--m3));color:#fff;}
 .dw-hd-t{flex:1;min-width:0;}
-.dw-hd h2{font-family:'Outfit',sans-serif;font-size:1.02rem;font-weight:800;margin:0;
+.dw-hd h2{font-family:'Outfit',sans-serif;font-size:var(--fs-xl);font-weight:800;margin:0;
   display:flex;align-items:center;gap:.4rem;}
-.dw-hd h2 i{opacity:.85;font-size:.9rem;}
-.dw-hd p{margin:.15rem 0 0;font-size:.72rem;opacity:.82;line-height:1.45;}
+.dw-hd h2 i{opacity:.85;font-size:var(--fs-lg);}
+.dw-hd p{margin:.15rem 0 0;font-size:var(--fs-base);opacity:.82;line-height:1.45;}
 .dw-x{width:32px;height:32px;flex-shrink:0;border:0;border-radius:9px;cursor:pointer;
-  background:rgba(255,255,255,.14);color:#fff;font-size:.82rem;
+  background:rgba(255,255,255,.14);color:#fff;font-size:var(--fs-md);
   display:flex;align-items:center;justify-content:center;transition:background .15s;}
 .dw-x:hover{background:rgba(255,255,255,.26);}
 .dw-x:focus-visible{outline:2px solid #fff;outline-offset:2px;}
@@ -819,9 +770,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   width:90px;height:90px;border-radius:50%;
   background:rgba(212,160,23,.08);pointer-events:none;
   animation:sealSpin 18s linear infinite;}
-.ap-head h3{font-family:'Outfit',sans-serif;font-size:.95rem;font-weight:800;
+.ap-head h3{font-family:'Outfit',sans-serif;font-size:var(--fs-xl);font-weight:800;
   color:#fff;position:relative;z-index:1;display:flex;align-items:center;gap:.4rem;}
-.ap-head p{font-size:.72rem;color:rgba(255,255,255,.42);
+.ap-head p{font-size:var(--fs-base);color:rgba(255,255,255,.42);
   position:relative;z-index:1;margin-top:.22rem;}
 .ap-body{padding:1.125rem 1.25rem;}
 
@@ -830,21 +781,21 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   border-radius:var(--r2);padding:.75rem .875rem;margin-bottom:.875rem;
   position:relative;transition:all .22s;}
 .rep-prev.filled{border-color:rgba(123,29,29,.25);background:linear-gradient(135deg,#FFF8F5,#FFF5EE);}
-.rep-prev-lbl{font-size:.6rem;font-weight:800;text-transform:uppercase;
+.rep-prev-lbl{font-size:var(--fs-xs);font-weight:800;text-transform:uppercase;
   letter-spacing:.7px;color:var(--t3);margin-bottom:.45rem;}
-.rep-id{font-family:'Outfit',sans-serif;font-weight:800;color:var(--m3);font-size:.85rem;}
-.rep-eq{font-weight:700;font-size:.85rem;margin-top:.18rem;}
+.rep-id{font-family:'Outfit',sans-serif;font-weight:800;color:var(--m3);font-size:var(--fs-lg);}
+.rep-eq{font-weight:700;font-size:var(--fs-lg);margin-top:.18rem;}
 /* Was clamped to 2 lines against a 90-character stub. The panel now receives the
    whole description, because you cannot choose the right technician from half a
    sentence; it scrolls rather than truncating. */
-.rep-desc{font-size:.73rem;color:var(--t2);margin-top:.3rem;line-height:1.55;
+.rep-desc{font-size:var(--fs-base);color:var(--t2);margin-top:.3rem;line-height:1.55;
   max-height:7.5em;overflow-y:auto;white-space:pre-line;}
 
 /* where / when / who */
 .rep-facts{display:flex;flex-wrap:wrap;gap:.3rem .7rem;margin-top:.3rem;}
 .rep-fact{display:inline-flex;align-items:center;gap:.3rem;
-  font-size:.68rem;color:var(--t3);}
-.rep-fact i{font-size:.62rem;color:var(--m3);}
+  font-size:var(--fs-sm);color:var(--t3);}
+.rep-fact i{font-size:var(--fs-xs);color:var(--m3);}
 
 /* attached evidence */
 .rep-media{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.5rem;}
@@ -853,8 +804,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   display:flex;align-items:center;justify-content:center;transition:border-color .16s;}
 .rep-thumb:hover{border-color:var(--m3);}
 .rep-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
-.rep-thumb-vid{background:var(--m1);color:var(--g3);font-size:.9rem;}
-.rep-nomedia{margin-top:.5rem;font-size:.68rem;color:var(--t4);
+.rep-thumb-vid{background:var(--m1);color:var(--g3);font-size:var(--fs-lg);}
+.rep-nomedia{margin-top:.5rem;font-size:var(--fs-sm);color:var(--t4);
   display:flex;align-items:center;gap:.35rem;}
 
 /* lightbox */
@@ -864,17 +815,17 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .media-lb-body img,.media-lb-body video{max-width:88vw;max-height:86vh;
   border-radius:var(--r2);display:block;}
 .media-lb-x{position:absolute;top:1.25rem;right:1.25rem;width:40px;height:40px;
-  border-radius:50%;border:none;cursor:pointer;font-size:1rem;
+  border-radius:50%;border:none;cursor:pointer;font-size:var(--fs-xl);
   background:rgba(255,255,255,.16);color:#fff;
   display:flex;align-items:center;justify-content:center;}
 .media-lb-x:hover{background:rgba(255,255,255,.3);}
 .rep-clear{position:absolute;top:.5rem;right:.5rem;
   width:20px;height:20px;background:none;border:none;
-  color:var(--t3);cursor:pointer;font-size:.72rem;
+  color:var(--t3);cursor:pointer;font-size:var(--fs-base);
   display:flex;align-items:center;justify-content:center;
   border-radius:50%;transition:all .16s;}
 .rep-clear:hover{background:var(--s3);color:var(--t1);}
-.rep-placeholder{color:var(--t4);font-size:.8rem;display:flex;
+.rep-placeholder{color:var(--t4);font-size:var(--fs-md);display:flex;
   align-items:center;gap:.5rem;justify-content:center;padding:.5rem 0;}
 
 /* Tech preview in form */
@@ -885,34 +836,25 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   animation:fIn .18s ease;}
 .tp-av{width:36px;height:36px;border-radius:50%;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;
-  font-family:'Outfit',sans-serif;font-weight:800;font-size:.8rem;color:#fff;
+  font-family:'Outfit',sans-serif;font-weight:800;font-size:var(--fs-md);color:#fff;
   background:linear-gradient(135deg,var(--m3),var(--m4));
   box-shadow:none;}
-.tp-name{font-weight:700;font-size:.83rem;color:var(--t1);}
-.tp-dept{font-size:.65rem;color:var(--t3);}
+.tp-name{font-weight:700;font-size:var(--fs-md);color:var(--t1);}
 
 /* Form elements */
 .fg{display:flex;flex-direction:column;gap:.28rem;margin-bottom:.72rem;}
-.fl{font-size:.63rem;font-weight:800;text-transform:uppercase;letter-spacing:.65px;color:var(--t2);}
+.fl{font-size:var(--fs-xs);font-weight:800;text-transform:uppercase;letter-spacing:.65px;color:var(--t2);}
 .fl span{color:var(--m3);}
 .fc{padding:.5rem .82rem;background:var(--s2);border:1.5px solid var(--bdr);
-  border-radius:var(--r1);font-size:.82rem;color:var(--t1);
+  border-radius:var(--r1);font-size:var(--fs-md);color:var(--t1);
   font-family:'DM Sans',sans-serif;outline:none;transition:all .18s;}
 .fc:focus{border-color:var(--m3);background:var(--s1);
   box-shadow:0 0 0 3px rgba(123,29,29,.07);}
 textarea.fc{resize:vertical;min-height:80px;}
-.fc-hidden{border-color:var(--bdr2) !important;background:var(--s3) !important;color:var(--t3);}
-.divider{height:1px;background:var(--bdr);margin:.75rem 0;}
 
-/* -- ACTIVE ASSIGNMENTS TABLE ---------------------- */
-.act-row{display:flex;align-items:center;gap:.5rem;padding:.6rem .875rem;
-  border-bottom:1px solid var(--bdr);transition:all .16s;}
-.act-row:last-child{border:none;}
-.act-row:hover{background:var(--s2);}
-.act-tname{font-size:.8rem;font-weight:700;flex:1;}
-.act-count{font-family:'Outfit',sans-serif;font-size:.88rem;font-weight:800;}
-.act-bar-wrap{flex:2;height:6px;background:var(--s3);border-radius:6px;overflow:hidden;}
-.act-bar-fill{height:100%;border-radius:6px;transition:width .7s cubic-bezier(.4,0,.2,1);}
+/* The Active Assignments panel is a .tbl table (see .asg-active above). It was
+   once a list of .act-row flex rows with their own workload bar; that markup is
+   gone and its rules went with it. */
 
 /* -- MODAL ----------------------------------------- */
 /* Above the dispatch drawer (z-index 900). Both the confirmation and the
@@ -937,19 +879,19 @@ textarea.fc{resize:vertical;min-height:80px;}
   background:rgba(212,160,23,.08);pointer-events:none;
   animation:sealSpin 18s linear infinite;}
 .mhd-t{position:relative;z-index:1;}
-.mhd-t h2{font-family:'Outfit',sans-serif;font-size:1.05rem;font-weight:800;color:#fff;}
-.mhd-t p{font-size:.7rem;color:rgba(255,255,255,.42);margin-top:.12rem;}
+.mhd-t h2{font-family:'Outfit',sans-serif;font-size:var(--fs-xl);font-weight:800;color:#fff;}
+.mhd-t p{font-size:var(--fs-sm);color:rgba(255,255,255,.42);margin-top:.12rem;}
 .mx{width:27px;height:27px;background:rgba(255,255,255,.1);border:none;border-radius:50%;
-  color:rgba(255,255,255,.6);font-size:.82rem;cursor:pointer;
+  color:rgba(255,255,255,.6);font-size:var(--fs-md);cursor:pointer;
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
   transition:all .18s;position:relative;z-index:1;}
 .mx:hover{background:rgba(255,255,255,.22);color:#fff;transform:rotate(90deg);}
 /* Dispatch summary: label/value rows, so what is about to happen reads in one
    pass rather than as a sentence to parse. */
 .asg-sum{display:grid;grid-template-columns:7rem minmax(0,1fr);gap:.1rem .9rem;margin:0;}
-.asg-sum dt{font-size:.7rem;font-weight:700;color:var(--t3);padding:.4rem 0;
+.asg-sum dt{font-size:var(--fs-sm);font-weight:700;color:var(--t3);padding:.4rem 0;
   border-bottom:1px solid var(--bdr);}
-.asg-sum dd{margin:0;font-size:.8rem;font-weight:600;color:var(--t1);padding:.4rem 0;
+.asg-sum dd{margin:0;font-size:var(--fs-md);font-weight:600;color:var(--t1);padding:.4rem 0;
   border-bottom:1px solid var(--bdr);overflow-wrap:anywhere;}
 .asg-sum dt:last-of-type,.asg-sum dd:last-of-type{border-bottom:none;}
 .mb{padding:1.375rem 1.5rem;}
@@ -962,7 +904,7 @@ textarea.fc{resize:vertical;min-height:80px;}
   padding:.875rem 1rem;display:flex;gap:.75rem;align-items:flex-start;margin-top:.5rem;}
 .conf-icon{width:34px;height:34px;background:#FEE2E2;color:#DC2626;
   border-radius:50%;display:flex;align-items:center;justify-content:center;
-  flex-shrink:0;font-size:.85rem;}
+  flex-shrink:0;font-size:var(--fs-lg);}
 
 /* -- TOAST ----------------------------------------- */
 .ttray{position:fixed;top:1.25rem;left:50%;transform:translateX(-50%);align-items:center;display:flex;
@@ -973,8 +915,8 @@ textarea.fc{resize:vertical;min-height:80px;}
   animation:tIn .22s cubic-bezier(.4,0,.2,1);border-left:3px solid var(--m3);}
 .tst.ok{border-left-color:#16A34A;}.tst.err{border-left-color:#DC2626;}
 @keyframes tIn{from{transform:translateX(60px);opacity:0}to{transform:translateX(0);opacity:1}}
-.tst-t{font-size:.77rem;font-weight:700;color:var(--t1);}
-.tst-m{font-size:.69rem;color:var(--t2);margin-top:1px;}
+.tst-t{font-size:var(--fs-base);font-weight:700;color:var(--t1);}
+.tst-m{font-size:var(--fs-sm);color:var(--t2);margin-top:1px;}
 
 /* -- EMPTY ----------------------------------------- */
 .empty{text-align:center;padding:2.5rem 1.5rem;color:var(--t3);}
@@ -995,8 +937,15 @@ textarea.fc{resize:vertical;min-height:80px;}
 .scard:nth-child(1){animation-delay:.05s;}.scard:nth-child(2){animation-delay:.1s;}
 .scard:nth-child(3){animation-delay:.15s;}.scard:nth-child(4){animation-delay:.2s;}
 @keyframes scIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
-.tcard{animation:tcIn .28s ease both;}
-@keyframes tcIn{from{opacity:0;transform:translateX(10px);}to{opacity:1;transform:translateX(0);}}
+
+/* Nothing on this page animates in on a timer except the four summary cards.
+   The stagger above is four fixed delays, so it cannot outlast them; a card
+   list that grew would need a different mechanism, which is part of why the
+   technician cards do not have one. */
+@media(prefers-reduced-motion:reduce){
+  .scard{animation:none;}
+  .pip,.bdg::before{animation:none;}
+}
 </style>
 </head>
 <body>
@@ -1301,17 +1250,6 @@ textarea.fc{resize:vertical;min-height:80px;}
 
         <div class="ap-body">
 
-          <?php if ($preReport && $recommendedTech): ?>
-          <div style="background:linear-gradient(135deg,#FFF8E6,#FDF1D6);border:1.5px solid #E8C766;border-radius:14px;padding:.9rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:.8rem;">
-            <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#D4A017,#B45309);color:#fff;display:flex;align-items:center;justify-content:center;font-size:1.05rem;flex-shrink:0;"><i class="fas fa-wand-magic-sparkles"></i></div>
-            <div style="flex:1;min-width:0;">
-              <div style="font-size:.64rem;text-transform:uppercase;letter-spacing:.6px;color:#92600A;font-weight:800;">Smart Recommendation</div>
-              <div style="font-weight:700;color:#1C1008;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><?php echo esc($recommendedTech['fullname']??'Technician'); ?></div>
-              <div style="font-size:.7rem;color:#7a5c2e;"><?php echo esc($recommendedTech['spec']??'General'); ?> · <?php echo (int)($recommendedTech['workload']??0); ?> active task(s) · best match</div>
-            </div>
-            <button type="button" onclick="selectTechCard('<?php echo esc($recommendedTech['tid']); ?>')" style="background:#7B1D1D;color:#fff;border:none;padding:.55rem .95rem;border-radius:9px;font-weight:700;font-size:.78rem;cursor:pointer;white-space:nowrap;"><i class="fas fa-check"></i> Use</button>
-          </div>
-          <?php endif; ?>
 
           <!-- Selected report preview -->
           <div class="rep-prev" id="repPrev">
@@ -1363,7 +1301,6 @@ textarea.fc{resize:vertical;min-height:80px;}
                   $wl = (int)$t['workload'];
                   [$aLbl] = availMeta($t['avail']);
                   $disabled = $t['avail'] === 'unavailable';
-                  $isRec = ($recommendedTid !== null && $tid === $recommendedTid);
                   $initials = strtoupper(implode('',array_map(fn($p)=>substr($p,0,1),array_slice(explode(' ',$t['fullname']??'??'),0,2))));
                 ?>
                 <option value="<?php echo esc($tid); ?>"
@@ -1374,15 +1311,15 @@ textarea.fc{resize:vertical;min-height:80px;}
                   data-spec="<?php echo esc($t['spec']); ?>"
                   data-avail="<?php echo esc($aLbl); ?>"
                   data-deptcls="<?php echo deptClass($dept); ?>"
-                  <?php echo $disabled ? 'disabled' : ''; ?> <?php echo ($isRec && $preReport) ? 'selected' : ''; ?>>
-                  <?php echo ($isRec ? '★ ' : '') . esc($t['fullname']??'Technician'); ?>
+                  <?php echo $disabled ? 'disabled' : ''; ?>>
+                  <?php echo esc($t['fullname']??'Technician'); ?>
                   — <?php echo $aLbl; ?> (<?php echo $wl; ?> task<?php echo $wl!=1?'s':'';?>)<?php if($t['spec']!=='General') echo ' · '.esc($t['spec']); ?>
                 </option>
                 <?php endforeach; ?>
               </select>
             </div>
 
-        <!-- Smart Technician Availability + Recommendation -->
+        <!-- Who is free, and what each of them is already carrying. -->
         <style>
           .tech-card{transition:box-shadow .15s,transform .12s,border-color .15s;}
           .tech-card:hover{box-shadow:0 8px 20px rgba(123,29,29,.16);transform:none;border-color:#C9960C !important;}
@@ -1392,7 +1329,7 @@ textarea.fc{resize:vertical;min-height:80px;}
         <div class="panel">
           <div class="ph3">
             <h3><i class="fas fa-user-gear"></i> Technician Availability</h3>
-            <?php if($recommendedTech): ?><span style="font-size:.68rem;color:#92600A;background:#FFF4DD;padding:.2rem .55rem;border-radius:999px;font-weight:700;"><i class="fas fa-wand-magic-sparkles"></i> Best match ready</span><?php endif; ?>
+            
           </div>
           <?php
             $teamTotal = (int)array_sum(array_column($technicians,'workload'));
@@ -1426,7 +1363,6 @@ textarea.fc{resize:vertical;min-height:80px;}
                 $pct = min(100, ($wl / max(1,$maxWl)) * 100);
                 $initials = strtoupper(implode('',array_map(fn($p)=>substr($p,0,1),array_slice(explode(' ',$t['fullname']??'??'),0,2))));
                 [$aLbl,$aColor,$aIcon,$aBg] = availMeta($t['avail']);
-                $isRec = ($recommendedTid !== null && $tid === $recommendedTid);
                 $disabled = $t['avail'] === 'unavailable';
             ?>
             <div class="<?php echo $disabled ? 'tcd tcd-off' : 'tech-card tcd'; ?>"
@@ -1434,9 +1370,8 @@ textarea.fc{resize:vertical;min-height:80px;}
                  data-tid="<?php echo esc($tid); ?>" data-name="<?php echo esc($t['fullname'] ?? 'Technician'); ?>"
                  data-load="<?php echo (int)$wl; ?>"
                  aria-label="Select <?php echo esc($t['fullname'] ?? 'technician'); ?><?php echo $disabled ? ' (unavailable)' : ''; ?>"
-                 <?php echo $isRec ? 'data-recommended="1"' : ''; ?>>
+>
 
-              <?php if ($isRec): ?><span class="tcd-rec"><i class="fas fa-star" aria-hidden="true"></i> Recommended</span><?php endif; ?>
               <span class="tcd-check" aria-hidden="true"><i class="fas fa-check"></i></span>
 
               <div class="tcd-top">
@@ -2220,7 +2155,6 @@ function clearAll() {
   clearReport();
   document.getElementById('assignForm').reset();
   document.getElementById('techPrev').classList.remove('show');
-  document.querySelectorAll('.tcard').forEach(c => c.classList.remove('selected'));
   // form.reset() clears the radios and the select, so the cards that mirror
   // them have to be cleared too or they keep claiming a selection that is gone
   document.querySelectorAll('.tech-card').forEach(c => c.classList.remove('on'));
@@ -2263,7 +2197,6 @@ function techChanged(sel) {
 
   if (!opt.value) {
     prev.classList.remove('show');
-    document.querySelectorAll('.tcard').forEach(c => c.classList.remove('selected'));
     return;
   }
 
@@ -2284,31 +2217,16 @@ function techChanged(sel) {
 
   prev.classList.add('show');
   asgSyncSteps();
-
-  // Highlight technician card
-  document.querySelectorAll('.tcard').forEach(c => c.classList.remove('selected'));
-  const tc = document.getElementById('tc-' + opt.value);
-  if (tc) {
-    tc.classList.add('selected');
-    tc.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }
+  /* The card for this technician is already marked at the top of this function,
+     against .tech-card and data-tid. A second block here highlighted .tcard and
+     looked the element up as id="tc-<id>" — neither of which the page renders,
+     so it had been doing nothing since the cards were rebuilt. */
 }
 
 /* --- TECHNICIAN CARD CLICK ------------------------ */
-function pickTech(id) {
-  const sel = document.getElementById('fTech');
-  sel.value = id;
-  techChanged(sel);
-}
-/* Smart availability card click (skips disabled/unavailable). */
-function selectTechCard(id) {
-  const sel = document.getElementById('fTech');
-  const opt = sel.querySelector('option[value="' + (window.CSS && CSS.escape ? CSS.escape(id) : id) + '"]');
-  if (opt && opt.disabled) return;
-  sel.value = id;
-  techChanged(sel);
-  document.getElementById('assignForm')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-}
+/* pickTech() and selectTechCard() stood here with no callers — the first from
+   an older card list, the second from the "Use" button on the smart
+   recommendation. assignFromCard() below is the one the cards actually call. */
 /* Click a technician card to assign the currently-selected report to them. */
 function assignFromCard(card) {
   const id   = card.getAttribute('data-tid');
@@ -2331,7 +2249,7 @@ function assignFromCard(card) {
     document.getElementById('assignForm')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 }
-/* If a technician is pre-selected (smart recommendation), show its preview. */
+/* A technician can arrive pre-selected from a deep link; reflect it. */
 document.addEventListener('DOMContentLoaded', function () {
   const sel = document.getElementById('fTech');
   if (sel && sel.value) { techChanged(sel); }
