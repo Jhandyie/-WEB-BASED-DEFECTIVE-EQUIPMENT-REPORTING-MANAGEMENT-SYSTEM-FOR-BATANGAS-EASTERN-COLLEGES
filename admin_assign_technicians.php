@@ -98,6 +98,82 @@ foreach ($technicians as &$t) {
 }
 unset($t);
 
+/* defect_reports.assigned_to stores a user id (TECH-8902AF22), and the
+   monitoring table was printing it raw under a heading that reads Technician.
+   One lookup builds the map for the whole page: staff accounts number in the
+   dozens, and the alternative — resolving a name per row — is exactly the
+   O(rows) page-load work this codebase gets bitten by. A report can also be
+   held by someone getAvailableTechnicians() does not return (an admin with a
+   TECH- id, for one), so the map is built from users rather than from the
+   technician list, and the id still shows if no name is found. */
+$staffNames = [];
+$staffInfo  = [];
+try {
+    $nameRes = $conn->query("SELECT user_id, fullname, email, phone, position, department FROM users");
+    if ($nameRes) {
+        while ($u = $nameRes->fetch_assoc()) {
+            $uid = (string)$u['user_id'];
+            $staffNames[$uid] = (string)$u['fullname'];
+            /* Contact details for the profile card. Read here because the same
+               query is already being made — a second trip for four technicians
+               would cost more than the rows are worth. */
+            $staffInfo[$uid] = [
+                'email'    => (string)($u['email']    ?? ''),
+                'phone'    => (string)($u['phone']    ?? ''),
+                'position' => (string)($u['position'] ?? ''),
+                'dept'     => (string)($u['department'] ?? ''),
+            ];
+        }
+    }
+} catch (Throwable $e) {
+    /* A missing name is cosmetic — the id still identifies the row. */
+}
+
+/* Profile payload for the technician cards. Everything here is a stored value —
+   name, department, specialization, account status, contact details, and the
+   reports the person is actually holding right now. Nothing is scored,
+   predicted or inferred: the card already shows a workload bar, and a profile
+   that claimed to rate someone's suitability would be inventing a judgement the
+   system does not make. Built once for the page rather than per card. */
+$techProfiles = [];
+foreach ($technicians as $t) {
+    $tid = (string)($t['tid'] ?? '');
+    if ($tid === '') { continue; }
+    $held = [];
+    foreach ($inprogress as $r) {
+        if ((string)($r['assigned_to'] ?? '') !== $tid) { continue; }
+        $held[] = [
+            'id'     => (string)($r['report_id'] ?? ''),
+            'eq'     => (string)($r['equipment_name'] ?? 'Equipment'),
+            'status' => stLbl($r['status'] ?? ''),
+            'scls'   => stCls($r['status'] ?? ''),
+            'prio'   => prLbl($r['priority'] ?? ''),
+            'pcls'   => prCls($r['priority'] ?? ''),
+            'when'   => !empty($r['assigned_date']) ? date('M j', strtotime((string)$r['assigned_date'])) : '',
+        ];
+    }
+    $info = $staffInfo[$tid] ?? [];
+    /* The availability wording and colours are decided in one place (availMeta)
+       and carried into the payload, so the profile cannot drift into saying
+       something different from the card it was opened from. */
+    [$pLbl, $pColor, $pIcon, $pBg] = availMeta($t['avail'] ?? '');
+    $techProfiles[$tid] = [
+        'aLbl'   => $pLbl,
+        'aColor' => $pColor,
+        'aBg'    => $pBg,
+        'name'   => (string)($t['fullname'] ?? 'Technician'),
+        'tid'    => $tid,
+        'spec'   => (string)($t['spec'] ?? ''),
+        'dept'   => (string)($info['dept'] ?? $t['dept'] ?? ''),
+        'pos'    => (string)($info['position'] ?? ''),
+        'email'  => (string)($info['email'] ?? ''),
+        'phone'  => (string)($info['phone'] ?? ''),
+        'avail'  => (string)($t['avail'] ?? ''),
+        'load'   => (int)($t['workload'] ?? 0),
+        'held'   => $held,
+    ];
+}
+
 // Pre-select report from URL (coming from defect reports page)
 $preReport = null;
 if (isset($_GET['report'])) {
@@ -453,10 +529,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .asg-active .tbl thead th,.asg-active .tbl tbody td{padding-left:1rem;padding-right:1rem;}
 /* The queue shares its row with the workspace, so the free-text column is what
    gives way — the Assign button must stay reachable without scrolling. */
-#unTbl td:nth-child(3){max-width:9.5rem;}
+/* Column widths are declared in the queue table's own colgroup now. */
 #unTbl th:last-child,#unTbl td:last-child{width:1%;white-space:nowrap;}
 .tbl td .esl{white-space:nowrap;}
-#unTbl td:nth-child(3){max-width:11rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .tbl td:last-child,.tbl th:last-child{white-space:nowrap;width:1%;}
 .tbl td .rid,.tbl td.nw,.tbl th.nw{white-space:nowrap;}
 .tbl tbody td:first-child,.tbl tbody td:nth-last-child(2){white-space:nowrap;}
@@ -464,6 +539,119 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .tbl tbody tr:hover{transform:none;}
 .rid{font-family:'Outfit',sans-serif;font-weight:800;color:var(--m3);font-size:.78rem;}
 .en{font-weight:700;}.esl{font-size:.64rem;color:var(--t3);}
+
+/* -- QUEUE TOOLBAR --------------------------------- */
+/* The toolbar's controls are labelled for screen readers but their purpose is
+   already obvious on screen, so the labels are hidden rather than shown.
+   Defined here, not in admin-shell.css: no other admin page needs it yet, and
+   that file is shared with work happening in parallel. */
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;
+  clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0;}
+/* A dispatcher works the queue by asking three questions — is this one mine to
+   worry about, which is worst, and what has been waiting longest. The table
+   answered none of them without reading every row, so the questions get
+   controls. All of it filters the rows already on the page: the queue is the
+   set of unassigned reports, it is small by definition, and a round trip to
+   Supabase costs ~429ms to tell us something the browser already knows. */
+.qbar{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;
+  padding:.7rem 1.25rem;border-bottom:1px solid var(--bdr);background:var(--s2);}
+.qsearch{position:relative;flex:1 1 15rem;min-width:11rem;display:flex;align-items:center;}
+.qsearch > i{position:absolute;left:.6rem;font-size:.7rem;color:var(--t3);pointer-events:none;}
+.qsearch input{width:100%;height:2rem;padding:0 1.9rem 0 1.9rem;border-radius:var(--r1);
+  border:1.5px solid var(--bdr);background:var(--s1);font-family:'DM Sans',sans-serif;
+  font-size:.76rem;color:var(--t1);transition:border-color .15s,box-shadow .15s;}
+.qsearch input::placeholder{color:var(--t3);}
+.qsearch input:focus{outline:none;border-color:var(--m3);box-shadow:0 0 0 3px rgba(123,29,29,.10);}
+/* The browser's own search-clear only appears in some engines and sits at a
+   different inset in each, so the control is ours and always in one place. */
+.qsearch input::-webkit-search-cancel-button{display:none;}
+.qclear{position:absolute;right:.4rem;width:1.25rem;height:1.25rem;border:0;padding:0;
+  border-radius:50%;background:var(--bdr);color:var(--t2);cursor:pointer;font-size:.62rem;
+  display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s;}
+.qclear:hover{background:var(--m3);color:#fff;}
+.qclear[hidden]{display:none;}
+.qsel{height:2rem;padding:0 1.7rem 0 .6rem;border-radius:var(--r1);border:1.5px solid var(--bdr);
+  background:var(--s1) url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239C7A7A' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right .55rem center;
+  font-family:'DM Sans',sans-serif;font-size:.74rem;font-weight:600;color:var(--t2);
+  cursor:pointer;appearance:none;-webkit-appearance:none;transition:border-color .15s;}
+.qsel:hover{border-color:var(--bdr2);}
+.qsel:focus-visible{outline:2px solid var(--m3);outline-offset:1px;}
+/* Reads as pressed rather than checked: it is a view the dispatcher turns on,
+   and the amber matches the warning already on the Waiting column. */
+.qchip{position:relative;display:block;cursor:pointer;}
+.qchip input{position:absolute;opacity:0;width:0;height:0;}
+.qchip span{display:flex;align-items:center;gap:.3rem;height:2rem;padding:0 .7rem;
+  border-radius:var(--r1);border:1.5px solid var(--bdr);background:var(--s1);
+  font-size:.72rem;font-weight:700;color:var(--t2);white-space:nowrap;transition:all .15s;}
+.qchip span i{font-size:.66rem;color:#C2410C;}
+.qchip:hover span{border-color:var(--bdr2);}
+.qchip input:focus-visible + span{outline:2px solid var(--m3);outline-offset:2px;}
+.qchip input:checked + span{background:#FFF7ED;border-color:#EA580C;color:#C2410C;}
+.qchip input:checked + span i{color:#C2410C;}
+.qcount{margin-left:auto;font-size:.7rem;color:var(--t3);white-space:nowrap;font-weight:600;}
+.qcount b{color:var(--t1);font-weight:800;}
+/* Filtering to nothing is a result, not a blank panel. Both tables use it. */
+.tbl tr.qhide{display:none;}
+.qnone td{padding:0;}
+
+/* Panel header, right side: the count, and the one number worth interrupting
+   for. Dispatched-and-not-accepted is the state the dispatcher can still act
+   on, so it is the only thing here that gets a colour. */
+.ph3-r{display:flex;align-items:center;gap:.5rem;}
+.ph3-n{font-size:.72rem;color:var(--t3);white-space:nowrap;}
+.ph3-warn{display:inline-flex;align-items:center;gap:.3rem;white-space:nowrap;
+  padding:.16rem .55rem;border-radius:20px;font-size:.66rem;font-weight:800;
+  background:#FFF7ED;border:1px solid #F6D9B8;color:#C2410C;}
+.ph3-warn i{font-size:.6rem;}
+
+/* The monitoring table has the full page width, so its columns are declared in
+   a colgroup and stop being re-decided by whichever equipment name is longest.
+   Fixed layout is what makes the colgroup binding rather than advisory. */
+.asg-tbl{table-layout:fixed;}
+.asg-tbl td .en,.asg-tbl td .esl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+/* -- TECHNICIAN PROFILE ---------------------------- */
+/* The card's one control that is not the card. Sized to the same 22px box the
+   availability pill sits against so the top row keeps its baseline. */
+.tcd-info{width:22px;height:22px;flex-shrink:0;margin-left:.25rem;padding:0;
+  border:1px solid var(--bdr);border-radius:50%;background:var(--s1);color:var(--t3);
+  font-size:.62rem;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background .15s,color .15s,border-color .15s;}
+.tcd-info:hover{background:var(--m3);border-color:var(--m3);color:#fff;}
+.tcd-info:focus-visible{outline:2px solid var(--m3);outline-offset:2px;}
+.tcd-off .tcd-info{opacity:.75;}
+
+.tprof-hd{display:flex;align-items:center;gap:.7rem;min-width:0;}
+.tprof-av{width:42px;height:42px;border-radius:50%;flex-shrink:0;
+  background:linear-gradient(135deg,var(--m3),var(--m2));color:#fff;
+  font-family:'Outfit',sans-serif;font-weight:800;font-size:.9rem;
+  display:flex;align-items:center;justify-content:center;}
+#tprofMo .mhd-t h2{margin:0;}
+#tprofMo .mhd-t p{margin:.1rem 0 0;}
+.tprof-rows{display:grid;grid-template-columns:auto minmax(0,1fr);gap:.4rem .9rem;margin:0 0 1rem;}
+.tprof-rows dt{font-size:.7rem;font-weight:700;color:var(--t3);white-space:nowrap;}
+.tprof-rows dd{margin:0;font-size:.78rem;color:var(--t1);font-weight:600;overflow-wrap:anywhere;}
+.tprof-rows dd a{color:var(--m3);text-decoration:none;}
+.tprof-rows dd a:hover{text-decoration:underline;}
+.tprof-rows dd.none{color:var(--t3);font-weight:500;font-style:italic;}
+.tprof-sec{border-top:1px solid var(--bdr);padding-top:.85rem;}
+.tprof-sec h4{font-family:'Outfit',sans-serif;font-size:.8rem;font-weight:800;color:var(--t1);
+  margin:0 0 .6rem;display:flex;align-items:center;gap:.35rem;}
+.tprof-sec h4 i{color:var(--m3);font-size:.75rem;}
+.tprof-n{margin-left:auto;font-size:.66rem;font-weight:800;color:var(--t2);
+  background:var(--s3);border-radius:20px;padding:.1rem .5rem;}
+/* One line per report they are holding: the ticket, what it is, and where it
+   has got to. Enough to answer "can they take another one" without leaving. */
+.tprof-job{display:flex;align-items:center;gap:.5rem;padding:.5rem .6rem;
+  border:1px solid var(--bdr);border-radius:var(--r1);background:var(--s2);margin-bottom:.4rem;}
+.tprof-job:last-child{margin-bottom:0;}
+.tprof-job-id{font-family:'Outfit',sans-serif;font-weight:800;color:var(--m3);
+  font-size:.72rem;white-space:nowrap;}
+.tprof-job-eq{flex:1;min-width:0;font-size:.75rem;color:var(--t1);font-weight:600;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tprof-job-when{font-size:.64rem;color:var(--t3);white-space:nowrap;}
+.tprof-free{display:flex;align-items:center;gap:.45rem;font-size:.76rem;color:#15803D;
+  background:#F0FDF4;border:1px solid #BBE8CB;border-radius:var(--r1);padding:.6rem .75rem;}
 
 /* -- BADGES ---------------------------------------- */
 .bdg{display:inline-flex;align-items:center;gap:.22rem;padding:.2rem .58rem;
@@ -712,7 +900,14 @@ textarea.fc{resize:vertical;min-height:80px;}
 .empty i{font-size:2.2rem;display:block;margin-bottom:.65rem;opacity:.22;}
 
 /* -- RESPONSIVE ------------------------------------ */
-@media(max-width:1200px){.main-grid{grid-template-columns:1fr;}
+/* 1366, not 1200. The workspace column is a fixed 400px, so on a 1280 laptop the
+   queue was left with about 520px for six columns that need 570 — the Assign
+   button fell outside the panel and the table grew a horizontal scrollbar. The
+   columns are declared widths now and cannot be squeezed to fit, so the grid
+   has to stack while the queue still has room to be a table. Both panels get
+   the full width below this point, which is the better reading of the page on a
+   small screen anyway. */
+@media(max-width:1366px){.main-grid{grid-template-columns:1fr;}
   .assign-col{position:static;max-height:none;overflow:visible;}}
 @media(max-width:768px){.sb{transform:translateX(-100%);}.sb.open{transform:translateX(0);}
   .wrap{margin-left:0;}.pg{padding:1rem;}.mob-tog{display:flex;}
@@ -831,7 +1026,52 @@ textarea.fc{resize:vertical;min-height:80px;}
               <i class="fas fa-external-link-alt"></i> View All
             </a>
           </div>
-          <div class="tblwrap"><table class="tbl" id="unTbl">
+
+          <?php /* Only worth showing when there is a queue to work through. One
+                   report needs no search, and an empty panel needs no filters. */ ?>
+          <?php if (!empty($unassigned)): ?>
+          <div class="qbar">
+            <div class="qsearch">
+              <i class="fas fa-search"></i>
+              <label for="qSearch" class="sr-only">Search the queue</label>
+              <input type="search" id="qSearch" autocomplete="off"
+                     placeholder="Search ticket, equipment, location or reporter">
+              <button type="button" class="qclear" id="qClear" hidden aria-label="Clear search">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            <label for="qPrio" class="sr-only">Filter by priority</label>
+            <select class="qsel" id="qPrio">
+              <option value="">All priorities</option>
+              <option value="critical">Critical</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+            </select>
+            <label for="qSort" class="sr-only">Sort the queue</label>
+            <select class="qsel" id="qSort">
+              <option value="wait">Longest waiting</option>
+              <option value="prio">Highest priority</option>
+              <option value="new">Newest first</option>
+            </select>
+            <label class="qchip" title="Only reports unassigned for two days or more">
+              <input type="checkbox" id="qStale">
+              <span><i class="fas fa-triangle-exclamation"></i> Overdue only</span>
+            </label>
+            <span class="qcount" id="qCount"></span>
+          </div>
+          <?php endif; ?>
+
+          <div class="tblwrap"><table class="tbl asg-tbl" id="unTbl">
+            <?php /* Declared tracks rather than content-measured ones. The queue
+                     shares its row with a 400px workspace, and letting the
+                     browser size six columns from the longest location string
+                     pushed the Assign button past the panel edge — the
+                     horizontal scrollbar was the symptom, not the fix. */ ?>
+            <colgroup>
+              <col style="width:8.6rem"><col><col style="width:9.5rem">
+              <col style="width:5.2rem"><col style="width:4.4rem"><col style="width:5.8rem">
+            </colgroup>
             <thead>
               <tr>
                 <?php /* Location replaces the Issue stub. The stub was the first 50
@@ -849,8 +1089,25 @@ textarea.fc{resize:vertical;min-height:80px;}
                 <i class="fas fa-check-circle" style="color:#16A34A;"></i>
                 All reports are assigned - great work!
               </div></td></tr>
-              <?php else: foreach($unassigned as $r): ?>
-              <tr id="row-<?php echo esc($r['report_id']); ?>">
+              <?php else: foreach($unassigned as $r):
+                /* Everything the toolbar sorts or filters on is written onto the
+                   row, so the script never has to parse rendered cells back into
+                   values — badge text and a formatted age are for reading, not
+                   for comparing. Age is computed once here and reused below. */
+                $rowAge  = !empty($r['report_date']) ? (time() - strtotime((string)$r['report_date'])) : null;
+                $rowRank = ['critical'=>4,'high'=>3,'medium'=>2,'low'=>1][$r['priority'] ?? ''] ?? 0;
+                $rowHay  = strtolower(trim(preg_replace('~\s+~', ' ', implode(' ', [
+                    $r['report_id']    ?? '', $r['equipment_name'] ?? '',
+                    $r['asset_tag']    ?? '', $r['location']       ?? '',
+                    $r['reporter_name']?? '', $r['issue_description'] ?? '',
+                ]))));
+              ?>
+              <tr id="row-<?php echo esc($r['report_id']); ?>"
+                  data-hay="<?php echo esc($rowHay); ?>"
+                  data-prio="<?php echo esc(strtolower((string)($r['priority'] ?? ''))); ?>"
+                  data-rank="<?php echo $rowRank; ?>"
+                  data-age="<?php echo $rowAge === null ? -1 : (int)$rowAge; ?>"
+                  data-stale="<?php echo ($rowAge !== null && $rowAge >= 172800) ? '1' : '0'; ?>">
                 <td><span class="rid"><?php echo esc($r['report_id']); ?></span></td>
                 <td>
                   <div class="en"><?php echo esc($r['equipment_name']??'N/A'); ?></div>
@@ -863,14 +1120,14 @@ textarea.fc{resize:vertical;min-height:80px;}
                   $uHead = trim(explode('•', $uLoc)[0]);
                   /* How long this has been sitting unassigned. A queue is judged by
                      its oldest item, and a date alone makes you do the arithmetic. */
-                  $uAge  = !empty($r['report_date']) ? (time() - strtotime((string)$r['report_date'])) : null;
+                  $uAge  = $rowAge;   /* already computed for the row attributes */
                   $uAgeT = $uAge === null ? '—'
                          : ($uAge < 3600   ? max(1, (int)floor($uAge / 60)) . 'm'
                          : ($uAge < 86400  ? (int)floor($uAge / 3600) . 'h'
                          :                   (int)floor($uAge / 86400) . 'd'));
                   $uStale = $uAge !== null && $uAge >= 172800;   // two days unassigned
                 ?>
-                <td style="max-width:190px;" title="<?php echo esc($uLoc); ?>">
+                <td title="<?php echo esc($uLoc); ?>">
                   <div class="en" style="font-weight:600;font-size:.78rem;"><?php echo esc($uHead ?: '—'); ?></div>
                   <?php if ($uHead !== '' && $uHead !== $uLoc): ?>
                   <div class="esl"><?php echo esc(trim(substr($uLoc, strlen($uHead) + 1), " •")); ?></div>
@@ -904,6 +1161,17 @@ textarea.fc{resize:vertical;min-height:80px;}
                 </td>
               </tr>
               <?php endforeach; endif; ?>
+              <?php if (!empty($unassigned)): ?>
+              <?php /* Filtering down to nothing is a result and should say so.
+                       Left in the markup and toggled, so the row is never built
+                       from a string at the moment it is needed. */ ?>
+              <tr class="qnone" id="qNone" hidden><td colspan="6"><div class="empty">
+                <i class="fas fa-magnifying-glass-minus"></i>
+                No reports match these filters.<br>
+                <button type="button" class="btn btn-ghost btn-sm" style="margin-top:.7rem;"
+                        onclick="qReset()"><i class="fas fa-rotate-left"></i> Clear filters</button>
+              </div></td></tr>
+              <?php endif; ?>
             </tbody>
           </table></div>
         </div>
@@ -1146,6 +1414,15 @@ textarea.fc{resize:vertical;min-height:80px;}
                 <span class="tcd-avail" style="color:<?php echo $aColor; ?>;background:<?php echo $aBg; ?>;">
                   <span class="tcd-dot" style="background:<?php echo $aColor; ?>;"></span><?php echo esc($aLbl); ?>
                 </span>
+                <?php /* The card as a whole assigns; this one control does not.
+                         stopPropagation keeps a look at someone's details from
+                         dispatching a repair to them, which is the kind of
+                         mis-click that sends a real email to a real person. */ ?>
+                <button type="button" class="tcd-info" title="View profile"
+                        aria-label="View <?php echo esc($t['fullname'] ?? 'technician'); ?>'s profile"
+                        onclick="event.stopPropagation();showTechProfile('<?php echo esc($tid); ?>');">
+                  <i class="fas fa-circle-info" aria-hidden="true"></i>
+                </button>
               </div>
 
               <?php /* Workload is stated as a real count and drawn relative to the
@@ -1184,16 +1461,92 @@ textarea.fc{resize:vertical;min-height:80px;}
          the dispatch area, full width, where they have room and are out of the
          way of the decision above them. -->
         <!-- Active Assignments Panel -->
+        <?php
+          /* Who currently holds work, for the filter. Built from the rows on the
+             page rather than from the technician list: a report can be held by
+             someone no longer offered for assignment, and a filter that cannot
+             select a row that is visible is worse than no filter. */
+          $actHolders = [];
+          foreach ($inprogress as $r) {
+              $tid = (string)($r['assigned_to'] ?? '');
+              if ($tid !== '') { $actHolders[$tid] = $staffNames[$tid] ?? $tid; }
+          }
+          asort($actHolders, SORT_NATURAL | SORT_FLAG_CASE);
+
+          /* The statuses actually present, in workflow order — not every status
+             the system knows, most of which could never appear in this table. */
+          $actStatusOrder = ['assigned','accepted','in_progress','waiting_for_materials','for_replacement'];
+          $actStatuses = array_values(array_filter($actStatusOrder, static function ($s) use ($inprogress) {
+              foreach ($inprogress as $r) { if (($r['status'] ?? '') === $s) { return true; } }
+              return false;
+          }));
+
+          /* Not yet accepted is the one state worth singling out: the report has
+             been dispatched and the technician has not picked it up, which is
+             the failure the dispatcher can still do something about. */
+          $actUnaccepted = count(array_filter($inprogress, static fn($r) => ($r['status'] ?? '') === 'assigned'));
+        ?>
         <div class="panel asg-active">
           <div class="ph3">
             <h3><i class="fas fa-tasks"></i> Active Assignments</h3>
-            <span style="font-size:.72rem;color:var(--t3);"><?php echo $totalInProgress; ?> reports in progress</span>
+            <div class="ph3-r">
+              <?php if ($actUnaccepted > 0): ?>
+              <span class="ph3-warn" title="Dispatched, but the technician has not accepted yet">
+                <i class="fas fa-hourglass-half"></i> <?php echo $actUnaccepted; ?> not yet accepted
+              </span>
+              <?php endif; ?>
+              <span class="ph3-n"><?php echo $totalInProgress; ?> in progress</span>
+            </div>
           </div>
-          <div class="tblwrap"><table class="tbl">
+
+          <?php if (!empty($inprogress)): ?>
+          <div class="qbar">
+            <div class="qsearch">
+              <i class="fas fa-search"></i>
+              <label for="aSearch" class="sr-only">Search active assignments</label>
+              <input type="search" id="aSearch" autocomplete="off"
+                     placeholder="Search ticket, equipment or technician">
+              <button type="button" class="qclear" id="aClear" hidden aria-label="Clear search">
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+            <label for="aTech" class="sr-only">Filter by technician</label>
+            <select class="qsel" id="aTech">
+              <option value="">All technicians</option>
+              <?php foreach ($actHolders as $tid => $nm): ?>
+              <option value="<?php echo esc($tid); ?>"><?php echo esc($nm); ?></option>
+              <?php endforeach; ?>
+            </select>
+            <label for="aStatus" class="sr-only">Filter by status</label>
+            <select class="qsel" id="aStatus">
+              <option value="">All statuses</option>
+              <?php foreach ($actStatuses as $s): ?>
+              <option value="<?php echo esc($s); ?>"><?php echo esc(stLbl($s)); ?></option>
+              <?php endforeach; ?>
+            </select>
+            <?php if ($actUnaccepted > 0): ?>
+            <label class="qchip" title="Dispatched but not yet picked up by the technician">
+              <input type="checkbox" id="aPending">
+              <span><i class="fas fa-hourglass-half"></i> Not yet accepted</span>
+            </label>
+            <?php endif; ?>
+            <span class="qcount" id="aCount"></span>
+          </div>
+          <?php endif; ?>
+
+          <div class="tblwrap"><table class="tbl asg-tbl" id="actTbl">
+            <?php /* Fixed tracks so the columns line up down the page instead of
+                     being re-decided by whichever equipment name is longest. */ ?>
+            <colgroup>
+              <col style="width:9.5rem"><col><col style="width:13rem">
+              <col style="width:6rem"><col style="width:8.5rem">
+              <col style="width:9rem"><col style="width:5rem">
+            </colgroup>
             <thead>
               <tr>
-                <th>Report ID</th><th>Equipment</th><th>Technician</th>
-                <th>Priority</th><th>Status</th><th>Assigned</th><th style="text-align:center;">Action</th>
+                <th>Report</th><th>Equipment</th><th>Technician</th>
+                <th>Priority</th><th>Status</th><th>Assigned</th>
+                <th style="text-align:center;">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -1201,20 +1554,44 @@ textarea.fc{resize:vertical;min-height:80px;}
               <tr><td colspan="7"><div class="empty">
                 <i class="fas fa-inbox"></i> No active assignments.
               </div></td></tr>
-              <?php else: foreach($inprogress as $r): ?>
-              <tr>
+              <?php else: foreach($inprogress as $r):
+                $aTid   = (string)($r['assigned_to'] ?? '');
+                $aName  = $staffNames[$aTid] ?? '';
+                $aWhen  = !empty($r['assigned_date']) ? strtotime((string)$r['assigned_date']) : null;
+                $aAge   = $aWhen ? (time() - $aWhen) : null;
+                $aAgeT  = $aAge === null ? '—'
+                        : ($aAge < 3600  ? max(1, (int)floor($aAge / 60)) . 'm'
+                        : ($aAge < 86400 ? (int)floor($aAge / 3600) . 'h'
+                        :                  (int)floor($aAge / 86400) . 'd'));
+                $aHay   = strtolower(trim(preg_replace('~\s+~', ' ', implode(' ', [
+                    $r['report_id'] ?? '', $r['equipment_name'] ?? '',
+                    $r['asset_tag'] ?? '', $aName, $aTid,
+                ]))));
+              ?>
+              <tr data-hay="<?php echo esc($aHay); ?>"
+                  data-tech="<?php echo esc($aTid); ?>"
+                  data-status="<?php echo esc((string)($r['status'] ?? '')); ?>">
                 <td><span class="rid"><?php echo esc($r['report_id']); ?></span></td>
                 <td>
                   <div class="en"><?php echo esc($r['equipment_name']??'N/A'); ?></div>
                   <?php if(!empty($r['asset_tag'])): ?><div class="esl"><?php echo esc($r['asset_tag']); ?></div><?php endif; ?>
                 </td>
-                <td style="font-size:.79rem;font-weight:600;">
-                  <?php echo esc($r['assigned_to']??'-'); ?>
+                <?php /* The name is who you would go and ask; the id is what the
+                         record stores. Both, with the name doing the reading. */ ?>
+                <td>
+                  <div class="en"><?php echo esc($aName !== '' ? $aName : $aTid); ?></div>
+                  <?php if ($aName !== ''): ?><div class="esl"><?php echo esc($aTid); ?></div><?php endif; ?>
                 </td>
                 <td><span class="bdg b-<?php echo prCls($r['priority']); ?>"><?php echo prLbl($r['priority']); ?></span></td>
                 <td><span class="bdg b-<?php echo stCls($r['status']); ?>"><?php echo stLbl($r['status']); ?></span></td>
-                <td style="font-size:.71rem;color:var(--t3);">
-                  <?php echo !empty($r['assigned_date'])?date('M j',strtotime($r['assigned_date'])):'-'; ?>
+                <?php /* A date alone makes the reader do the arithmetic that the
+                         question "has this been sitting too long" actually needs. */ ?>
+                <td class="nw"
+                    title="<?php echo $aWhen ? esc(date('M j, Y · g:i A', $aWhen)) : 'Not recorded'; ?>">
+                  <div class="en" style="font-weight:600;font-size:.74rem;">
+                    <?php echo $aWhen ? esc(date('M j', $aWhen)) : '—'; ?>
+                  </div>
+                  <div class="esl"><?php echo esc($aAgeT); ?> ago</div>
                 </td>
                 <td style="text-align:center;">
                   <button class="btn bico bi-d btn-sm" title="Unassign"
@@ -1224,6 +1601,14 @@ textarea.fc{resize:vertical;min-height:80px;}
                 </td>
               </tr>
               <?php endforeach; endif; ?>
+              <?php if (!empty($inprogress)): ?>
+              <tr class="qnone" id="aNone" hidden><td colspan="7"><div class="empty">
+                <i class="fas fa-magnifying-glass-minus"></i>
+                No assignments match these filters.<br>
+                <button type="button" class="btn btn-ghost btn-sm" style="margin-top:.7rem;"
+                        onclick="aReset()"><i class="fas fa-rotate-left"></i> Clear filters</button>
+              </div></td></tr>
+              <?php endif; ?>
             </tbody>
           </table></div>
         </div>
@@ -1260,6 +1645,42 @@ textarea.fc{resize:vertical;min-height:80px;}
       <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('asgMo').classList.remove('open')">Back &amp; edit</button>
       <button type="button" class="btn btn-green btn-sm" id="asgGo" onclick="confirmAssign()">
         <i class="fas fa-paper-plane"></i> Confirm assignment
+      </button>
+    </div>
+  </div>
+</div>
+
+<?php /* Technician profile. A look, not a decision — it assigns nothing and
+         posts nothing, so its only footer control is Close plus a shortcut to
+         select the person you are already looking at. Built from the same
+         stored values the cards use; see $techProfiles for why nothing here is
+         scored or predicted. */ ?>
+<div class="mo" id="tprofMo" onclick="if(event.target===this)closeTechProfile()">
+  <div class="mw" role="dialog" aria-modal="true" aria-labelledby="tprofName">
+    <div class="mhd">
+      <div class="mhd-t tprof-hd">
+        <div class="tprof-av" id="tprofAv">--</div>
+        <div style="min-width:0;">
+          <h2 id="tprofName">Technician</h2>
+          <p id="tprofRole">-</p>
+        </div>
+        <span class="tcd-avail" id="tprofAvail"><span class="tcd-dot"></span>-</span>
+      </div>
+      <button class="mx" onclick="closeTechProfile()" aria-label="Close"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="mb">
+      <dl class="tprof-rows" id="tprofRows"></dl>
+      <div class="tprof-sec">
+        <h4><i class="fas fa-clipboard-check"></i> Current workload
+          <span class="tprof-n" id="tprofLoad">0</span>
+        </h4>
+        <div id="tprofHeld"></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-ghost btn-sm" onclick="closeTechProfile()">Close</button>
+      <button class="btn btn-maroon btn-sm" id="tprofPick" onclick="tpSelect()">
+        <i class="fas fa-user-check"></i> Select this technician
       </button>
     </div>
   </div>
@@ -1332,6 +1753,205 @@ function escHtml(s) {
 }
 function escAttr(s) { return escHtml(s); }
 
+/* --- FILTER BARS ---------------------------------- */
+/* The queue and the monitoring table ask different questions of different
+   columns, but they filter the same way: narrow the rows already on the page,
+   say how many survived, and offer a way back. One implementation configured
+   twice — the alternative is the same forty lines with different ids.
+
+   Nothing here talks to the server. Both sets are bounded (reports with no
+   technician; reports a technician currently holds) and a round trip to
+   Supabase costs about 429ms to return what the browser is already holding. */
+function wireFilterBar(cfg) {
+  var tbl = document.getElementById(cfg.table),
+      box = document.getElementById(cfg.search);
+  if (!tbl || !box) { return; }            /* an empty table renders no toolbar */
+
+  var tbody = tbl.tBodies[0],
+      clr   = document.getElementById(cfg.clear),
+      count = document.getElementById(cfg.count),
+      none  = document.getElementById(cfg.none),
+      rows  = Array.prototype.slice.call(tbody.querySelectorAll('tr[data-hay]')),
+      total = rows.length,
+      sortEl = cfg.sort ? document.getElementById(cfg.sort.id) : null,
+      /* Optional controls: the chip is only rendered when the state it filters
+         for actually occurs, so a missing element is normal, not an error. */
+      flagEl = cfg.flag ? document.getElementById(cfg.flag.id) : null,
+      sels   = (cfg.selects || []).map(function (s) {
+                 return { el: document.getElementById(s.id), attr: s.attr };
+               }).filter(function (s) { return s.el; });
+
+  function num(row, key) { return parseInt(row.getAttribute(key), 10) || 0; }
+
+  function apply() {
+    var q = box.value.trim().toLowerCase(), shown = 0;
+
+    rows.forEach(function (row) {
+      var ok = (!q || row.getAttribute('data-hay').indexOf(q) !== -1);
+      for (var i = 0; ok && i < sels.length; i++) {
+        if (sels[i].el.value && row.getAttribute(sels[i].attr) !== sels[i].el.value) { ok = false; }
+      }
+      if (ok && flagEl && flagEl.checked && row.getAttribute(cfg.flag.attr) !== cfg.flag.value) {
+        ok = false;
+      }
+      row.classList.toggle('qhide', !ok);
+      if (ok) { shown++; }
+    });
+
+    /* Order the whole set, not only what is visible: a row hidden by the search
+       has to already be in its right place for when the search is cleared.
+       appendChild moves the node rather than copying it, so each row's Assign
+       or Unassign handler travels with it. */
+    if (sortEl) {
+      var mode = sortEl.value;
+      rows.slice().sort(function (a, b) { return cfg.sort.compare(mode, a, b, num); })
+          .forEach(function (row) { tbody.appendChild(row); });
+    }
+    if (none) { tbody.appendChild(none); none.hidden = (shown !== 0); }
+
+    count.innerHTML = (shown === total)
+      ? '<b>' + total + '</b> ' + cfg.noun + (total === 1 ? '' : 's')
+      : '<b>' + shown + '</b> of ' + total + ' shown';
+    if (clr) { clr.hidden = (box.value === ''); }
+  }
+
+  box.addEventListener('input', apply);
+  sels.forEach(function (s) { s.el.addEventListener('change', apply); });
+  if (sortEl) { sortEl.addEventListener('change', apply); }
+  if (flagEl) { flagEl.addEventListener('change', apply); }
+  if (clr) { clr.addEventListener('click', function () { box.value = ''; apply(); box.focus(); }); }
+
+  /* Escape empties the search rather than bubbling up to close something: this
+     is a search box in a page, not in a dialog. */
+  box.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && box.value !== '') { e.stopPropagation(); box.value = ''; apply(); }
+  });
+
+  window[cfg.reset] = function () {
+    box.value = '';
+    sels.forEach(function (s) { s.el.value = ''; });
+    if (flagEl) { flagEl.checked = false; }
+    apply();
+    box.focus();
+  };
+
+  apply();
+}
+
+/* The queue: which is worst, and what has been waiting longest. */
+wireFilterBar({
+  table: 'unTbl', search: 'qSearch', clear: 'qClear', count: 'qCount',
+  none: 'qNone', reset: 'qReset', noun: 'report',
+  selects: [{ id: 'qPrio', attr: 'data-prio' }],
+  flag: { id: 'qStale', attr: 'data-stale', value: '1' },
+  sort: {
+    id: 'qSort',
+    compare: function (mode, a, b, num) {
+      if (mode === 'prio') {
+        return num(b, 'data-rank') - num(a, 'data-rank')
+            || num(b, 'data-age')  - num(a, 'data-age');
+      }
+      if (mode === 'new') { return num(a, 'data-age') - num(b, 'data-age'); }
+      return num(b, 'data-age') - num(a, 'data-age');          /* longest waiting */
+    }
+  }
+});
+
+/* The monitoring table: who is carrying what, and what has not been picked up.
+   No sort control — the rows arrive newest-assigned first, which is the order
+   this table is read in. */
+wireFilterBar({
+  table: 'actTbl', search: 'aSearch', clear: 'aClear', count: 'aCount',
+  none: 'aNone', reset: 'aReset', noun: 'assignment',
+  selects: [{ id: 'aTech', attr: 'data-tech' }, { id: 'aStatus', attr: 'data-status' }],
+  flag: { id: 'aPending', attr: 'data-status', value: 'assigned' }
+});
+
+/* --- TECHNICIAN PROFILE --------------------------- */
+/* Built server-side and embedded once. The HEX flags matter: equipment names
+   and report ids are being written inside a script element, and a stored value
+   containing a closing script tag would end this block early and take every
+   function below it with it. JSON_HEX_TAG escapes the angle brackets so no
+   stored text can do that.
+
+   Note for whoever edits this comment: the sequence itself cannot be written
+   here in full, for exactly the reason described above. */
+var TECH_PROFILES = <?php echo json_encode($techProfiles,
+    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG |
+    JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+var tpCurrent = null;
+
+function tpRow(label, value, isLink) {
+  if (!value) {
+    return '<dt>' + label + '</dt><dd class="none">Not recorded</dd>';
+  }
+  var v = isLink
+    ? '<a href="' + (isLink === 'mail' ? 'mailto:' : 'tel:') + escAttr(value) + '">' + escHtml(value) + '</a>'
+    : escHtml(value);
+  return '<dt>' + label + '</dt><dd>' + v + '</dd>';
+}
+
+function showTechProfile(tid) {
+  var p = TECH_PROFILES[tid];
+  if (!p) { return; }
+  tpCurrent = tid;
+
+  document.getElementById('tprofAv').textContent = (p.name || '??').split(' ')
+    .slice(0, 2).map(function (w) { return w.charAt(0); }).join('').toUpperCase();
+  document.getElementById('tprofName').textContent = p.name;
+  document.getElementById('tprofRole').textContent = p.pos || p.spec || 'Technician';
+
+  var av = document.getElementById('tprofAvail');
+  av.style.color = p.aColor; av.style.background = p.aBg;
+  av.innerHTML = '<span class="tcd-dot" style="background:' + escAttr(p.aColor) + ';"></span>'
+               + escHtml(p.aLbl);
+
+  document.getElementById('tprofRows').innerHTML =
+      tpRow('Technician ID', p.tid)
+    + tpRow('Specialization', p.spec)
+    + tpRow('Department', p.dept)
+    + tpRow('Email', p.email, 'mail')
+    + tpRow('Phone', p.phone, 'tel');
+
+  document.getElementById('tprofLoad').textContent =
+    p.load + (p.load === 1 ? ' active task' : ' active tasks');
+
+  var held = p.held || [];
+  document.getElementById('tprofHeld').innerHTML = held.length
+    ? held.map(function (j) {
+        return '<div class="tprof-job">'
+             +   '<span class="tprof-job-id">' + escHtml(j.id) + '</span>'
+             +   '<span class="tprof-job-eq">' + escHtml(j.eq) + '</span>'
+             +   '<span class="bdg b-' + escAttr(j.pcls) + '">' + escHtml(j.prio) + '</span>'
+             +   '<span class="bdg b-' + escAttr(j.scls) + '">' + escHtml(j.status) + '</span>'
+             +   (j.when ? '<span class="tprof-job-when">' + escHtml(j.when) + '</span>' : '')
+             + '</div>';
+      }).join('')
+    : '<div class="tprof-free"><i class="fas fa-circle-check"></i> '
+      + 'No active tasks — free to take work.</div>';
+
+  /* Selecting from here only makes sense while there is a report to assign, and
+     an inactive account cannot be assigned to at all. */
+  var pick = document.getElementById('tprofPick');
+  var rid = document.getElementById('fRid');
+  var canPick = (p.avail !== 'unavailable') && !!(rid && rid.value);
+  pick.style.display = canPick ? '' : 'none';
+
+  document.getElementById('tprofMo').classList.add('open');
+}
+
+function closeTechProfile() {
+  document.getElementById('tprofMo').classList.remove('open');
+  tpCurrent = null;
+}
+
+function tpSelect() {
+  if (!tpCurrent) { return; }
+  var card = document.querySelector('.tcd[data-tid="' + tpCurrent + '"]');
+  closeTechProfile();
+  if (card) { assignFromCard(card); }
+}
+
 /* --- MEDIA LIGHTBOX ------------------------------- */
 function openMedia(src, kind) {
   const lb = document.getElementById('mediaLb');
@@ -1346,8 +1966,14 @@ function closeMedia() {
   lb.classList.remove('open');
   document.getElementById('mediaLbBody').innerHTML = '';   // stops a playing video
 }
+/* Escape closes whatever is open, innermost first: the lightbox can be opened
+   from on top of a dialog, so it has to be the one that goes. */
 document.addEventListener('keydown', function (e) {
-  if (e.key === 'Escape') closeMedia();
+  if (e.key !== 'Escape') { return; }
+  var lb = document.getElementById('mediaLb');
+  if (lb && lb.classList.contains('open')) { closeMedia(); return; }
+  var open = document.querySelector('.mo.open');
+  if (open) { open.classList.remove('open'); }
 });
 
 function selectReport(data) {
@@ -1492,8 +2118,8 @@ function techChanged(sel) {
   const wl       = parseInt(opt.dataset.wl) || 0;
   const deptCls  = opt.dataset.deptcls || 'gen';
 
-  document.getElementById('tpAv').textContent = initials;
-  document.getElementById('tpName').textContent = name;
+  document.getElementById('tprofAv').textContent = initials;
+  document.getElementById('tprofName').textContent = name;
 
   const tpMeta = document.getElementById('tpMeta');
   tpMeta.innerHTML = '';
