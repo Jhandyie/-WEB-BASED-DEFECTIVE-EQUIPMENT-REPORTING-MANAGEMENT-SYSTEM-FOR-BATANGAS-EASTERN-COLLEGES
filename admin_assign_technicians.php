@@ -252,13 +252,22 @@ function availMeta($a){
   --sh3:0 14px 40px rgba(45,5,5,.13),0 4px 10px rgba(45,5,5,.07);
   --r1:8px;--r2:12px;--r3:18px;--r4:26px;--sb:262px;
   --fs-xs:.6rem;--fs-sm:.68rem;--fs-base:.76rem;--fs-md:.82rem;--fs-lg:.88rem;--fs-xl:1.02rem;
-  --sp-0:.125rem;--sp-1:.25rem;--sp-2:.5rem;--sp-3:.75rem;--sp-4:1rem;--sp-5:1.5rem;
+  --sp-1:.25rem;--sp-2:.5rem;--sp-3:.75rem;--sp-4:1rem;--sp-5:1.5rem;
 }
-/* Six type steps and six spaces, matching admin_defect_reports.php. This page
-   had 37 different font sizes — .62 and .63 and .64rem all in play, none of the
-   differences meaning anything — so the scale is the whole point: sizes below
-   are var(--fs-*) and never literals. Three things stay literal on purpose and
-   are not type: the page h1, the stat number, and the empty-state icon. */
+/* Six type steps and five spaces, the same scale admin_defect_reports.php uses.
+   This page had 37 different font sizes — .62 and .63 and .64rem all in play,
+   none of the differences meaning anything — so the scale is the whole point:
+   every size in this file is var(--fs-*), inline styles included. Two things
+   stay literal on purpose: the page h1 and the stat number, which are display
+   sizes, and the 2.2rem glyphs in the empty state and the log-out modal, which
+   are illustration rather than type.
+
+   The spacing tokens are applied only where a value already sat exactly on a
+   step, so nothing moved. The literals still here — .45rem, .625rem, .875rem
+   and the rest — are off-scale on purpose for now: collapsing them is a real
+   layout change, and this page carries measurements that were arrived at by
+   measuring (the drawer's 720px, the queue's column widths). That is its own
+   pass, with its own before/after, not a side effect of a typography cleanup. */
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
 html{scroll-behavior:smooth;}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
@@ -278,7 +287,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .tb-l{display:flex;align-items:center;gap:.55rem;}
 .mob-tog{display:none;background:none;border:none;font-size:var(--fs-xl);cursor:pointer;color:var(--t2);}
 .pg-title{font-family:'Outfit',sans-serif;font-weight:700;font-size:var(--fs-xl);color:var(--t1);}
-.bc{font-size:var(--fs-sm);color:var(--t3);display:flex;align-items:center;gap:.25rem;}
+.bc{font-size:var(--fs-sm);color:var(--t3);display:flex;align-items:center;gap:var(--sp-1);}
 .bc a{color:var(--t3);text-decoration:none;}.bc a:hover{color:var(--m3);}
 .bc i{font-size:var(--fs-xs);}
 .tb-r{display:flex;align-items:center;gap:.55rem;}
@@ -291,7 +300,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   background:var(--g2);border-radius:50%;border:2px solid var(--s1);
   animation:pp 2.2s ease-in-out infinite;}
 @keyframes pp{0%,100%{transform:scale(1);}50%{transform:scale(1.4);}}
-.pg{padding:1.5rem 1.75rem;flex:1;}
+.pg{padding:var(--sp-5) 1.75rem;flex:1;}
 
 /* -- FLASH ----------------------------------------- */
 .flash{display:flex;align-items:center;gap:.65rem;padding:.7rem 1.1rem;
@@ -303,7 +312,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 
 /* -- PAGE HEADER ----------------------------------- */
 .ph{display:flex;align-items:flex-end;justify-content:space-between;
-  margin-bottom:1.25rem;gap:1rem;flex-wrap:wrap;}
+  margin-bottom:1.25rem;gap:var(--sp-4);flex-wrap:wrap;}
 .ph h1{font-family:'Outfit',sans-serif;font-size:1.45rem;font-weight:800;
   display:flex;align-items:center;gap:.45rem;}
 .ph h1 i{color:var(--m3);}
@@ -332,7 +341,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .bi-d{background:#FFF1F2;color:#BE123C;}.bi-d:hover{background:#FFE4E6;}
 
 /* -- SUMMARY CARDS --------------------------------- */
-.sums{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.375rem;}
+.sums{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-3);margin-bottom:1.375rem;}
 .scard{background:var(--s1);border-radius:var(--r3);padding:1.1rem 1.2rem;
   border:1px solid var(--bdr);position:relative;overflow:hidden;
   transition:all .26s cubic-bezier(.4,0,.2,1);box-shadow:var(--sh0);}
@@ -424,7 +433,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   border:1.5px solid var(--bdr);background:var(--s1);transition:all .15s;}
 .unit-opt:hover .unit-box{border-color:var(--bdr2);}
 .unit-opt input:focus-visible + .unit-box{outline:2px solid var(--m3);outline-offset:2px;}
-.unit-ic{display:block;font-size:var(--fs-lg);color:var(--t3);margin-bottom:.25rem;}
+.unit-ic{display:block;font-size:var(--fs-lg);color:var(--t3);margin-bottom:var(--sp-1);}
 .unit-t{display:block;font-family:'Outfit',sans-serif;font-size:var(--fs-md);font-weight:800;color:var(--t1);}
 .unit-d{display:block;font-size:var(--fs-xs);color:var(--t3);line-height:1.35;margin-top:.1rem;}
 .unit-check{position:absolute;top:.45rem;right:.45rem;width:17px;height:17px;border-radius:50%;
@@ -485,7 +494,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   border-radius:20px;padding:.05rem .4rem;white-space:nowrap;
   max-width:9rem;overflow:hidden;text-overflow:ellipsis;}
 .tcd-avail{display:inline-flex;align-items:center;gap:.28rem;flex-shrink:0;
-  font-size:var(--fs-xs);font-weight:800;padding:.18rem .5rem;border-radius:20px;}
+  font-size:var(--fs-xs);font-weight:800;padding:.18rem var(--sp-2);border-radius:20px;}
 .tcd-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
 .tcd-load{margin-top:.6rem;}
 .tcd-load-l{display:flex;justify-content:space-between;align-items:baseline;
@@ -493,7 +502,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .tcd-load-n{font-weight:700;color:var(--t2);}
 .tcd-bar{height:5px;background:#F0E7D8;border-radius:4px;overflow:hidden;}
 .tcd-bar span{display:block;height:100%;border-radius:4px;}
-.tcd-cta{margin-top:.5rem;font-size:var(--fs-xs);color:#B08D4F;text-align:right;}
+.tcd-cta{margin-top:var(--sp-2);font-size:var(--fs-xs);color:#B08D4F;text-align:right;}
 .tcd-cta-off{color:#9C8A7A;}
 
 .tblwrap{overflow-x:auto;}
@@ -509,7 +518,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
    rather than as something crammed beside a form, so it gets the wider gutters
    the queue beside a 400px workspace cannot afford. */
 .asg-active{margin-top:1.25rem;}
-.asg-active .tbl thead th,.asg-active .tbl tbody td{padding-left:1rem;padding-right:1rem;}
+.asg-active .tbl thead th,.asg-active .tbl tbody td{padding-left:var(--sp-4);padding-right:var(--sp-4);}
 /* The queue shares its row with the workspace, so the free-text column is what
    gives way — the Assign button must stay reachable without scrolling. */
 /* Column widths are declared in the queue table's own colgroup now. */
@@ -529,10 +538,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .rid-lnk:focus-visible{outline:2px solid var(--m3);outline-offset:2px;border-radius:3px;}
 
 /* Ticket number and the way to the full record, on one baseline. */
-.rep-idrow{display:flex;align-items:center;justify-content:space-between;gap:.5rem;}
+.rep-idrow{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);}
 .rep-full{display:inline-flex;align-items:center;gap:.3rem;flex-shrink:0;
   font-size:var(--fs-sm);font-weight:700;color:var(--m3);text-decoration:none;
-  padding:.2rem .5rem;border:1px solid var(--bdr);border-radius:20px;background:var(--s1);
+  padding:.2rem var(--sp-2);border:1px solid var(--bdr);border-radius:20px;background:var(--s1);
   transition:background .15s,color .15s,border-color .15s;}
 .rep-full i{font-size:var(--fs-xs);}
 .rep-full:hover{background:var(--m3);border-color:var(--m3);color:#fff;}
@@ -552,7 +561,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
    controls. All of it filters the rows already on the page: the queue is the
    set of unassigned reports, it is small by definition, and a round trip to
    Supabase costs ~429ms to tell us something the browser already knows. */
-.qbar{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;
+.qbar{display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;
   padding:.7rem 1.25rem;border-bottom:1px solid var(--bdr);background:var(--s2);}
 .qsearch{position:relative;flex:1 1 15rem;min-width:11rem;display:flex;align-items:center;}
 .qsearch > i{position:absolute;left:.6rem;font-size:var(--fs-sm);color:var(--t3);pointer-events:none;}
@@ -596,7 +605,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 /* Panel header, right side: the count, and the one number worth interrupting
    for. Dispatched-and-not-accepted is the state the dispatcher can still act
    on, so it is the only thing here that gets a colour. */
-.ph3-r{display:flex;align-items:center;gap:.5rem;}
+.ph3-r{display:flex;align-items:center;gap:var(--sp-2);}
 .ph3-n{font-size:var(--fs-base);color:var(--t3);white-space:nowrap;}
 .ph3-warn{display:inline-flex;align-items:center;gap:.3rem;white-space:nowrap;
   padding:.16rem .55rem;border-radius:20px;font-size:var(--fs-sm);font-weight:800;
@@ -612,7 +621,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 /* -- TECHNICIAN PROFILE ---------------------------- */
 /* The card's one control that is not the card. Sized to the same 22px box the
    availability pill sits against so the top row keeps its baseline. */
-.tcd-info{width:22px;height:22px;flex-shrink:0;margin-left:.25rem;padding:0;
+.tcd-info{width:22px;height:22px;flex-shrink:0;margin-left:var(--sp-1);padding:0;
   border:1px solid var(--bdr);border-radius:50%;background:var(--s1);color:var(--t3);
   font-size:var(--fs-xs);cursor:pointer;display:flex;align-items:center;justify-content:center;
   transition:background .15s,color .15s,border-color .15s;}
@@ -627,7 +636,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   display:flex;align-items:center;justify-content:center;}
 #tprofMo .mhd-t h2{margin:0;}
 #tprofMo .mhd-t p{margin:.1rem 0 0;}
-.tprof-rows{display:grid;grid-template-columns:auto minmax(0,1fr);gap:.4rem .9rem;margin:0 0 1rem;}
+.tprof-rows{display:grid;grid-template-columns:auto minmax(0,1fr);gap:.4rem .9rem;margin:0 0 var(--sp-4);}
 .tprof-rows dt{font-size:var(--fs-sm);font-weight:700;color:var(--t3);white-space:nowrap;}
 .tprof-rows dd{margin:0;font-size:var(--fs-base);color:var(--t1);font-weight:600;overflow-wrap:anywhere;}
 .tprof-rows dd a{color:var(--m3);text-decoration:none;}
@@ -638,10 +647,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   margin:0 0 .6rem;display:flex;align-items:center;gap:.35rem;}
 .tprof-sec h4 i{color:var(--m3);font-size:var(--fs-base);}
 .tprof-n{margin-left:auto;font-size:var(--fs-sm);font-weight:800;color:var(--t2);
-  background:var(--s3);border-radius:20px;padding:.1rem .5rem;}
+  background:var(--s3);border-radius:20px;padding:.1rem var(--sp-2);}
 /* One line per report they are holding: the ticket, what it is, and where it
    has got to. Enough to answer "can they take another one" without leaving. */
-.tprof-job{display:flex;align-items:center;gap:.5rem;padding:.5rem .6rem;
+.tprof-job{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-2) .6rem;
   border:1px solid var(--bdr);border-radius:var(--r1);background:var(--s2);margin-bottom:.4rem;}
 .tprof-job:last-child{margin-bottom:0;}
 .tprof-job-id{font-family:'Outfit',sans-serif;font-weight:800;color:var(--m3);
@@ -650,7 +659,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .tprof-job-when{font-size:var(--fs-sm);color:var(--t3);white-space:nowrap;}
 .tprof-free{display:flex;align-items:center;gap:.45rem;font-size:var(--fs-base);color:#15803D;
-  background:#F0FDF4;border:1px solid #BBE8CB;border-radius:var(--r1);padding:.6rem .75rem;}
+  background:#F0FDF4;border:1px solid #BBE8CB;border-radius:var(--r1);padding:.6rem var(--sp-3);}
 
 /* -- BADGES ---------------------------------------- */
 .bdg{display:inline-flex;align-items:center;gap:.22rem;padding:.2rem .58rem;
@@ -673,6 +682,25 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .b-rej{background:#FFF1F2;color:#BE123C;}
 
 /* -- TECHNICIAN CARDS ------------------------------ */
+/* The chooser is a field of the assignment form, not a panel parked inside one.
+   No border of its own — it already sits in the workspace panel — and no inner
+   padding, so the cards start on the same left edge as the select above them
+   and the unit cards below. Measured: every control in this form now shares one
+   left edge and one width. */
+.tech-pool{margin-top:.25rem;}
+/* No .tech-grid layout rule here on purpose: `.dw .tech-grid` further down
+   already owns it and is more specific, so a second one would look like it
+   were in charge while doing nothing. Its padding is zeroed there. */
+/* The workload bar reads as a caption to the label above it, so it sits tight
+   to the label rather than floating between two borders. */
+.wbal{padding:0 0 .55rem;}
+/* These lived in a <style> block wedged between two form fields. Same rules,
+   somewhere a stylesheet would actually be looked for. */
+.tech-card{transition:box-shadow .15s,transform .12s,border-color .15s;}
+.tech-card:hover{box-shadow:0 8px 20px rgba(123,29,29,.16);transform:none;border-color:#C9960C;}
+.tech-card:active{transform:translateY(0);}
+.wbal-seg{transition:opacity .15s;}
+.wbal-seg:hover{opacity:.8;}
 /* The card that does the choosing is .tcd / .tech-card, further up. An earlier
    .tcard — with its own avatar, name, dept line and workload bar — was replaced
    by it and left behind whole: ~40 rules that matched no element on the page,
@@ -711,7 +739,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   display:flex;flex-direction:column;box-shadow:-18px 0 50px rgba(28,16,8,.22);
   transform:translateX(100%);transition:transform .26s cubic-bezier(.4,0,.2,1);}
 .dw.open .dw-panel{transform:translateX(0);}
-.dw-hd{flex-shrink:0;display:flex;align-items:flex-start;gap:.75rem;
+.dw-hd{flex-shrink:0;display:flex;align-items:flex-start;gap:var(--sp-3);
   padding:1.05rem 1.25rem;background:linear-gradient(125deg,var(--m1),var(--m3));color:#fff;}
 .dw-hd-t{flex:1;min-width:0;}
 .dw-hd h2{font-family:'Outfit',sans-serif;font-size:var(--fs-xl);font-weight:800;margin:0;
@@ -727,7 +755,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 /* The scroll container is the drawer body, so the header stays put while the
    form and the technician list move together as one column. */
 .assign-col{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
-  display:flex;flex-direction:column;gap:1rem;padding:1.25rem;
+  display:flex;flex-direction:column;gap:var(--sp-4);padding:1.25rem;
   scrollbar-width:thin;scrollbar-color:var(--bdr2,#D0C0A8) transparent;}
 .assign-col::-webkit-scrollbar{width:6px;}
 .assign-col::-webkit-scrollbar-thumb{background:var(--bdr2,#D0C0A8);border-radius:3px;}
@@ -739,7 +767,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
    minmax(0,1fr), not 1fr: a plain fr floors at the column's min-content, so the
    card holding the longest name came out 4px wider than the one beside it and
    the two columns never lined up. */
-.dw .tech-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem;}
+/* padding:0 undoes the .875rem the generic .tech-grid rule carries from when
+   this list lived inside its own panel. Inside the form it is a field, and a
+   field does not indent itself 15px from every other control. */
+.dw .tech-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem;padding:0;}
 /* Cards sit on a shared baseline whatever their content does. */
 .dw .tech-grid > *{min-width:0;}
 /* A name is the one thing on this card that must not be traded away for layout.
@@ -753,7 +784,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .dw-foot{flex-shrink:0;display:flex;align-items:center;gap:.6rem;
   padding:.85rem 1.25rem;background:var(--s1);border-top:1px solid var(--bdr);
   box-shadow:0 -4px 14px rgba(28,16,8,.06);}
-.dw-foot .btn{padding:.6rem 1rem;}
+.dw-foot .btn{padding:.6rem var(--sp-4);}
 .dw-go{flex:1;justify-content:center;font-weight:800;}
 @media(max-width:640px){
   .dw-panel{width:100%;}
@@ -764,7 +795,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 }
 .assign-panel{background:var(--s1);border-radius:var(--r3);
   border:1.5px solid var(--bdr);box-shadow:var(--sh1);overflow:hidden;flex-shrink:0;}
-.ap-head{padding:1rem 1.25rem;background:linear-gradient(125deg,var(--m1),var(--m3));
+.ap-head{padding:var(--sp-4) 1.25rem;background:linear-gradient(125deg,var(--m1),var(--m3));
   position:relative;overflow:hidden;}
 .ap-head::after{content:'';position:absolute;right:-10px;top:-10px;
   width:90px;height:90px;border-radius:50%;
@@ -778,7 +809,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 
 /* Selected report preview */
 .rep-prev{background:var(--s2);border:1.5px solid var(--bdr);
-  border-radius:var(--r2);padding:.75rem .875rem;margin-bottom:.875rem;
+  border-radius:var(--r2);padding:var(--sp-3) .875rem;margin-bottom:.875rem;
   position:relative;transition:all .22s;}
 .rep-prev.filled{border-color:rgba(123,29,29,.25);background:linear-gradient(135deg,#FFF8F5,#FFF5EE);}
 .rep-prev-lbl{font-size:var(--fs-xs);font-weight:800;text-transform:uppercase;
@@ -798,14 +829,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .rep-fact i{font-size:var(--fs-xs);color:var(--m3);}
 
 /* attached evidence */
-.rep-media{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.5rem;}
+.rep-media{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:var(--sp-2);}
 .rep-thumb{width:54px;height:54px;padding:0;border-radius:var(--r1);
   border:1.5px solid var(--bdr);background:var(--s1);overflow:hidden;cursor:pointer;
   display:flex;align-items:center;justify-content:center;transition:border-color .16s;}
 .rep-thumb:hover{border-color:var(--m3);}
 .rep-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
 .rep-thumb-vid{background:var(--m1);color:var(--g3);font-size:var(--fs-lg);}
-.rep-nomedia{margin-top:.5rem;font-size:var(--fs-sm);color:var(--t4);
+.rep-nomedia{margin-top:var(--sp-2);font-size:var(--fs-sm);color:var(--t4);
   display:flex;align-items:center;gap:.35rem;}
 
 /* lightbox */
@@ -826,11 +857,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   border-radius:50%;transition:all .16s;}
 .rep-clear:hover{background:var(--s3);color:var(--t1);}
 .rep-placeholder{color:var(--t4);font-size:var(--fs-md);display:flex;
-  align-items:center;gap:.5rem;justify-content:center;padding:.5rem 0;}
+  align-items:center;gap:var(--sp-2);justify-content:center;padding:var(--sp-2) 0;}
 
 /* Tech preview in form */
 .tech-prev{background:var(--s2);border:1.5px solid var(--bdr);
-  border-radius:var(--r2);padding:.68rem .875rem;margin-bottom:.75rem;
+  border-radius:var(--r2);padding:.68rem .875rem;margin-bottom:var(--sp-3);
   display:none;transition:all .22s;}
 .tech-prev.show{display:flex;align-items:center;gap:.625rem;
   animation:fIn .18s ease;}
@@ -845,7 +876,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .fg{display:flex;flex-direction:column;gap:.28rem;margin-bottom:.72rem;}
 .fl{font-size:var(--fs-xs);font-weight:800;text-transform:uppercase;letter-spacing:.65px;color:var(--t2);}
 .fl span{color:var(--m3);}
-.fc{padding:.5rem .82rem;background:var(--s2);border:1.5px solid var(--bdr);
+.fc{padding:var(--sp-2) .82rem;background:var(--s2);border:1.5px solid var(--bdr);
   border-radius:var(--r1);font-size:var(--fs-md);color:var(--t1);
   font-family:'DM Sans',sans-serif;outline:none;transition:all .18s;}
 .fc:focus{border-color:var(--m3);background:var(--s1);
@@ -862,14 +893,14 @@ textarea.fc{resize:vertical;min-height:80px;}
    drawer would be invisible at the exact moment it is asked for. */
 .mo{position:fixed;inset:0;background:rgba(26,8,8,.6);backdrop-filter:blur(7px);
   z-index:1000;display:none;align-items:flex-start;justify-content:center;
-  padding:1.5rem 1rem;overflow-y:auto;}
+  padding:var(--sp-5) var(--sp-4);overflow-y:auto;}
 .mo.open{display:flex;animation:moFade .18s ease;}
 @keyframes moFade{from{opacity:0}to{opacity:1}}
 .mw{background:var(--s1);border-radius:var(--r4);width:100%;max-width:540px;
   box-shadow:var(--sh3);animation:mUp .28s cubic-bezier(.4,0,.2,1);
   border:1px solid var(--bdr);margin:auto;}
 @keyframes mUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
-.mhd{padding:1.25rem 1.5rem 1rem;
+.mhd{padding:1.25rem var(--sp-5) var(--sp-4);
   background:linear-gradient(120deg,var(--m1) 0%,#3D0A0A 45%,var(--m3) 100%);
   border-radius:var(--r4) var(--r4) 0 0;
   display:flex;justify-content:space-between;align-items:flex-start;
@@ -894,14 +925,14 @@ textarea.fc{resize:vertical;min-height:80px;}
 .asg-sum dd{margin:0;font-size:var(--fs-md);font-weight:600;color:var(--t1);padding:.4rem 0;
   border-bottom:1px solid var(--bdr);overflow-wrap:anywhere;}
 .asg-sum dt:last-of-type,.asg-sum dd:last-of-type{border-bottom:none;}
-.mb{padding:1.375rem 1.5rem;}
-.mf{padding:.8rem 1.5rem 1.25rem;border-top:1px solid var(--bdr);
+.mb{padding:1.375rem var(--sp-5);}
+.mf{padding:.8rem var(--sp-5) 1.25rem;border-top:1px solid var(--bdr);
   display:flex;justify-content:flex-end;gap:.45rem;
   background:var(--s2);border-radius:0 0 var(--r4) var(--r4);}
 
 /* -- UNASSIGN CONFIRMATION ------------------------- */
 .conf-panel{background:#FFF1F2;border:1.5px solid #FECDD3;border-radius:var(--r2);
-  padding:.875rem 1rem;display:flex;gap:.75rem;align-items:flex-start;margin-top:.5rem;}
+  padding:.875rem var(--sp-4);display:flex;gap:var(--sp-3);align-items:flex-start;margin-top:var(--sp-2);}
 .conf-icon{width:34px;height:34px;background:#FEE2E2;color:#DC2626;
   border-radius:50%;display:flex;align-items:center;justify-content:center;
   flex-shrink:0;font-size:var(--fs-lg);}
@@ -910,7 +941,7 @@ textarea.fc{resize:vertical;min-height:80px;}
 .ttray{position:fixed;top:1.25rem;left:50%;transform:translateX(-50%);align-items:center;display:flex;
   flex-direction:column;gap:.38rem;z-index:9999;}
 .tst{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r2);
-  padding:.68rem .88rem;display:flex;align-items:flex-start;gap:.5rem;
+  padding:.68rem .88rem;display:flex;align-items:flex-start;gap:var(--sp-2);
   box-shadow:var(--sh3);min-width:240px;
   animation:tIn .22s cubic-bezier(.4,0,.2,1);border-left:3px solid var(--m3);}
 .tst.ok{border-left-color:#16A34A;}.tst.err{border-left-color:#DC2626;}
@@ -919,7 +950,7 @@ textarea.fc{resize:vertical;min-height:80px;}
 .tst-m{font-size:var(--fs-sm);color:var(--t2);margin-top:1px;}
 
 /* -- EMPTY ----------------------------------------- */
-.empty{text-align:center;padding:2.5rem 1.5rem;color:var(--t3);}
+.empty{text-align:center;padding:2.5rem var(--sp-5);color:var(--t3);}
 .empty i{font-size:2.2rem;display:block;margin-bottom:.65rem;opacity:.22;}
 
 /* -- RESPONSIVE ------------------------------------ */
@@ -929,7 +960,7 @@ textarea.fc{resize:vertical;min-height:80px;}
    laptop, so the Assign button fell outside the panel. The drawer carries its
    own width rules up beside the rest of its styles. */
 @media(max-width:768px){.sb{transform:translateX(-100%);}.sb.open{transform:translateX(0);}
-  .wrap{margin-left:0;}.pg{padding:1rem;}.mob-tog{display:flex;}
+  .wrap{margin-left:0;}.pg{padding:var(--sp-4);}.mob-tog{display:flex;}
   .sums{grid-template-columns:1fr 1fr;}}
 
 /* entrance animations */
@@ -1018,19 +1049,19 @@ textarea.fc{resize:vertical;min-height:80px;}
         <div class="sico"><i class="fas fa-user-check"></i></div>
         <div class="snum" id="sn1"><?php echo $availTechs; ?></div>
         <div class="slbl">Available Technicians</div>
-        <div class="smicro"><i class="fas fa-circle" style="color:#16A34A;font-size:.5rem;"></i> Light workload</div>
+        <div class="smicro"><i class="fas fa-circle" style="color:#16A34A;font-size:var(--fs-xs);"></i> Light workload</div>
       </div>
       <div class="scard sc-c">
         <div class="sico"><i class="fas fa-triangle-exclamation"></i></div>
         <div class="snum" id="sn2"><?php echo $overloadedTechs; ?></div>
         <div class="slbl">Overloaded Technicians</div>
-        <div class="smicro"><i class="fas fa-circle" style="color:#DC2626;font-size:.5rem;"></i> 4+ active tasks</div>
+        <div class="smicro"><i class="fas fa-circle" style="color:#DC2626;font-size:var(--fs-xs);"></i> 4+ active tasks</div>
       </div>
       <div class="scard sc-d">
         <div class="sico"><i class="fas fa-wrench"></i></div>
         <div class="snum" id="sn3"><?php echo $totalInProgress; ?></div>
         <div class="slbl">In Progress</div>
-        <div class="smicro"><i class="fas fa-circle" style="color:#7C3AED;font-size:.5rem;"></i> Active repairs</div>
+        <div class="smicro"><i class="fas fa-circle" style="color:#7C3AED;font-size:var(--fs-xs);"></i> Active repairs</div>
       </div>
     </div>
 
@@ -1045,7 +1076,7 @@ textarea.fc{resize:vertical;min-height:80px;}
           <div class="ph3">
             <h3><i class="fas fa-clipboard-list"></i> Unassigned Reports
               <?php if($totalUnassigned>0):?>
-              <span style="background:var(--m3);color:#fff;font-size:.58rem;padding:1px 7px;border-radius:20px;font-weight:900;margin-left:.25rem;"><?php echo $totalUnassigned;?></span>
+              <span style="background:var(--m3);color:#fff;font-size:var(--fs-xs);padding:1px 7px;border-radius:20px;font-weight:900;margin-left:.25rem;"><?php echo $totalUnassigned;?></span>
               <?php endif;?>
             </h3>
             <a href="admin_defect_reports.php?status=ready_for_assignment" class="btn btn-ghost btn-sm">
@@ -1156,15 +1187,15 @@ textarea.fc{resize:vertical;min-height:80px;}
                   $uStale = $uAge !== null && $uAge >= 172800;   // two days unassigned
                 ?>
                 <td title="<?php echo esc($uLoc); ?>">
-                  <div class="en" style="font-weight:600;font-size:.78rem;"><?php echo esc($uHead ?: '—'); ?></div>
+                  <div class="en" style="font-weight:600;font-size:var(--fs-base);"><?php echo esc($uHead ?: '—'); ?></div>
                   <?php if ($uHead !== '' && $uHead !== $uLoc): ?>
                   <div class="esl"><?php echo esc(trim(substr($uLoc, strlen($uHead) + 1), " •")); ?></div>
                   <?php endif; ?>
                 </td>
                 <td><span class="bdg b-<?php echo prCls($r['priority']); ?>"><?php echo prLbl($r['priority']); ?></span></td>
-                <td class="nw" style="font-size:.75rem;<?php echo $uStale ? 'color:#C2410C;font-weight:800;' : 'color:var(--t3);'; ?>"
+                <td class="nw" style="font-size:var(--fs-base);<?php echo $uStale ? 'color:#C2410C;font-weight:800;' : 'color:var(--t3);'; ?>"
                     title="Reported <?php echo esc(date('M j, Y · g:i A', strtotime((string)$r['report_date']))); ?>">
-                  <?php echo $uAgeT; ?><?php echo $uStale ? ' <i class="fas fa-triangle-exclamation" style="font-size:.6rem;"></i>' : ''; ?>
+                  <?php echo $uAgeT; ?><?php echo $uStale ? ' <i class="fas fa-triangle-exclamation" style="font-size:var(--fs-xs);"></i>' : ''; ?>
                 </td>
                 <td style="text-align:center;">
                   <button class="btn btn-maroon btn-sm"
@@ -1319,25 +1350,24 @@ textarea.fc{resize:vertical;min-height:80px;}
               </select>
             </div>
 
-        <!-- Who is free, and what each of them is already carrying. -->
-        <style>
-          .tech-card{transition:box-shadow .15s,transform .12s,border-color .15s;}
-          .tech-card:hover{box-shadow:0 8px 20px rgba(123,29,29,.16);transform:none;border-color:#C9960C !important;}
-          .tech-card:active{transform:translateY(0);}
-          .wbal-seg{transition:opacity .15s;} .wbal-seg:hover{opacity:.8;}
-        </style>
-        <div class="panel">
-          <div class="ph3">
-            <h3><i class="fas fa-user-gear"></i> Technician Availability</h3>
-            
-          </div>
+            <?php /* Who is free, and what each of them is already carrying.
+
+                     This was a full .panel with its own gradient header sitting
+                     between two form fields — a card inside a form, announcing
+                     itself with a heading that competed with the labels around
+                     it, and indenting its contents 11px off the edge every other
+                     control sits on. It is a field of this form, so it is
+                     dressed as one: the same .fl label, the same left edge, no
+                     second border around something already inside a panel. */ ?>
+            <div class="fg tech-pool">
+              <label class="fl" id="techPoolLbl">Who is available</label>
           <?php
             $teamTotal = (int)array_sum(array_column($technicians,'workload'));
             $avgLoad = $totalTechs > 0 ? round($teamTotal / $totalTechs, 1) : 0;
           ?>
           <?php if(!empty($technicians)): ?>
-          <div style="padding:.65rem .8rem .2rem;">
-            <div style="display:flex;justify-content:space-between;align-items:center;font-size:.62rem;color:#8a6d5a;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.4rem;">
+          <div class="wbal">
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:var(--fs-xs);color:#8a6d5a;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:.4rem;">
               <span><i class="fas fa-scale-balanced"></i> Team Workload Balance</span>
               <span><?php echo $teamTotal; ?> active · avg <?php echo $avgLoad; ?>/tech</span>
             </div>
@@ -1348,12 +1378,12 @@ textarea.fc{resize:vertical;min-height:80px;}
               ?>
                 <div class="wbal-seg" title="<?php echo esc($t['fullname']).' — '.$wlb.' active task(s)'; ?>" style="width:<?php echo $share; ?>%;background:<?php echo $col; ?>;min-width:3px;"></div>
               <?php endforeach; else: ?>
-                <div style="width:100%;display:flex;align-items:center;justify-content:center;font-size:.6rem;color:#8a6d5a;">No active tasks assigned yet — everyone is free</div>
+                <div style="width:100%;display:flex;align-items:center;justify-content:center;font-size:var(--fs-xs);color:#8a6d5a;">No active tasks assigned yet — everyone is free</div>
               <?php endif; ?>
             </div>
           </div>
           <?php endif; ?>
-          <div class="tech-grid" style="padding:.6rem;display:grid;gap:.6rem;">
+          <div class="tech-grid">
             <?php if(empty($technicians)): ?>
             <div class="empty"><i class="fas fa-users-slash"></i>No technicians registered.</div>
             <?php else:
@@ -1642,7 +1672,7 @@ textarea.fc{resize:vertical;min-height:80px;}
                          question "has this been sitting too long" actually needs. */ ?>
                 <td class="nw"
                     title="<?php echo $aWhen ? esc(date('M j, Y · g:i A', $aWhen)) : 'Not recorded'; ?>">
-                  <div class="en" style="font-weight:600;font-size:.74rem;">
+                  <div class="en" style="font-weight:600;font-size:var(--fs-base);">
                     <?php echo $aWhen ? esc(date('M j', $aWhen)) : '—'; ?>
                   </div>
                   <div class="esl"><?php echo esc($aAgeT); ?> ago</div>
@@ -1692,7 +1722,7 @@ textarea.fc{resize:vertical;min-height:80px;}
       <dl class="asg-sum" id="asgSum"></dl>
       <div id="asgWarn" style="display:none;margin-top:.7rem;" class="conf-panel">
         <div class="conf-icon"><i class="fas fa-triangle-exclamation"></i></div>
-        <div style="font-size:.78rem;color:var(--t2);line-height:1.5;" id="asgWarnTxt"></div>
+        <div style="font-size:var(--fs-base);color:var(--t2);line-height:1.5;" id="asgWarnTxt"></div>
       </div>
     </div>
     <div class="mf">
@@ -1753,10 +1783,10 @@ textarea.fc{resize:vertical;min-height:80px;}
       <div class="conf-panel">
         <div class="conf-icon"><i class="fas fa-exclamation-triangle"></i></div>
         <div>
-          <div style="font-weight:700;font-size:.85rem;margin-bottom:.25rem;">
+          <div style="font-weight:700;font-size:var(--fs-lg);margin-bottom:.25rem;">
             Unassign report <span id="unRid" style="color:var(--m3);font-family:'Outfit',sans-serif;">-</span>?
           </div>
-          <div style="font-size:.78rem;color:var(--t2);line-height:1.5;">
+          <div style="font-size:var(--fs-base);color:var(--t2);line-height:1.5;">
             <strong id="unEq">-</strong> will be returned to the unassigned queue.
             The assigned technician will lose access to this task.
           </div>
@@ -1779,8 +1809,8 @@ textarea.fc{resize:vertical;min-height:80px;}
   <div style="background:var(--s1);border-radius:var(--r4);padding:2rem;max-width:330px;
     width:90%;text-align:center;box-shadow:var(--sh3);animation:mUp .25s ease;margin:auto;">
     <i class="fas fa-sign-out-alt" style="font-size:2.2rem;color:var(--m3);margin-bottom:.7rem;display:block;"></i>
-    <h3 style="font-family:'Outfit',sans-serif;font-size:1.05rem;font-weight:800;margin-bottom:.38rem;">Log Out?</h3>
-    <p style="font-size:.8rem;color:var(--t2);margin-bottom:1.25rem;line-height:1.6;">
+    <h3 style="font-family:'Outfit',sans-serif;font-size:var(--fs-xl);font-weight:800;margin-bottom:.38rem;">Log Out?</h3>
+    <p style="font-size:var(--fs-md);color:var(--t2);margin-bottom:1.25rem;line-height:1.6;">
       You will be returned to the BEC admin login page.
     </p>
     <div style="display:flex;gap:.55rem;justify-content:center;">
@@ -2396,14 +2426,14 @@ function deptBadge(d) {
   return '';
 }
 function deptBadgeStr(cls, d) {
-  return `<span class="dept-${cls}" style="font-size:.62rem;padding:.15rem .5rem;">${d}</span>`;
+  return `<span class="dept-${cls}" style="font-size:var(--fs-xs);padding:.15rem .5rem;">${d}</span>`;
 }
 function wlBadge(n) {
   const over = n >= 4;
   const lbl = over ? 'Overloaded' : 'Available';
   const bg  = over ? '#FFF1F2' : '#F0FDF4';
   const c   = over ? '#DC2626' : '#16A34A';
-  return `<span style="background:${bg};color:${c};padding:.14rem .48rem;border-radius:20px;font-size:.6rem;font-weight:800;">${lbl} (${n} active)</span>`;
+  return `<span style="background:${bg};color:${c};padding:.14rem .48rem;border-radius:20px;font-size:var(--fs-xs);font-weight:800;">${lbl} (${n} active)</span>`;
 }
 
 /* --- TOAST ---------------------------------------- */
