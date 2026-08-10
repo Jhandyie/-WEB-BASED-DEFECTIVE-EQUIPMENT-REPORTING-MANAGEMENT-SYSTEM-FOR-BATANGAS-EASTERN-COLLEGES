@@ -389,7 +389,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 /* -- MAIN GRID ------------------------------------- */
 /* 400px, not 360: the technician cards now live in this column and a name plus
    a workload bar plus an Available pill does not fit comfortably in 360. */
-.main-grid{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:1.25rem;align-items:start;}
+/* One column. The second track held the assignment workspace, which is a drawer
+   now — so the queue gets the whole page and its six columns stop fighting for
+   room against a form that was idle most of the time. */
+.main-grid{display:block;}
 
 /* -- PANEL ----------------------------------------- */
 .panel{background:var(--s1);border-radius:var(--r3);border:1px solid var(--bdr);
@@ -723,16 +726,60 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   background:var(--s2);color:var(--t2);border:1px solid var(--bdr);}
 
 /* -- ASSIGNMENT PANEL ------------------------------ */
-/* The right column is the decision: the report you picked, the technicians who
-   could take it, and the confirm — stacked in the order you actually work. It
-   sticks as one unit so the queue on the left can scroll beneath it. The form
-   used to stick on its own while the technician list sat at the bottom of the
-   left column, so the two halves of one choice were never on screen together. */
-.assign-col{position:sticky;top:72px;display:flex;flex-direction:column;gap:1rem;
-  max-height:calc(100vh - 88px);overflow-y:auto;overscroll-behavior:contain;
+/* -- DISPATCH DRAWER ------------------------------- */
+/* The decision, on demand: the report you picked, the technicians who could
+   take it, and the confirm — in the order you actually work. It used to be a
+   permanent column beside the queue, which meant a 400px-wide form that was
+   idle most of the time and a queue too narrow for its own columns. */
+.dw{position:fixed;inset:0;z-index:900;display:flex;justify-content:flex-end;
+  background:rgba(28,16,8,.42);opacity:0;visibility:hidden;
+  transition:opacity .22s ease,visibility .22s;}
+.dw.open{opacity:1;visibility:visible;}
+.dw-panel{width:min(580px,100%);height:100%;background:var(--bg);
+  display:flex;flex-direction:column;box-shadow:-18px 0 50px rgba(28,16,8,.22);
+  transform:translateX(100%);transition:transform .26s cubic-bezier(.4,0,.2,1);}
+.dw.open .dw-panel{transform:translateX(0);}
+.dw-hd{flex-shrink:0;display:flex;align-items:flex-start;gap:.75rem;
+  padding:1.05rem 1.25rem;background:linear-gradient(125deg,var(--m1),var(--m3));color:#fff;}
+.dw-hd-t{flex:1;min-width:0;}
+.dw-hd h2{font-family:'Outfit',sans-serif;font-size:1.02rem;font-weight:800;margin:0;
+  display:flex;align-items:center;gap:.4rem;}
+.dw-hd h2 i{opacity:.85;font-size:.9rem;}
+.dw-hd p{margin:.15rem 0 0;font-size:.72rem;opacity:.82;line-height:1.45;}
+.dw-x{width:32px;height:32px;flex-shrink:0;border:0;border-radius:9px;cursor:pointer;
+  background:rgba(255,255,255,.14);color:#fff;font-size:.82rem;
+  display:flex;align-items:center;justify-content:center;transition:background .15s;}
+.dw-x:hover{background:rgba(255,255,255,.26);}
+.dw-x:focus-visible{outline:2px solid #fff;outline-offset:2px;}
+
+/* The scroll container is the drawer body, so the header stays put while the
+   form and the technician list move together as one column. */
+.assign-col{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  display:flex;flex-direction:column;gap:1rem;padding:1.25rem;
   scrollbar-width:thin;scrollbar-color:var(--bdr2,#D0C0A8) transparent;}
 .assign-col::-webkit-scrollbar{width:6px;}
 .assign-col::-webkit-scrollbar-thumb{background:var(--bdr2,#D0C0A8);border-radius:3px;}
+/* The panel header inside the drawer would repeat what the drawer header just
+   said, so it goes; the drawer is the workspace now. */
+.dw .ap-head{display:none;}
+/* 580px is wide enough to compare technicians side by side, which a 400px
+   column never was — the whole point of the list is choosing between them. */
+.dw .tech-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;}
+
+/* Outside the scroll container, so the decision is on screen no matter how far
+   down the technician list you have read. */
+.dw-foot{flex-shrink:0;display:flex;align-items:center;gap:.6rem;
+  padding:.85rem 1.25rem;background:var(--s1);border-top:1px solid var(--bdr);
+  box-shadow:0 -4px 14px rgba(28,16,8,.06);}
+.dw-foot .btn{padding:.6rem 1rem;}
+.dw-go{flex:1;justify-content:center;font-weight:800;}
+@media(max-width:640px){
+  .dw-panel{width:100%;}
+  .dw .tech-grid{grid-template-columns:1fr;}
+}
+@media(prefers-reduced-motion:reduce){
+  .dw,.dw-panel{transition:none;}
+}
 .assign-panel{background:var(--s1);border-radius:var(--r3);
   border:1.5px solid var(--bdr);box-shadow:var(--sh1);overflow:hidden;flex-shrink:0;}
 .ap-head{padding:1rem 1.25rem;background:linear-gradient(125deg,var(--m1),var(--m3));
@@ -837,8 +884,11 @@ textarea.fc{resize:vertical;min-height:80px;}
 .act-bar-fill{height:100%;border-radius:6px;transition:width .7s cubic-bezier(.4,0,.2,1);}
 
 /* -- MODAL ----------------------------------------- */
+/* Above the dispatch drawer (z-index 900). Both the confirmation and the
+   technician profile are opened from inside it, so a modal that sat below the
+   drawer would be invisible at the exact moment it is asked for. */
 .mo{position:fixed;inset:0;background:rgba(26,8,8,.6);backdrop-filter:blur(7px);
-  z-index:500;display:none;align-items:flex-start;justify-content:center;
+  z-index:1000;display:none;align-items:flex-start;justify-content:center;
   padding:1.5rem 1rem;overflow-y:auto;}
 .mo.open{display:flex;animation:moFade .18s ease;}
 @keyframes moFade{from{opacity:0}to{opacity:1}}
@@ -900,15 +950,11 @@ textarea.fc{resize:vertical;min-height:80px;}
 .empty i{font-size:2.2rem;display:block;margin-bottom:.65rem;opacity:.22;}
 
 /* -- RESPONSIVE ------------------------------------ */
-/* 1366, not 1200. The workspace column is a fixed 400px, so on a 1280 laptop the
-   queue was left with about 520px for six columns that need 570 — the Assign
-   button fell outside the panel and the table grew a horizontal scrollbar. The
-   columns are declared widths now and cannot be squeezed to fit, so the grid
-   has to stack while the queue still has room to be a table. Both panels get
-   the full width below this point, which is the better reading of the page on a
-   small screen anyway. */
-@media(max-width:1366px){.main-grid{grid-template-columns:1fr;}
-  .assign-col{position:static;max-height:none;overflow:visible;}}
+/* The 1366 stacking rule that used to live here is gone with the column it
+   stacked. The queue now has the full page at every width, which is what it
+   needed: six declared columns want about 570px and used to get 520 on a 1280
+   laptop, so the Assign button fell outside the panel. The drawer carries its
+   own width rules up beside the rest of its styles. */
 @media(max-width:768px){.sb{transform:translateX(-100%);}.sb.open{transform:translateX(0);}
   .wrap{margin-left:0;}.pg{padding:1rem;}.mob-tog{display:flex;}
   .sums{grid-template-columns:1fr 1fr;}}
@@ -1179,12 +1225,31 @@ textarea.fc{resize:vertical;min-height:80px;}
 
 
       </div><!-- /left col -->
+    </div><!-- /main-grid -->
 
-      <!-- RIGHT: Assignment form panel -->
-      <!-- RIGHT: the whole assignment decision in one column — the report you
-           picked, who is free to take it, and the confirm. The technician list
-           used to sit at the bottom of the LEFT column, about 1,200px away from
-           the form that asked which technician to use. -->
+    <?php /* ── DISPATCH DRAWER ───────────────────────────────────────────────
+             The workspace was a permanent 400px column beside the queue: 812px
+             tall, idle until a report was picked, holding a 770px form and a
+             935px vertical list of technicians you scrolled rather than
+             compared. It also cost the queue the width its own columns needed.
+
+             It opens on demand now, so the queue and the monitoring table get
+             the full page and the decision gets a surface wide enough to show
+             technicians two at a time. Nothing inside moved: the form, its
+             fields, its ids and its POST are the same markup, one container
+             deeper. The drawer is position:fixed, so where it sits in the
+             source does not affect the layout above it. */ ?>
+    <div class="dw" id="asgDw" onclick="if(event.target===this)closeDispatch()">
+      <aside class="dw-panel" role="dialog" aria-modal="true" aria-labelledby="dwTitle">
+        <div class="dw-hd">
+          <div class="dw-hd-t">
+            <h2 id="dwTitle"><i class="fas fa-user-plus"></i> Dispatch a repair</h2>
+            <p>Choose who takes it, set how urgent it is, then send.</p>
+          </div>
+          <button type="button" class="dw-x" onclick="closeDispatch()" aria-label="Close">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
       <div class="assign-col">
       <div class="assign-panel">
         <div class="ap-head">
@@ -1328,14 +1393,13 @@ textarea.fc{resize:vertical;min-height:80px;}
                 placeholder="Provide specific instructions for the technician (tools needed, safety notes, access info)..."></textarea>
             </div>
 
-            <div class="divider"></div>
-
-            <button type="submit" class="btn btn-green" style="width:100%;justify-content:center;padding:.6rem;">
-              <i class="fas fa-paper-plane"></i> Confirm Assignment
-            </button>
-            <button type="button" class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:.4rem;padding:.55rem;" onclick="clearAll()">
-              <i class="fas fa-times"></i> Clear Form
-            </button>
+            <?php /* Confirm and Clear used to sit here, at the end of the form
+                     and therefore above the technician cards that follow it —
+                     in a scrolling drawer that meant meeting the primary action
+                     before the chooser step 2 asks for. They are in the drawer's
+                     sticky footer now, tied back to this form by the form=
+                     attribute, so the decision is always in reach and never
+                     arrives before the choice. */ ?>
           </form>
 
         </div><!-- /ap-body -->
@@ -1374,7 +1438,7 @@ textarea.fc{resize:vertical;min-height:80px;}
             </div>
           </div>
           <?php endif; ?>
-          <div style="padding:.6rem;display:grid;gap:.6rem;">
+          <div class="tech-grid" style="padding:.6rem;display:grid;gap:.6rem;">
             <?php if(empty($technicians)): ?>
             <div class="empty"><i class="fas fa-users-slash"></i>No technicians registered.</div>
             <?php else:
@@ -1451,8 +1515,16 @@ textarea.fc{resize:vertical;min-height:80px;}
           </div>
         </div>
     </div><!-- /assign-col -->
-
-    </div><!-- /main-grid -->
+        <div class="dw-foot">
+          <button type="button" class="btn btn-ghost" onclick="clearAll()">
+            <i class="fas fa-times"></i> Clear Form
+          </button>
+          <button type="submit" form="assignForm" class="btn btn-green dw-go">
+            <i class="fas fa-paper-plane"></i> Confirm Assignment
+          </button>
+        </div>
+      </aside>
+    </div><!-- /dw -->
 
     <!-- Active assignments are monitoring, not dispatch. They sat inside the
          LEFT column between the queue and nothing, so the queue lost the width
@@ -1966,14 +2038,18 @@ function closeMedia() {
   lb.classList.remove('open');
   document.getElementById('mediaLbBody').innerHTML = '';   // stops a playing video
 }
-/* Escape closes whatever is open, innermost first: the lightbox can be opened
-   from on top of a dialog, so it has to be the one that goes. */
+/* Escape closes whatever is open, innermost first: the lightbox sits on top of
+   the dialogs, the dialogs sit on top of the drawer, and the drawer goes last.
+   Closing the drawer while a confirmation is still open would leave the
+   confirmation floating over a page it no longer belongs to. */
 document.addEventListener('keydown', function (e) {
   if (e.key !== 'Escape') { return; }
   var lb = document.getElementById('mediaLb');
   if (lb && lb.classList.contains('open')) { closeMedia(); return; }
-  var open = document.querySelector('.mo.open');
-  if (open) { open.classList.remove('open'); }
+  var mo = document.querySelector('.mo.open');
+  if (mo) { mo.classList.remove('open'); return; }
+  var dw = document.getElementById('asgDw');
+  if (dw && dw.classList.contains('open')) { closeDispatch(); }
 });
 
 function selectReport(data) {
@@ -2040,15 +2116,45 @@ function selectReport(data) {
   const row = document.getElementById('row-' + data.id);
   if (row) {
     row.style.background = '#FEF3F2';
-    row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  // Scroll to form on small screens
-  if (window.innerWidth <= 1200) {
-    document.querySelector('.assign-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
+  /* The workspace is a drawer now, so picking a report opens it rather than
+     scrolling to a column that was always on screen. The old scrollIntoView on
+     the row went with it: moving the page under the pointer at the moment the
+     drawer covers it only fought the drawer. */
+  openDispatch(data.id);
 
   toast('ok', 'Report #' + data.id + ' selected. Now pick a technician.', 'Report Selected');
+}
+
+/* --- DISPATCH DRAWER ------------------------------ */
+/* Opening and closing only. Everything the drawer contains — the stepper, the
+   form, the technician cards — is the same markup it was in the column, so no
+   behaviour moved in here with it. */
+var _dwReturn = null;
+
+function openDispatch(rid) {
+  var dw = document.getElementById('asgDw');
+  if (!dw) { return; }
+  /* Remember what to hand focus back to, so closing does not dump the caret at
+     the top of the document and make the dispatcher find their row again. */
+  _dwReturn = (rid && document.getElementById('row-' + rid)) || document.activeElement;
+  dw.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  var x = dw.querySelector('.dw-x');
+  if (x) { x.focus(); }
+}
+
+function closeDispatch() {
+  var dw = document.getElementById('asgDw');
+  if (!dw) { return; }
+  dw.classList.remove('open');
+  document.body.style.overflow = '';
+  if (_dwReturn) {
+    var btn = _dwReturn.querySelector ? _dwReturn.querySelector('button') : null;
+    (btn || _dwReturn).focus && (btn || _dwReturn).focus();
+    _dwReturn = null;
+  }
 }
 
 function clearReport() {
