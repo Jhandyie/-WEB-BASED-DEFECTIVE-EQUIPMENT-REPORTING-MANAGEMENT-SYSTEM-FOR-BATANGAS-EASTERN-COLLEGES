@@ -887,6 +887,10 @@ textarea.fc{resize:vertical;min-height:70px;}
 
 /* ══════════════════════════════════════════════════════════════════════════
    DEFECT REPORT WORKSPACE  (.dr-*)
+/* Six steps, and nothing between them. Declared here so the scale is a fact
+   of the component rather than something rediscovered per rule. */
+.dr-shell{--fs-xs:.6rem;--fs-sm:.68rem;--fs-base:.76rem;--fs-md:.82rem;--fs-lg:.88rem;
+  --sp-1:.25rem;--sp-2:.5rem;--sp-3:.75rem;--sp-4:1rem;--sp-5:1.5rem;}
    A service-desk record, not a form in a box. Replaces the old .mw/.m2col
    modal, whose every fact sat in its own bordered tile with a gradient icon —
    eight boxes of chrome for eight single-line values.
@@ -915,16 +919,16 @@ textarea.fc{resize:vertical;min-height:70px;}
 .dr-keys{display:flex;gap:.6rem;flex-shrink:0;}
 .dr-key{min-width:8.5rem;padding:.55rem .8rem;border-radius:12px;
   border:1px solid #EDE4D6;background:#FCFAF6;}
-.dr-key-l{font-size:.56rem;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;
+.dr-key-l{font-size:.6rem;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;
   color:#A08C7C;margin-bottom:.2rem;}
 .dr-key-v{display:flex;align-items:center;gap:.4rem;
-  font-size:.86rem;font-weight:800;color:#1C1008;line-height:1.2;}
+  font-size:.88rem;font-weight:800;color:#1C1008;line-height:1.2;}
 .dr-key-v .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
 .dr-key.is-status{background:#FFFBEF;border-color:#EBD9A8;}
-.dr-key-when{font-size:.62rem;color:#A08C7C;margin-top:.18rem;}
+.dr-key-when{font-size:.6rem;color:#A08C7C;margin-top:.18rem;}
 .dr-head-btns{display:flex;gap:.35rem;flex-shrink:0;}
 .dr-ic{width:34px;height:34px;border-radius:10px;border:1px solid #EDE4D6;background:#fff;
-  color:#6B5344;font-size:.85rem;cursor:pointer;display:flex;align-items:center;
+  color:#6B5344;font-size:.82rem;cursor:pointer;display:flex;align-items:center;
   justify-content:center;transition:background .15s,color .15s,border-color .15s;}
 .dr-ic:hover{background:#7B1D1D;border-color:#7B1D1D;color:#fff;}
 .dr-ic:focus-visible{outline:2px solid #7B1D1D;outline-offset:2px;}
@@ -934,12 +938,12 @@ textarea.fc{resize:vertical;min-height:70px;}
   background:#EDE4D6;border-bottom:1px solid #EDE4D6;}
 .dr-sum{background:#F8F3EA;padding:.72rem 1rem;min-width:0;}
 .dr-sum-l{display:flex;align-items:center;gap:.32rem;
-  font-size:.56rem;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;
+  font-size:.6rem;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;
   color:#A08C7C;margin-bottom:.22rem;}
 .dr-sum-l i{font-size:.6rem;color:#C9960C;}
-.dr-sum-v{font-size:.84rem;font-weight:700;color:#1C1008;line-height:1.3;
+.dr-sum-v{font-size:.82rem;font-weight:700;color:#1C1008;line-height:1.3;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.dr-sum-s{font-size:.66rem;color:#8A7060;margin-top:.1rem;
+.dr-sum-s{font-size:.68rem;color:#8A7060;margin-top:.1rem;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
 /* ── body ───────────────────────────────────────────────────────────────── */
@@ -964,7 +968,7 @@ textarea.fc{resize:vertical;min-height:70px;}
 .dr-row{display:grid;grid-template-columns:8.5rem minmax(0,1fr);gap:.75rem;
   padding:.44rem 0;border-bottom:1px solid #F4EDE2;align-items:baseline;}
 .dr-row:last-child{border-bottom:none;}
-.dr-row dt{font-size:.7rem;font-weight:700;color:#8A7060;}
+.dr-row dt{font-size:.68rem;font-weight:700;color:#8A7060;}
 .dr-row dd{margin:0;font-size:.82rem;color:#1C1008;font-weight:600;line-height:1.45;
   overflow-wrap:anywhere;}
 .dr-row dd a{color:#7B1D1D;text-decoration:none;}
@@ -973,7 +977,7 @@ textarea.fc{resize:vertical;min-height:70px;}
 
 /* equipment condition — severity, stated once and clearly */
 .dr-cond{display:flex;align-items:center;gap:.55rem;padding:.6rem .8rem;border-radius:11px;
-  border:1px solid;font-size:.8rem;font-weight:800;margin-bottom:.9rem;}
+  border:1px solid;font-size:.82rem;font-weight:800;margin-bottom:.9rem;}
 .dr-cond .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
 .dr-cond.sev-broken{background:#FEF2F2;border-color:#F4C7C7;color:#B91C1C;}
 .dr-cond.sev-partial{background:#FFF7ED;border-color:#F6D9B8;color:#C2410C;}
@@ -981,7 +985,7 @@ textarea.fc{resize:vertical;min-height:70px;}
 .dr-cond.sev-unknown{background:#F8F3EA;border-color:#EDE4D6;color:#6B5344;}
 
 .dr-desc{background:#F8F3EA;border-left:3px solid #C9960C;border-radius:0 10px 10px 0;
-  padding:.7rem .9rem;font-size:.84rem;line-height:1.6;color:#1C1008;}
+  padding:.7rem .9rem;font-size:.82rem;line-height:1.6;color:#1C1008;}
 .dr-desc.empty{color:#A08C7C;font-style:italic;border-left-color:#DCD0BE;}
 
 /* ── evidence ───────────────────────────────────────────────────────────── */
@@ -994,7 +998,7 @@ textarea.fc{resize:vertical;min-height:70px;}
 .dr-ev-item:focus-visible{outline:2px solid #7B1D1D;outline-offset:2px;}
 .dr-ev-item .vid{color:#7B1D1D;font-size:1.3rem;}
 .dr-ev-item .tag{position:absolute;left:0;right:0;bottom:0;background:rgba(28,16,8,.72);
-  color:#fff;font-size:.56rem;font-weight:700;letter-spacing:.5px;padding:.16rem 0;
+  color:#fff;font-size:.6rem;font-weight:700;letter-spacing:.5px;padding:.16rem 0;
   text-align:center;text-transform:uppercase;}
 .dr-none{display:flex;align-items:center;gap:.45rem;font-size:.76rem;color:#A08C7C;
   padding:.6rem .8rem;background:#F8F3EA;border-radius:10px;}
@@ -1009,18 +1013,18 @@ textarea.fc{resize:vertical;min-height:70px;}
 .dr-tl-step:last-child::before{display:none;}
 .dr-tl-step.done::before{background:#16A34A;}
 .dr-tl-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;
-  justify-content:center;font-size:.66rem;flex-shrink:0;position:relative;z-index:1;
+  justify-content:center;font-size:.68rem;flex-shrink:0;position:relative;z-index:1;
   border:2px solid #EDE4D6;background:#fff;color:#C0AC9C;}
 .dr-tl-step.done .dr-tl-dot{background:#16A34A;border-color:#16A34A;color:#fff;}
 .dr-tl-step.now .dr-tl-dot{background:#7B1D1D;border-color:#7B1D1D;color:#fff;
   box-shadow:0 0 0 4px rgba(123,29,29,.14);}
 .dr-tl-b{padding-top:.15rem;min-width:0;}
-.dr-tl-n{font-size:.8rem;font-weight:700;color:#A08C7C;line-height:1.25;}
+.dr-tl-n{font-size:.82rem;font-weight:700;color:#A08C7C;line-height:1.25;}
 .dr-tl-step.done .dr-tl-n,.dr-tl-step.now .dr-tl-n{color:#1C1008;}
 .dr-tl-step.now .dr-tl-n{font-weight:800;}
-.dr-tl-when{font-size:.66rem;color:#7B1D1D;font-weight:700;margin-top:.08rem;}
+.dr-tl-when{font-size:.68rem;color:#7B1D1D;font-weight:700;margin-top:.08rem;}
 .dr-tl-d{font-size:.68rem;color:#A08C7C;margin-top:.08rem;line-height:1.4;}
-.dr-tl-now-tag{display:inline-block;margin-left:.35rem;font-size:.55rem;font-weight:800;
+.dr-tl-now-tag{display:inline-block;margin-left:.35rem;font-size:.6rem;font-weight:800;
   letter-spacing:.8px;text-transform:uppercase;color:#7B1D1D;
   background:#FFFBEF;border:1px solid #EBD9A8;border-radius:20px;padding:.05rem .4rem;
   vertical-align:middle;}
@@ -1029,11 +1033,11 @@ textarea.fc{resize:vertical;min-height:70px;}
 .dr-log summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:.45rem;
   font-family:'Outfit',sans-serif;font-size:.88rem;font-weight:800;color:#1C1008;}
 .dr-log summary::-webkit-details-marker{display:none;}
-.dr-log summary i.chev{margin-left:auto;color:#A08C7C;font-size:.7rem;transition:transform .18s;}
+.dr-log summary i.chev{margin-left:auto;color:#A08C7C;font-size:.68rem;transition:transform .18s;}
 .dr-log[open] summary i.chev{transform:rotate(180deg);}
 .dr-log-list{margin-top:.8rem;display:grid;gap:.55rem;max-height:15rem;overflow-y:auto;}
 .dr-log-item{display:grid;grid-template-columns:auto minmax(0,1fr);gap:.6rem;
-  font-size:.74rem;padding-bottom:.55rem;border-bottom:1px solid #F4EDE2;}
+  font-size:.76rem;padding-bottom:.55rem;border-bottom:1px solid #F4EDE2;}
 .dr-log-item:last-child{border-bottom:none;padding-bottom:0;}
 .dr-log-when{color:#A08C7C;white-space:nowrap;font-size:.68rem;}
 .dr-log-what{color:#1C1008;line-height:1.45;}
@@ -1043,7 +1047,15 @@ textarea.fc{resize:vertical;min-height:70px;}
 .dr-foot{position:sticky;bottom:0;z-index:3;flex-shrink:0;
   display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;
   padding:.85rem 1.5rem;background:#fff;border-top:1px solid #EDE4D6;}
+/* Utilities left, decisions right. Print and Service Report are things you might
+   take away with you; Close and the primary action are what you came to do, and
+   they sit where the eye finishes. */
+.dr-foot-l{display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;}
 .dr-foot-r{margin-left:auto;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
+/* One clear primary. The utilities are quieter so the thing to do next is the
+   thing that looks like it. */
+.dr-foot-l .btn{font-weight:600;}
+.dr-foot-r .btn-green,.dr-foot-r .btn-maroon{font-weight:800;padding-left:1.05rem;padding-right:1.05rem;}
 
 /* ── responsive ─────────────────────────────────────────────────────────── */
 @media(max-width:1024px){
@@ -1052,10 +1064,17 @@ textarea.fc{resize:vertical;min-height:70px;}
   .dr-summary{grid-template-columns:1fr 1fr;}
 }
 @media(max-width:720px){
-  .dr-shell{width:100vw;max-height:100vh;border-radius:0;}
+  /* .mo carries 1rem of side padding, so a shell of 100vw sat 2rem wider than the
+     screen and the Priority card hung off the right edge. Full-bleed means the
+     overlay gives up its padding too. */
+  #detmo{padding:0;align-items:stretch;}
+  .dr-shell{width:100%;max-width:100%;max-height:100vh;border-radius:0;}
   .dr-head{flex-wrap:wrap;gap:.75rem;padding:1rem 1.1rem;}
-  .dr-keys{width:100%;}
-  .dr-key{flex:1;min-width:0;}
+  /* Two equal halves that are allowed to shrink. flex:1 alone still respected
+     the 8.5rem min-width from the base rule. */
+  .dr-keys{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:.5rem;}
+  .dr-key{min-width:0;}
+  .dr-key-v{font-size:.82rem;}
   .dr-summary{grid-template-columns:1fr;}
   .dr-col{padding:1rem 1.1rem 1.25rem;}
   .dr-row{grid-template-columns:1fr;gap:.1rem;}
@@ -1829,12 +1848,15 @@ textarea.fc{resize:vertical;min-height:70px;}
 
     <!-- ── ModalFooter ─────────────────────────────────────────────── -->
 
-    <div class="mfoot">
-      <button class="btn btn-ghost btn-sm" onclick="closeDet()">Close</button>
+    <div class="mfoot dr-foot">
+      <div class="dr-foot-l">
       <a href="defect_report_ticket.php?report=<?php echo urlencode($vr['report_id']);?>" target="_blank" rel="noopener" class="btn btn-ghost btn-sm"><i class="fas fa-ticket"></i> Print Ticket</a>
       <?php if (in_array($vr['status'], ['completed','verified','closed'], true)): ?>
       <a href="technician_service_report.php?report=<?php echo urlencode($vr['report_id']);?>" target="_blank" rel="noopener" class="btn btn-ghost btn-sm"><i class="fas fa-file-lines"></i> Service Report</a>
       <?php endif; ?>
+      </div>
+      <div class="dr-foot-r">
+        <button class="btn btn-ghost btn-sm" onclick="closeDet()">Close</button>
       <?php if ($vr['status'] === 'completed'): ?>
       <!-- always-visible shortcut; submits the Verify form in the right pane -->
       <button type="submit" form="verifyForm" class="btn btn-green btn-sm"
@@ -1852,6 +1874,7 @@ textarea.fc{resize:vertical;min-height:70px;}
         <i class="fas fa-user-<?php echo $vrAssigned ? 'pen' : 'plus'; ?>"></i> <?php echo $vrAssigned ? 'Reassign Technician' : 'Assign Technician'; ?>
       </a>
       <?php endif; ?>
+      </div><!-- /dr-foot-r -->
     </div>
   </div><!-- /dr-shell -->
 </div><!-- /detmo -->
