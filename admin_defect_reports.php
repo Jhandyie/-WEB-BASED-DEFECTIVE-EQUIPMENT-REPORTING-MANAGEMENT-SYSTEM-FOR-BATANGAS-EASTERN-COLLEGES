@@ -828,6 +828,41 @@ textarea.fc{resize:vertical;min-height:70px;}
 .rv-desc{font-size:.73rem;color:var(--t3);line-height:1.55;margin-top:.28rem;}
 .fhint{font-size:.66rem;color:var(--t3);margin-top:.05rem;line-height:1.4;}
 .fl .opt{color:var(--t3);font-weight:600;text-transform:none;letter-spacing:0;font-size:.6rem;}
+/* ── responsible unit cards ───────────────────────────────────────────────
+   Same control as the Assign Technicians page. Two screens, one way of asking. */
+.unit-seg{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;}
+.unit-opt{position:relative;display:block;cursor:pointer;}
+.unit-opt input{position:absolute;opacity:0;width:0;height:0;}
+.unit-box{display:block;position:relative;height:100%;padding:.55rem .6rem;
+  border-radius:var(--r1);border:1.5px solid var(--bdr);background:var(--s1);
+  transition:border-color .15s,background .15s;}
+.unit-opt:hover .unit-box{border-color:var(--bdr2);}
+.unit-opt input:focus-visible + .unit-box{outline:2px solid var(--m3);outline-offset:2px;}
+.unit-ic{display:block;font-size:.8rem;color:var(--t3);margin-bottom:.2rem;}
+.unit-t{display:block;font-family:'Outfit',sans-serif;font-size:.78rem;font-weight:800;color:var(--t1);}
+.unit-d{display:block;font-size:.6rem;color:var(--t3);line-height:1.3;margin-top:.06rem;}
+.unit-check{position:absolute;top:.4rem;right:.4rem;width:16px;height:16px;border-radius:50%;
+  background:var(--m3);color:#fff;font-size:.5rem;display:none;align-items:center;justify-content:center;}
+.unit-opt input:checked + .unit-box{border-color:var(--m3);background:#FDF6F6;}
+.unit-opt input:checked + .unit-box .unit-check{display:flex;}
+.unit-opt input:checked + .unit-box .unit-ic{color:var(--m3);}
+.unit-itso input:checked + .unit-box{border-color:#2563EB;background:#EFF6FF;}
+.unit-itso input:checked + .unit-box .unit-check{background:#2563EB;}
+.unit-itso input:checked + .unit-box .unit-ic{color:#2563EB;}
+
+/* ── what to do next ──────────────────────────────────────────────────────
+   The panel showed the record and left the reader to work out the next move
+   from the status badge. This states it. */
+.dr-next{display:flex;align-items:flex-start;gap:.6rem;padding:.7rem .85rem;
+  border-radius:12px;margin-bottom:1rem;
+  background:#FFFBEF;border:1px solid #EBD9A8;}
+.dr-next i{color:#C9960C;font-size:.9rem;margin-top:.1rem;flex-shrink:0;}
+.dr-next b{display:block;font-family:'Outfit',sans-serif;font-size:.82rem;
+  font-weight:800;color:#1C1008;margin-bottom:.1rem;}
+.dr-next span{font-size:.74rem;color:#6B5344;line-height:1.5;}
+.dr-next.is-done{background:#F0FDF4;border-color:#BBE8CB;}
+.dr-next.is-done i{color:#16A34A;}
+
 .prio-seg{display:grid;grid-template-columns:repeat(4,1fr);gap:.32rem;}
 .prio-opt{padding:.46rem .2rem;border:1.5px solid var(--bdr);background:var(--s2);border-radius:var(--r1);
   font-size:.7rem;font-weight:700;color:var(--t2);cursor:pointer;font-family:'DM Sans',sans-serif;
@@ -910,7 +945,10 @@ textarea.fc{resize:vertical;min-height:70px;}
 /* ── body ───────────────────────────────────────────────────────────────── */
 .dr-body{flex:1;min-height:0;overflow-y:auto;display:grid;
   grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:0;background:#fff;}
-.dr-col{padding:1.25rem 1.5rem 1.5rem;min-width:0;}
+/* The extra bottom padding is the sticky footer's height. Without it the last
+   card in a column scrolls to its end flush against the footer and the final
+   line sits under it — reachable only by knowing it is there. */
+.dr-col{padding:1.25rem 1.5rem 2.25rem;min-width:0;}
 .dr-col + .dr-col{border-left:1px solid #EDE4D6;background:#FDFBF7;}
 
 .dr-card{border:1px solid #EDE4D6;border-radius:14px;background:#fff;
@@ -1612,6 +1650,36 @@ textarea.fc{resize:vertical;min-height:70px;}
       <!-- RIGHT ────────────────────────────────────────────────────────── -->
       <div class="dr-col">
 
+        <?php
+          /* What happens next, said plainly. The panel showed a status badge and
+             left the reader to work out what that meant they should do — which
+             is fine once you know the workflow by heart and useless before then.
+             Read from the same status the action forms below key off, so the two
+             can never disagree. */
+          $drNext = [
+            'reported'             => ['fa-inbox',           'Acknowledge receipt',   'Mark this as received so the reporter knows the office has it, then approve or reject it.'],
+            'pmo_review'           => ['fa-scale-balanced',  'Review and route',      'Confirm which unit carries out the repair and how urgent it is, then approve it for assignment.'],
+            'ready_for_assignment' => ['fa-user-plus',       'Assign a technician',   'This report is approved and waiting for someone to be sent. Use Assign Technician below.'],
+            'assigned'             => ['fa-hourglass-half',  'Waiting on the technician', 'Assigned and not yet accepted. Nothing is needed from the office until it is.'],
+            'accepted'             => ['fa-screwdriver-wrench','Repair in progress',  'The technician has taken the job. The next update comes from them.'],
+            'in_progress'          => ['fa-screwdriver-wrench','Repair in progress',  'The technician is working on it. The next update comes from them.'],
+            'waiting_for_materials'=> ['fa-boxes-stacked',   'Held for materials',    'The technician is waiting on parts. Follow up if this has been sitting.'],
+            'for_replacement'      => ['fa-rotate',          'Replacement recommended','The technician judged this beyond repair. Decide whether to replace the unit.'],
+            'completed'            => ['fa-clipboard-check', 'Verify and close',      'The technician reported the work finished. Check it, then verify and close — or send it back.'],
+            'verified'             => ['fa-circle-check',    'Closed',                'Verified and closed. The reporter has been asked whether the fix held.'],
+            'closed'               => ['fa-circle-check',    'Closed',                'This report is finished. Nothing further is required.'],
+            'rejected'             => ['fa-ban',             'Rejected',              'This report was rejected and the reporter was told why.'],
+          ][strtolower((string)$vr['status'])] ?? ['fa-circle-info', 'In progress', 'This report is somewhere in the workflow below.'];
+          $drSettled = in_array(strtolower((string)$vr['status']), ['verified','closed','rejected'], true);
+        ?>
+        <div class="dr-next<?php echo $drSettled ? ' is-done' : ''; ?>" role="status">
+          <i class="fas <?php echo $drNext[0]; ?>" aria-hidden="true"></i>
+          <div>
+            <b><?php echo esc($drNext[1]); ?></b>
+            <span><?php echo esc($drNext[2]); ?></span>
+          </div>
+        </div>
+
         <!-- WorkflowTimeline -->
         <section class="dr-card">
           <div class="dr-card-h"><i class="fas fa-timeline" aria-hidden="true"></i><h3>Workflow</h3></div>
@@ -1661,12 +1729,26 @@ textarea.fc{resize:vertical;min-height:70px;}
             <div class="fg2">
               <div class="fg">
                 <label class="fl">Responsible Unit <span>*</span></label>
-                <select name="department_assigned" class="fc" required>
-                  <option value="">Select unit…</option>
-                  <option value="PMO"  <?php echo $rvDeptDef==='PMO'  ? 'selected' : ''; ?>>PMO — Physical maintenance</option>
-                  <option value="ITSO" <?php echo $rvDeptDef==='ITSO' ? 'selected' : ''; ?>>ITSO — IT, labs &amp; network</option>
-                </select>
-                <div class="fhint">Which office will carry out the repair.</div>
+                <?php /* Cards, matching the Assign Technicians page, so the two
+                         screens ask the same question the same way. Two options
+                         behind a dropdown you had to open to see what was in it. */ ?>
+                <div class="unit-seg" role="radiogroup" aria-label="Responsible unit">
+                  <?php foreach ([
+                    ["PMO",  "fa-building",    "PMO",  "Physical maintenance"],
+                    ["ITSO", "fa-laptop-code", "ITSO", "IT, labs &amp; network"],
+                  ] as [$uv, $uic, $ut, $ud]): ?>
+                  <label class="unit-opt unit-<?php echo strtolower($uv); ?>">
+                    <input type="radio" name="department_assigned" value="<?php echo $uv; ?>"
+                           <?php echo $rvDeptDef === $uv ? "checked" : ""; ?> required>
+                    <span class="unit-box">
+                      <span class="unit-check" aria-hidden="true"><i class="fas fa-check"></i></span>
+                      <i class="fas <?php echo $uic; ?> unit-ic" aria-hidden="true"></i>
+                      <span class="unit-t"><?php echo $ut; ?></span>
+                      <span class="unit-d"><?php echo $ud; ?></span>
+                    </span>
+                  </label>
+                  <?php endforeach; ?>
+                </div>
               </div>
               <div class="fg">
                 <label class="fl">Priority <span>*</span></label>
