@@ -11,12 +11,16 @@
  * Run before a demo or after any change:
  *     c:\xampp\php\php.exe scripts\e2e_smoke.php
  *
+ * Against a server where the app is the site root rather than a subfolder -
+ * a VPS, say - pass the base URL:
+ *     php scripts/e2e_smoke.php http://localhost
+ *
  * Notes:
- *  - Requires Apache running at http://localhost/bec-pmo/
+ *  - Requires Apache running at the base URL
  *  - Sends a handful of REAL emails to the smoke mailbox below (evidence!)
  */
 error_reporting(E_ALL & ~E_DEPRECATED);
-$BASE  = 'http://localhost/bec-pmo';
+$BASE  = rtrim($argv[1] ?? 'http://localhost/bec-pmo', '/');
 $ROOT  = realpath(__DIR__ . '/..');
 $SMOKE_MAIL = 'jhanmarkdecastro128@gmail.com';   // where smoke emails land
 $JAR_R = tempnam(sys_get_temp_dir(), 'smk_r');
