@@ -42,6 +42,17 @@ $bsfYear = date('Y');
   .bsfoot-social a{min-width:44px;min-height:44px;}
   /* Clear of the iPhone home indicator. */
   .bsfoot{padding-bottom:max(1.5rem,env(safe-area-inset-bottom));}
+  /* Type floor on phones. These uppercase micro-labels were set for a desktop
+     footer read at arm's length on a big screen: measured on a 390px phone the
+     brand subtitle was 10.2px, "est." 10.9px, the column headings 11.2px and
+     the legal note 12.2px. The letter-spaced all-caps style survives a small
+     size better than body copy does, so this lifts them to ~11px rather than
+     to 12 — enough to read on a phone without turning the footer into a wall
+     of text. Shared footer, so all four public pages get it. */
+  .bsfoot-brand small{font-size:.65rem;}
+  .bsfoot-motto .est{font-size:.68rem;}
+  .bsfoot-col h4{font-size:.7rem;}
+  .bsfoot-note{font-size:.76rem;}
 }
 </style>
 <footer class="bsfoot">

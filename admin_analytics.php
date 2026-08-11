@@ -33,41 +33,58 @@ function q($conn, $sql, $types='', ...$params) {
     $stmt->execute();
     return $stmt->get_result();
 }
-function scalar($conn, $sql, $types='', ...$params) {
-    $r = q($conn,$sql,$types,...$params)->fetch_row();
-    return $r ? (int)$r[0] : 0;
+function row1($conn, $sql, $types='', ...$params) {
+    $r = q($conn,$sql,$types,...$params)->fetch_assoc();
+    return is_array($r) ? $r : [];
 }
 function esc($s){return htmlspecialchars((string)($s??''),ENT_QUOTES,'UTF-8');}
 
-$drCols = [];
-$drColRes = $conn->query("SHOW COLUMNS FROM defect_reports");
-while ($drColRes && ($drRow = $drColRes->fetch_assoc())) {
-    $drCols[$drRow['Field']] = true;
-}
+/* Schema probes go through getTableColumns(), which caches per request. Asking
+   the adapter for SHOW COLUMNS directly is an information_schema round trip
+   every time — two of them here, ~300 ms of the page's budget, for answers
+   config/database.php had already fetched. */
+$drCols   = getTableColumns('defect_reports');
+$userCols = getTableColumns('users');
 $resolutionDateCol = isset($drCols['updated_at']) ? 'updated_at' : (isset($drCols['completion_date']) ? 'completion_date' : null);
 $reporterJoinCol = isset($drCols['reporter_id']) ? 'reporter_id' : (isset($drCols['reported_by']) ? 'reported_by' : null);
-$userCols = [];
-$userColRes = $conn->query("SHOW COLUMNS FROM users");
-while ($userColRes && ($userRow = $userColRes->fetch_assoc())) {
-    $userCols[$userRow['Field']] = true;
-}
 $userDeptExpr = isset($userCols['department']) ? 'u.department' : "''";
 
-/* ─── KPI METRICS ─────────────────────────────────────── */
-// All time
-$kpi_total_eq   = scalar($conn,"SELECT COUNT(*) FROM equipment WHERE status!='deleted'");
-$kpi_op_eq      = scalar($conn,"SELECT COUNT(*) FROM equipment WHERE status='operational'");
-$kpi_total_users= scalar($conn,"SELECT COUNT(*) FROM users WHERE status='active'");
-$kpi_total_tech = scalar($conn,"SELECT COUNT(*) FROM users WHERE role='technician' AND status='active'");
+/* ─── KPI METRICS ─────────────────────────────────────────
+   Ten separate COUNT(*) queries used to live here. Every one of them is a
+   Supabase round trip (~60-100 ms each), and they scan three tables between
+   them — so they fold into one aggregate per table with conditional SUMs.
+   NULL-safety is unchanged: `status != 'deleted'` and `status NOT IN (...)`
+   both evaluate to NULL for a NULL status, which the CASE counts as 0, exactly
+   as the old WHERE clauses excluded those rows.                             */
+$eq = row1($conn,
+    "SELECT SUM(CASE WHEN status!='deleted'    THEN 1 ELSE 0 END) AS total,
+            SUM(CASE WHEN status='operational' THEN 1 ELSE 0 END) AS operational
+     FROM equipment");
+$kpi_total_eq = (int)($eq['total'] ?? 0);
+$kpi_op_eq    = (int)($eq['operational'] ?? 0);
 
-// In date range
-$kpi_reports    = scalar($conn,"SELECT COUNT(*) FROM defect_reports WHERE report_date BETWEEN ? AND ?","ss",$df_ts,$dt_ts);
-$kpi_resolved   = scalar($conn,"SELECT COUNT(*) FROM defect_reports WHERE status IN('completed','verified','closed') AND report_date BETWEEN ? AND ?","ss",$df_ts,$dt_ts);
-$kpi_pending    = scalar($conn,"SELECT COUNT(*) FROM defect_reports WHERE status='reported'");
+$us = row1($conn,
+    "SELECT SUM(CASE WHEN status='active' THEN 1 ELSE 0 END) AS active,
+            SUM(CASE WHEN role='technician' AND status='active' THEN 1 ELSE 0 END) AS technicians
+     FROM users");
+$kpi_total_users = (int)($us['active'] ?? 0);
+$kpi_total_tech  = (int)($us['technicians'] ?? 0);
+
 // Work orders were removed; the lifecycle now lives entirely in defect_reports.
-$kpi_inprog     = scalar($conn,"SELECT COUNT(*) FROM defect_reports WHERE status IN('assigned','accepted','in_progress')");
-$kpi_crit       = scalar($conn,"SELECT COUNT(*) FROM defect_reports WHERE priority='critical' AND status NOT IN('completed','verified','closed','rejected','deleted')");
-$kpi_unassigned = scalar($conn,"SELECT COUNT(*) FROM defect_reports WHERE status IN('pmo_review','ready_for_assignment')");
+$dr = row1($conn,
+    "SELECT SUM(CASE WHEN report_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS in_range,
+            SUM(CASE WHEN status IN('completed','verified','closed') AND report_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS resolved,
+            SUM(CASE WHEN status='reported' THEN 1 ELSE 0 END) AS pending,
+            SUM(CASE WHEN status IN('assigned','accepted','in_progress') THEN 1 ELSE 0 END) AS in_progress,
+            SUM(CASE WHEN priority='critical' AND status NOT IN('completed','verified','closed','rejected','deleted') THEN 1 ELSE 0 END) AS critical,
+            SUM(CASE WHEN status IN('pmo_review','ready_for_assignment') THEN 1 ELSE 0 END) AS unassigned
+     FROM defect_reports", "ssss", $df_ts, $dt_ts, $df_ts, $dt_ts);
+$kpi_reports    = (int)($dr['in_range'] ?? 0);
+$kpi_resolved   = (int)($dr['resolved'] ?? 0);
+$kpi_pending    = (int)($dr['pending'] ?? 0);
+$kpi_inprog     = (int)($dr['in_progress'] ?? 0);
+$kpi_crit       = (int)($dr['critical'] ?? 0);
+$kpi_unassigned = (int)($dr['unassigned'] ?? 0);
 
 $resolution_rate = $kpi_reports > 0 ? round(($kpi_resolved / $kpi_reports) * 100) : 0;
 
@@ -255,7 +272,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 
 /* ── BUTTONS ──────────────────────────────────────── */
 .btn{display:inline-flex;align-items:center;gap:.32rem;padding:.4rem .875rem;border-radius:var(--r1);font-family:'DM Sans',sans-serif;font-size:.77rem;font-weight:700;cursor:pointer;border:none;transition:all .17s;text-decoration:none;white-space:nowrap;}
-.btn:hover{transform:translateY(-1px);}.btn:active{transform:translateY(0);}
+.btn:hover{transform:none;}.btn:active{transform:translateY(0);}
 .btn-maroon{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;box-shadow:none;}
 .btn-maroon:hover{box-shadow:none;}
 .btn-gold{background:linear-gradient(135deg,var(--g2),var(--g3));color:var(--m1);box-shadow:none;}
@@ -267,7 +284,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 /* ── DATE RANGE TABS ──────────────────────────────── */
 .rtabs{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:1.25rem;align-items:center;}
 .rtab{display:inline-flex;align-items:center;gap:.3rem;padding:.3rem .78rem;border-radius:20px;font-size:.73rem;font-weight:700;cursor:pointer;text-decoration:none;border:1.5px solid var(--bdr);background:var(--s1);color:var(--t2);transition:all .17s;}
-.rtab:hover{transform:translateY(-1px);background:var(--s2);}
+.rtab:hover{transform:none;background:var(--s2);}
 .rtab.on{background:var(--m3);color:#fff;border-color:var(--m2);box-shadow:none;}
 .date-range-lbl{font-size:.72rem;color:var(--t3);margin-left:auto;font-style:italic;}
 
@@ -277,10 +294,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
   position:relative;overflow:hidden;transition:all .26s cubic-bezier(.4,0,.2,1);box-shadow:var(--sh0);}
 .kcard::after{content:'';position:absolute;bottom:0;left:0;width:100%;height:3px;background:var(--kc,var(--m3));
   border-radius:0 0 var(--r3) var(--r3);transform:scaleX(0);transform-origin:left;transition:transform .32s;}
-.kcard:hover{transform:translateY(-4px) scale(1.012);box-shadow:var(--sh2);border-color:transparent;}
+.kcard:hover{transform:none;box-shadow:var(--sh2);border-color:transparent;}
 .kcard:hover::after{transform:scaleX(1);}
 .kico{width:32px;height:32px;border-radius:var(--r1);display:flex;align-items:center;justify-content:center;font-size:.78rem;margin-bottom:.45rem;background:var(--kb);color:var(--kc,var(--m3));box-shadow:none;transition:transform .26s;position:relative;z-index:1;}
-.kcard:hover .kico{transform:rotate(-8deg) scale(1.12);}
+.kcard:hover .kico{transform:none;}
 .knum{font-family:'Outfit',sans-serif;font-size:1.65rem;font-weight:800;color:var(--t1);line-height:1;transition:color .26s;position:relative;z-index:1;}
 .kcard:hover .knum{color:var(--kc,var(--m3));}
 .klbl{font-size:.56rem;text-transform:uppercase;letter-spacing:.65px;color:var(--t3);font-weight:700;position:relative;z-index:1;margin-top:.08rem;}
@@ -393,6 +410,45 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 @media(max-width:1400px){.kpis{grid-template-columns:repeat(4,1fr);}.cgrid-3{grid-template-columns:1fr 1fr;}}
 @media(max-width:1100px){.cgrid-2{grid-template-columns:1fr;}.cgrid-3{grid-template-columns:1fr;}.insight-grid{grid-template-columns:1fr;}}
 @media(max-width:768px){.sb{transform:translateX(-100%);}.sb.open{transform:translateX(0);}.wrap{margin-left:0;}.pg{padding:1rem;}.mob-tog{display:flex;}.kpis{grid-template-columns:repeat(2,1fr);}}
+
+/* ── PRINT ─────────────────────────────────────────
+   The Print Report button had nothing behind it: the printout carried the
+   sidebar, the sticky toolbar and the assistant bubble, the charts landed
+   half-off the page, and the cards printed without their fills because
+   browsers drop backgrounds by default. These rules make it an actual
+   document, headed like the CSV/XLSX/PDF exports. */
+.print-lh{display:none;}
+@media print{
+  @page{size:A4 portrait;margin:12mm 10mm;}
+  html,body{background:#fff !important;}
+  body{font-size:10pt;}
+  /* keep the designed fills — a KPI card with no background is just a number */
+  *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;
+    box-shadow:none !important;text-shadow:none !important;animation:none !important;transition:none !important;}
+  /* screen furniture */
+  .sb,.topbar,.mob-tog,.ttray,.mo,#chatFab,#chatOverlay,#chatModal,
+  .becca-fab,.becca-panel,.exp-wrap,.tb-r{display:none !important;}
+  .wrap{margin-left:0 !important;min-height:0 !important;}
+  .pg{padding:0 !important;}
+  /* the letterhead, only on paper */
+  .print-lh{display:block;text-align:center;margin:0 0 12px;}
+  .print-lh img{height:58px;width:58px;object-fit:contain;}
+  .print-lh .p-school{font-family:'Times New Roman',Georgia,serif;font-size:15pt;font-weight:800;color:#1C1008;letter-spacing:.3px;}
+  .print-lh .p-office{font-family:'Times New Roman',Georgia,serif;font-style:italic;font-size:10pt;color:#1C1008;}
+  .print-lh .p-doc{font-size:9pt;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#1C1008;margin-top:2px;}
+  .print-lh .p-rule{height:3px;border-radius:4px;margin-top:6px;background:linear-gradient(90deg,#4A0E0E,#7B1D1D 55%,#C9960C);}
+  .print-lh .p-meta{display:flex;justify-content:space-between;font-size:8pt;color:#755B4E;margin-top:5px;}
+  /* nothing may be cut in half across a page break */
+  .kcard,.cpanel,.insight-panel{page-break-inside:avoid;break-inside:avoid;}
+  .kpis{grid-template-columns:repeat(4,1fr) !important;gap:6px !important;margin-bottom:10px !important;}
+  .cgrid{gap:8px !important;}
+  .cgrid-2,.cgrid-3,.cgrid-r,.insight-grid{grid-template-columns:1fr 1fr !important;}
+  .cp-body{padding:6px !important;}
+  .cp-body canvas{max-width:100% !important;height:auto !important;max-height:200px !important;}
+  .print-foot{display:block !important;margin-top:10px;border-top:1px solid #E8DDD0;padding-top:6px;
+    font-size:8pt;color:#755B4E;display:flex;justify-content:space-between;}
+}
+.print-foot{display:none;}
 </style>
 </head>
 <body>
@@ -421,6 +477,25 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
   </header>
 
   <div class="pg">
+
+    <!-- Printed letterhead — hidden on screen, heads the page on paper so a
+         printed analytics report matches the other BEC PMO documents. -->
+    <div class="print-lh">
+      <?php
+        require_once __DIR__ . '/includes/export_branding.php';
+        $anLogo = becExportLogoDataUri();
+        if ($anLogo !== '') { echo '<img src="' . $anLogo . '" alt="BEC logo">'; }
+      ?>
+      <div class="p-school">BATANGAS EASTERN COLLEGES</div>
+      <div class="p-office">Property Management Office</div>
+      <div class="p-doc">Maintenance Analytics Report</div>
+      <div class="p-rule"></div>
+      <div class="p-meta">
+        <span>Date: <?php echo esc(date('F j, Y')); ?></span>
+        <span>Prepared by: <?php echo esc(becExportPreparedBy()); ?></span>
+        <span>Ref. <?php echo esc(becExportRef()); ?></span>
+      </div>
+    </div>
 
     <!-- Page Header -->
     <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:1.1rem;gap:1rem;flex-wrap:wrap;">
@@ -623,8 +698,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
       </div>
     </div>
 
-    <!-- ── ROW 5: Technician + Work Orders ───────── -->
-    <div class="cgrid cgrid-2" style="margin-bottom:1.125rem;">
+    <!-- ── ROW 5: Technician performance (full width) ──
+         Was a 2-column grid whose second cell held Work Orders. That panel went
+         with the feature, leaving the table stranded at half width beside an
+         empty column; the table has four columns and wants the room. -->
+    <div class="cgrid" style="margin-bottom:1.125rem;grid-template-columns:1fr;">
       <!-- Technician performance -->
       <div class="cpanel">
         <div class="cp-head"><h3><i class="fas fa-hard-hat"></i> Technician Performance</h3></div>
@@ -715,6 +793,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
         </div>
         <?php endforeach; endif;?>
       </div>
+    </div>
+
+    <!-- Print-only footer, matching the exported documents. -->
+    <div class="print-foot">
+      <span><b>Batangas Eastern Colleges</b> &middot; Property Management Office</span>
+      <span>Confidential — for authorized administrative use only</span>
+      <span>Generated <?php echo esc(date('Y-m-d H:i')); ?></span>
     </div>
 
   </div><!-- /pg -->

@@ -71,6 +71,10 @@ data/mail_outbox/
 # Timestamp of the last SLA escalation sweep (runtime throttle state)
 data/sla_last_sweep
 
+# Same, for the preventive-maintenance sweep. Machine-local runtime state:
+# committing it would carry one machine's clock to another and skip a sweep.
+data/pm_last_sweep
+
 # PID of the demo keep-awake helper (runtime only)
 data/keep_awake.pid
 

@@ -43,7 +43,8 @@ Every transition notifies the right people **in-app and by branded email**
   the official BEC PMO inventory form: letterhead, grouped bands, and real signatories.
 - **Inventory by Excel upload** — the PMO uploads the official inventory workbook; items are
   parsed by property-number prefix (dependency-free XLSX reader).
-- **Security** — OTP email login for admins (3-minute codes), role-scoped sessions, CSRF
+- **Security** — OTP email login for **admins and reporters** (3-minute codes; reporters need no
+  password, and a verified browser is remembered for 30 days), role-scoped sessions, CSRF
   protection on every state change, rate limiting, upload validation by real image content,
   `.htaccess` hardening, secrets kept out of git.
 - **Operations** — daily automated database backup (Windows scheduled task → rotating ZIP of

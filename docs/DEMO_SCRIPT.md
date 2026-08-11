@@ -12,7 +12,10 @@ lifecycle**, hitting every "wow" feature in a natural order. Follow it top to bo
 - [ ] *(Optional, impressive)* `cloudflared tunnel --url http://localhost:80` → gives a public
       HTTPS URL so **panelists can open the system on their own phones** and you can demo the
       QR scan + PWA install for real
-- [ ] Sign in to the **reporter Gmail inbox** in a browser tab (to show arriving emails live)
+- [ ] Sign in to the **reporter Gmail inbox** in a browser tab (to show arriving emails live) —
+      this is also where the reporter's **6-digit sign-in code** arrives, so it is not optional
+- [ ] Confirm the demo reporter address is **on the BEC directory** (`Admin → BEC Directory`) —
+      no directory entry, no code, no report
 - [ ] Phone ready with the **technician PWA** installed (or install it live — see step 6)
 - [ ] One **printed equipment QR** sticker (Admin → Inventory → QR → Print)
 - [ ] Know your accounts: admin email (OTP login), one technician username/password
@@ -31,8 +34,12 @@ whole workflow"), the **live public-reports preview** (transparency), and the fl
 ### 2. Reporting a defect — the 10-second QR path (2 min)
 - Scan the **printed QR sticker** with a phone (or open the same link) →
   the reporter gate opens with *"You scanned an equipment QR…"*
-- Enter a name + **BEC email** (mention: validated against the official BEC directory /
-  @bec.edu.ph domain — outsiders can't file)
+- Enter a name + **BEC email** + privacy consent → the system emails a **6-digit code, valid 3
+  minutes** (mention: the address must be on the official BEC directory, so outsiders can't file, and
+  the code proves the reporter actually holds the mailbox — no password to maintain). Enter it.
+  *A browser that verified within the last 30 days skips straight in — if that happens on your demo
+  laptop, say so rather than pretending the step doesn't exist.*
+  **Pre-flight:** the demo address must be in the directory and its inbox open on screen.
 - The form is **pre-filled with the exact equipment** — banner shows what was scanned;
   the cursor is already in the description. Type one sentence, attach a photo, submit.
 - Show the **ticket number** + the **confirmation email** landing in the Gmail tab.

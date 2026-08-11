@@ -38,11 +38,17 @@ function slaIsOverdue(array $report): bool {
  * How many reports a single sweep may escalate, and how often a sweep may run.
  *
  * Both caps exist because this runs during an admin page render. Escalating one
- * report costs ~320 ms (flag + a notification per admin + an activity row + an
- * email to the reporter), so an uncapped sweep is O(backlog) on the page load:
- * measured at 96 s for a 300-report backlog, and past a few thousand the page
- * exceeded the request timeout and never rendered at all. Capped, each load pays
- * a bounded cost and a large backlog simply drains over successive loads.
+ * report costs a flag + a notification per admin + an activity row, so an
+ * uncapped sweep is O(backlog) on the page load: measured at 96 s for a
+ * 300-report backlog, and past a few thousand the page exceeded the request
+ * timeout and never rendered at all. Capped, each load pays a bounded cost and a
+ * large backlog simply drains over successive loads.
+ *
+ * The reporter's email is queued rather than sent (see the 'defer' option in
+ * sendEmail). Sending it inline was by far the largest term: a healthy send is
+ * ~1 s, an unreachable SMTP host is up to ~63 s, and that landed on whichever
+ * admin happened to open the dashboard when the throttle expired — measured at
+ * 15 s and 56 s renders against a 12-report database.
  */
 const SLA_MAX_ESCALATIONS_PER_RUN = 10;
 const SLA_MIN_SECONDS_BETWEEN_RUNS = 300;
@@ -95,6 +101,7 @@ function runSlaEscalationSweep(bool $force = false): int {
     foreach ($rows as $r) { $ids[] = "'" . $conn->real_escape_string((string)$r['report_id']) . "'"; }
     $conn->query("UPDATE defect_reports SET sla_escalated_at = NOW()
                   WHERE report_id IN (" . implode(',', $ids) . ") AND sla_escalated_at IS NULL");
+    if (function_exists('defectReportCacheClear')) { defectReportCacheClear(); }
 
     // Recipients: active admins + deans.
     $admins = [];
@@ -115,7 +122,8 @@ function runSlaEscalationSweep(bool $force = false): int {
                     $r,
                     'Your report ' . $rid . ' is taking longer than expected and has been escalated to the PMO for priority handling.',
                     'Report Escalated for Priority Handling',
-                    "We noticed your report has not yet been resolved within the expected time, so it has been escalated to the Property Management Office for priority attention.\n\nThank you for your patience — we are on it."
+                    "We noticed your report has not yet been resolved within the expected time, so it has been escalated to the Property Management Office for priority attention.\n\nThank you for your patience — we are on it.",
+                    ['defer' => true]   // queue it; the admin waiting on this page render must not pay for SMTP
                 );
             } catch (\Throwable $e) {}
         }

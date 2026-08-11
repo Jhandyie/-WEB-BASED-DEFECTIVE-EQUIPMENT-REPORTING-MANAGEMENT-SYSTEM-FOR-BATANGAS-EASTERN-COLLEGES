@@ -47,8 +47,35 @@ if (!function_exists('becXlsxCol')) {
     }
 }
 
+if (!function_exists('becXlsxIsNumeric')) {
+    /**
+     * Should this value be written as a real number?
+     *
+     * Only when Excel would gain something by it — counts, days, currency. A
+     * leading zero means an identifier (asset tag "0042", room "007"), and a
+     * long digit string is a property number, not a quantity: both must stay
+     * text or the value is silently rewritten in the sheet.
+     */
+    function becXlsxIsNumeric($v): bool {
+        if (is_int($v) || is_float($v)) return true;
+        if (!is_string($v)) return false;
+        $s = trim($v);
+        if ($s === '' || !is_numeric($s)) return false;
+        if (strlen($s) > 12) return false;                       // property numbers
+        if (preg_match('/^-?0\d/', $s)) return false;            // leading zero = an ID
+        return true;
+    }
+}
+
 if (!function_exists('becXlsxCell')) {
-    function becXlsxCell(string $ref, int $style, $val): string {
+    /**
+     * One cell. Numbers go out as numbers (right-aligned, summable); everything
+     * else as inline text. $numStyle is the right-aligned twin of $style.
+     */
+    function becXlsxCell(string $ref, int $style, $val, ?int $numStyle = null): string {
+        if ($numStyle !== null && becXlsxIsNumeric($val)) {
+            return '<c r="' . $ref . '" s="' . $numStyle . '"><v>' . (0 + trim((string)$val)) . '</v></c>';
+        }
         $t = htmlspecialchars((string)$val, ENT_QUOTES | ENT_XML1, 'UTF-8');
         return '<c r="' . $ref . '" s="' . $style . '" t="inlineStr"><is><t xml:space="preserve">' . $t . '</t></is></c>';
     }
@@ -101,17 +128,31 @@ if (!function_exists('becBuildXlsx')) {
             $r++; // spacer
         }
 
-        // header row
-        $hr = '<row r="' . $r . '">';
+        // header row — frozen and filterable, so a long list stays readable
+        $headerRowNum = $r;
+        $hr = '<row r="' . $r . '" ht="26" customHeight="1">';
         for ($i = 1; $i <= $n; $i++) { $hr .= becXlsxCell(becXlsxCol($i) . $r, 5, $headers[$i - 1] ?? ''); }
         $sheet .= $hr . '</row>';
         $r++;
 
+        // widest string seen per column, for the column widths further down
+        $widths = [];
+        foreach ($headers as $ci => $hdr) { $widths[$ci] = mb_strlen((string)$hdr); }
+
         // data rows (optionally grouped into gray banded sections)
-        $emitRow = function (array $row, int $st) use (&$sheet, &$r, $n) {
+        $emitRow = function (array $row, int $st) use (&$sheet, &$r, &$widths, $n) {
             $rr = '<row r="' . $r . '">';
             $i = 0;
-            foreach ($row as $cell) { $i++; if ($i > $n) break; $rr .= becXlsxCell(becXlsxCol($i) . $r, $st, $cell); }
+            foreach ($row as $cell) {
+                $i++;
+                if ($i > $n) break;
+                // styles 6/7 are the plain and banded body cells; 12/13 are the
+                // same two right-aligned for numbers.
+                $numSt = ($st === 6) ? 12 : (($st === 7) ? 13 : null);
+                $rr .= becXlsxCell(becXlsxCol($i) . $r, $st, $cell, $numSt);
+                $len = mb_strlen((string)$cell);
+                if (!isset($widths[$i - 1]) || $len > $widths[$i - 1]) { $widths[$i - 1] = $len; }
+            }
             $sheet .= $rr . '</row>';
             $r++;
         };
@@ -138,6 +179,8 @@ if (!function_exists('becBuildXlsx')) {
             foreach ($rows as $row) { $emitRow($row, $alt ? 7 : 6); $alt = !$alt; }
         }
 
+        $lastDataRow = max($headerRowNum, $r - 1);
+
         // signatories (official BEC form)
         $r++;
         $sigLabels = ['Prepared by:', 'Noted by:', 'Approved by:', 'Received by:'];
@@ -149,7 +192,29 @@ if (!function_exists('becBuildXlsx')) {
 
         $maxRow = $r - 1;
 
-        $cols = '<cols><col min="1" max="1" width="28" customWidth="1"/><col min="2" max="' . max(2, $n) . '" width="20" customWidth="1"/></cols>';
+        // Columns sized to their widest cell rather than a flat 20, so nothing
+        // reads as "####" or trails off under the next column.
+        $cols = '<cols>';
+        for ($ci = 1; $ci <= max(1, $n); $ci++) {
+            $w = ($widths[$ci - 1] ?? 12) + 3;
+            $w = max(10, min(46, $w));
+            $cols .= '<col min="' . $ci . '" max="' . $ci . '" width="' . $w . '" customWidth="1"/>';
+        }
+        $cols .= '</cols>';
+
+        // Freeze everything above the data so the header stays put while scrolling.
+        $freezeAt = $headerRowNum + 1;
+        $sheetViews = '<sheetViews><sheetView showGridLines="0" workbookViewId="0">'
+            . '<pane ySplit="' . $headerRowNum . '" topLeftCell="A' . $freezeAt . '" activePane="bottomLeft" state="frozen"/>'
+            . '<selection pane="bottomLeft" activeCell="A' . $freezeAt . '" sqref="A' . $freezeAt . '"/>'
+            . '</sheetView></sheetViews>';
+
+        // Filter dropdowns on the header row (schema order: after sheetData,
+        // before mergeCells). Skipped on a grouped sheet — filtering there
+        // leaves the section bands behind with nothing under them.
+        $autoFilter = ($groupBy === null && $rows)
+            ? '<autoFilter ref="A' . $headerRowNum . ':' . $last . $lastDataRow . '"/>'
+            : '';
 
         $mergeXml = '';
         if ($merges) {
@@ -158,14 +223,24 @@ if (!function_exists('becBuildXlsx')) {
             $mergeXml .= '</mergeCells>';
         }
 
+        // Printing straight out of Excel: landscape once the table is wide,
+        // squeezed to one page across, with the header repeated on every sheet.
+        $landscape = $n > 6 ? 'landscape' : 'portrait';
+        $pageSetup = '<printOptions horizontalCentered="1"/>'
+            . '<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.2" footer="0.2"/>'
+            . '<pageSetup paperSize="9" orientation="' . $landscape . '" fitToWidth="1" fitToHeight="0" horizontalDpi="300" verticalDpi="300"/>';
+
         $sheetXml = $decl
             . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            . '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'
             . '<dimension ref="A1:' . $last . $maxRow . '"/>'
-            . '<sheetViews><sheetView showGridLines="0" workbookViewId="0"/></sheetViews>'
+            . $sheetViews
             . '<sheetFormatPr defaultRowHeight="15"/>'
             . $cols
             . '<sheetData>' . $sheet . '</sheetData>'
+            . $autoFilter
             . $mergeXml
+            . $pageSetup
             . '<drawing r:id="rId1"/>'
             . '</worksheet>';
 
@@ -189,6 +264,9 @@ if (!function_exists('becBuildXlsx')) {
         $workbook = $decl
             . '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
             . '<sheets><sheet name="Report" sheetId="1" r:id="rId1"/></sheets>'
+            // repeat the header row at the top of every printed page
+            . '<definedNames><definedName name="_xlnm.Print_Titles" localSheetId="0">Report!$'
+            . $headerRowNum . ':$' . $headerRowNum . '</definedName></definedNames>'
             . '</workbook>';
 
         $workbookRels = $decl
@@ -199,6 +277,8 @@ if (!function_exists('becBuildXlsx')) {
 
         $styles = $decl
             . '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            // thousands separator, and decimals only when the value has them
+            . '<numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0.##"/></numFmts>'
             . '<fonts count="6">'
             . '<font><sz val="11"/><name val="Calibri"/></font>'
             . '<font><b/><sz val="18"/><color rgb="FF7B1D1D"/><name val="Calibri"/></font>'
@@ -219,7 +299,7 @@ if (!function_exists('becBuildXlsx')) {
             . '<border><left style="thin"><color rgb="FFE8DDD0"/></left><right style="thin"><color rgb="FFE8DDD0"/></right><top style="thin"><color rgb="FFE8DDD0"/></top><bottom style="thin"><color rgb="FFE8DDD0"/></bottom><diagonal/></border>'
             . '</borders>'
             . '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-            . '<cellXfs count="12">'
+            . '<cellXfs count="14">'
             . '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
             . '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center"/></xf>'
             . '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment horizontal="center"/></xf>'
@@ -232,6 +312,9 @@ if (!function_exists('becBuildXlsx')) {
             . '<xf numFmtId="0" fontId="5" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
             . '<xf numFmtId="0" fontId="5" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
             . '<xf numFmtId="0" fontId="2" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>'
+            // 12 / 13: the plain and banded body cells, right-aligned for numbers
+            . '<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="top"/></xf>'
+            . '<xf numFmtId="164" fontId="0" fillId="3" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="right" vertical="top"/></xf>'
             . '</cellXfs>'
             . '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
             . '</styleSheet>';

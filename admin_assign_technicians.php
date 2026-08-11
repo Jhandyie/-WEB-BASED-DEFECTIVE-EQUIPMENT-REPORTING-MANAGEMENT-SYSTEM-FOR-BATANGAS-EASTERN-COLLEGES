@@ -82,6 +82,25 @@ $inprogress = array_values(array_filter(
     fn($r) => in_array($r['status'], ['assigned', 'accepted', 'in_progress', 'waiting_for_materials', 'for_replacement'], true) && ($r['assigned_to'] ?? '') !== ''
 ));
 
+/* ── Render cap ────────────────────────────────────────────────────────────
+   Both tables below render every matching row server-side, so the page is
+   O(backlog): the same shape CLAUDE.md warns about, and the reason a 5,000-row
+   admin page weighs ~11 MB. A dispatcher works the front of the queue — they
+   never scroll to row 800 — so past a few hundred rows the markup is paid for
+   and never read.
+
+   The cap applies to the RENDER only. $unassigned and $inprogress stay whole
+   above because the header counts and, more importantly, each technician's
+   workload (and therefore the overloaded/available badge) are computed from
+   them — capping the arrays themselves would silently under-count the workload
+   and start recommending technicians who are already full. */
+const BEC_ASSIGN_RENDER_CAP = 250;
+
+$unassignedTotal = count($unassigned);
+$inprogressTotal = count($inprogress);
+$unassignedShown = array_slice($unassigned, 0, BEC_ASSIGN_RENDER_CAP);
+$inprogressShown = array_slice($inprogress, 0, BEC_ASSIGN_RENDER_CAP);
+
 // Technicians
 $technicians = getAvailableTechnicians() ?: [];
 
@@ -303,8 +322,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .pg{padding:var(--sp-5) 1.75rem;flex:1;}
 
 /* -- FLASH ----------------------------------------- */
-.flash{display:flex;align-items:center;gap:.65rem;padding:.7rem 1.1rem;
-  border-radius:var(--r2);margin-bottom:1.125rem;font-size:var(--fs-md);font-weight:600;
+.flash{display:flex;align-items:center;gap:.6rem;padding:.7rem 1.1rem;
+  border-radius:var(--r2);margin-bottom:1.1rem;font-size:var(--fs-md);font-weight:600;
   animation:fIn .25s ease;border-left:3px solid;}
 @keyframes fIn{from{opacity:0;transform:translateY(-5px);}to{opacity:1;transform:translateY(0);}}
 .flash.ok{background:#F0FDF4;color:#15803D;border-color:#22C55E;}
@@ -320,7 +339,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .ph-acts{display:flex;gap:.45rem;}
 
 /* -- BTN SYSTEM ------------------------------------ */
-.btn{display:inline-flex;align-items:center;gap:.32rem;padding:.4rem .875rem;
+.btn{display:inline-flex;align-items:center;gap:.3rem;padding:.4rem .875rem;
   border-radius:var(--r1);font-family:'DM Sans',sans-serif;font-size:var(--fs-base);
   font-weight:700;cursor:pointer;border:none;transition:all .17s;
   text-decoration:none;white-space:nowrap;}
@@ -333,7 +352,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .btn-red:hover{box-shadow:none;}
 .btn-ghost{background:var(--s2);color:var(--t2);border:1px solid var(--bdr);}
 .btn-ghost:hover{background:var(--s3);}
-.btn-sm{padding:.3rem .65rem;font-size:var(--fs-sm);}
+.btn-sm{padding:.3rem .6rem;font-size:var(--fs-sm);}
 /* .bico is the square icon button. Only the destructive tint is still used —
    the view and accept tints went with the buttons that had them. */
 .bico{width:26px;height:26px;padding:0;display:flex;align-items:center;
@@ -342,7 +361,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 
 /* -- SUMMARY CARDS --------------------------------- */
 .sums{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-3);margin-bottom:1.375rem;}
-.scard{background:var(--s1);border-radius:var(--r3);padding:1.1rem 1.2rem;
+.scard{background:var(--s1);border-radius:var(--r3);padding:1.1rem 1.25rem;
   border:1px solid var(--bdr);position:relative;overflow:hidden;
   transition:all .26s cubic-bezier(.4,0,.2,1);box-shadow:var(--sh0);}
 .scard::before{content:'';position:absolute;top:-16px;right:-16px;
@@ -360,7 +379,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .sc-c{--sk:#D97706;--skl:rgba(217,119,6,.14);}
 .sc-d{--sk:#7C3AED;--skl:rgba(124,58,237,.14);}
 .sico{width:40px;height:40px;border-radius:var(--r2);display:flex;align-items:center;
-  justify-content:center;font-size:var(--fs-lg);margin-bottom:.625rem;
+  justify-content:center;font-size:var(--fs-lg);margin-bottom:.6rem;
   background:var(--sib);color:var(--sic);
   box-shadow:none;transition:all .26s;position:relative;z-index:1;}
 .scard:hover .sico{transform:none;}
@@ -369,7 +388,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .sc-c .sico{--sib:#FFFBEB;--sic:#D97706;}
 .sc-d .sico{--sib:#F5F3FF;--sic:#7C3AED;}
 .snum{font-family:'Outfit',sans-serif;font-size:2.2rem;font-weight:800;
-  color:var(--t1);line-height:1;margin-bottom:.15rem;
+  color:var(--t1);line-height:1;margin-bottom:.18rem;
   position:relative;z-index:1;transition:color .26s;}
 .scard:hover .snum{color:var(--sk);}
 .slbl{font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.7px;
@@ -411,7 +430,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .prio-seg{display:grid;grid-template-columns:repeat(4,1fr);gap:.3rem;}
 .ps-opt{position:relative;display:block;cursor:pointer;}
 .ps-opt input{position:absolute;opacity:0;width:0;height:0;}
-.ps-opt span{display:block;text-align:center;padding:.46rem .2rem;border-radius:var(--r1);
+.ps-opt span{display:block;text-align:center;padding:.45rem .22rem;border-radius:var(--r1);
   border:1.5px solid var(--bdr);background:var(--s1);
   font-size:var(--fs-base);font-weight:700;color:var(--t2);transition:all .15s;}
 .ps-opt:hover span{border-color:var(--bdr2);}
@@ -429,7 +448,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .unit-seg{display:grid;grid-template-columns:1fr 1fr;gap:.45rem;}
 .unit-opt{position:relative;display:block;cursor:pointer;}
 .unit-opt input{position:absolute;opacity:0;width:0;height:0;}
-.unit-box{display:block;position:relative;height:100%;padding:.6rem .65rem;border-radius:var(--r1);
+.unit-box{display:block;position:relative;height:100%;padding:.6rem .6rem;border-radius:var(--r1);
   border:1.5px solid var(--bdr);background:var(--s1);transition:all .15s;}
 .unit-opt:hover .unit-box{border-color:var(--bdr2);}
 .unit-opt input:focus-visible + .unit-box{outline:2px solid var(--m3);outline-offset:2px;}
@@ -449,7 +468,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
    Four short words telling you where you are in a job that used to be a
    column of unlabelled fields. Driven by what has actually been chosen. */
 .asg-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:.3rem;
-  padding:.7rem .9rem;border-bottom:1px solid var(--bdr);background:var(--s2);}
+  padding:.7rem .875rem;border-bottom:1px solid var(--bdr);background:var(--s2);}
 .asg-step{text-align:center;font-size:var(--fs-xs);font-weight:700;color:var(--t4);
   letter-spacing:.3px;text-transform:uppercase;}
 .asg-step span{display:flex;align-items:center;justify-content:center;
@@ -466,7 +485,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
    Name, what they do, where they sit, whether they are free and how loaded —
    the five things needed to choose someone, on the card you click. */
 .tcd{position:relative;border:1.5px solid #E8DFD0;border-radius:14px;background:#fff;
-  padding:.85rem .9rem;transition:border-color .15s,box-shadow .15s;}
+  padding:.875rem .875rem;transition:border-color .15s,box-shadow .15s;}
 .tech-card{cursor:pointer;}
 .tech-card:hover{border-color:#C9960C;box-shadow:0 6px 18px rgba(123,29,29,.10);}
 .tech-card:focus-visible{outline:2px solid var(--m3);outline-offset:2px;}
@@ -487,13 +506,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .tcd-id{flex:1;min-width:0;}
 .tcd-name{font-weight:700;font-size:var(--fs-lg);color:var(--t1);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.tcd-meta{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;margin-top:.12rem;}
+.tcd-meta{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap;margin-top:.1rem;}
 .tcd-spec{font-size:var(--fs-sm);color:#8A6D5A;white-space:nowrap;}
 .tcd-spec i{font-size:var(--fs-xs);color:#C9960C;}
 .tcd-dept{font-size:var(--fs-xs);color:#8A6D5A;background:#F8F3EA;border:1px solid #EDE4D6;
   border-radius:20px;padding:.05rem .4rem;white-space:nowrap;
   max-width:9rem;overflow:hidden;text-overflow:ellipsis;}
-.tcd-avail{display:inline-flex;align-items:center;gap:.28rem;flex-shrink:0;
+.tcd-avail{display:inline-flex;align-items:center;gap:.25rem;flex-shrink:0;
   font-size:var(--fs-xs);font-weight:800;padding:.18rem var(--sp-2);border-radius:20px;}
 .tcd-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
 .tcd-load{margin-top:.6rem;}
@@ -513,7 +532,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
    for narrow displays, not the normal way to reach the button. */
 /* Active assignments moved out from under the queue, so the left column is the
    queue's alone and the Action cell fits again without the squeeze. */
-.tbl thead th,.tbl tbody td{padding-left:.62rem;padding-right:.62rem;}
+.tbl thead th,.tbl tbody td{padding-left:.6rem;padding-right:.6rem;}
 /* The monitoring table now runs the full page width and can be read as a table
    rather than as something crammed beside a form, so it gets the wider gutters
    the queue beside a 400px workspace cannot afford. */
@@ -541,7 +560,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .rep-idrow{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-2);}
 .rep-full{display:inline-flex;align-items:center;gap:.3rem;flex-shrink:0;
   font-size:var(--fs-sm);font-weight:700;color:var(--m3);text-decoration:none;
-  padding:.2rem var(--sp-2);border:1px solid var(--bdr);border-radius:20px;background:var(--s1);
+  padding:.22rem var(--sp-2);border:1px solid var(--bdr);border-radius:20px;background:var(--s1);
   transition:background .15s,color .15s,border-color .15s;}
 .rep-full i{font-size:var(--fs-xs);}
 .rep-full:hover{background:var(--m3);border-color:var(--m3);color:#fff;}
@@ -578,7 +597,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s;}
 .qclear:hover{background:var(--m3);color:#fff;}
 .qclear[hidden]{display:none;}
-.qsel{height:2rem;padding:0 1.7rem 0 .6rem;border-radius:var(--r1);border:1.5px solid var(--bdr);
+.qsel{height:2rem;padding:0 1.75rem 0 .6rem;border-radius:var(--r1);border:1.5px solid var(--bdr);
   background:var(--s1) url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239C7A7A' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right .55rem center;
   font-family:'DM Sans',sans-serif;font-size:var(--fs-base);font-weight:600;color:var(--t2);
   cursor:pointer;appearance:none;-webkit-appearance:none;transition:border-color .15s;}
@@ -601,6 +620,11 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 /* Filtering to nothing is a result, not a blank panel. Both tables use it. */
 .tbl tr.qhide{display:none;}
 .qnone td{padding:0;}
+/* The render-cap footnote is a note about the table, not a row in it — no hover
+   lift, and a hairline above it so it reads as a rule rather than as data. */
+.tbl tr.qcap td{padding:0;border-top:1px solid var(--b, #E5D9C6);background:#FBF8F1;}
+.tbl tr.qcap:hover{background:#FBF8F1;}
+.tbl tr.qcap .empty{font-size:.8rem;color:#6F564A;padding:.75rem 1rem;}
 
 /* Panel header, right side: the count, and the one number worth interrupting
    for. Dispatched-and-not-accepted is the state the dispatcher can still act
@@ -608,7 +632,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .ph3-r{display:flex;align-items:center;gap:var(--sp-2);}
 .ph3-n{font-size:var(--fs-base);color:var(--t3);white-space:nowrap;}
 .ph3-warn{display:inline-flex;align-items:center;gap:.3rem;white-space:nowrap;
-  padding:.16rem .55rem;border-radius:20px;font-size:var(--fs-sm);font-weight:800;
+  padding:.18rem .55rem;border-radius:20px;font-size:var(--fs-sm);font-weight:800;
   background:#FFF7ED;border:1px solid #F6D9B8;color:#C2410C;}
 .ph3-warn i{font-size:var(--fs-xs);}
 
@@ -636,13 +660,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   display:flex;align-items:center;justify-content:center;}
 #tprofMo .mhd-t h2{margin:0;}
 #tprofMo .mhd-t p{margin:.1rem 0 0;}
-.tprof-rows{display:grid;grid-template-columns:auto minmax(0,1fr);gap:.4rem .9rem;margin:0 0 var(--sp-4);}
+.tprof-rows{display:grid;grid-template-columns:auto minmax(0,1fr);gap:.4rem .875rem;margin:0 0 var(--sp-4);}
 .tprof-rows dt{font-size:var(--fs-sm);font-weight:700;color:var(--t3);white-space:nowrap;}
 .tprof-rows dd{margin:0;font-size:var(--fs-base);color:var(--t1);font-weight:600;overflow-wrap:anywhere;}
 .tprof-rows dd a{color:var(--m3);text-decoration:none;}
 .tprof-rows dd a:hover{text-decoration:underline;}
 .tprof-rows dd.none{color:var(--t3);font-weight:500;font-style:italic;}
-.tprof-sec{border-top:1px solid var(--bdr);padding-top:.85rem;}
+.tprof-sec{border-top:1px solid var(--bdr);padding-top:.875rem;}
 .tprof-sec h4{font-family:'Outfit',sans-serif;font-size:var(--fs-md);font-weight:800;color:var(--t1);
   margin:0 0 .6rem;display:flex;align-items:center;gap:.35rem;}
 .tprof-sec h4 i{color:var(--m3);font-size:var(--fs-base);}
@@ -662,7 +686,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   background:#F0FDF4;border:1px solid #BBE8CB;border-radius:var(--r1);padding:.6rem var(--sp-3);}
 
 /* -- BADGES ---------------------------------------- */
-.bdg{display:inline-flex;align-items:center;gap:.22rem;padding:.2rem .58rem;
+.bdg{display:inline-flex;align-items:center;gap:.22rem;padding:.22rem .55rem;
   border-radius:20px;font-size:var(--fs-xs);font-weight:800;
   text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;}
 .bdg::before{content:'';width:4px;height:4px;border-radius:50%;
@@ -707,7 +731,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
    plus a wl-* workload bar fed by wlClass()/wlLabel()/wlColor(), none of which
    were called any more. Removed rather than kept "in case", because two card
    vocabularies in one file is how the next edit lands on the dead one. */
-.tech-grid{display:flex;flex-direction:column;gap:.625rem;padding:.875rem;}
+.tech-grid{display:flex;flex-direction:column;gap:.6rem;padding:.875rem;}
 
 /* Dept badges */
 .dept-itso{display:inline-flex;align-items:center;gap:.22rem;padding:.18rem .55rem;
@@ -740,12 +764,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   transform:translateX(100%);transition:transform .26s cubic-bezier(.4,0,.2,1);}
 .dw.open .dw-panel{transform:translateX(0);}
 .dw-hd{flex-shrink:0;display:flex;align-items:flex-start;gap:var(--sp-3);
-  padding:1.05rem 1.25rem;background:linear-gradient(125deg,var(--m1),var(--m3));color:#fff;}
+  padding:1.1rem 1.25rem;background:linear-gradient(125deg,var(--m1),var(--m3));color:#fff;}
 .dw-hd-t{flex:1;min-width:0;}
 .dw-hd h2{font-family:'Outfit',sans-serif;font-size:var(--fs-xl);font-weight:800;margin:0;
   display:flex;align-items:center;gap:.4rem;}
 .dw-hd h2 i{opacity:.85;font-size:var(--fs-lg);}
-.dw-hd p{margin:.15rem 0 0;font-size:var(--fs-base);opacity:.82;line-height:1.45;}
+.dw-hd p{margin:.18rem 0 0;font-size:var(--fs-base);opacity:.82;line-height:1.45;}
 .dw-x{width:32px;height:32px;flex-shrink:0;border:0;border-radius:9px;cursor:pointer;
   background:rgba(255,255,255,.14);color:#fff;font-size:var(--fs-md);
   display:flex;align-items:center;justify-content:center;transition:background .15s;}
@@ -767,10 +791,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
    minmax(0,1fr), not 1fr: a plain fr floors at the column's min-content, so the
    card holding the longest name came out 4px wider than the one beside it and
    the two columns never lined up. */
-/* padding:0 undoes the .875rem the generic .tech-grid rule carries from when
-   this list lived inside its own panel. Inside the form it is a field, and a
-   field does not indent itself 15px from every other control. */
-.dw .tech-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem;padding:0;}
+/* padding:0 undoes the .875rem the generic .tech-grid rule carries from when this list lived inside its own panel. Inside the form it is a field, and a field does not indent itself 15px from every other control. */ .dw .tech-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem;padding:0;}
 /* Cards sit on a shared baseline whatever their content does. */
 .dw .tech-grid > *{min-width:0;}
 /* A name is the one thing on this card that must not be traded away for layout.
@@ -782,7 +803,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 /* Outside the scroll container, so the decision is on screen no matter how far
    down the technician list you have read. */
 .dw-foot{flex-shrink:0;display:flex;align-items:center;gap:.6rem;
-  padding:.85rem 1.25rem;background:var(--s1);border-top:1px solid var(--bdr);
+  padding:.875rem 1.25rem;background:var(--s1);border-top:1px solid var(--bdr);
   box-shadow:0 -4px 14px rgba(28,16,8,.06);}
 .dw-foot .btn{padding:.6rem var(--sp-4);}
 .dw-go{flex:1;justify-content:center;font-weight:800;}
@@ -805,7 +826,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   color:#fff;position:relative;z-index:1;display:flex;align-items:center;gap:.4rem;}
 .ap-head p{font-size:var(--fs-base);color:rgba(255,255,255,.42);
   position:relative;z-index:1;margin-top:.22rem;}
-.ap-body{padding:1.125rem 1.25rem;}
+.ap-body{padding:1.1rem 1.25rem;}
 
 /* Selected report preview */
 .rep-prev{background:var(--s2);border:1.5px solid var(--bdr);
@@ -861,9 +882,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 
 /* Tech preview in form */
 .tech-prev{background:var(--s2);border:1.5px solid var(--bdr);
-  border-radius:var(--r2);padding:.68rem .875rem;margin-bottom:var(--sp-3);
+  border-radius:var(--r2);padding:.7rem .875rem;margin-bottom:var(--sp-3);
   display:none;transition:all .22s;}
-.tech-prev.show{display:flex;align-items:center;gap:.625rem;
+.tech-prev.show{display:flex;align-items:center;gap:.6rem;
   animation:fIn .18s ease;}
 .tp-av{width:36px;height:36px;border-radius:50%;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;
@@ -873,10 +894,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .tp-name{font-weight:700;font-size:var(--fs-md);color:var(--t1);}
 
 /* Form elements */
-.fg{display:flex;flex-direction:column;gap:.28rem;margin-bottom:.72rem;}
+.fg{display:flex;flex-direction:column;gap:.25rem;margin-bottom:.7rem;}
 .fl{font-size:var(--fs-xs);font-weight:800;text-transform:uppercase;letter-spacing:.65px;color:var(--t2);}
 .fl span{color:var(--m3);}
-.fc{padding:var(--sp-2) .82rem;background:var(--s2);border:1.5px solid var(--bdr);
+.fc{padding:var(--sp-2) .875rem;background:var(--s2);border:1.5px solid var(--bdr);
   border-radius:var(--r1);font-size:var(--fs-md);color:var(--t1);
   font-family:'DM Sans',sans-serif;outline:none;transition:all .18s;}
 .fc:focus{border-color:var(--m3);background:var(--s1);
@@ -911,7 +932,7 @@ textarea.fc{resize:vertical;min-height:80px;}
   animation:sealSpin 18s linear infinite;}
 .mhd-t{position:relative;z-index:1;}
 .mhd-t h2{font-family:'Outfit',sans-serif;font-size:var(--fs-xl);font-weight:800;color:#fff;}
-.mhd-t p{font-size:var(--fs-sm);color:rgba(255,255,255,.42);margin-top:.12rem;}
+.mhd-t p{font-size:var(--fs-sm);color:rgba(255,255,255,.42);margin-top:.1rem;}
 .mx{width:27px;height:27px;background:rgba(255,255,255,.1);border:none;border-radius:50%;
   color:rgba(255,255,255,.6);font-size:var(--fs-md);cursor:pointer;
   display:flex;align-items:center;justify-content:center;flex-shrink:0;
@@ -919,7 +940,7 @@ textarea.fc{resize:vertical;min-height:80px;}
 .mx:hover{background:rgba(255,255,255,.22);color:#fff;transform:rotate(90deg);}
 /* Dispatch summary: label/value rows, so what is about to happen reads in one
    pass rather than as a sentence to parse. */
-.asg-sum{display:grid;grid-template-columns:7rem minmax(0,1fr);gap:.1rem .9rem;margin:0;}
+.asg-sum{display:grid;grid-template-columns:7rem minmax(0,1fr);gap:.1rem .875rem;margin:0;}
 .asg-sum dt{font-size:var(--fs-sm);font-weight:700;color:var(--t3);padding:.4rem 0;
   border-bottom:1px solid var(--bdr);}
 .asg-sum dd{margin:0;font-size:var(--fs-md);font-weight:600;color:var(--t1);padding:.4rem 0;
@@ -939,9 +960,9 @@ textarea.fc{resize:vertical;min-height:80px;}
 
 /* -- TOAST ----------------------------------------- */
 .ttray{position:fixed;top:1.25rem;left:50%;transform:translateX(-50%);align-items:center;display:flex;
-  flex-direction:column;gap:.38rem;z-index:9999;}
+  flex-direction:column;gap:.35rem;z-index:9999;}
 .tst{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r2);
-  padding:.68rem .88rem;display:flex;align-items:flex-start;gap:var(--sp-2);
+  padding:.7rem .875rem;display:flex;align-items:flex-start;gap:var(--sp-2);
   box-shadow:var(--sh3);min-width:240px;
   animation:tIn .22s cubic-bezier(.4,0,.2,1);border-left:3px solid var(--m3);}
 .tst.ok{border-left-color:#16A34A;}.tst.err{border-left-color:#DC2626;}
@@ -951,7 +972,7 @@ textarea.fc{resize:vertical;min-height:80px;}
 
 /* -- EMPTY ----------------------------------------- */
 .empty{text-align:center;padding:2.5rem var(--sp-5);color:var(--t3);}
-.empty i{font-size:2.2rem;display:block;margin-bottom:.65rem;opacity:.22;}
+.empty i{font-size:2.2rem;display:block;margin-bottom:.6rem;opacity:.22;}
 
 /* -- RESPONSIVE ------------------------------------ */
 /* The 1366 stacking rule that used to live here is gone with the column it
@@ -1146,7 +1167,7 @@ textarea.fc{resize:vertical;min-height:80px;}
                 <i class="fas fa-check-circle" style="color:#16A34A;"></i>
                 All reports are assigned - great work!
               </div></td></tr>
-              <?php else: foreach($unassigned as $r):
+              <?php else: foreach($unassignedShown as $r):
                 /* Everything the toolbar sorts or filters on is written onto the
                    row, so the script never has to parse rendered cells back into
                    values — badge text and a formatted age are for reading, not
@@ -1230,6 +1251,19 @@ textarea.fc{resize:vertical;min-height:80px;}
                 <button type="button" class="btn btn-ghost btn-sm" style="margin-top:.7rem;"
                         onclick="qReset()"><i class="fas fa-rotate-left"></i> Clear filters</button>
               </div></td></tr>
+              <?php if ($unassignedTotal > count($unassignedShown)): ?>
+              <?php /* Says the count AND the consequence: the toolbar filters rows that
+                       are on the page, so a search here is a search of these 250, not of
+                       the whole queue. Without that sentence an empty result reads as
+                       "no such report" when it means "not in the first 250". */ ?>
+              <tr class="qcap"><td colspan="6"><div class="empty" style="text-align:left;">
+                <i class="fas fa-layer-group" style="color:#C9960C;"></i>
+                Showing the <?php echo number_format(count($unassignedShown)); ?> oldest of
+                <strong><?php echo number_format($unassignedTotal); ?></strong> unassigned reports.
+                Search and filters above apply to these <?php echo number_format(count($unassignedShown)); ?>.
+                Assign from the front of the queue and the rest move up.
+              </div></td></tr>
+              <?php endif; ?>
               <?php endif; ?>
             </tbody>
           </table></div>
@@ -1462,7 +1496,7 @@ textarea.fc{resize:vertical;min-height:80px;}
               <div class="tp-av" id="tpAv">??</div>
               <div>
                 <div class="tp-name" id="tpName">-</div>
-                <div style="display:flex;gap:.3rem;margin-top:.2rem;flex-wrap:wrap;" id="tpMeta"></div>
+                <div style="display:flex;gap:.3rem;margin-top:.22rem;flex-wrap:wrap;" id="tpMeta"></div>
               </div>
             </div>
 
@@ -1636,7 +1670,7 @@ textarea.fc{resize:vertical;min-height:80px;}
               <tr><td colspan="7"><div class="empty">
                 <i class="fas fa-inbox"></i> No active assignments.
               </div></td></tr>
-              <?php else: foreach($inprogress as $r):
+              <?php else: foreach($inprogressShown as $r):
                 $aTid   = (string)($r['assigned_to'] ?? '');
                 $aName  = $staffNames[$aTid] ?? '';
                 $aWhen  = !empty($r['assigned_date']) ? strtotime((string)$r['assigned_date']) : null;
@@ -1692,6 +1726,15 @@ textarea.fc{resize:vertical;min-height:80px;}
                 <button type="button" class="btn btn-ghost btn-sm" style="margin-top:.7rem;"
                         onclick="aReset()"><i class="fas fa-rotate-left"></i> Clear filters</button>
               </div></td></tr>
+              <?php if ($inprogressTotal > count($inprogressShown)): ?>
+              <tr class="qcap"><td colspan="7"><div class="empty" style="text-align:left;">
+                <i class="fas fa-layer-group" style="color:#C9960C;"></i>
+                Showing <?php echo number_format(count($inprogressShown)); ?> of
+                <strong><?php echo number_format($inprogressTotal); ?></strong> active assignments.
+                Search and filters above apply to these <?php echo number_format(count($inprogressShown)); ?>.
+                Technician workload counts below still cover all <?php echo number_format($inprogressTotal); ?>.
+              </div></td></tr>
+              <?php endif; ?>
               <?php endif; ?>
             </tbody>
           </table></div>
@@ -1809,7 +1852,7 @@ textarea.fc{resize:vertical;min-height:80px;}
   <div style="background:var(--s1);border-radius:var(--r4);padding:2rem;max-width:330px;
     width:90%;text-align:center;box-shadow:var(--sh3);animation:mUp .25s ease;margin:auto;">
     <i class="fas fa-sign-out-alt" style="font-size:2.2rem;color:var(--m3);margin-bottom:.7rem;display:block;"></i>
-    <h3 style="font-family:'Outfit',sans-serif;font-size:var(--fs-xl);font-weight:800;margin-bottom:.38rem;">Log Out?</h3>
+    <h3 style="font-family:'Outfit',sans-serif;font-size:var(--fs-xl);font-weight:800;margin-bottom:.35rem;">Log Out?</h3>
     <p style="font-size:var(--fs-md);color:var(--t2);margin-bottom:1.25rem;line-height:1.6;">
       You will be returned to the BEC admin login page.
     </p>
@@ -1891,6 +1934,11 @@ function wireFilterBar(cfg) {
       rows.slice().sort(function (a, b) { return cfg.sort.compare(mode, a, b, num); })
           .forEach(function (row) { tbody.appendChild(row); });
     }
+    /* The sort above appends every data row, which would leave the render-cap
+       notice stranded above them. It is a footnote about the rows, so it has to
+       stay under the rows — re-append it for the same reason `none` is. */
+    var capRow = tbody.querySelector('tr.qcap');
+    if (capRow) { tbody.appendChild(capRow); }
     if (none) { tbody.appendChild(none); none.hidden = (shown !== 0); }
 
     count.innerHTML = (shown === total)
@@ -2426,14 +2474,14 @@ function deptBadge(d) {
   return '';
 }
 function deptBadgeStr(cls, d) {
-  return `<span class="dept-${cls}" style="font-size:var(--fs-xs);padding:.15rem .5rem;">${d}</span>`;
+  return `<span class="dept-${cls}" style="font-size:var(--fs-xs);padding:.18rem .5rem;">${d}</span>`;
 }
 function wlBadge(n) {
   const over = n >= 4;
   const lbl = over ? 'Overloaded' : 'Available';
   const bg  = over ? '#FFF1F2' : '#F0FDF4';
   const c   = over ? '#DC2626' : '#16A34A';
-  return `<span style="background:${bg};color:${c};padding:.14rem .48rem;border-radius:20px;font-size:var(--fs-xs);font-weight:800;">${lbl} (${n} active)</span>`;
+  return `<span style="background:${bg};color:${c};padding:.1rem .45rem;border-radius:20px;font-size:var(--fs-xs);font-weight:800;">${lbl} (${n} active)</span>`;
 }
 
 /* --- TOAST ---------------------------------------- */

@@ -97,7 +97,7 @@ button.btn:hover,a.btn:hover{filter:brightness(1.07);}
 
 <div id="becLogout" role="dialog" aria-modal="true" aria-labelledby="becLogoutTitle">
   <div class="bl-card">
-    <div class="bl-ic"><i class="fas fa-sign-out-alt"></i></div>
+    <div class="bl-ic"><i aria-hidden="true" class="fas fa-sign-out-alt"></i></div>
     <h3 id="becLogoutTitle">Sign out?</h3>
     <p>You will be returned to the sign-in page.</p>
     <div class="bl-row">

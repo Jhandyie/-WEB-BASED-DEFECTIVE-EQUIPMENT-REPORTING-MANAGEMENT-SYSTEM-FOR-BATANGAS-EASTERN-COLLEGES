@@ -8,6 +8,11 @@ require_once __DIR__ . '/../config/database.php';
 
 /** Map varied header labels to canonical field names. */
 function becdir_canon_header(string $h): ?string {
+    // Excel's "CSV UTF-8" writes a byte-order mark in front of the very first
+    // cell. It survives trim(), so "Full Name" arrived as "\xEF\xBB\xBFFull
+    // Name", matched nothing, and every imported name came out blank while the
+    // import still reported success.
+    $h = preg_replace('/^\xEF\xBB\xBF/', '', $h);
     // Slashes are separators here too. The registrar's enrolment export heads
     // its columns "College/Program" and "Program/Qualifications"; without the
     // slash in this class neither matched anything, and both columns — along
@@ -261,9 +266,15 @@ function becdir_parse_file(string $tmpPath, string $origName): array {
     // Find the header row. Official letterhead exports have title rows above it
     // ("BATANGAS EASTERN COLLEGES", "Property Management Office", …), so scan the
     // first rows for the one that actually contains an Email column.
+    //
+    // 40, not 15: this system's own exports now carry a full letterhead plus an
+    // executive-summary block, which puts the User List header on line 17. At 15
+    // a list exported from admin_users.php and uploaded straight back was
+    // rejected as having no Email column. The scan only tests labels, so a
+    // larger window costs nothing.
     $colMap = [];
     $headerRow = 0;
-    $scan = min(count($records), 15);
+    $scan = min(count($records), 40);
     for ($i = 0; $i < $scan; $i++) {
         $probe = [];
         foreach ($records[$i] as $j => $label) {

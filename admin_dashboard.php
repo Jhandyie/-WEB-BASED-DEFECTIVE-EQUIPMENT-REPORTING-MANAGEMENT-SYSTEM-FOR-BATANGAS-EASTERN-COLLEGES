@@ -430,7 +430,7 @@ body{
   box-shadow:var(--sh3d);
   transition:transform .28s,box-shadow .28s;
 }
-.hero:hover{transform:translateY(-3px);box-shadow:var(--sh3dh);}
+.hero:hover{transform:none;box-shadow:var(--sh3dh);}
 /* Decorative circles */
 .hero::before{content:'';position:absolute;right:-40px;top:-60px;width:220px;height:220px;border-radius:50%;background:rgba(212,160,23,.06);}
 .hero::after{content:'';position:absolute;right:80px;bottom:-70px;width:160px;height:160px;border-radius:50%;background:rgba(212,160,23,.04);}
@@ -474,7 +474,7 @@ body{
 .ap-head h3{font-family:'Outfit',sans-serif;font-size:.95rem;font-weight:700;color:#991B1B;display:flex;align-items:center;gap:.4rem;}
 .ap-cnt{background:#DC2626;color:#fff;font-size:.58rem;font-weight:900;padding:2px 7px;border-radius:20px;animation:bp 2s ease-in-out infinite;}
 .alert-row{display:flex;align-items:flex-start;gap:.875rem;padding:.65rem .875rem;border-radius:var(--r2);margin-bottom:.4rem;cursor:default;transition:all .16s;}
-.alert-row:hover{transform:translateX(4px);}
+.alert-row:hover{transform:none;}
 .alert-row.crit{background:rgba(220,38,38,.06);border-left:3px solid #DC2626;}
 .alert-row.high{background:rgba(234,179,8,.06);border-left:3px solid #CA8A04;}
 .ai{width:32px;height:32px;border-radius:var(--r1);display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0;}
@@ -497,10 +497,10 @@ body{
   position:relative;overflow:hidden;
 }
 .qa-card::after{content:'';position:absolute;bottom:0;left:0;width:100%;height:2px;background:var(--qc,var(--m3));transform:scaleX(0);transform-origin:left;transition:transform .28s;}
-.qa-card:hover{transform:translateY(-4px);box-shadow:var(--sh3d);border-color:transparent;}
+.qa-card:hover{transform:none;box-shadow:var(--sh3d);border-color:transparent;}
 .qa-card:hover::after{transform:scaleX(1);}
 .qa-ic{width:40px;height:40px;border-radius:var(--r2);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;transition:transform .25s;}
-.qa-card:hover .qa-ic{transform:scale(1.12) rotate(-6deg);}
+.qa-card:hover .qa-ic{transform:none;}
 .qa-text strong{display:block;font-size:.82rem;font-weight:700;color:var(--t1);}
 .qa-text span{font-size:.68rem;color:var(--t3);}
 
@@ -520,8 +520,8 @@ body{
 }
 .sc::before{content:'';position:absolute;top:-20px;right:-20px;width:80px;height:80px;border-radius:50%;background:var(--sk);opacity:.04;transition:all .28s;}
 .sc::after{content:'';position:absolute;bottom:0;left:0;width:100%;height:2px;background:var(--sk);border-radius:0 0 var(--r3) var(--r3);transform:scaleX(0);transform-origin:left;transition:transform .32s;}
-.sc:hover{transform:scale(1.015);box-shadow:var(--sh3);border-color:transparent;}
-.sc:hover::before{transform:scale(1.5);opacity:.08;}
+.sc:hover{transform:none;box-shadow:var(--sh3);border-color:transparent;}
+.sc:hover::before{transform:none;opacity:.08;}
 .sc:hover::after{transform:scaleX(1);}
 
 .sc.s0{--sk:var(--m3);   --sk-s:rgba(123,29,29,.12);}
@@ -540,7 +540,7 @@ body{
   box-shadow:none;
   transition:all .26s;position:relative;z-index:1;
 }
-.sc:hover .sc-ic{transform:rotate(-8deg) scale(1.15);}
+.sc:hover .sc-ic{transform:none;}
 .sc.s0 .sc-ic{--ic-bg:#FDECEA;--ic-fg:var(--m3);}
 .sc.s1 .sc-ic{--ic-bg:#FFFBEB;--ic-fg:#D97706;}
 .sc.s2 .sc-ic{--ic-bg:#EFF6FF;--ic-fg:#2563EB;}
@@ -576,7 +576,7 @@ body{
 .tbl tbody tr:last-child td{border-bottom:none;}
 .tbl tbody tr{transition:background .1s,transform .1s;}
 .tbl tbody tr:hover td{background:var(--s2);}
-.tbl tbody tr:hover{transform:translateX(2px);}
+.tbl tbody tr:hover{transform:none;}
 .en{font-weight:700;font-size:.82rem;}
 .es{font-size:.66rem;color:var(--t3);}
 .rid{font-family:'Outfit',sans-serif;font-weight:800;color:var(--m3);font-size:.78rem;}
@@ -598,7 +598,7 @@ body{
 
 /* -- ACTION BUTTONS ----------------------------- */
 .btn{display:inline-flex;align-items:center;gap:.35rem;padding:.4rem .875rem;border-radius:var(--r1);font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:700;cursor:pointer;border:none;transition:all .18s;text-decoration:none;white-space:nowrap;}
-.btn:hover{transform:translateY(-1px);}
+.btn:hover{transform:none;}
 .btn:active{transform:translateY(0);}
 .btn-maroon{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;box-shadow:none;}
 .btn-maroon:hover{box-shadow:none;}
@@ -1131,18 +1131,29 @@ function toggleExportMenu(e){ e.stopPropagation(); document.getElementById('expM
 document.addEventListener('click', function(e){ const m=document.getElementById('expMenu'); if(m && !e.target.closest('.exp-wrap')) m.classList.remove('open'); });
 function openExport(type,format){ window.open('api/export_reports.php?type='+encodeURIComponent(type)+'&format='+encodeURIComponent(format),'_blank'); const m=document.getElementById('expMenu'); if(m) m.classList.remove('open'); }
 function exportReport(){
-  let csv='BEC Equipment Management - Admin Dashboard Report\n';
-  csv+='Generated,'+new Date().toLocaleString()+'\n\n';
-  csv+='Metric,Value\n';
-  csv+='Total Reports,<?php echo $totalReports;?>\n';
-  csv+='Pending Verification,<?php echo $pendingReports;?>\n';
-  csv+='Approved,<?php echo $approvedReports;?>\n';
-  csv+='In Progress,<?php echo $inProgReports;?>\n';
-  csv+='Completed,<?php echo $completedRep;?>\n';
-  csv+='Rejected,<?php echo $rejectedRep;?>\n';
-  csv+='Critical Cases,<?php echo $criticalRep;?>\n';
-  csv+='Total Users,<?php echo $userCount;?>\n';
-  const b=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  // CRLF and a byte-order mark, to match the server-side exports: without the
+  // BOM Excel opens the file as ANSI and any non-ASCII text arrives mangled.
+  const rows=[
+    ['BATANGAS EASTERN COLLEGES'],
+    ['Property Management Office'],
+    ['ADMIN DASHBOARD REPORT'],
+    ['Generated',new Date().toLocaleString()],
+    [],
+    ['Metric','Value'],
+    ['Total Reports','<?php echo (int)$totalReports;?>'],
+    ['Pending Verification','<?php echo (int)$pendingReports;?>'],
+    ['Approved','<?php echo (int)$approvedReports;?>'],
+    ['In Progress','<?php echo (int)$inProgReports;?>'],
+    ['Completed','<?php echo (int)$completedRep;?>'],
+    ['Rejected','<?php echo (int)$rejectedRep;?>'],
+    ['Critical Cases','<?php echo (int)$criticalRep;?>'],
+    ['Total Users','<?php echo (int)$userCount;?>'],
+    [],
+    ['Batangas Eastern Colleges — Property Management Office'],
+    ['Confidential — for authorized administrative use only']
+  ];
+  const csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\r\n')+'\r\n';
+  const b=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
   const a=document.createElement('a');a.href=URL.createObjectURL(b);
   a.download='bec_dashboard_'+new Date().toISOString().split('T')[0]+'.csv';
   a.click();

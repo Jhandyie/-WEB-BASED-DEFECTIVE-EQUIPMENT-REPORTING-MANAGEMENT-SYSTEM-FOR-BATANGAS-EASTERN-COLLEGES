@@ -22,6 +22,12 @@ lines marked **Do** are the corresponding on-screen actions. Facilitators should
 sequence without deviation, and should refrain from volunteering opinions about the system's
 merits, as this may bias the respondent's ratings.
 
+The facilitator role is **distributed across the six members of the research group**, one segment
+each, so that no single presenter delivers the whole session. The allocation of segments, the
+transition lines between them, and the standing duties held by the members who are not speaking
+are set out in **`docs/EVALUATION_SPEAKER_NOTES.md`**, which is the rehearsal script for the same
+session. This document remains the authoritative record of the protocol itself.
+
 ---
 
 ## 2. Pre-Session Preparation (facilitator checklist)
@@ -35,13 +41,41 @@ merits, as this may bias the respondent's ratings.
 - [ ] Printed copies of the evaluation instrument and informed-consent forms on hand
 - [ ] Fallback screenshots available in the event of a connectivity failure
 
+### 2.1 Respondent eligibility for the reporting walkthrough
+
+The reporter portal issues a **six-digit verification code to the respondent's own mailbox** before
+admitting them, and it issues that code only to an address recorded in the official BEC directory.
+Any respondent who is to file a report during Segment A must therefore hold a directory-listed
+`@bec.edu.ph` address **and** be able to open that mailbox during the session. This is to be
+confirmed for each respondent on the day before the session.
+
+Where a respondent cannot open their mailbox, the facilitator uses the **prepared reporter account**,
+whose inbox is already displayed on the facilitator's screen, and allows the respondent to perform
+every remaining step of the form. A browser that has completed verification is remembered for
+**thirty days**, so a rehearsal device may present a one-tap continuation and omit the code step
+entirely; Segment A provides narration for both cases.
+
+### 2.2 Matters to be settled with the adviser before administration
+
+1. **Instrument items referring to the budget request module.** That module was withdrawn in July
+   2026 to align the system with the declared scope of the study. Items **II-E #4**, **III-A #4** and
+   **III-B #4** refer to it. Technicians prepare a **cost estimate**; no budget approval workflow
+   exists in the system. The items are to be reworded, struck, or marked Not Applicable before
+   administration — a respondent must not be asked to rate a function that is absent.
+2. **The audit trail has no browsable viewer.** Every lifecycle action continues to be recorded
+   server-side with the acting user and the timestamp; the administrative viewing page was removed in
+   August 2026. Facilitators state the audit trail verbally, as scripted in §5, B.7, and do not offer
+   to display it.
+3. **The rating scale and item numbering** are to be verified against the final printed instrument.
+
 ---
 
 ## 3. Opening Statement (delivered once, to all respondent groups)
 
-> **Say:** "Good morning, and thank you for taking part in this evaluation. I am [name], and
-> this system is part of our capstone study, the *Web-Based Defective Equipment Reporting
-> Management System* for the Batangas Eastern Colleges Property Management Office.
+> **Say:** "Good morning, and thank you for taking part in this evaluation. I am [name], and these
+> are the other members of our research group, [names]. This system is our capstone study, the
+> *Web-Based Defective Equipment Reporting Management System* for the Batangas Eastern Colleges
+> Property Management Office. Each of us will present the portion of it that belongs to one role.
 >
 > At present, defective equipment is reported informally — verbally, by note, or by chat —
 > and the office has no single record of what was reported, who acted on it, or how long the
@@ -86,11 +120,22 @@ merits, as this may bias the respondent's ratings.
 ### A.3 Identity verification
 
 > **Say:** "Please enter your name and your institutional email address, and tick the privacy
-> consent. The system checks the address against the official BEC directory, so only members of
-> the institution can file a report. This is what prevents outsiders from submitting nuisance
-> entries, while still sparing you the burden of maintaining an account and a password."
+> consent. The system will then send a **six-digit code to that mailbox, which is valid for three
+> minutes**. Entering it confirms that the person filing the report genuinely holds the address, so
+> the office can rely on a report having come from an actual member of the institution — while still
+> sparing you the burden of maintaining an account and a password.
+>
+> You may also notice that the message on screen is worded identically whether or not the address is
+> recognised. That is deliberate: a page which answered differently could be used to establish who is
+> on the school's roster."
 
-**Do:** Allow the respondent to sign in.
+**Do:** Allow the respondent to retrieve the code from their own mailbox and complete the
+verification. Where the browser has verified the address within the preceding thirty days, the portal
+presents a one-tap continuation instead:
+
+> **Say:** "This browser has already verified this address within the last thirty days, so the system
+> recognises it and does not ask again. On a new device, or after thirty days, the verification step
+> returns."
 
 > **Say:** "You are then asked for your department, your course or programme, and your year
 > level, with a contact number if you wish to give one. The office asked for these because it
@@ -135,8 +180,13 @@ themselves evaluation data. Only assist if the respondent is genuinely blocked.
 
 > **Say:** "This is the tracking page. Without logging in, you can see the current stage of your
 > report — received, approved, assigned, under repair, completed, verified — together with the
-> date of each step. When the repair is finished, you will be asked here whether the issue was
-> genuinely resolved, and your answer is recorded as feedback to the office.
+> date of each step; the ticket number alone is sufficient to read it.
+>
+> Two actions on this page are reserved to you as the reporter and require your signed-in session:
+> raising a follow-up question with the office, and the final step of the workflow. When the repair is
+> finished, you are asked here whether the issue was genuinely resolved, and your answer is recorded as
+> feedback to the office. That verdict may be given only once, which is why it is not left open to
+> anyone in possession of the ticket number.
 >
 > That is the whole of the reporter's role. Do you have any questions before we move on?"
 
@@ -168,9 +218,13 @@ themselves evaluation data. Only assist if the respondent is genuinely blocked.
 
 > **Say:** "This is the command dashboard. The upper cards summarise the current workload:
 > reports received, reports in progress, reports completed, and those approaching or past their
-> service deadline. Below them, the equipment health indicators show which units are failing
-> most frequently — the information the office needs when it justifies a replacement request
-> rather than another repair."
+> service deadline, so that an overdue case cannot pass unnoticed. Below them, the equipment health
+> indicators show which units are failing most frequently — the information the office needs when it
+> justifies a replacement request rather than another repair.
+>
+> One characteristic of what you are seeing should be noted: reports are **scoped by unit**. An
+> administrator of the Property Management Office and an administrator of the ITSO do not see the same
+> queue, because they are not accountable for the same equipment."
 
 ### B.4 Reviewing and approving a report
 
@@ -204,18 +258,44 @@ themselves evaluation data. Only assist if the respondent is genuinely blocked.
 > **Say:** "The technician has received a notification containing a direct link to this specific
 > task."
 
-### B.6 Verification, audit trail, and data safeguards
+### B.6 The supporting modules
+
+**Do:** Open each of the following briefly, allowing no more than thirty seconds to each. All four are
+the subject of items in Part III-A, and a respondent who has not seen them cannot rate them.
+
+> **Say:** "Four further areas of the administrator's portal bear upon the items you will be rating.
+>
+> **Preventive Maintenance** schedules servicing in advance of failure, so that the office is not
+> confined to responding to breakdowns.
+>
+> **Inventory** is the equipment register — the same register from which the reporter's search drew its
+> results. The office maintains it by uploading its official Excel workbook, and each item may be
+> issued a printable QR code.
+>
+> **Analytics** presents the failure patterns: the categories, and the individual units, which account
+> for the greatest number of reports. This is the evidence that supports repair-or-replace and
+> procurement decisions.
+>
+> **User Management** is where the office creates accounts, invites technicians, and resets passwords.
+>
+> Records may additionally be **exported to PDF and to Excel** on the official letterhead, so that the
+> system produces documentation the office can file directly, rather than requiring records to be
+> transcribed by hand."
+
+### B.7 Verification, audit trail, and data safeguards
 
 > **Say:** "When the technician has finished, the report returns here for verification, and only
-> the office can close it. One further feature is relevant to your evaluation.
+> the office can close it. Two further matters are relevant to your evaluation.
 >
-> Every action taken in the system — every approval, assignment, and closure — is recorded
-> server-side with the user and the timestamp, so nothing can be altered without leaving a
-> trace. Which brings me to backup and recovery."
+> First, every action taken in the system — every approval, assignment, rejection and closure — is
+> recorded with the user who performed it and the time at which it was performed, so that nothing can
+> be altered without leaving a trace. Which brings me to backup and recovery."
 
-<!-- The browsable Audit Log page was removed in Aug 2026. Logging still happens on every
-     lifecycle action (logActivity); there is simply no admin viewer to open. Do not offer
-     to show one. -->
+> **Facilitator note — do not read aloud.** The browsable Audit Log page was removed in August 2026.
+> Logging still occurs on every lifecycle action; there is simply no administrative viewer to open.
+> State the audit trail as scripted above and **do not offer to display it.** If a respondent asks to
+> see it, say plainly that the record is kept server-side and that this version provides no viewing
+> page.
 
 **Do:** Open **Backup & Recovery**.
 
@@ -236,14 +316,17 @@ themselves evaluation data. Only assist if the respondent is genuinely blocked.
 
 > **Say:** "You take the role of the technician who performs the repair. Because your work is
 > done in the field rather than at a desk, this portal was designed for the phone first — it
-> installs on the home screen and opens like an ordinary mobile application."
+> installs on the home screen and opens like an ordinary mobile application.
+>
+> Your account is issued to you by the office; you sign in with your email address and a password,
+> and repeated failed attempts are throttled."
 
 **Do:** Hand over the handset with the technician portal open, and demonstrate **Add to Home
 Screen** if it is not already installed.
 
 ### C.2 Receiving the task
 
-**Do:** Sign in and open the task assigned in Segment B.
+**Do:** Open the task assigned in Segment B.
 
 > **Say:** "This is the task just assigned to you. It carries the equipment details, its
 > location, the reporter's description, and the photograph — so you know what you are attending
@@ -269,7 +352,20 @@ Screen** if it is not already installed.
 > repair — you can place it on hold for materials or recommend replacement to the office instead
 > of completing it. The report is never abandoned; it simply moves to a state the office can see."
 
-### C.4 The completion report
+### C.4 The cost estimate
+
+**Do:** Open the cost estimate worksheet.
+
+> **Say:** "Where the repair carries a cost, you record the materials, the labour, and any
+> miscellaneous charges, and the worksheet prints in the format the office uses. I should be precise
+> about what this is: **it is an estimate prepared for the office to act upon. The system contains no
+> budget approval process** — that decision rests with the office, outside the system."
+
+*Facilitators: deliver the final sentence deliberately. Until the budget items identified in §2.2 have
+been resolved on the printed instrument, it is the only thing that allows a respondent to answer them
+honestly.*
+
+### C.5 The completion report
 
 **Do:** Open the completion form.
 
@@ -322,6 +418,10 @@ group and the session date.
 | "Who can delete a report?" | No user can delete a report outright. Reports are rejected or closed with a recorded reason, and the action remains in the audit log. |
 | "Will this replace our existing forms?" | The system generates the equivalent PDF and Excel records, so existing filing requirements continue to be met. |
 | "What happens if an email fails to send?" | The in-application notification is always delivered; email is a secondary channel, and a failed send is logged without interrupting the workflow. |
+| "Why a code by email rather than a password for reporters?" | A password is one more credential for an occasional user to keep and to lose. The code establishes possession of the mailbox at the moment of filing, and the browser is remembered for thirty days thereafter. |
+| "Where is the budget request feature?" | It was withdrawn in July 2026 to align the system with the scope of this study. Technicians prepare a cost estimate, upon which the office acts outside the system. |
+| "May I see the audit log?" | The record is kept server-side for every action, with the user and the timestamp. This version provides no browsable viewing page. |
+| "Can the system serve the whole institution?" | The database is hosted and professionally managed, and the system has been exercised against report volumes substantially beyond the office's present load. |
 
 ---
 
@@ -330,9 +430,10 @@ group and the session date.
 | Situation | Facilitator action |
 |---|---|
 | Connectivity fails mid-session | Continue using the prepared screenshots and narrate the sequence; record the incident on the session log |
-| One-time code is delayed | Explain the three-minute expiry, request a resend, and use the interval to answer questions |
+| One-time code is delayed | Explain the three-minute expiry, request a resend after twenty-five seconds, and use the interval to answer questions. Should it still not arrive, transfer to the prepared reporter account |
+| Respondent's address is not in the BEC directory, and no code is issued | Do not debate the roster in the respondent's presence. Transfer to the prepared reporter account and allow the respondent to perform every remaining step |
 | Respondent becomes stuck on a step | Wait five seconds before intervening, then assist; record the difficulty, as it is a usability finding |
-| Session overruns | Reduce Segment B to sign-in, approval, and assignment, and omit the audit log and backup demonstration |
+| Session overruns | Reduce Segment B to sign-in, approval, and assignment; omit the supporting modules and the backup demonstration, and state them verbally instead |
 | Respondent declines to continue | Stop immediately, thank them, and record the withdrawal without further questions |
 
 ---
@@ -340,3 +441,9 @@ group and the session date.
 *Prepared as the demonstration protocol for the system evaluation component of the capstone study
 "BEC Web-Based Defective Equipment Reporting Management System," Batangas Eastern Colleges —
 Property Management Office, August 2026.*
+
+*Revised 08 August 2026 against the running system. The revision records the reporter verification
+code and the thirty-day remembered device, the restriction of the follow-up and satisfaction actions to
+the reporter's own session, technician sign-in by email and password, the supporting administrator
+modules, the withdrawal of the budget request module, and the removal of the audit log viewer.
+Rehearsal script and segment allocation: `docs/EVALUATION_SPEAKER_NOTES.md`.*

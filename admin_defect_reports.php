@@ -308,7 +308,47 @@ if (in_array($exportFmt, ['csv', 'xlsx', 'pdf'], true)) {
     exit;
 }
 
-foreach ($reports as &$r0) {
+/* ─── PAGINATION ───────────────────────────────────────────
+   This page used to render every matching row and then let JavaScript hide all
+   but ten of them. The rows a person never sees still crossed the wire: about
+   11 MB of markup at 5,000 reports, which is the page-weight ceiling CLAUDE.md
+   calls the one architectural change still owed. The slice happens here, so the
+   markup is O(page) instead of O(backlog).
+
+   Placed deliberately AFTER the export block above: export builds CSV/XLSX/PDF
+   from $reports and must keep seeing every filtered row, not just this page.
+   $reports also stays whole for the count in the pager and the empty-state test.
+
+   Note this is a slice of an already-fetched result set — getDefectReportsWithFilters()
+   still reads the full filtered list from the database. That is a smaller cost than
+   it looks (one query either way, and the status-stage and PMO/ITSO unit filters are
+   applied in PHP above, so a SQL LIMIT here would paginate before those filters and
+   hand back short pages). Pushing the filters and the LIMIT into SQL is the next
+   step; it belongs with getDefectReportsWithFilters(), not here. */
+const BEC_REPORTS_PER_PAGE = 25;
+
+$totalReports = count($reports);
+$totalPages   = max(1, (int)ceil($totalReports / BEC_REPORTS_PER_PAGE));
+$pageNum      = (int)($_GET['page'] ?? 1);
+if ($pageNum < 1)           { $pageNum = 1; }
+if ($pageNum > $totalPages) { $pageNum = $totalPages; }   // deep-link past the end lands on the last page
+$pageOffset   = ($pageNum - 1) * BEC_REPORTS_PER_PAGE;
+$reportsPage  = array_slice($reports, $pageOffset, BEC_REPORTS_PER_PAGE);
+
+/**
+ * The pager's links have to carry the filters, or paging resets them to defaults.
+ * Everything except `page` is preserved as-is.
+ */
+function repPageUrl(int $p): string {
+    $q = $_GET;
+    $q['page'] = $p;
+    unset($q['view_id'], $q['export']);   // never page INTO a modal or re-trigger a download
+    return '?' . http_build_query($q);
+}
+
+/* Photo resolution is per-report work, so it runs on the page being rendered
+   rather than on the whole backlog — it was previously paid for all 5,000. */
+foreach ($reportsPage as &$r0) {
     $pl = photoListFromRow($r0);
     $r0['photo_urls'] = $pl;
     $r0['photo_url']  = $pl[0] ?? '';
@@ -462,7 +502,9 @@ body{
 .ph h1{font-family:'Outfit',sans-serif;font-size:1.45rem;font-weight:800;
   color:var(--t1);display:flex;align-items:center;gap:.45rem;}
 .ph h1 i{color:var(--m3);font-size:1.15rem;}
-.ph-sub{font-size:.78rem;color:var(--t3);margin-top:.18rem;}
+/* .76rem: one page-subtitle size across the admin pages, matching .head p in
+   admin-shell.css and .ph-sub everywhere else. */
+.ph-sub{font-size:.76rem;color:var(--t3);margin-top:.18rem;}
 .ph-acts{display:flex;gap:.45rem;flex-wrap:wrap;}
 
 /* ── BTN SYSTEM ─────────────────────────────────────── */
@@ -1144,11 +1186,13 @@ textarea.fc{resize:vertical;min-height:70px;}
 .rpager .rp-info b{color:var(--t1);font-weight:800;}
 .rpager .rp-btns{display:inline-flex;align-items:center;gap:.25rem;flex-wrap:wrap;padding:.28rem;background:var(--s2);border:1px solid var(--bdr);border-radius:999px;}
 .rpager .rp-gap{padding:0 .1rem;color:var(--t3);font-size:.85rem;font-weight:800;user-select:none;align-self:center;opacity:.6;}
-.rpager button{display:inline-flex;align-items:center;justify-content:center;min-width:2rem;height:2rem;padding:0 .6rem;border:none;background:transparent;color:var(--t2);border-radius:999px;font-size:.8rem;font-weight:700;cursor:pointer;line-height:1;transition:color .16s,background .16s,box-shadow .16s,transform .16s;}
-.rpager button:hover:not(:disabled):not(.on){background:var(--s1);color:var(--m3);box-shadow:0 1px 5px rgba(0,0,0,.09);transform:none;}
-.rpager button.on{background:linear-gradient(135deg,#4A0E0E,#7B1D1D);color:#fff;box-shadow:0 3px 9px rgba(123,29,29,.34);transform:translateY(-1px);}
-.rpager button.rp-nav{width:2rem;min-width:2rem;padding:0;font-size:1rem;color:var(--t3);}
-.rpager button.rp-nav:hover:not(:disabled){color:var(--m3);}
+/* Anchors as well as buttons: the pager is server-rendered links now, and the
+   current page stays a disabled-looking button because it goes nowhere. */
+.rpager button,.rpager a{display:inline-flex;align-items:center;justify-content:center;min-width:2rem;height:2rem;padding:0 .6rem;border:none;background:transparent;color:var(--t2);border-radius:999px;font-size:.8rem;font-weight:700;cursor:pointer;line-height:1;text-decoration:none;transition:color .16s,background .16s,box-shadow .16s,transform .16s;}
+.rpager button:hover:not(:disabled):not(.on),.rpager a:hover{background:var(--s1);color:var(--m3);box-shadow:0 1px 5px rgba(0,0,0,.09);transform:none;}
+.rpager button.on{background:linear-gradient(135deg,#4A0E0E,#7B1D1D);color:#fff;box-shadow:0 3px 9px rgba(123,29,29,.34);transform:translateY(-1px);cursor:default;}
+.rpager button.rp-nav,.rpager a.rp-nav{width:2rem;min-width:2rem;padding:0;font-size:1rem;color:var(--t3);}
+.rpager button.rp-nav:hover:not(:disabled),.rpager a.rp-nav:hover{color:var(--m3);}
 .rpager button:disabled{opacity:.35;cursor:default;box-shadow:none;transform:none;}
 
 /* ── RESPONSIVE ──────────────────────────────────────── */
@@ -1354,7 +1398,7 @@ textarea.fc{resize:vertical;min-height:70px;}
             <tr><td colspan="9"><div class="empty">
               <i class="fas fa-folder-open"></i>No reports match your current filters.
             </div></td></tr>
-            <?php else: foreach($reports as $r): ?>
+            <?php else: foreach($reportsPage as $r): ?>
             <tr class="rep-row" tabindex="0" role="button" aria-label="Open report details" data-rid="<?php echo esc($r['report_id']); ?>" data-view-url="?view_id=<?php echo $r['report_id']; ?>&status=<?php echo $sf; ?>&priority=<?php echo $pf; ?>&dept=<?php echo $df; ?>&search=<?php echo urlencode($sq); ?>&view=<?php echo $vw; ?>">
               <td><span class="rid"><?php echo esc($r['report_id']); ?></span></td>
               <td>
@@ -1398,7 +1442,48 @@ textarea.fc{resize:vertical;min-height:70px;}
             <?php endforeach; endif; ?>
           </tbody>
         </table>
-        <div class="rpager" id="repPager" hidden></div>
+        <?php /* Rendered by PHP, not JS: the rows for other pages are no longer in the
+                 document for a script to hide, so the pager has to be real links. Real
+                 links also mean a page is bookmarkable and the back button works. */ ?>
+        <?php if ($totalReports > 0): ?>
+        <div class="rpager" id="repPager">
+          <span class="rp-info">Showing
+            <b><?php echo number_format($pageOffset + 1); ?>–<?php echo number_format($pageOffset + count($reportsPage)); ?></b>
+            of <b><?php echo number_format($totalReports); ?></b> report<?php echo $totalReports === 1 ? '' : 's'; ?></span>
+          <?php if ($totalPages > 1): ?>
+          <div class="rp-btns">
+            <?php if ($pageNum > 1): ?>
+              <a class="rp-nav" href="<?php echo esc(repPageUrl($pageNum - 1)); ?>" aria-label="Previous page">&lsaquo;</a>
+            <?php else: ?>
+              <button type="button" class="rp-nav" disabled aria-label="Previous page">&lsaquo;</button>
+            <?php endif; ?>
+            <?php
+              /* Window the numbers with ellipses so 200 pages stay one short row. */
+              $lo = max(1, $pageNum - 2);
+              $hi = min($totalPages, $pageNum + 2);
+              $btn = function (int $p) use ($pageNum) {
+                  if ($p === $pageNum) {
+                      echo '<button type="button" class="on" aria-current="page">' . $p . '</button>';
+                  } else {
+                      echo '<a href="' . esc(repPageUrl($p)) . '">' . $p . '</a>';
+                  }
+              };
+              if ($lo > 1) { $btn(1); if ($lo > 2) { echo '<span class="rp-gap">&hellip;</span>'; } }
+              for ($p = $lo; $p <= $hi; $p++) { $btn($p); }
+              if ($hi < $totalPages) {
+                  if ($hi < $totalPages - 1) { echo '<span class="rp-gap">&hellip;</span>'; }
+                  $btn($totalPages);
+              }
+            ?>
+            <?php if ($pageNum < $totalPages): ?>
+              <a class="rp-nav" href="<?php echo esc(repPageUrl($pageNum + 1)); ?>" aria-label="Next page">&rsaquo;</a>
+            <?php else: ?>
+              <button type="button" class="rp-nav" disabled aria-label="Next page">&rsaquo;</button>
+            <?php endif; ?>
+          </div>
+          <?php endif; ?>
+        </div>
+        <?php endif; ?>
       </div>
     </div>
     <?php endif; ?>
@@ -2227,43 +2312,11 @@ function runAdvancedExport(format){
   closeExportModal();
 }
 </script>
-<script>
-/* Defect reports: client-side pagination so long lists don't require endless scrolling. */
-(function () {
-  var PER = 10;
-  var tbody = document.querySelector('#mainTbl tbody');
-  var pager = document.getElementById('repPager');
-  if (!tbody || !pager) return;
-  var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr.rep-row'));
-  if (rows.length <= PER) { pager.hidden = true; return; }
-  var pages = Math.ceil(rows.length / PER), cur = 1;
-  function render() {
-    rows.forEach(function (r, i) { r.style.display = (Math.floor(i / PER) + 1 === cur) ? '' : 'none'; });
-    var start = (cur - 1) * PER + 1, end = Math.min(cur * PER, rows.length), btns = '';
-    function nbtn(p){ return '<button type="button" data-p="' + p + '"' + (p === cur ? ' class="on"' : '') + '>' + p + '</button>'; }
-    // window the numbered buttons (with ellipsis) so long lists stay compact
-    var lo = Math.max(1, cur - 2), hi = Math.min(pages, cur + 2);
-    if (lo > 1) { btns += nbtn(1) + (lo > 2 ? '<span class="rp-gap">…</span>' : ''); }
-    for (var p = lo; p <= hi; p++) { btns += nbtn(p); }
-    if (hi < pages) { btns += (hi < pages - 1 ? '<span class="rp-gap">…</span>' : '') + nbtn(pages); }
-    pager.innerHTML =
-      '<span class="rp-info">Showing <b>' + start + '–' + end + '</b> of <b>' + rows.length + '</b> reports</span>' +
-      '<div class="rp-btns"><button type="button" class="rp-nav" data-p="prev" aria-label="Previous page"' + (cur === 1 ? ' disabled' : '') + '>‹</button>' +
-      btns + '<button type="button" class="rp-nav" data-p="next" aria-label="Next page"' + (cur === pages ? ' disabled' : '') + '>›</button></div>';
-    pager.hidden = false;
-  }
-  pager.addEventListener('click', function (e) {
-    var b = e.target.closest('button'); if (!b) return;
-    var p = b.getAttribute('data-p');
-    if (p === 'prev') cur = Math.max(1, cur - 1);
-    else if (p === 'next') cur = Math.min(pages, cur + 1);
-    else cur = parseInt(p, 10) || 1;
-    render();
-    var t = document.getElementById('mainTbl'); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
-  render();
-})();
-</script>
+<?php /* The client-side paginator that lived here is gone. It rendered every row and
+         then hid all but ten, which is what made this page O(backlog); the slice is
+         now done in PHP above and the pager is real links. Removing it also removes
+         the bug where it would have re-paginated the 25 server-rendered rows into
+         three little pages of ten. */ ?>
 <script src="assets/sidebar_autohide.js" defer></script>
 <script src="assets/search_premium.js"></script>
 <script src="assets/select_premium.js"></script>

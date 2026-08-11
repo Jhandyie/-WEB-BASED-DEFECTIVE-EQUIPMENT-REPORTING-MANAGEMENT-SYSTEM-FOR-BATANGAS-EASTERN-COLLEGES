@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- viewport-fit=cover is required for env(safe-area-inset-*) to report
+         anything but 0. Without it the footer sits under the home indicator on
+         notched phones. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <!-- Icons and typefaces are served from this server, not a CDN. Technicians
          sign in from the workshop floor and demos run on venue Wi-Fi; when that
          drops, CDN-hosted assets took all 16 icons and every heading face with
@@ -17,6 +20,20 @@
     <script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('../sw.js').catch(function(){});});}</script>
     <title>BEC PMO — Technician Sign In</title>
     <style>
+      /* ------------------------------------------------------------------
+         Technician sign-in — phone first.
+
+         Technicians open this on a handset in a corridor or a workshop, one
+         handed, often with gloves. So the phone layout is the base stylesheet
+         and the desktop "floating card" is the enhancement, not the other way
+         round. The rules that matter:
+
+           - every control is at least 44x44 (Apple HIG / WCAG 2.5.5),
+           - inputs are 16px so iOS Safari does not zoom the page on focus,
+           - Sign In stays above the fold on a 640px-tall screen,
+           - one gutter token (--pad) so header, body and footer cannot drift
+             out of alignment the way they had.
+         ------------------------------------------------------------------ */
       :root {
         --maroon: #7B1D1D;
         --maroon-d: #4A0E0E;
@@ -31,133 +48,264 @@
         --danger: #B42318;
         --success: #1A7A33;
         --info: #1F6F8B;
+        --pad: 20px;   /* the one horizontal gutter, shared by head/body/foot */
+        --tap: 44px;   /* minimum touch target */
+        --safe-t: env(safe-area-inset-top, 0px);
+        --safe-b: env(safe-area-inset-bottom, 0px);
       }
       * { margin: 0; padding: 0; box-sizing: border-box; }
+
+      html { -webkit-text-size-adjust: 100%; }
+
       body {
         font-family: 'DM Sans', system-ui, sans-serif;
         color: var(--ink);
-        background: var(--maroon-d);
+        /* Flat maroon on phones: see body::before — the campus photo is a
+           desktop-only luxury, it is 145 KB and the blur is a real compositing
+           cost on the cheap Androids the technicians actually carry. */
+        background: linear-gradient(160deg, #5E1414 0%, #3A0A0A 100%);
         min-height: 100vh;
+        min-height: 100dvh;   /* the *visible* viewport; 100vh hides content behind the URL bar */
         display: flex; flex-direction: column;
-        align-items: center; justify-content: center;
-        padding: 24px; position: relative;
-      }
-      /* Campus photograph, pushed well back so the card carries the screen.
-         Previously the blur was light and the wash thin, leaving strong cyan
-         foliage competing with the maroon card. Desaturating and deepening it
-         keeps the sense of place without the colour clash. */
-      body::before {
-        content: ''; position: fixed; inset: 0; z-index: -2;
-        background: url('../assets/bec-background.jpg') center center / cover no-repeat;
-        filter: blur(9px) saturate(.42) brightness(.62) contrast(.95);
-        transform: scale(1.09);
-      }
-      body::after {
-        content: ''; position: fixed; inset: 0; z-index: -1;
-        /* Maroon wash + vignette: enough to settle the eye on the card while the
-           campus stays faintly readable behind it. */
-        background:
-          radial-gradient(115% 85% at 50% 36%, rgba(74,14,14,.30) 0%, rgba(26,5,5,.84) 100%),
-          linear-gradient(135deg, rgba(45,5,5,.72), rgba(74,14,14,.62));
+        position: relative;
+        -webkit-tap-highlight-color: transparent;
       }
 
+      /* ---------- the sheet ---------- */
       .auth-card {
-        width: 100%; max-width: 430px;
+        width: 100%;
         background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        box-shadow: 0 1px 2px rgba(28,16,8,.06), 0 10px 28px rgba(44,10,10,.18);
+        display: flex; flex-direction: column;
+        flex: 1;                       /* fill the screen on a phone */
         overflow: hidden;
       }
-      .auth-accent { height: 3px; background: linear-gradient(90deg, var(--maroon-d), var(--maroon) 60%, var(--gold)); }
+      .auth-accent { height: 3px; background: linear-gradient(90deg, var(--maroon-d), var(--maroon) 60%, var(--gold)); flex-shrink: 0; }
 
-      .auth-head { background: var(--maroon-d); color: #fff; padding: 22px 28px 20px; text-align: center; }
+      .auth-head {
+        background: var(--maroon-d); color: #fff; text-align: center;
+        padding: calc(var(--safe-t) + 26px) var(--pad) 30px;
+        flex-shrink: 0;
+      }
       .auth-seal {
-        width: 56px; height: 56px; border-radius: 50%; background: #fff; margin: 0 auto 12px;
+        width: 52px; height: 52px; border-radius: 50%; background: #fff; margin: 0 auto 11px;
         display: flex; align-items: center; justify-content: center; overflow: hidden;
         box-shadow: 0 0 0 3px rgba(255,255,255,.12);
       }
       .auth-seal img { width: 100%; height: 100%; object-fit: cover; }
       .auth-head h1 { font-family: 'Fraunces', serif; font-weight: 700; font-size: 1.05rem; line-height: 1.3; }
-      .auth-head .org { font-size: .72rem; color: rgba(255,255,255,.72); margin-top: 3px; }
+      .auth-head .org { font-size: .74rem; color: rgba(255,255,255,.72); margin-top: 3px; }
       .auth-head .role {
-        display: inline-block; margin-top: 12px;
+        display: inline-flex; align-items: center; gap: 7px; margin-top: 13px;
         font-size: .66rem; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase;
-        color: var(--gold); border: 1px solid rgba(201,150,12,.4); border-radius: 4px; padding: 3px 10px;
+        color: var(--gold); border: 1px solid rgba(201,150,12,.4); border-radius: 5px; padding: 5px 11px;
       }
 
-      .auth-body { padding: 26px 28px 22px; }
-      .form-title { font-size: 1.05rem; font-weight: 700; color: var(--ink); }
-      .form-hint { font-size: .82rem; color: var(--ink3); margin: 3px 0 18px; }
+      /* The white sheet lifts over the maroon band — the standard mobile auth
+         shape, and it hides the hard seam the flat card had. */
+      .auth-body {
+        padding: 24px var(--pad) 20px;
+        background: var(--surface);
+        border-radius: 18px 18px 0 0;
+        margin-top: -18px;
+        position: relative; z-index: 1;
+        flex: 1;
+        /* Column + margin-top:auto on .form-note below. On a tall handset the
+           sheet is taller than the form, and without this the slack collects
+           as one dead white band under the help link. Pushing the help block
+           to the foot spreads it and the screen reads as composed. */
+        display: flex; flex-direction: column;
+      }
+      .form-title { font-size: 1.12rem; font-weight: 700; color: var(--ink); letter-spacing: -.01em; }
+      .form-hint { font-size: .84rem; color: var(--ink3); margin: 4px 0 18px; line-height: 1.5; }
+      /* The long version is desktop-only: on a phone it cost three lines and
+         pushed Sign In under the fold. */
+      .form-hint .long { display: none; }
 
-      .field { margin-bottom: 15px; }
+      .field { margin-bottom: 14px; }
       .field > label {
-        display: block; font-size: .76rem; font-weight: 600; color: var(--ink2); margin-bottom: 6px;
+        display: block; font-size: .78rem; font-weight: 600; color: var(--ink2); margin-bottom: 7px;
       }
-      .field-wrap { position: relative; }
+      .field-wrap { position: relative; display: flex; align-items: center; }
       .auth-body input[type="text"],
       .auth-body input[type="email"],
       .auth-body input[type="password"] {
         width: 100%; background: var(--field);
-        border: 1px solid var(--border); border-radius: 8px;
-        padding: 11px 40px 11px 38px; font-size: .9rem; color: var(--ink);
-        font-family: inherit; outline: none;
+        border: 1px solid var(--border); border-radius: 10px;
+        /* 16px is not a style choice — below it, iOS Safari zooms the whole
+           page on focus and the technician is left panning around. */
+        font-size: 16px; line-height: 1.25;
+        min-height: 52px; padding: 14px 52px 14px 42px;
+        color: var(--ink); font-family: inherit; outline: none;
         transition: border-color .15s, box-shadow .15s, background .15s;
       }
-      .auth-body input:focus { background: #fff; border-color: var(--maroon); box-shadow: 0 0 0 3px rgba(123,29,29,.10); }
+      .auth-body input:focus { background: #fff; border-color: var(--maroon); box-shadow: 0 0 0 3px rgba(123,29,29,.12); }
       .auth-body input::placeholder { color: #B7A99C; }
-      .f-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--ink3); font-size: .82rem; pointer-events: none; }
+      .f-icon {
+        position: absolute; left: 15px; top: 50%; transform: translateY(-50%);
+        color: var(--ink3); font-size: .86rem; pointer-events: none; transition: color .15s;
+      }
       input:focus ~ .f-icon { color: var(--maroon); }
-      .toggle-pwd { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--ink3); cursor: pointer; font-size: .82rem; }
-      .toggle-pwd:hover { color: var(--maroon); }
 
-      .opt-row { display: flex; align-items: center; justify-content: space-between; margin: 4px 0 18px; font-size: .82rem; }
-      .remember-label { display: flex; align-items: center; gap: 7px; cursor: pointer; -webkit-user-select: none; user-select: none; }
-      .remember-label input[type="checkbox"] { width: auto; accent-color: var(--maroon); cursor: pointer; }
+      /* Was a bare 16x13 <i>. Now a real button with a full-size target. */
+      .toggle-pwd {
+        position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+        width: var(--tap); height: var(--tap);
+        display: flex; align-items: center; justify-content: center;
+        background: none; border: none; padding: 0;
+        color: var(--ink3); cursor: pointer; font-size: .9rem; border-radius: 8px;
+      }
+      .toggle-pwd:hover { color: var(--maroon); }
+      .toggle-pwd:active { background: rgba(123,29,29,.07); }
+
+      .opt-row {
+        display: flex; align-items: center; justify-content: space-between;
+        flex-wrap: wrap; gap: 0 12px; margin: 2px 0 14px; font-size: .84rem;
+      }
+      .remember-label {
+        display: flex; align-items: center; gap: 9px; cursor: pointer;
+        min-height: var(--tap); padding: 4px 0;
+        -webkit-user-select: none; user-select: none;
+      }
+      .remember-label input[type="checkbox"] {
+        width: 19px; height: 19px; flex-shrink: 0;
+        accent-color: var(--maroon); cursor: pointer;
+      }
       .remember-label span { color: var(--ink2); }
-      .forgot-link { color: var(--maroon); font-weight: 600; text-decoration: none; }
+      .forgot-link {
+        color: var(--maroon); font-weight: 600; text-decoration: none;
+        display: inline-flex; align-items: center; min-height: var(--tap); padding: 4px 0;
+      }
       .forgot-link:hover { text-decoration: underline; }
+      .forgot-link:active { opacity: .6; }
 
       .btn-login {
-        width: 100%; padding: 12px 16px; background: var(--maroon); color: #fff;
-        border: none; border-radius: 8px; font-family: inherit; font-size: .92rem; font-weight: 600;
-        cursor: pointer; transition: background .15s;
-        display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+        width: 100%; min-height: 52px; padding: 14px 16px;
+        background: var(--maroon); color: #fff;
+        border: none; border-radius: 10px; font-family: inherit; font-size: 1rem; font-weight: 600;
+        cursor: pointer; transition: background .15s, transform .08s;
+        display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+        box-shadow: 0 2px 8px rgba(74,14,14,.18);
       }
       .btn-login:hover:not(:disabled) { background: var(--maroon-d); }
-      .btn-login:disabled { opacity: .65; cursor: not-allowed; }
+      .btn-login:active:not(:disabled) { transform: scale(.985); }
+      .btn-login:disabled { opacity: .65; cursor: not-allowed; box-shadow: none; }
       .btn-login .spinner { display: none; }
       .btn-login.loading .btn-text { display: none; }
       .btn-login.loading .spinner { display: inline-block; }
 
-      .form-note { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); text-align: center; }
-      .form-note p { font-size: .8rem; color: var(--ink3); margin: 0; }
-      .form-note strong { color: var(--maroon); font-weight: 600; }
-      .help-toggle { background: none; border: none; color: var(--maroon); font-weight: 600; font-size: .8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-family: inherit; padding: 4px; }
-      .help-toggle i { font-size: .78rem; transition: transform .2s; }
+      /* Keyboard users need a visible ring; pointer users should not see it. */
+      .btn-login:focus-visible, .toggle-pwd:focus-visible,
+      .forgot-link:focus-visible, .help-toggle:focus-visible,
+      .remember-label input:focus-visible {
+        outline: 2px solid var(--maroon); outline-offset: 2px;
+      }
+
+      /* margin-top:auto drops the help block to the foot of the sheet and
+         absorbs the slack. The form's own margin keeps a floor under it when
+         there is no slack to absorb (short screens). */
+      #loginForm { margin-bottom: 16px; }
+      .form-note { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border); text-align: center; }
+      .help-toggle {
+        background: none; border: none; color: var(--maroon); font-weight: 600; font-size: .84rem;
+        cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+        font-family: inherit; min-height: var(--tap); padding: 8px 10px;
+      }
+      .help-toggle i { font-size: .8rem; transition: transform .2s; }
       .help-toggle[aria-expanded="true"] i.chev { transform: rotate(180deg); }
-      .help-toggle:hover { text-decoration: underline; }
-      .help-panel { display: flex; flex-direction: column; gap: 8px; text-align: left; max-height: 0; opacity: 0; margin-top: 0; overflow: hidden; transition: max-height .3s ease, opacity .25s ease, margin-top .3s ease; }
-      .help-panel.open { max-height: 260px; opacity: 1; margin-top: 10px; }
-      .help-panel .hp-item { font-size: .76rem; color: var(--ink3); line-height: 1.5; display: flex; align-items: flex-start; gap: 8px; padding: 9px 12px; background: rgba(123,29,29,.04); border-radius: 10px; border: 1px solid var(--border); }
-      .help-panel .hp-item i { color: var(--maroon); margin-top: 2px; flex-shrink: 0; font-size: .74rem; }
+      .help-panel {
+        display: flex; flex-direction: column; gap: 8px; text-align: left;
+        max-height: 0; opacity: 0; margin-top: 0; overflow: hidden;
+        transition: max-height .3s ease, opacity .25s ease, margin-top .3s ease;
+      }
+      .help-panel.open { max-height: 300px; opacity: 1; margin-top: 8px; }
+      .help-panel .hp-item {
+        font-size: .8rem; color: var(--ink3); line-height: 1.5;
+        display: flex; align-items: flex-start; gap: 9px; padding: 11px 13px;
+        background: rgba(123,29,29,.04); border-radius: 10px; border: 1px solid var(--border);
+      }
+      .help-panel .hp-item i { color: var(--maroon); margin-top: 3px; flex-shrink: 0; font-size: .76rem; }
       .help-panel .hp-item strong { color: var(--maroon); font-weight: 600; }
 
       .auth-foot {
-        background: var(--field); border-top: 1px solid var(--border); padding: 12px 28px; text-align: center;
-        font-size: .72rem; color: var(--ink3); display: flex; align-items: center; justify-content: center; gap: 6px;
+        background: var(--field); border-top: 1px solid var(--border);
+        padding: 12px var(--pad) calc(12px + var(--safe-b));
+        text-align: center; font-size: .74rem; color: var(--ink3);
+        display: flex; align-items: center; justify-content: center; gap: 6px;
+        flex-wrap: wrap; flex-shrink: 0;
       }
-      .page-note { margin-top: 16px; font-size: .72rem; color: rgba(255,255,255,.7); text-align: center; }
+      /* The standalone copyright line is desktop-only — on a phone it is one
+         more scroll for something the footer already implies. */
+      .page-note { display: none; }
 
-      /* Message banner */
-      .msg-banner { display: none; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 8px; margin-bottom: 14px; font-size: .82rem; font-weight: 500; }
+      /* ---------- message banner ---------- */
+      .msg-banner {
+        display: none; align-items: flex-start; gap: 9px; padding: 11px 13px;
+        border-radius: 10px; margin-bottom: 14px; font-size: .84rem; font-weight: 500; line-height: 1.45;
+      }
+      .msg-banner i { margin-top: 2px; flex-shrink: 0; }
       .msg-banner.show { display: flex; }
       .msg-banner.success { background: #eef7f0; color: var(--success); border: 1px solid #cfe9d6; }
       .msg-banner.error   { background: #fdf3f2; color: var(--danger);  border: 1px solid #f3d2cf; }
       .msg-banner.info    { background: #eef5f7; color: var(--info);    border: 1px solid #cfe3ea; }
 
-      @media (max-width: 480px) {
-        .auth-head, .auth-body { padding-left: 20px; padding-right: 20px; }
+      /* ---------- tablet & desktop: restore the floating card ---------- */
+      @media (min-width: 560px) {
+        :root { --pad: 28px; }
+        body {
+          align-items: center; justify-content: center;
+          padding: 24px;
+          background: var(--maroon-d);
+        }
+        /* Campus photograph, pushed well back so the card carries the screen.
+           Desaturated and deepened so the cyan foliage stops competing with
+           the maroon card. Declared only here, so phones never download it. */
+        body::before {
+          content: ''; position: fixed; inset: 0; z-index: -2;
+          background: url('../assets/bec-background.jpg') center center / cover no-repeat;
+          filter: blur(9px) saturate(.42) brightness(.62) contrast(.95);
+          transform: scale(1.09);
+        }
+        body::after {
+          content: ''; position: fixed; inset: 0; z-index: -1;
+          background:
+            radial-gradient(115% 85% at 50% 36%, rgba(74,14,14,.30) 0%, rgba(26,5,5,.84) 100%),
+            linear-gradient(135deg, rgba(45,5,5,.72), rgba(74,14,14,.62));
+        }
+        .auth-card {
+          max-width: 430px; flex: none;
+          border: 1px solid var(--border); border-radius: 14px;
+          box-shadow: 0 1px 2px rgba(28,16,8,.06), 0 10px 28px rgba(44,10,10,.18);
+        }
+        .auth-head { padding: 24px var(--pad) 22px; }
+        .auth-seal { width: 56px; height: 56px; }
+        /* The card hugs its content on desktop, so the sheet mechanics above
+           (fill the screen, push the help block down) are switched back off. */
+        .auth-body { border-radius: 0; margin-top: 0; flex: none; display: block; padding: 24px var(--pad) 20px; }
+        .form-note { margin-top: 16px; }
+        .form-hint .long { display: inline; }
+        .auth-foot { padding: 12px var(--pad); }
+        .page-note { display: block; margin-top: 16px; font-size: .74rem; color: rgba(255,255,255,.7); text-align: center; }
+      }
+
+      /* ---------- landscape phone / very short screens ----------
+         600px catches the 320x568 handsets as well as a phone turned sideways.
+         Below this height the decorative half of the header is what pushes Sign
+         In off-screen, so it is the first thing to go.
+
+         This block sits *after* the desktop one on purpose: a landscape handset
+         (e.g. 667x375) matches both, and the short-screen trims have to win. */
+      @media (max-height: 600px) and (max-width: 899px) {
+        .auth-head { padding: calc(var(--safe-t) + 14px) var(--pad) 18px; }
+        .auth-seal { width: 40px; height: 40px; margin-bottom: 7px; }
+        .auth-head h1 { font-size: .98rem; }
+        .auth-head .role { margin-top: 9px; }
+        .form-hint { display: none; }
+        .auth-body { padding-top: 18px; }
+        .page-note { display: none; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * { transition: none !important; animation-duration: .01ms !important; }
       }
     </style>
 </head>
@@ -172,20 +320,22 @@
         </div>
         <h1>Batangas Eastern Colleges</h1>
         <div class="org">Property Management Office</div>
-        <span class="role"><i class="fas fa-screwdriver-wrench"></i>&nbsp; Technician Portal</span>
+        <span class="role"><i class="fas fa-screwdriver-wrench"></i> Technician Portal</span>
       </div>
 
       <div class="auth-body">
         <div class="form-title">Maintenance workspace</div>
-        <div class="form-hint">Sign in to receive assigned repair tasks, record your work, and close out equipment reports for the Property Management Office.</div>
+        <div class="form-hint">Sign in to receive your assigned repair tasks<span class="long">, record your work, and close out equipment reports for the Property Management Office</span>.</div>
 
-        <div id="loginMessage"></div>
+        <div id="loginMessage" role="alert" aria-live="assertive"></div>
 
         <form id="loginForm" novalidate>
           <div class="field">
             <label for="loginEmail">Email Address</label>
             <div class="field-wrap">
-              <input type="email" id="loginEmail" name="email" placeholder="you@bec.edu.ph" autocomplete="username" required />
+              <input type="email" id="loginEmail" name="email" placeholder="you@bec.edu.ph"
+                     autocomplete="username" inputmode="email" enterkeyhint="next"
+                     autocapitalize="off" autocorrect="off" spellcheck="false" required />
               <i class="fas fa-envelope f-icon"></i>
             </div>
           </div>
@@ -193,9 +343,13 @@
           <div class="field">
             <label for="loginPassword">Password</label>
             <div class="field-wrap">
-              <input type="password" id="loginPassword" name="password" placeholder="Enter your password" autocomplete="current-password" required />
+              <input type="password" id="loginPassword" name="password" placeholder="Enter your password"
+                     autocomplete="current-password" enterkeyhint="go" required />
               <i class="fas fa-lock f-icon"></i>
-              <i class="fas fa-eye-slash toggle-pwd" id="togglePwd" onclick="togglePassword()"></i>
+              <button type="button" class="toggle-pwd" id="togglePwd"
+                      aria-label="Show password" aria-pressed="false" onclick="togglePassword()">
+                <i class="fas fa-eye-slash" id="togglePwdIcon" aria-hidden="true"></i>
+              </button>
             </div>
           </div>
 
@@ -243,20 +397,24 @@
         }
         ensureCsrf();
 
-        // Toggle password visibility
+        // Toggle password visibility. Keeps aria-pressed/aria-label in step so a
+        // screen reader announces the state, not just the icon swap.
         function togglePassword() {
             const input = document.getElementById('loginPassword');
-            const icon  = document.getElementById('togglePwd');
+            const btn   = document.getElementById('togglePwd');
+            const icon  = document.getElementById('togglePwdIcon');
             const show  = input.type === 'password';
             input.type  = show ? 'text' : 'password';
-            icon.className = show ? 'fas fa-eye toggle-pwd' : 'fas fa-eye-slash toggle-pwd';
+            icon.className = show ? 'fas fa-eye' : 'fas fa-eye-slash';
+            btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+            btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
         }
 
         // Show inline message
         function showMsg(type, text) {
             const el = document.getElementById('loginMessage');
             const icons = { success: 'fa-check-circle', error: 'fa-exclamation-circle', info: 'fa-info-circle' };
-            el.innerHTML = `<div class="msg-banner ${type} show"><i class="fas ${icons[type]}"></i>${text}</div>`;
+            el.innerHTML = `<div class="msg-banner ${type} show"><i class="fas ${icons[type]}"></i><span>${text}</span></div>`;
             if (type !== 'error') setTimeout(() => el.innerHTML = '', 5000);
         }
 
@@ -280,6 +438,9 @@
 
             setLoading(true);
             document.getElementById('loginMessage').innerHTML = '';
+            // Close the keyboard so the technician sees the loader, not a form
+            // hidden behind it.
+            document.activeElement && document.activeElement.blur();
 
             try {
                 const formData = new FormData();
@@ -294,7 +455,12 @@
                 const data = await res.json();
 
                 if (data.success) {
-                    AuthLoader.show('Welcome back!', 'Opening your workspace…');
+                    // auth_loader.js is a deferred <script> at the end of the
+                    // page. If the technician signs in before it lands, calling
+                    // AuthLoader.show() throws — and because this listener is
+                    // async that surfaces as an unhandled rejection, not an
+                    // error, so the redirect below would silently never run.
+                    if (window.AuthLoader) AuthLoader.show('Welcome back!', 'Opening your workspace…');
                     setTimeout(() => { window.location.href = '../technician_dashboard.php'; }, 1100);
                 } else {
                     showMsg('error', data.message || 'Invalid email or password. Please try again.');
@@ -310,7 +476,7 @@
         async function forgotPassword() {
             const email = document.getElementById('loginEmail').value.trim();
             if (!email) {
-                showMsg('info', 'Please enter your email address first, then click Forgot password.');
+                showMsg('info', 'Please enter your email address first, then tap Forgot password.');
                 document.getElementById('loginEmail').focus();
                 return;
             }
@@ -341,6 +507,9 @@
             t.addEventListener('click', function () {
                 var open = p.classList.toggle('open');
                 t.setAttribute('aria-expanded', open ? 'true' : 'false');
+                // Opening the panel at the bottom of a phone screen is useless
+                // if it opens off-screen.
+                if (open) setTimeout(function () { p.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 320);
             });
         })();
     </script>

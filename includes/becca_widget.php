@@ -20,7 +20,7 @@
   transition: transform .25s cubic-bezier(.22,1,.36,1), box-shadow .3s ease;
   animation: fabFloat 6s ease-in-out infinite, fabGlow 4.5s ease-in-out infinite;
 }
-#chatFab:hover { animation: none; transform: translateY(-4px) scale(1.06); box-shadow: 0 16px 40px rgba(44,10,10,.5), 0 0 32px rgba(201,150,12,.5); }
+#chatFab:hover { animation: none; transform:none; box-shadow: 0 16px 40px rgba(44,10,10,.5), 0 0 32px rgba(201,150,12,.5); }
 #chatFab:active { transform: translateY(-1px) scale(1); }
 #chatFab .fab-ic {
   width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0; overflow: hidden;
@@ -122,6 +122,15 @@
     transform: translate(-50%, -50%);
     min-width: 44px; min-height: 44px; width: 100%; height: 100%;
   }
+  /* A 44px overlay needs 44px of pitch or the overlays sit on top of each
+     other. The two header buttons are 29px on a .38rem (6px) gap — a 35px
+     pitch — so Close's overlay covered the right 10px of New chat's, and a tap
+     there closed the panel instead. Measured on index.php: New chat was
+     reachable from x=282..315 only, while its overlay claimed 281..325.
+     The button lays out at 28.5px, so the gap has to clear 44 - 28.5; 16px
+     does, and both targets are whole with neither stealing from the other.
+     Scoped to touch/narrow, so the desktop header keeps its tight gap. */
+  .ch-btns { gap: 16px; }
 }
 .lbar {
   padding: .48rem .88rem; border-bottom: 1px solid var(--border);
@@ -182,7 +191,7 @@
   font-weight: 600; transition: all .15s; white-space: nowrap;
   text-transform: none; letter-spacing: 0; line-height: 1.25;
 }
-.chip:hover { border-color: var(--maroon); color: var(--maroon); background: var(--maroon-soft); transform: translateY(-1px); box-shadow: 0 2px 8px rgba(123,29,29,.12); }
+.chip:hover { border-color: var(--maroon); color: var(--maroon); background: var(--maroon-soft); transform:none; box-shadow: 0 2px 8px rgba(123,29,29,.12); }
 .rcard {
   margin-top: .52rem; padding: .62rem .78rem; border-radius: 10px;
   background: var(--gold-bg); border: 1px solid rgba(201,150,12,.2);
@@ -205,7 +214,7 @@
   color: var(--maroon-d); text-decoration: none; font-size: .71rem; font-weight: 600;
   transition: all .14s;
 }
-.chat-link:hover { border-color: var(--maroon); background: var(--maroon-soft); transform: translateY(-1px); }
+.chat-link:hover { border-color: var(--maroon); background: var(--maroon-soft); transform:none; }
 .inp {
   padding: .72rem .85rem .78rem; border-top: 1px solid var(--border);
   background: var(--surface); flex-shrink: 0;
@@ -239,6 +248,17 @@
   #chatOverlay { align-items: flex-end; justify-content: center; padding: 0; }
   /* dvh handles the URL bar; JS (visualViewport) handles the on-screen keyboard */
   #chatModal { max-width: 100%; width: 100%; border-radius: 20px 20px 0 0; height: 88vh; height: 88dvh; max-height: 88dvh; }
+
+  /* ── type floor ────────────────────────────────────────────────────────
+     On a phone the panel goes full-bleed, so this text is being read at arm's
+     length rather than glanced at in a corner of a laptop screen. The status
+     line under the name, the message timestamps and the meta line under the
+     composer were 9.9-10.9px. This is the shared widget, so every portal that
+     includes it gets the same floor. */
+  .ch-status { font-size: .7rem; }
+  .mtime { font-size: .68rem; }
+  .inp-meta { font-size: .68rem; }
+  .inp-meta i { font-size: .64rem; }
 }
 </style>
 
@@ -262,8 +282,8 @@
         <div class="ch-status">Online &middot; Ready to help</div>
       </div>
       <div class="ch-btns">
-        <button class="ch-btn" onclick="clearChat()" title="New chat"><i class="fas fa-rotate-right"></i></button>
-        <button class="ch-btn" onclick="closeChat()" title="Close"><i class="fas fa-xmark"></i></button>
+        <button class="ch-btn" type="button" onclick="clearChat()" title="New chat" aria-label="Start a new chat"><i aria-hidden="true" class="fas fa-rotate-right"></i></button>
+        <button class="ch-btn" type="button" onclick="closeChat()" title="Close" aria-label="Close chat"><i aria-hidden="true" class="fas fa-xmark"></i></button>
       </div>
     </div>
 
@@ -284,11 +304,11 @@
             onkeydown="handleKey(event)"
             oninput="grow(this)"></textarea>
         </div>
-        <button class="sbtn" id="sbtn" onclick="send()">
-          <i class="fas fa-paper-plane"></i>
+        <button class="sbtn" id="sbtn" type="button" onclick="send()" aria-label="Send message">
+          <i aria-hidden="true" class="fas fa-paper-plane"></i>
         </button>
       </div>
-      <div class="inp-meta"><i class="fas fa-shield-alt"></i> AI-powered · BEC knowledge base · Urgent: ext. 215</div>
+      <div class="inp-meta"><i aria-hidden="true" class="fas fa-shield-alt"></i> AI-powered · BEC knowledge base · Urgent: ext. 215</div>
     </div>
 
   </div>
@@ -537,22 +557,22 @@ function addMsg(role, text, chips, suggest, actions = []) {
     const chatActions = getChatActions(text, suggest, actions);
     if (chatActions.length) {
       extra += '<div class="chat-actions">' +
-        chatActions.map(action => `<a class="chat-link" href="${escAttr(action.href)}"><i class="fas ${escAttr(action.icon || 'fa-arrow-right')}"></i>${esc(action.label || 'Open')}</a>`).join('') +
+        chatActions.map(action => `<a class="chat-link" href="${escAttr(action.href)}"><i aria-hidden="true" class="fas ${escAttr(action.icon || 'fa-arrow-right')}"></i>${esc(action.label || 'Open')}</a>`).join('') +
         '</div>';
     }
   }
   if (suggest) {
     extra += `<div class="rcard">
-      <strong><i class="fas fa-file-circle-exclamation" style="margin-right:.28rem"></i>${detectedLang === 'fil' ? 'Mag-submit ng Formal Report' : 'Submit a Formal Report'}</strong>
+      <strong><i aria-hidden="true" class="fas fa-file-circle-exclamation" style="margin-right:.28rem"></i>${detectedLang === 'fil' ? 'Mag-submit ng Formal Report' : 'Submit a Formal Report'}</strong>
       ${detectedLang === 'fil'
         ? 'Mukhang kailangan ito ng aktuwal na pagtingin. Gumawa ng opisyal na defect report para sa facilities team.'
         : 'This issue likely needs hands-on attention. Create an official defect report for the facilities team.'}
-      <br><a href="student_dashboard.php" class="rcard-btn"><i class="fas fa-plus"></i> ${detectedLang === 'fil' ? 'Gumawa ng Report' : 'Create Report'}</a>
+      <br><a href="student_dashboard.php" class="rcard-btn"><i aria-hidden="true" class="fas fa-plus"></i> ${detectedLang === 'fil' ? 'Gumawa ng Report' : 'Create Report'}</a>
     </div>`;
   }
 
   const avatar = role === 'u'
-    ? '<div class="mav"><i class="fas fa-user"></i></div>'
+    ? '<div class="mav"><i aria-hidden="true" class="fas fa-user"></i></div>'
     : '<div class="mav mav-ai"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="Becca"></div>';
   row.innerHTML = `
     ${avatar}

@@ -92,10 +92,22 @@ function flushMailOutbox(int $max = 3): int {
  *  - On total failure: the message is queued for automatic retry (outbox),
  *    unless $opts['queue'] === false (OTP codes — stale codes must never arrive late).
  *  - Every total failure is recorded in logs/mail_failures.log.
+ *  - $opts['defer'] === true skips SMTP entirely and drops the message straight
+ *    into the outbox. For mail raised by a background sweep during a page render:
+ *    a send costs ~1 s when the network is healthy and up to 4 x the 15 s socket
+ *    timeout (plus the 1.5 s inter-attempt pauses) when it is not, and the admin
+ *    waiting for the page has no reason to pay that. Deferred mail leaves on the
+ *    next real send or the nightly job (scripts/backup_db.php flushes 50).
+ *    Never defer anything a human is waiting on — OTPs above all.
  */
 function sendEmail($to, $subject, $message, $settings = null, $role = 'admin', array $opts = []) {
     // Deliver to a redirected address when one is configured (login identity != reachable inbox).
     $to = applyMailRedirect($to);
+
+    if (($opts['defer'] ?? false) === true) {
+        becMailQueue((string)$to, (string)$subject, (string)$message, (string)$role);
+        return true;
+    }
 
     // Opportunistically deliver anything stuck in the outbox (non-recursive).
     flushMailOutbox(2);

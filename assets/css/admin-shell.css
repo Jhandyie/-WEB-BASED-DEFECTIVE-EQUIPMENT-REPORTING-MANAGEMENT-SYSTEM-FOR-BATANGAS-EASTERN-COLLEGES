@@ -188,8 +188,26 @@ body{font-size:.875rem;}
 .adm-table thead th{overflow:hidden;text-overflow:ellipsis;}
 
 /* ---- page heading block -------------------------------------------------- */
+/* This is a page title that happens to be marked up as <h2>. On the pages that
+   load css/typography.css the typeface is chosen by tag — h1 gets the display
+   serif, h2/h3 get the interface sans — so "Official BEC User Directory",
+   "Backup & Data Recovery" and "Preventive Maintenance" came out in DM Sans
+   while the same heading on Defect Reports, Assign Technicians, User
+   Management, Inventory, Analytics and Notifications came out in Fraunces.
+   Three pages against six, and a serif-vs-sans difference is not subtle.
+
+   Stated here rather than by adding .head h2 to typography.css, because these
+   three pages are exactly the ones that do NOT link that file — they would have
+   been the only pages the fix could not reach. For the same reason the stack is
+   spelled out instead of using var(--font-display): the variable is declared in
+   typography.css and would resolve to nothing here, taking the whole
+   declaration with it. */
 .head{margin-bottom:18px;}
 /* flex so headings that lead with an .h2-ic icon line up; harmless for text-only */
-.head h2{font-size:1.4rem;font-weight:800;letter-spacing:-.01em;color:var(--t1,#1A0808);
-  display:flex;align-items:center;gap:.6rem;}
-.head p{font-size:.86rem;color:var(--t3,#9C7A7A);margin-top:5px;max-width:760px;}
+.head h2{font-family:'Fraunces',Georgia,'Times New Roman',serif;
+  font-size:1.45rem;font-weight:800;letter-spacing:0;line-height:1.28;
+  color:var(--t1,#1A0808);display:flex;align-items:center;gap:.6rem;}
+/* .76rem is the one page-subtitle size across the admin surface, matching
+   .ph-sub on the h1 pages. This element had drifted to three values for a
+   single role — .86rem here, .78rem on two pages, .76rem on a third. */
+.head p{font-size:.76rem;color:var(--t3,#9C7A7A);margin-top:5px;max-width:760px;}

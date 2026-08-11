@@ -99,8 +99,3 @@ function getUserName() {
 function isGuest() {
     return isset($_SESSION['is_guest']) && $_SESSION['is_guest'] === true;
 }
-?>
-
-
-
-

@@ -158,4 +158,3 @@ echo json_encode([
     'success' => true,
     'message' => 'Password reset link has been sent to your registered email address.'
 ]);
-?>

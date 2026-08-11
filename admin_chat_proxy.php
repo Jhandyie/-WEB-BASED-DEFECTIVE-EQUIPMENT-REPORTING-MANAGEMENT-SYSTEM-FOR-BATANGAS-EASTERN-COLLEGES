@@ -133,7 +133,7 @@ function adminLocalReply(string $text, array $d): string
     $has = fn(string $re) => (bool) preg_match($re, $q);
 
     if ($q === '' || $has('/\b(hi|hello|hey|kumusta|good (morning|afternoon|evening))\b/')) {
-        return "Hi! I'm BECCA AI, your admin assistant. I can summarize live data (open reports, overdue, busiest technician, most-reported equipment) and explain any workflow — receiving, approving, assigning, preventive maintenance, work orders, or users. What would you like to know?";
+        return "Hi! I'm BECCA AI, your admin assistant. I can summarize live data (open reports, overdue, busiest technician, most-reported equipment) and explain any workflow — receiving, approving, assigning, verifying, preventive maintenance, or users. What would you like to know?";
     }
 
     // ── Live data questions ──
@@ -176,19 +176,20 @@ function adminLocalReply(string $text, array $d): string
         return "To receive a report: open Defect Reports, find a 'Reported' item, and click 'Mark as Received' (this sets it to PMO Review and emails the reporter). After that you can Approve it, or assign a technician directly from Assign Technicians.";
     }
     if ($has('/\b(approve|approval|categor)\b/')) {
-        return "To approve: open the report's detail in Defect Reports and click Approve (you can set the department and priority). Approving moves it to 'Assigned' and auto-creates a work order. You can then pick a technician in Assign Technicians.";
+        return "To approve: open the report's detail in Defect Reports and click Approve (you can set the department and priority). Approving moves it to 'Ready for Assignment'. You can then pick a technician in Assign Technicians.";
     }
     if ($has('/\b(assign|assigning|dispatch)\b/')) {
         return "To assign: open Assign Technicians. Received/approved reports appear in the queue — pick a report on the left, then click a technician card to assign (it confirms first). The technician is notified and the report moves to their dashboard.";
     }
     if ($has('/\b(work order|workorder)\b/')) {
-        return "Work orders are created automatically when you approve a report, and are listed under Work Orders where you can track their status.";
+        return "There is no separate work order in this system — the report itself carries the whole job. Once you assign a technician, the report moves through Technician Assigned → Received by Technician → In Progress → Completed, and you track it in Defect Reports.";
     }
     if ($has('/\b(verify|verification|close|closing)\b/')) {
         return "When a technician marks a repair Completed, open the report and click Verify to confirm the fix and close it. The reporter is asked to confirm whether their issue was resolved.";
     }
     if ($has('/\b(report|defect)\b/') && $has('/\b(workflow|lifecycle|process|steps|flow|stages)\b/')) {
-        return "Report lifecycle: Reported → Received by PMO → Approved → Assigned → In Progress → Completed → Verified/Closed (with a Rejected branch). You can see any report's exact stage in Defect Reports or via the tracker.";
+        // Labels must track defectWorkflowStatuses() in config/database.php.
+        return "Report lifecycle: Submitted → Received by PMO → Ready for Assignment → Technician Assigned → Received by Technician → In Progress → Completed → Verified → Closed. A report can also branch to Waiting for Materials, For Replacement, or Rejected. You can see any report's exact stage in Defect Reports or via the tracker.";
     }
 
     if ($has('/\b(what can you|help|capabilities|features|who are you)\b/')) {
@@ -254,8 +255,9 @@ SECURITY & HONESTY
 - NEVER fabricate. Base every factual claim on the LIVE SYSTEM DATA below or what the admin tells you. If something isn't available, say "That information isn't available to me right now" rather than guessing. Never invent ticket numbers, names, rooms, or counts.
 
 WORKFLOW REFERENCE (for how-to questions)
-- Report lifecycle: Reported -> Received by PMO -> Approved -> Assigned -> In Progress -> Completed -> Verified/Closed (Rejected branch).
-- Receive: Defect Reports -> "Mark as Received". Approve: report detail -> Approve (sets department/priority, auto-creates a work order). Assign: Assign Technicians -> pick report -> click a technician card. Verify: report detail -> Verify when the technician marks it Completed.
+- Report lifecycle (labels from defectWorkflowStatuses()): Submitted -> Received by PMO -> Ready for Assignment -> Technician Assigned -> Received by Technician -> In Progress -> Completed -> Verified -> Closed. Branches: Waiting for Materials, For Replacement, Rejected.
+- There are no work orders in this system. The defect report itself is the unit of work from submission through closure; never tell an admin to open, create, or look up a work order.
+- Receive: Defect Reports -> "Mark as Received". Approve: report detail -> Approve (sets department/priority, moves it to Ready for Assignment). Assign: Assign Technicians -> pick report -> click a technician card. Verify: report detail -> Verify when the technician marks it Completed.
 - Preventive Maintenance: recurring schedules that auto-generate tasks when due. Overdue open reports are auto-escalated to the PMO.
 
 {$dataText}

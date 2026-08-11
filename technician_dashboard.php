@@ -714,7 +714,43 @@ body.modal-open .bell-fab{display:none;}
 .empty .empty-action{display:inline-flex;align-items:center;gap:6px;padding:.5rem .95rem;border-radius:10px;border:1.5px solid var(--bdr);background:#fff;font-size:.78rem;font-weight:700;color:var(--ink2);}
 .empty .empty-action:hover{border-color:var(--maroon);color:var(--maroon);}
 
-/* ═══════════════ REPAIR WORKSPACE (revealed below the queue) ═══════════════ */
+/* ═══════════════ THREE-PANEL WORKSPACE ═══════════════════════════════════
+   The queue, the repair workspace and the task's context were three stacked
+   bands: pick a task at the top, scroll down to work on it, scroll further for
+   its history — and scroll back up to change tasks. A technician holding a
+   phone in a plant room is doing all three at once, so they belong side by side.
+
+   queue | workspace | context. The outer columns scroll on their own against a
+   sticky viewport so the centre panel — the one with the forms — is never
+   pushed off screen by a long queue or a long repair history.             */
+.tp-work{display:grid;grid-template-columns:clamp(270px,23vw,330px) minmax(0,1fr) clamp(260px,21vw,310px);
+  gap:18px;align-items:start;}
+.tp-queue,.tp-rail{position:sticky;top:22px;max-height:calc(100vh - 44px);overflow-y:auto;overscroll-behavior:contain;}
+/* Thin scrollbars: a full-width one inside a 300px column eats the content. */
+.tp-queue::-webkit-scrollbar,.tp-rail::-webkit-scrollbar{width:7px;}
+.tp-queue::-webkit-scrollbar-thumb,.tp-rail::-webkit-scrollbar-thumb{background:rgba(123,29,29,.22);border-radius:8px;}
+.tp-queue{scrollbar-width:thin;}
+.tp-rail{scrollbar-width:thin;}
+/* The queue card carried a bottom margin from when it was a stacked band. */
+.tp-queue .queue-shell{margin-bottom:0;}
+
+/* Below a laptop the context column has nowhere useful to sit beside the form,
+   so it drops under the workspace and stops being sticky. */
+@media(max-width:1240px){
+  .tp-work{grid-template-columns:clamp(250px,30vw,320px) minmax(0,1fr);}
+  .tp-rail{grid-column:1 / -1;position:static;max-height:none;overflow:visible;}
+}
+/* One column on a tablet or phone: the queue and the workspace take turns,
+   which is what body.ws-open switches between. */
+@media(max-width:960px){
+  .tp-work{grid-template-columns:minmax(0,1fr);}
+  .tp-queue{position:static;max-height:none;overflow:visible;}
+  body.ws-open .tp-queue{display:none;}
+  body:not(.ws-open) .tp-center,
+  body:not(.ws-open) .tp-rail{display:none;}
+  .ws-back{display:inline-flex;align-items:center;justify-content:center;}
+}
+
 .ws-zone{scroll-margin-top:76px;}
 .ws-panel{display:none;}
 .ws-panel.active{display:block;animation:wsIn .32s cubic-bezier(.22,1,.36,1);}
@@ -846,8 +882,12 @@ body.modal-open .bell-fab{display:none;}
 
 /* ═══════════════ CONTEXT (below the workspace) ═══════════════ */
 .ctx{display:none;}
-.ctx.active{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
+/* One column: this now lives in the ~300px context rail, not in a full-width
+   band. It goes back to two side by side at 1240px, where the rail drops below
+   the workspace and has the width to use. */
+.ctx.active{display:grid;grid-template-columns:1fr;gap:16px;align-items:start;}
 .ctx .card{padding:16px;}
+@media(max-width:1240px) and (min-width:961px){.ctx.active{grid-template-columns:1fr 1fr;}}
 .tl{display:grid;gap:12px;}
 .tl-step{display:flex;gap:10px;align-items:flex-start;}
 .tl-dot{width:26px;height:26px;flex-shrink:0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.66rem;font-weight:800;background:#fff;border:2px solid var(--bdr);color:var(--ink3);}
@@ -1142,7 +1182,11 @@ body.modal-open{overflow:hidden;}
       <button type="button" class="pwa-chip alerts" id="notifEnable" hidden><i class="fas fa-bell"></i>Enable alerts</button>
     </div>
 
-    <!-- ═══ QUEUE ═══ -->
+    <!-- ═══ THREE-PANEL WORKSPACE: queue | repair | context ═══ -->
+    <div class="tp-work">
+
+    <!-- ═══ QUEUE (left) ═══ -->
+    <aside class="tp-queue">
     <section class="card queue-shell" id="queue">
       <div class="queue-top">
         <span class="eyebrow"><span class="dot"></span> <?php echo $tab === 'history' ? 'Completed records' : 'Assigned to you'; ?></span>
@@ -1204,9 +1248,10 @@ body.modal-open{overflow:hidden;}
       </div>
       <?php endif; ?>
     </section>
+    </aside><!-- /tp-queue -->
 
-    <!-- ═══ REPAIR WORKSPACE (scrolls into view when a task is selected) ═══ -->
-    <div class="ws-zone" id="wsZone">
+    <!-- ═══ REPAIR WORKSPACE (centre) ═══ -->
+    <div class="ws-zone tp-center" id="wsZone">
       <?php foreach ($list as $row):
         $st = strtolower((string)($row['status'] ?? 'assigned'));
         $rid_e = e((string)$row['report_id']);
@@ -1415,8 +1460,10 @@ body.modal-open{overflow:hidden;}
         </div>
       </article>
       <?php endforeach; ?>
+    </div><!-- /tp-center -->
 
-      <!-- ═══ CONTEXT (per selected task) ═══ -->
+    <!-- ═══ CONTEXT (right) — workflow + this asset's repair history ═══ -->
+    <aside class="tp-rail">
       <?php foreach ($list as $row):
         $st = strtolower((string)($row['status'] ?? 'assigned'));
         $isSel = ((string)$row['report_id'] === (string)$selectedId);
@@ -1455,7 +1502,9 @@ body.modal-open{overflow:hidden;}
         </section>
       </div>
       <?php endforeach; ?>
-    </div><!-- /ws-zone -->
+    </aside><!-- /tp-rail -->
+
+    </div><!-- /tp-work -->
 
   </div>
 </main>
@@ -1556,26 +1605,54 @@ window.addEventListener('resize', function () { if (window.innerWidth > 960) bod
 const wsPanels = document.querySelectorAll('.ws-panel');
 const qcards   = document.querySelectorAll('.qcard[data-ws-target]');
 const ctxRails = document.querySelectorAll('.ctx');
-function selectWorkspace(id, scroll) {
+/* Wide enough for the three panels to be on screen together? Then selecting a
+   task is a panel swap and must NOT scroll — the queue you are picking from is
+   already beside the workspace, and scrolling would move it out from under the
+   pointer mid-choice. Narrow, the two take turns and body.ws-open decides. */
+function tpNarrow() { return window.matchMedia('(max-width:960px)').matches; }
+
+function selectWorkspace(id, userPicked) {
   let found = false;
   wsPanels.forEach(function (p) { const on = p.id === id; p.classList.toggle('active', on); if (on) found = true; });
   qcards.forEach(function (c) { c.classList.toggle('active', c.getAttribute('data-ws-target') === id); });
   const railId = id.replace(/^ws-/, 'rail-');
   ctxRails.forEach(function (r) { r.classList.toggle('active', r.id === railId); });
-  if (found && scroll) {
-    const z = document.getElementById('wsZone');
-    if (z) z.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (!found) { return; }
+  if (tpNarrow()) {
+    body.classList.add('ws-open');
+    if (userPicked) { window.scrollTo({ top: 0, behavior: 'smooth' }); }
   }
 }
 qcards.forEach(function (card) {
   card.addEventListener('click', function () { selectWorkspace(card.getAttribute('data-ws-target'), true); });
 });
+/* Back is the mobile-only return to the queue. */
 document.querySelectorAll('[data-ws-back]').forEach(function (b) {
   b.addEventListener('click', function () {
-    const q = document.getElementById('queue');
-    if (q) q.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    body.classList.remove('ws-open');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   });
 });
+/* Growing past the breakpoint must clear ws-open, or the desktop grid keeps the
+   queue hidden by the mobile rule. */
+window.addEventListener('resize', function () {
+  if (!tpNarrow()) { body.classList.remove('ws-open'); }
+});
+/* On a phone the queue and the workspace take turns, so which one you land on
+   matters. The server always preselects a task — it falls back to $list[0] so
+   the centre panel is never blank beside the queue on a desktop — which means
+   "a panel is active" is NOT evidence anyone asked for it. Only open straight
+   into the workspace when the URL names a report: a deep link, or the redirect
+   after a POST, which carries ?report= so you land back on the task you just
+   acted on. Otherwise a technician opening the portal gets the list, which is
+   the screen that lets them choose. */
+(function () {
+  var asked = false;
+  try { asked = new URLSearchParams(location.search).has('report'); } catch (_) {}
+  if (asked && tpNarrow() && document.querySelector('.ws-panel.active')) {
+    body.classList.add('ws-open');
+  }
+})();
 /* Deep link (?report=...) — scroll to the preselected panel.
    The guard was missing: this ran on EVERY load, so simply opening the portal
    threw the page down to the active task a quarter of a second after it
@@ -1585,6 +1662,10 @@ document.querySelectorAll('[data-ws-back]').forEach(function (b) {
   let deepLink = false;
   try { deepLink = new URLSearchParams(location.search).has('report'); } catch (_) {}
   if (!deepLink) { return; }
+  // On the three-panel layout the workspace is already beside the queue and in
+  // view, so scrolling to it only pushes the header off. Narrow, ws-open has
+  // already swapped to the panel and the page is at the top of it either way.
+  if (!tpNarrow()) { return; }
   const pre = document.querySelector('.ws-panel.active');
   if (pre) setTimeout(function () { pre.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 250);
 })();

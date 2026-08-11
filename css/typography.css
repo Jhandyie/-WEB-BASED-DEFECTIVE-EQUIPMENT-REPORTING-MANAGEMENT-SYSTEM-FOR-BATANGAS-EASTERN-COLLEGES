@@ -16,7 +16,12 @@
   /* Section and card titles stay on the interface face: a serif at 0.9rem in a
      dense admin table reads cluttered, not premium. */
   --font-heading: 'DM Sans', 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
-  --font-mono: 'Roboto Mono', 'SFMono-Regular', Consolas, monospace;
+  /* Only ever reached by something that asks for it explicitly. Roboto Mono
+     used to sit at the front of this stack and was never vendored, so it named
+     a face the app does not ship — see the ID rule near the bottom of the file
+     for what that cost. Everything here is either built into the OS or the
+     generic, so there is nothing left to fall through. */
+  --font-mono: ui-monospace, 'Cascadia Mono', Consolas, 'Liberation Mono', monospace;
 
   --type-app-title: clamp(1.25rem, 2vw, 1.65rem);
   --type-page-title: clamp(1.15rem, 1.7vw, 1.45rem);
@@ -258,13 +263,28 @@ footer,
   letter-spacing: 0;
 }
 
+/* Ticket numbers, work-order and asset ids. These were forced onto --font-mono
+   with !important, and the front of that stack was 'Roboto Mono' — a family the
+   app has never vendored. So the declaration reached nothing and every id fell
+   through to whatever mono the machine happened to own: Consolas on Windows,
+   SF Mono on a Mac, DejaVu elsewhere. The !important also beat every page that
+   had already chosen a face for its own ids, which is how BEC-2026-000097 came
+   out as Consolas on three admin pages that ask for Outfit, and how the student
+   dashboard's 1.4rem Fraunces ticket number rendered as a mono string.
+
+   Outfit is the default here because it is vendored and it is what the admin
+   pages already declare. No !important: a page that has decided otherwise —
+   student_dashboard.php wants the serif for its one big ticket number — now
+   keeps its decision. Lining, evenly-spaced figures are what a column of ids
+   actually needs from a monospace, and tabular-nums gets that from any of them. */
 .rid,
 .woid,
 .eid,
 .ticket-num,
 .report-id,
 .asset-tag {
-  font-family: var(--font-mono) !important;
+  font-family: 'Outfit', var(--font-primary);
+  font-variant-numeric: tabular-nums;
   letter-spacing: 0;
 }
 

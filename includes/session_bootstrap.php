@@ -137,4 +137,3 @@ if (!function_exists('startRoleSession')) {
         session_start();
     }
 }
-?>

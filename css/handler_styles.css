@@ -203,7 +203,10 @@ body {
 }
 
 .page-title {
-    font-family: 'Poppins', sans-serif;
+    /* Outfit, not Poppins: Poppins is not vendored, so it named a face the app
+       does not ship. Nothing links this sheet today, but a ghost family left in
+       it is a trap for whoever links it next. */
+    font-family: 'Outfit', 'DM Sans', sans-serif;
     font-size: 26px;
     font-weight: 700;
     background: linear-gradient(45deg, #800000, #a30000);

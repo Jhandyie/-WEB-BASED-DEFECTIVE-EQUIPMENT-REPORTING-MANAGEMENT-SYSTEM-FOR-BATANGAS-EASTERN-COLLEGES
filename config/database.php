@@ -1451,6 +1451,8 @@ function addDefectReport($data) {
         return false;
     }
 
+    defectReportCacheClear();
+
     // PostgreSQL / Supabase (PDO) path
     if (isPgSqlDriver()) {
         $pdo = getPgsqlPdoConnection();
@@ -1626,6 +1628,8 @@ function updateDefectReport($report_id, $data) {
         return false;
     }
 
+    defectReportCacheClear();
+
     if (isPgSqlDriver()) {
         $pdo = getPgsqlPdoConnection();
         $sets = [];
@@ -1662,6 +1666,8 @@ function updateDefectReport($report_id, $data) {
 }
 
 function deleteDefectReport($report_id) {
+    defectReportCacheClear();
+
     if (isPgSqlDriver()) {
         $pdo = getPgsqlPdoConnection();
         $stmt = $pdo->prepare('DELETE FROM public.defect_reports WHERE report_id = :report_id');
@@ -1677,7 +1683,30 @@ function deleteDefectReport($report_id) {
     return $result;
 }
 
+/**
+ * Report list, memoised for the duration of one request.
+ *
+ * A single page render asks for the same report set more than once: admin_defect_reports.php
+ * fetches every report for the stat cards and again for the list (identical SQL whenever no
+ * priority/search filter is active, which is the default view), and admin_dashboard.php fetches
+ * once for itself and again inside getDefectsOverTime(). Each of those is the same six-way JOIN
+ * and a full Supabase round trip (~429 ms). Rows can only change mid-request if that request
+ * writes, and every writer below calls defectReportCacheClear().
+ */
 function getDefectReportsWithFilters($status = 'all', $priority = 'all', $search = '') {
+    $key = $status . "\0" . $priority . "\0" . $search;
+    if (!isset($GLOBALS['__defect_report_cache'][$key])) {
+        $GLOBALS['__defect_report_cache'][$key] = fetchDefectReportsWithFilters($status, $priority, $search);
+    }
+    return $GLOBALS['__defect_report_cache'][$key];
+}
+
+/** Drop the memo above. Call after anything that writes to defect_reports. */
+function defectReportCacheClear() {
+    $GLOBALS['__defect_report_cache'] = [];
+}
+
+function fetchDefectReportsWithFilters($status = 'all', $priority = 'all', $search = '') {
     if (isPgSqlDriver()) {
         $pdo = getPgsqlPdoConnection();
         $sql = "SELECT dr.*, e.equipment_name, e.asset_tag as asset_tag,
@@ -2150,8 +2179,11 @@ if (!function_exists('notifyReporter')) {
     /**
      * Notify a report's reporter through an in-app notification and (when the
      * reporter email is known) a formatted email. Safe to call anywhere.
+     *
+     * $opts is passed through to sendEmail(); pass ['defer' => true] from anything
+     * running inside a page render so the reader never waits on SMTP.
      */
-    function notifyReporter(array $report, string $shortMessage, string $emailHeading = '', string $emailBody = ''): void {
+    function notifyReporter(array $report, string $shortMessage, string $emailHeading = '', string $emailBody = '', array $opts = []): void {
         $reportId   = (string)($report['report_id'] ?? '');
         $reportedBy = (string)($report['reported_by'] ?? '');
 
@@ -2173,7 +2205,7 @@ if (!function_exists('notifyReporter')) {
             if (function_exists('sendEmail')) {
                 $subject = 'BEC Report ' . $reportId . ($emailHeading !== '' ? ' — ' . $emailHeading : ' Update');
                 $body = buildReporterStatusEmail($reportId, $emailHeading !== '' ? $emailHeading : 'Report Update', $emailBody !== '' ? $emailBody : $shortMessage, $report);
-                try { sendEmail($email, $subject, $body, null, 'admin'); } catch (\Throwable $e) {}
+                try { sendEmail($email, $subject, $body, null, 'admin', $opts); } catch (\Throwable $e) {}
             }
         }
     }
@@ -2309,6 +2341,7 @@ function assignDefectReportToTechnician(string $reportId, string $technicianId, 
         $types .= 's';
         $sql = "UPDATE defect_reports SET " . implode(",\n                ", $sets) . "\n            WHERE report_id = ?";
 
+        defectReportCacheClear();
         $conn->begin_transaction();
         $stmt = $conn->prepare($sql);
         if (!$stmt) {

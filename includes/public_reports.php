@@ -471,6 +471,16 @@ td:last-child{padding-right:1.25rem;}
   td[data-label="Ticket"]{background:var(--maroon-soft,rgba(123,29,29,.05));border-radius:12px 12px 0 0;}
   td[data-label="Ticket"] .ticket-cell{font-weight:800;}
   td[data-label="Issue"]>div{width:100%;text-align:left;margin-top:.2rem;}
+
+  /* ── type floor ──────────────────────────────────────────────────────────
+     Once the table becomes cards, td::before IS the column heading — it is the
+     only thing telling you whether you are reading a location or a category —
+     and it was rendering at 10.9px. The card's own values ran 10.7-11.6px. */
+  td::before{font-size:.7rem;}
+  .eye,.di-label{font-size:.7rem;}
+  .stat-label,.equip-cat,.date-ago{font-size:.72rem;}
+  /* The status badge is the column people scan this board for. */
+  .badge{font-size:.72rem;}
 }
 </style>
 </head>

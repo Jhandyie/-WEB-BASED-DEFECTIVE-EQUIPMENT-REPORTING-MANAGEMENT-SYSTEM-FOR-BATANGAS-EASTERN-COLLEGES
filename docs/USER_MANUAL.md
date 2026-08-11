@@ -7,20 +7,29 @@ Quick, role-by-role instructions for everyday use.
 
 ## 1. Reporters (students, faculty & staff)
 
-**You don't need an account** — just your official BEC email.
+**You don't need an account** — just your official BEC email, which we confirm with a short code
+instead of a password.
 
 ### File a defect report
 1. Open the site → **Report defective equipment** (or scan the QR sticker on the equipment —
    the form opens with that equipment already selected).
-2. Enter your **full name** and **BEC email** → Continue.
-3. Pick the equipment (type to search, or add it manually), choose the location, describe the
+2. Enter your **full name** and **BEC email**, tick the privacy consent → Continue.
+3. Check your inbox for a **6-digit code** and enter it. The code is valid for **3 minutes**; you can
+   ask for another after 25 seconds. This browser then remembers you for **30 days**, so next time you
+   go straight in with one tap.
+4. Pick the equipment (type to search, or add it manually), choose the location, describe the
    problem, attach photos if you can, and **Submit**.
-4. You receive a **ticket number** on screen and by email. Keep it.
+5. You receive a **ticket number** on screen and by email. Keep it.
+
+> Codes are only sent to addresses on the official BEC directory. If nothing arrives, check your spam
+> folder first, then ask the PMO to confirm your address is on file.
 
 ### Follow your report
-- Open **Track Report** and enter your ticket number (or the equipment/asset tag).
-- You'll see the live status timeline. You can send a **follow-up** if it stalls
-  (up to 3), and once it's repaired you'll be asked to confirm **"Was your issue resolved?"**
+- Open **Track Report** and enter your ticket number (or the equipment/asset tag). Reading the status
+  needs no sign-in.
+- You'll see the live status timeline. While you're **signed in as the reporter**, you can also send a
+  **follow-up** if it stalls (up to 3), and once it's repaired you'll be asked to confirm
+  **"Was your issue resolved?"** — that answer can only be given once, so it's reserved to you.
 - You also get an email at every major step: received, approved, technician assigned,
   repair completed.
 
@@ -35,7 +44,8 @@ emailed to you** (valid 3 minutes).
 1. **Dashboard** — open reports, priorities, overdue items, Asset Health, live activity.
 2. **Defect Reports** — for each new report:
    - **Mark as Received** (reporter is notified) →
-   - **Approve** — set department (PMO/ITSO) and priority; a work order is created →
+   - **Approve** — set department (PMO/ITSO) and priority; the report moves straight to
+     **Ready for Assignment** →
    - or **Reject** with a reason.
 3. **Assign Technicians** — pick a report, click a technician card (workloads shown).
    The technician gets an in-app alert **and an email deep-linking to the task**.
@@ -49,7 +59,10 @@ emailed to you** (valid 3 minutes).
 - **User Management** — create/edit users, **Invite Technician** (emailed activation link,
   3-day expiry), reset passwords. **Export** produces the official BEC letterhead
   User List (PDF / Excel / CSV).
-- **Audit Log** — searchable record of every action (who, what, when, from where).
+- **Activity record** — every lifecycle action (who, what, when) is written server-side.
+  There is no browsable Audit Log page in this version; the viewer was removed in
+  August 2026 and the manual should not send you looking for a menu item that is
+  not there. The record itself is unaffected.
 - **Backup & Recovery** — back up the whole database on demand, download any snapshot, and
   restore/recover records if data is ever deleted; a nightly backup also runs automatically.
 - **BECCA AI** (floating orb) — ask for summaries, overdue items, busiest technician,

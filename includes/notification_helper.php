@@ -114,4 +114,3 @@ function getRecentNotifications($user_id, $limit = 10) {
 
     return $notifications;
 }
-?>

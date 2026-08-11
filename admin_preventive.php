@@ -37,8 +37,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 VALUES (:t,:eid,:en,:loc,:cat,:f,:nd,:pr,:asg,:ins,'active',:cb, now())");
             $st->execute(['t'=>$title,'eid'=>$eqId,'en'=>$eqName,'loc'=>$loc,'cat'=>$cat,'f'=>$freq,'nd'=>$firstDue,'pr'=>$priority,'asg'=>($assigned !== '' ? $assigned : null),'ins'=>$instr,'cb'=>$admin_id]);
             if (function_exists('logActivity')) { try { logActivity($admin_id, 'admin', 'pm.create', 'Created PM schedule: ' . $title); } catch (\Throwable $e) {} }
-            // If the first due date is today/past, generate immediately.
-            @runPreventiveMaintenanceSweep();
+            // If the first due date is today/past, generate immediately —
+            // forced past the throttle, because the admin just asked for it.
+            @runPreventiveMaintenanceSweep(true);
             $flash = ['ok', 'Preventive maintenance schedule created.'];
         }
     } elseif ($act === 'toggle') {
@@ -48,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->prepare("DELETE FROM preventive_schedules WHERE id = ?")->execute([(int)($_POST['id'] ?? 0)]);
         $flash = ['ok', 'Schedule deleted.'];
     } elseif ($act === 'run_now') {
-        $n = runPreventiveMaintenanceSweep();
+        $n = runPreventiveMaintenanceSweep(true);
         $flash = ['ok', $n > 0 ? "$n preventive task(s) generated." : 'No schedules are due right now.'];
     }
 }
@@ -89,11 +90,11 @@ $presets   = pmFrequencyPresets();
   .stat{position:relative;overflow:hidden;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.15rem 1.3rem;display:flex;align-items:center;gap:1rem;box-shadow:0 1px 2px rgba(44,10,10,.05);transition:transform .26s cubic-bezier(.4,0,.2,1),box-shadow .26s;cursor:default;}
   .stat::before{content:'';position:absolute;top:-24px;right:-24px;width:90px;height:90px;border-radius:50%;background:var(--sk,var(--m));opacity:.05;transition:transform .3s,opacity .3s;}
   .stat::after{content:'';position:absolute;left:0;bottom:0;width:100%;height:3px;background:var(--sk,var(--m));transform:scaleX(0);transform-origin:left;transition:transform .32s;}
-  .stat:hover{transform:translateY(-4px);box-shadow:0 12px 30px rgba(44,10,10,.12);}
-  .stat:hover::before{transform:scale(1.5);opacity:.09;}
+  .stat:hover{transform:none;box-shadow:0 12px 30px rgba(44,10,10,.12);}
+  .stat:hover::before{transform:none;opacity:.09;}
   .stat:hover::after{transform:scaleX(1);}
   .stat .ic{position:relative;z-index:1;width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;box-shadow:none;transition:transform .26s;}
-  .stat:hover .ic{transform:rotate(-8deg) scale(1.12);}
+  .stat:hover .ic{transform:none;}
   .stat .n{position:relative;z-index:1;font-family:'Outfit',sans-serif;font-size:2rem;font-weight:800;line-height:1;color:var(--ink);}
   .stat .l{position:relative;z-index:1;font-size:.62rem;text-transform:uppercase;letter-spacing:.6px;color:var(--ink3);font-weight:700;margin-top:.35rem;}
   .stat.s-m{--sk:var(--m);} .stat.s-m .ic{background:rgba(123,29,29,.1);color:var(--m);} .stat.s-m .n{color:var(--m);}
@@ -116,7 +117,7 @@ $presets   = pmFrequencyPresets();
   .form-actions{margin-top:1.25rem;display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;}
   .form-actions .hint{font-size:.72rem;color:var(--ink3);margin-left:auto;}
   .btn{display:inline-flex;align-items:center;gap:.5rem;padding:.68rem 1.2rem;border-radius:10px;border:none;font:inherit;font-weight:700;font-size:.84rem;cursor:pointer;text-decoration:none;transition:transform .15s,background .15s;}
-  .btn.m{background:var(--m);color:#fff;box-shadow:none;} .btn.m:hover{background:var(--md);transform:translateY(-1px);}
+  .btn.m{background:var(--m);color:#fff;box-shadow:none;} .btn.m:hover{background:var(--md);transform:none;}
   .btn.m:active{transform:none;box-shadow:none;}
   .btn.ghost{background:#f1eadf;color:var(--ink2);} .btn.ghost:hover{background:#e7dac6;}
   /* Table */
@@ -141,7 +142,7 @@ $presets   = pmFrequencyPresets();
   .empty{text-align:center;color:var(--ink3);padding:2.5rem 1rem;}
   .empty i{color:var(--g);opacity:.75;}
   .iact{background:#fff;border:1px solid var(--border);border-radius:9px;width:34px;height:34px;cursor:pointer;color:var(--ink2);transition:all .15s;}
-  .iact:hover{background:#f1eadf;border-color:var(--m);color:var(--m);transform:translateY(-1px);}
+  .iact:hover{background:#f1eadf;border-color:var(--m);color:var(--m);transform:none;}
   .iact.del:hover{background:#FEF2F2;border-color:var(--danger);color:var(--danger);}
   @media(max-width:860px){.main{margin-left:0;}.cards{grid-template-columns:1fr}.fgrid{grid-template-columns:1fr}}
   @media(max-width:640px){ input,select,textarea,.fi,.fc,.input{ font-size:16px; } } /* prevent iOS zoom */

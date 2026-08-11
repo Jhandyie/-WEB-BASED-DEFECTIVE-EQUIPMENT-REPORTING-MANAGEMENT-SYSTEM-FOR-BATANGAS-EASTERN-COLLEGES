@@ -59,7 +59,10 @@
 }
 
 body {
-    font-family: var(--font-primary);
+    /* Fallback spelled out: --font-primary belongs to typography.css, and a
+       var() with no fallback that resolves to nothing takes the whole
+       declaration with it rather than falling back to the next family. */
+    font-family: var(--font-primary, 'DM Sans', 'Segoe UI', system-ui, Arial, sans-serif);
     background: var(--main-bg);
     overflow-x: hidden;
 }
@@ -235,7 +238,9 @@ body {
 }
 
 .page-title {
-    font-family: 'Poppins', sans-serif;
+    /* Outfit, not Poppins: Poppins is not vendored, so it named a face the app
+       does not ship and this fell through to the generic sans. */
+    font-family: 'Outfit', 'DM Sans', sans-serif;
     font-size: 26px;
     font-weight: 700;
     background: linear-gradient(45deg, #800000, #a30000);

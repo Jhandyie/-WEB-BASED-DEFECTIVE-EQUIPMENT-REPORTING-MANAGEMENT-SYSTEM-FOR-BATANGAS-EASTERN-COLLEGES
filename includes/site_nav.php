@@ -44,6 +44,17 @@ if (!isset($nav_active)) { $nav_active = ''; }
 .bsnav-burger.open span i:nth-child(2){opacity:0;}
 .bsnav-burger.open span i:nth-child(3){transform:translateY(-6.5px) rotate(-45deg);}
 .bsnav-scrim{display:none;}
+/* Skip link — this nav puts four links between the top of the page and the
+   content, which is a long tab journey on every visit. It lives here, not in
+   each page's stylesheet, because the nav is the reason it is needed; every
+   page that requires this file must therefore carry a #main landmark.
+   Off-screen until focused. Literal colours, like the rest of this file. */
+.bsnav-skip{position:absolute;left:.75rem;top:-3rem;z-index:400;padding:.7rem 1.2rem;border-radius:0 0 10px 10px;background:#4A0E0E;color:#fff;text-decoration:none;font-family:'DM Sans',sans-serif;font-size:.85rem;font-weight:700;transition:top .18s ease;}
+.bsnav-skip:focus{top:0;}
+/* The public pages other than the landing page define no focus style of their
+   own, so the browser default all but vanishes against this cream bar. */
+.bsnav :focus-visible,.bsnav-skip:focus-visible{outline:3px solid #7B1D1D;outline-offset:2px;}
+@media (prefers-reduced-motion:reduce){.bsnav,.bsnav-in,.bsnav-skip,.bsnav-link,.bsnav-cta{transition:none;}}
 
 @media(max-width:640px){
   .bsnav-burger{display:inline-flex;}
@@ -57,12 +68,19 @@ if (!isset($nav_active)) { $nav_active = ''; }
   .bsnav-link{display:flex;align-items:center;gap:.65rem;padding:.6rem .85rem;border-radius:10px;font-size:.88rem;min-height:44px;letter-spacing:.1px;}
   .bsnav-link i{width:18px;text-align:center;color:#C9960C;font-size:.8rem;}
   .bsnav-link.active{background:rgba(123,29,29,.1);}
+  /* "Property Management Office" under the brand was the smallest text on the
+     site at 9.5px — on a phone it reads as texture rather than as words, and it
+     is the line that says whose system this is. This has to live in THIS block,
+     not the 640px block near the top of the file: the base .bsnav-brand small
+     rule sits between the two, and at equal specificity source order decides. */
+  .bsnav-brand small{font-size:.65rem;}
   .bsnav-cta{margin-left:0;margin-top:.45rem;justify-content:center;padding:.65rem 1rem;font-size:.88rem;font-weight:700;min-height:44px;border-radius:10px;}
   /* dim the page behind the open drawer */
   .bsnav-scrim{display:block;position:fixed;inset:0;top:56px;z-index:-1;background:rgba(28,16,8,.28);opacity:0;visibility:hidden;transition:opacity .22s,visibility .22s;}
   .bsnav-scrim.open{opacity:1;visibility:visible;}
 }
 </style>
+<a class="bsnav-skip" href="#main">Skip to content</a>
 <nav class="bsnav">
   <div class="bsnav-in">
     <a class="bsnav-brand" href="index.php">
@@ -70,10 +88,10 @@ if (!isset($nav_active)) { $nav_active = ''; }
       <span><b>BEC PMO</b><small>Property Management Office</small></span>
     </a>
     <div class="bsnav-links" id="bsnavLinks">
-      <a class="bsnav-link <?php echo $nav_active === 'home' ? 'active' : ''; ?>" href="index.php"><i class="fas fa-house"></i> Home</a>
-      <a class="bsnav-link <?php echo $nav_active === 'public' ? 'active' : ''; ?>" href="public_reports.php"><i class="fas fa-list-ul"></i> Public Reports</a>
-      <a class="bsnav-link <?php echo $nav_active === 'track' ? 'active' : ''; ?>" href="track_report.php"><i class="fas fa-magnifying-glass"></i> Track Report</a>
-      <a class="bsnav-cta" href="student_index.php"><i class="fas fa-plus"></i> Report defect</a>
+      <a class="bsnav-link <?php echo $nav_active === 'home' ? 'active' : ''; ?>" href="index.php"><i aria-hidden="true" class="fas fa-house"></i> Home</a>
+      <a class="bsnav-link <?php echo $nav_active === 'public' ? 'active' : ''; ?>" href="public_reports.php"><i aria-hidden="true" class="fas fa-list-ul"></i> Public Reports</a>
+      <a class="bsnav-link <?php echo $nav_active === 'track' ? 'active' : ''; ?>" href="track_report.php"><i aria-hidden="true" class="fas fa-magnifying-glass"></i> Track Report</a>
+      <a class="bsnav-cta" href="student_index.php"><i aria-hidden="true" class="fas fa-plus"></i> Report defect</a>
     </div>
     <button class="bsnav-burger" id="bsnavBurger" type="button" aria-label="Menu" aria-expanded="false" aria-controls="bsnavLinks">
       <span><i></i><i></i><i></i></span>
