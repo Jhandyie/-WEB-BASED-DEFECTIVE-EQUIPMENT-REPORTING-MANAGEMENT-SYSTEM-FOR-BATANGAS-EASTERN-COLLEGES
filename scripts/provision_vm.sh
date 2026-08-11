@@ -79,6 +79,7 @@ say "Apache"
 cat > /etc/apache2/sites-available/bec-pmo.conf <<EOF
 <VirtualHost *:80>
     ServerName ${DOMAIN:-localhost}
+${DOMAIN:+    ServerAlias www.$DOMAIN}
     DocumentRoot $APP_DIR
 
     <Directory $APP_DIR>
@@ -194,8 +195,12 @@ if [[ -n "$DOMAIN" ]]; then
     PUBLIC=$(curl -fsS --max-time 8 https://api.ipify.org 2>/dev/null || echo "")
     if [[ -n "$RESOLVED" && "$RESOLVED" == "$PUBLIC" ]]; then
         say "HTTPS"
-        certbot --apache -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect || \
-            warn "certbot did not complete - run 'sudo certbot --apache' by hand"
+        # Both names, because the certificate is requested for both and certbot
+        # refuses to install one it cannot match to a vhost - it aborts with
+        # "vhost ambiguity" after having already issued the certificate.
+        certbot --apache -d "$DOMAIN" -d "www.$DOMAIN" --non-interactive --agree-tos \
+                --register-unsafely-without-email --redirect || \
+            warn "certbot did not complete - run 'certbot --apache -d $DOMAIN -d www.$DOMAIN' by hand"
     else
         warn "$DOMAIN resolves to '${RESOLVED:-nothing}' but this machine is '${PUBLIC:-unknown}'"
         warn "point the DNS record here first, then: sudo certbot --apache -d $DOMAIN"
