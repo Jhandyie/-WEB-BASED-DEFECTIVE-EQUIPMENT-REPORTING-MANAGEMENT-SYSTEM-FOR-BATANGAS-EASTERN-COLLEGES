@@ -72,7 +72,38 @@ if (-not $Apply) {
 
 Write-Output ""
 Write-Output "  Renaming the folder..."
-Rename-Item -LiteralPath $oldPath -NewName $NewName
+# Windows will not rename a directory that any process holds open - including an
+# editor with it open as a workspace, and any shell whose working directory is
+# inside it. The bare error for this is "used by another process", which names
+# neither the folder nor the culprit, so check first and say something useful.
+$holders = Get-Process -ErrorAction SilentlyContinue |
+           Where-Object { $_.ProcessName -match '^(Code|devenv|idea64|sublime_text|notepad\+\+)$' }
+if ($holders) {
+    $names = ($holders | Select-Object -ExpandProperty ProcessName -Unique) -join ", "
+    Write-Output ""
+    Write-Output "  STOPPED. An editor is running: $names"
+    Write-Output "  If it has this folder open as a workspace it holds a handle on it and"
+    Write-Output "  the rename will fail. Close it, then run this again."
+    Write-Output ""
+    Write-Output "  Also close any terminal sitting inside the folder (cd somewhere else),"
+    Write-Output "  and stop Apache from the XAMPP Control Panel."
+    exit 1
+}
+try {
+    Rename-Item -LiteralPath $oldPath -NewName $NewName -ErrorAction Stop
+} catch {
+    Write-Output ""
+    Write-Output "  FAILED: $($_.Exception.Message)"
+    Write-Output ""
+    Write-Output "  Something still holds the folder open. In order of likelihood:"
+    Write-Output "    - an editor with the folder open as a workspace"
+    Write-Output "    - a terminal whose current directory is inside it"
+    Write-Output "    - Apache (stop it in the XAMPP Control Panel)"
+    Write-Output "    - File Explorer with the folder selected"
+    Write-Output ""
+    Write-Output "  Nothing was changed. Close them and run this again."
+    exit 1
+}
 Write-Output "  Rewriting references..."
 
 $changed = 0
