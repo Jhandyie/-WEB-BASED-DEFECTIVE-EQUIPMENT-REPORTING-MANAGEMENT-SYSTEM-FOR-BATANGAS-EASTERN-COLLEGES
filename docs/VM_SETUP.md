@@ -1,9 +1,23 @@
-# Running on a free VM — step by step
+# Running on a VPS — step by step
 
 For demoing to reporters, admins and technicians at once without the laptop having to stay
 awake. You get an empty Ubuntu machine; `scripts/provision_vm.sh` does the rest.
 
 Budget about an hour the first time. Most of it is waiting.
+
+## Where to click
+
+| What | Link |
+|---|---|
+| Hostinger VPS plans (paid, recommended) | <https://www.hostinger.com/vps-hosting> |
+| Oracle Always Free (free) | <https://www.oracle.com/cloud/free/> |
+| Google Cloud free tier | <https://cloud.google.com/free> |
+| Gmail app passwords | <https://myaccount.google.com/apppasswords> |
+| This project's repo | <https://github.com/Jhandyie/-WEB-BASED-DEFECTIVE-EQUIPMENT-REPORTING-MANAGEMENT-SYSTEM-FOR-BATANGAS-EASTERN-COLLEGES> |
+
+**Buy VPS, not shared hosting.** On Hostinger's site the shared plans (Single / Premium /
+Business / Cloud) are the prominent ones and they are the wrong product here — see below.
+Their prices are also 48-month prepayments, not monthly rates.
 
 ---
 
