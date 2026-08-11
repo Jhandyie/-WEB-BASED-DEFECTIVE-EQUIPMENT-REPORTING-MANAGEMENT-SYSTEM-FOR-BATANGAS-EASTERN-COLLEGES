@@ -36,7 +36,7 @@ Nothing here needs a database *on* the server. Supabase stays where it is.
 |                       | Hostinger VPS           | Oracle Always Free          | Google Cloud e2-micro    |
 |-----------------------|-------------------------|-----------------------------|--------------------------|
 | Cost                  | paid monthly            | free                        | free                     |
-| Region near PH        | **Singapore**           | Singapore / Tokyo           | US only on free tier     |
+| Region near PH        | **Malaysia** (53 ms)    | Singapore / Tokyo           | US only on free tier     |
 | `pdo_pgsql`           | you install it          | you install it              | you install it           |
 | **Outbound SMTP 587** | allowed                 | **usually blocked**         | usually allowed          |
 | Egress                | generous                | ~10 TB/month                | **~1 GB/month**          |
@@ -45,9 +45,13 @@ Nothing here needs a database *on* the server. Supabase stays where it is.
 
 **Region is the deciding factor.** The Supabase project is in `ap-southeast-1` (Singapore) and
 every page makes several queries, so a US machine pays a Pacific crossing on each one — slower
-during an evaluation than the laptop already is. Pick Singapore.
+during an evaluation than the laptop already is.
 
-> **Paying and want it to just work: Hostinger VPS, Singapore.** Right region, SMTP works,
+Pick whatever the provider offers nearest that region: **Malaysia** on Hostinger, which has no
+Singapore option for VPS, or **Singapore** on Oracle. The leg that counts is server-to-database,
+not you-to-server, because it is paid several times per page rather than once.
+
+> **Paying and want it to just work: Hostinger VPS, Malaysia.** Near region, SMTP works,
 > support exists.
 >
 > **Free: Oracle Always Free, Singapore** — plus a mail relay on port 2525 to get around
@@ -64,7 +68,11 @@ Account creation needs a card, a phone code and accepting terms — including on
 where the card is for identity checks rather than billing.
 
 **Hostinger VPS** — hPanel → VPS → Create
-- Location **Singapore**. This is most of the benefit; the default may be elsewhere
+- Location **Malaysia**. Their VPS list has no Singapore option (Malaysia 53 ms, India 112 ms,
+  everything else 200 ms+), and Kuala Lumpur is a short regional hop from the Supabase region.
+  What matters is the *server to database* leg, since each page makes several queries — putting
+  the web server next door to the database is the win, even though your own connection to it
+  is 53 ms
 - OS template **Ubuntu 22.04** plain — not a one-click LAMP image, since `provision_vm.sh`
   installs the right versions and settings itself
 - Note the root password and public IP it gives you
