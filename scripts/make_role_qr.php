@@ -1,32 +1,37 @@
 <?php
 /**
- * make_role_qr.php — one printable A4 sheet with a QR code per portal.
+ * make_role_qr.php — one printable A4 page per portal, as separate files.
  *
  * The demo sheet (make_demo_qr.php) points everyone at the landing page and
  * lets them find their own way in. In front of a panel that costs a minute per
- * person, so this gives each audience its own code: reporters, technicians and
- * administrators each scan once and land on their own sign-in screen.
+ * person, so this gives each audience its own code.
  *
- * Self-contained like the demo sheet: the QR library, the seal and all styling
- * are embedded, so it renders and prints on a laptop with no internet.
+ * A page each rather than one shared sheet, because they are used in different
+ * places: the reporter code goes on a wall where equipment breaks, the
+ * technician code goes to the maintenance team, the administrator code stays in
+ * the office. A whole page also means a code roughly four times the area, which
+ * is what lets someone scan it from across a corridor.
+ *
+ * Self-contained: the QR library, the seal and all styling are embedded, so
+ * each page renders and prints on a laptop with no internet.
  *
  * Usage:
- *   php scripts/make_role_qr.php [base-url] [output-path]
+ *   php scripts/make_role_qr.php [base-url] [output-directory]
  *
  * Pass the base URL without a trailing path:
  *   php scripts/make_role_qr.php https://becpmo.online
  *
  * Re-run it whenever the address changes — the codes encode it directly, so a
- * printed sheet outlives the URL it was built from.
+ * printed page outlives the URL it was built from.
  */
 
-$base = rtrim($argv[1] ?? 'http://187.52.115.45', '/');
-$out  = $argv[2] ?? (getenv('USERPROFILE') ?: getenv('HOME')) . '/OneDrive/Desktop/BEC-role-QR.html';
+$base = rtrim($argv[1] ?? 'https://becpmo.online', '/');
+$dir  = rtrim($argv[2] ?? ((getenv('USERPROFILE') ?: getenv('HOME')) . '/OneDrive/Desktop'), '/\\');
 $root = dirname(__DIR__);
 
 $lib = @file_get_contents($root . '/assets/qrcode.min.js');
 if ($lib === false || $lib === '') {
-    fwrite(STDERR, "ERROR: assets/qrcode.min.js is missing — cannot build an offline-safe sheet.\n");
+    fwrite(STDERR, "ERROR: assets/qrcode.min.js is missing — cannot build an offline-safe page.\n");
     exit(1);
 }
 
@@ -39,68 +44,65 @@ foreach (['pwa-icon-192.png', 'logs.png', 'logo.png'] as $n) {
     }
 }
 
-/* Each portal, in the order a report actually travels: someone reports it, a
-   technician repairs it, an administrator oversees it. */
+/* Ordered the way a report actually travels: someone reports it, a technician
+   repairs it, an administrator oversees it. */
 $roles = [
     [
-        'key'   => 'reporter',
+        'file'  => 'BEC-QR-1-Students-and-Faculty.html',
         'name'  => 'Students &amp; Faculty',
         'sub'   => 'Report defective equipment',
         'url'   => $base . '/student_index.php',
-        'steps' => 'Sign in with your BEC email address. A 6-digit code is sent to confirm it is you.',
+        'steps' => [
+            'Scan the code above with your phone camera and tap the link.',
+            'Enter your official BEC email address and your name.',
+            'Type the 6-digit code sent to your email, then describe the problem.',
+        ],
+        'note'  => 'Open to every student and member of staff. No account is needed — the code sent to your BEC email is what confirms it is you.',
     ],
     [
-        'key'   => 'technician',
+        'file'  => 'BEC-QR-2-Technicians.html',
         'name'  => 'Technicians',
         'sub'   => 'Receive and complete repair tasks',
         'url'   => $base . '/technician/login.html',
-        'steps' => 'Sign in with the account issued by the PMO. On a phone you can install this as an app.',
+        'steps' => [
+            'Scan the code above with your phone camera and tap the link.',
+            'Sign in with the account issued to you by the Property Management Office.',
+            'Accept your assigned task, then record the repair and upload a photo when done.',
+        ],
+        'note'  => 'Install this on your phone for quicker access: Android Chrome — menu, then Install app. iPhone Safari — Share, then Add to Home Screen.',
     ],
     [
-        'key'   => 'admin',
+        'file'  => 'BEC-QR-3-Administrators.html',
         'name'  => 'Administrators',
         'sub'   => 'Review, assign and verify reports',
         'url'   => $base . '/admin/admin_login_otp.html',
-        'steps' => 'Sign in with your administrator account, then enter the code sent to your email.',
+        'steps' => [
+            'Scan the code above, or open the address on a desktop computer.',
+            'Sign in with your administrator account.',
+            'Enter the verification code sent to your email to continue.',
+        ],
+        'note'  => 'The administrator portal is designed for a desktop screen. Reports are shown according to the unit your account belongs to.',
     ],
 ];
 
-$built   = date('F j, Y');
-$display = preg_replace('#^https?://#', '', $base);
+$built = date('F j, Y');
+$host  = preg_replace('#^https?://#', '', $base);
+$made  = [];
 
-$cards = '';
 foreach ($roles as $i => $r) {
-    $n = $i + 1;
-    $cards .= <<<CARD
-    <section class="role">
-      <div class="qbox"><div class="qr" id="qr{$r['key']}"></div></div>
-      <div class="meta">
-        <div class="rnum">Portal {$n}</div>
-        <h2>{$r['name']}</h2>
-        <p class="rsub">{$r['sub']}</p>
-        <p class="rstep">{$r['steps']}</p>
-        <div class="rurl">{$display}<span class="rpath">{$r['url']}</span></div>
-      </div>
-    </section>
+    $n    = $i + 1;
+    $path = preg_replace('#^https?://[^/]+#', '', $r['url']);
 
-CARD;
-    // The path shown under the host, without repeating the host itself.
-    $cards = str_replace('<span class="rpath">' . $r['url'] . '</span>',
-                         '<span class="rpath">' . preg_replace('#^https?://[^/]+#', '', $r['url']) . '</span>',
-                         $cards);
-}
+    $stepsHtml = '';
+    foreach ($r['steps'] as $s) { $stepsHtml .= "        <li>{$s}</li>\n"; }
 
-$targets = [];
-foreach ($roles as $r) { $targets[] = "['qr{$r['key']}'," . json_encode($r['url']) . "]"; }
-$targetsJs = '[' . implode(',', $targets) . ']';
-
-$html = <<<HTML
+    $html = <<<HTML
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BEC PMO — Equipment Reporting System · Portal Access</title>
+<title>BEC PMO — {$r['name']} · Portal Access</title>
 <style>
   :root{
     --maroon:#7B1D1D; --maroon-d:#4A0E0E; --gold:#C9960C;
@@ -113,55 +115,53 @@ $html = <<<HTML
 
   /* A4 portrait. Fixed width on screen so what you see is what prints. */
   .sheet{width:210mm;min-height:297mm;margin:0 auto;background:#fff;
-         padding:14mm 15mm 12mm;display:flex;flex-direction:column;
+         padding:16mm 18mm 13mm;display:flex;flex-direction:column;
          box-shadow:0 10px 40px rgba(44,10,10,.16);}
 
   /* letterhead — same language as the printed BEC exports */
-  .lh{display:flex;align-items:center;gap:12px;padding-bottom:10px;}
-  .lh img{height:52px;width:52px;object-fit:contain;}
-  .lh .n{font-family:'Times New Roman',Georgia,serif;font-size:19px;font-weight:800;
+  .lh{display:flex;align-items:center;gap:13px;padding-bottom:11px;}
+  .lh img{height:58px;width:58px;object-fit:contain;}
+  .lh .n{font-family:'Times New Roman',Georgia,serif;font-size:21px;font-weight:800;
          letter-spacing:.2px;line-height:1.1;color:var(--maroon-d);}
-  .lh .o{font-family:'Times New Roman',Georgia,serif;font-style:italic;font-size:12.5px;
+  .lh .o{font-family:'Times New Roman',Georgia,serif;font-style:italic;font-size:13.5px;
          color:var(--ink3);margin-top:2px;}
   .rule{height:3px;background:linear-gradient(90deg,var(--maroon-d),var(--maroon) 55%,var(--gold));
         border-radius:2px;}
 
-  .title{text-align:center;padding:13px 0 3px;}
-  .title h1{font-size:15px;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;
-            color:var(--maroon);}
-  .title p{font-size:12px;color:var(--ink3);margin-top:3px;}
+  .head{text-align:center;padding:15px 0 0;}
+  .sys{font-size:11px;font-weight:800;letter-spacing:1.7px;text-transform:uppercase;
+       color:var(--ink3);}
+  .badge{display:inline-block;margin-top:9px;background:var(--maroon);color:#fff;
+         font-size:10px;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;
+         padding:5px 15px;border-radius:20px;}
+  .head h1{font-size:34px;font-weight:800;color:var(--maroon-d);line-height:1.1;margin-top:11px;}
+  .head .sub{font-size:15px;color:var(--ink2);margin-top:5px;}
 
-  /* The three cards share whatever height is left after the header and the
-     footer, so the sheet fills an A4 page instead of trailing off with a gap
-     above the footer. Bigger codes are easier to scan, which is the point. */
-  .roles{display:flex;flex-direction:column;gap:11px;margin-top:12px;flex:1;}
-
-  .role{display:flex;align-items:center;gap:15px;border:1px solid var(--border);
-        border-radius:10px;padding:14px;background:var(--paper);flex:1;
-        page-break-inside:avoid;break-inside:avoid;}
-  .qbox{background:#fff;border:1px solid var(--border);border-radius:8px;padding:7px;flex-shrink:0;}
-  .qr{width:47mm;height:47mm;display:flex;align-items:center;justify-content:center;}
+  .qwrap{display:flex;justify-content:center;margin-top:16px;}
+  .qbox{background:#fff;border:2px solid var(--border);border-radius:14px;padding:10px;}
+  .qr{width:96mm;height:96mm;display:flex;align-items:center;justify-content:center;}
   .qr img,.qr canvas{width:100%!important;height:100%!important;display:block;}
-  .qfail{font-size:10px;color:#B42318;text-align:center;padding:8px;line-height:1.4;}
+  .qfail{font-size:13px;color:#B42318;text-align:center;padding:26px;line-height:1.5;}
 
-  .meta{min-width:0;}
-  .rnum{font-size:9px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;
-        color:var(--gold);margin-bottom:2px;}
-  .meta h2{font-size:17px;font-weight:800;color:var(--maroon-d);line-height:1.15;}
-  .rsub{font-size:12px;color:var(--ink2);margin-top:1px;}
-  .rstep{font-size:11px;color:var(--ink3);line-height:1.5;margin-top:6px;max-width:92mm;}
-  .rurl{font-size:10.5px;font-weight:700;color:var(--maroon);margin-top:7px;
-        word-break:break-all;line-height:1.35;}
-  .rpath{color:var(--ink3);font-weight:600;}
+  .addr{text-align:center;margin-top:13px;}
+  .addr .lbl{font-size:9.5px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;
+             color:var(--ink3);}
+  .addr .u{font-size:15px;font-weight:700;color:var(--maroon);margin-top:3px;
+           word-break:break-all;line-height:1.35;}
+  .addr .u span{color:var(--ink3);font-weight:600;}
 
-  .howto{margin-top:10px;border:1px solid var(--border);border-radius:9px;
-         padding:9px 13px;background:#fff;}
-  .howto b{font-size:9px;font-weight:800;letter-spacing:1.3px;text-transform:uppercase;
-           color:var(--maroon);display:block;margin-bottom:3px;}
-  .howto p{font-size:10.5px;color:var(--ink2);line-height:1.55;}
+  .steps{margin-top:17px;background:var(--paper);border:1px solid var(--border);
+         border-radius:11px;padding:14px 18px;}
+  .steps b{font-size:9.5px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;
+           color:var(--maroon);display:block;margin-bottom:7px;}
+  .steps ol{margin:0;padding-left:19px;}
+  .steps li{font-size:13px;color:var(--ink2);line-height:1.75;}
 
-  .foot{display:flex;justify-content:space-between;gap:10px;font-size:9px;
-        color:var(--ink3);margin-top:10px;padding-top:7px;border-top:1px solid var(--border);}
+  .note{margin-top:11px;font-size:12px;color:var(--ink3);line-height:1.6;
+        border-left:3px solid var(--gold);padding-left:11px;}
+
+  .foot{display:flex;justify-content:space-between;gap:10px;font-size:9.5px;
+        color:var(--ink3);margin-top:auto;padding-top:11px;border-top:1px solid var(--border);}
 
   .bar{max-width:210mm;margin:12px auto 0;display:flex;gap:8px;justify-content:center;}
   .bar button{background:var(--maroon);color:#fff;border:0;padding:9px 20px;border-radius:7px;
@@ -172,9 +172,9 @@ $html = <<<HTML
   @media print{
     @page{size:A4 portrait;margin:0;}
     body{background:#fff;padding:0;}
-    .sheet{width:auto;min-height:auto;margin:0;box-shadow:none;padding:12mm 14mm;}
+    .sheet{width:auto;min-height:auto;margin:0;box-shadow:none;padding:14mm 16mm;}
     .bar{display:none!important;}
-    .lh,.rule,.role,.howto,.rnum{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    .lh,.rule,.badge,.steps,.note{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   }
 </style>
 </head>
@@ -189,21 +189,27 @@ $html = <<<HTML
     </div>
     <div class="rule"></div>
 
-    <div class="title">
-      <h1>Equipment Reporting &amp; Maintenance System</h1>
-      <p>Scan the code for your role to open the system on your phone</p>
+    <div class="head">
+      <div class="sys">Equipment Reporting &amp; Maintenance System</div>
+      <div class="badge">Portal {$n} of 3</div>
+      <h1>{$r['name']}</h1>
+      <div class="sub">{$r['sub']}</div>
     </div>
 
-    <div class="roles">
-{$cards}    </div>
+    <div class="qwrap"><div class="qbox"><div class="qr" id="qr"></div></div></div>
 
-    <div class="howto">
-      <b>How to scan</b>
-      <p>Point your phone camera at the code for your role and tap the link that appears.
-      A page saying &ldquo;You are about to visit&hellip;&rdquo; is normal the first time &mdash; tap
-      <strong>Visit Site</strong> to continue. You can also type the address printed beneath
-      each code.</p>
+    <div class="addr">
+      <div class="lbl">Or type this address</div>
+      <div class="u">{$host}<span>{$path}</span></div>
     </div>
+
+    <div class="steps">
+      <b>How to use this</b>
+      <ol>
+{$stepsHtml}      </ol>
+    </div>
+
+    <div class="note">{$r['note']}</div>
 
     <div class="foot">
       <span>Prepared {$built}</span>
@@ -212,40 +218,39 @@ $html = <<<HTML
   </div>
 
   <div class="bar">
-    <button onclick="window.print()">Print this sheet</button>
+    <button onclick="window.print()">Print this page</button>
     <button class="sec" onclick="location.reload()">Reload</button>
   </div>
 
-<!-- QR library embedded (no CDN) so this sheet works with no internet. -->
+<!-- QR library embedded (no CDN) so this page works with no internet. -->
 <script>{$lib}</script>
 <script>
 (function(){
   // Level H: still scans if the printout is creased, smudged or partly covered.
-  var targets = {$targetsJs};
-  targets.forEach(function(t){
-    var box = document.getElementById(t[0]);
-    if (!box) return;
-    try {
-      if (!window.QRCode) throw new Error('library missing');
-      new QRCode(box, { text: t[1], width: 320, height: 320,
-        colorDark: '#1C1008', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.H });
-    } catch (e) {
-      box.innerHTML = '<div class="qfail"><b>QR unavailable.</b><br>Type the address below.</div>';
-    }
-  });
+  var box = document.getElementById('qr');
+  try {
+    if (!window.QRCode) throw new Error('library missing');
+    new QRCode(box, { text: "{$r['url']}", width: 700, height: 700,
+      colorDark: '#1C1008', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.H });
+  } catch (e) {
+    box.innerHTML = '<div class="qfail"><b>QR could not be generated.</b><br>'
+      + 'Please type the address printed below.</div>';
+  }
 })();
 </script>
 </body>
 </html>
 HTML;
 
-$dir = dirname($out);
-if (!is_dir($dir)) { @mkdir($dir, 0775, true); }
-if (@file_put_contents($out, $html) === false) {
-    fwrite(STDERR, "ERROR: could not write $out\n");
-    exit(1);
+    if (!is_dir($dir)) { @mkdir($dir, 0775, true); }
+    $out = $dir . '/' . $r['file'];
+    if (@file_put_contents($out, $html) === false) {
+        fwrite(STDERR, "ERROR: could not write $out\n");
+        exit(1);
+    }
+    $made[] = [$r['file'], $r['url'], strlen($html)];
 }
 
-printf("Built role QR sheet\n  Base: %s\n  File: %s\n  Size: %.1f KB (self-contained — no internet needed)\n",
-    $base, $out, strlen($html) / 1024);
-foreach ($roles as $r) { printf("    %-12s %s\n", $r['key'], $r['url']); }
+printf("Built %d portal pages (A4, one per role)\n  Base: %s\n  Folder: %s\n\n", count($made), $base, $dir);
+foreach ($made as [$f, $u, $len]) { printf("  %-36s %-52s %.0f KB\n", $f, $u, $len / 1024); }
+echo "\n  Each page is self-contained — printing needs no internet.\n";
