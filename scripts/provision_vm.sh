@@ -149,8 +149,15 @@ ok "backup_db.php scheduled daily at 18:00"
 # ---------------------------------------------------------------- checks ----
 say "Checks that matter"
 
-if php -m | grep -q '^pdo_pgsql$'; then ok "pdo_pgsql present - Supabase reachable in principle"
-else bad "pdo_pgsql MISSING - the app cannot reach its database"; FAILED=1; fi
+# Asked of PHP directly rather than as 'php -m | grep -q'. grep -q exits on the
+# first match, php takes SIGPIPE and returns 141, and with pipefail set that
+# turns a successful match into a reported failure - the check said MISSING
+# about an extension that was loaded the whole time.
+if php -r 'exit(extension_loaded("pdo_pgsql") ? 0 : 1);'; then
+    ok "pdo_pgsql present - Supabase reachable in principle"
+else
+    bad "pdo_pgsql MISSING - the app cannot reach its database"; FAILED=1
+fi
 
 # The whole login is an emailed code. A machine that cannot open 587 cannot log
 # anyone in, and Oracle blocks it by default.
@@ -163,8 +170,12 @@ else
 fi
 
 if [[ -f "$APP_DIR/.env" ]]; then
-    PGH=$(grep -E '^PGHOST=' "$APP_DIR/.env" | cut -d= -f2- | tr -d '"'"'"' \r')
-    PGP=$(grep -E '^PGPORT=' "$APP_DIR/.env" | cut -d= -f2- | tr -d '"'"'"' \r'); PGP=${PGP:-5432}
+    # '|| true' matters: under set -e a grep that matches nothing is a failure
+    # and kills the script mid-check, which looks exactly like a hang. The tr
+    # set strips quotes and CR only - spelled with $'...' so \r is a carriage
+    # return rather than a literal backslash and r.
+    PGH=$(grep -E '^PGHOST=' "$APP_DIR/.env" 2>/dev/null | cut -d= -f2- | tr -d $'"\' \r' || true)
+    PGP=$(grep -E '^PGPORT=' "$APP_DIR/.env" 2>/dev/null | cut -d= -f2- | tr -d $'"\' \r' || true); PGP=${PGP:-5432}
     if [[ -n "$PGH" ]] && timeout 12 nc -z "$PGH" "$PGP" 2>/dev/null; then
         ok "reached Supabase at $PGH:$PGP"
     else
