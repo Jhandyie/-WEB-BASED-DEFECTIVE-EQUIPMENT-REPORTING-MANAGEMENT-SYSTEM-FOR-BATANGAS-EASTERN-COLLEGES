@@ -57,6 +57,10 @@ apt-get install -y -qq \
 ok "apache2, php$(php -r 'echo PHP_MAJOR_VERSION.".".PHP_MINOR_VERSION;'), extensions"
 
 say "Code"
+# The tree ends up owned by www-data below, and git refuses to touch a repo
+# owned by someone else - so a later 'git pull' as root dies with "dubious
+# ownership" and names neither the cause nor the fix.
+git config --global --add safe.directory "$APP_DIR" 2>/dev/null || true
 if [[ -n "$REPO" && ! -d "$APP_DIR/.git" ]]; then
     mkdir -p "$(dirname "$APP_DIR")"
     git clone --depth 1 "$REPO" "$APP_DIR"
