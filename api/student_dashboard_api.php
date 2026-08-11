@@ -171,7 +171,7 @@ $equipmentOptions = $equipmentOptionsResult['success'] ? ($equipmentOptionsResul
 ═══════════════════════════════════════════════════ */
 :root {
   --maroon:       #7B1D1D;
-  --maroon-d:     #521010;
+  --maroon-d:     #4A0E0E;
   --maroon-l:     #9B2C2C;
   --gold:         #D4A017;
   --gold-l:       #F0C040;
