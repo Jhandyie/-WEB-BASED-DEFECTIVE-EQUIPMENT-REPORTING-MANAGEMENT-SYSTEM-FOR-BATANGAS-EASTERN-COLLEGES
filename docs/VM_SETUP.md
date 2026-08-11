@@ -95,7 +95,10 @@ to an HTTP email API — which is a real change to `includes/mail_helper.php`, n
 ## Step 4 — Run the provisioning script
 
 ```bash
-git clone https://github.com/YOUR-REPO.git /var/www/bec-pmo
+# git is not on every Ubuntu image, and /var/www needs root to write into,
+# so both of these need sudo - the clone included.
+sudo apt install -y git
+sudo git clone https://github.com/YOUR-REPO.git /var/www/bec-pmo
 sudo bash /var/www/bec-pmo/scripts/provision_vm.sh --domain pmo.bec.edu.ph
 ```
 
