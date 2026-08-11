@@ -7,32 +7,54 @@ Budget about an hour the first time. Most of it is waiting.
 
 ---
 
-## Before you start — pick the provider
+## Why a VPS and not shared hosting
 
-|                       | Google Cloud e2-micro   | Oracle Always Free          |
-|-----------------------|-------------------------|-----------------------------|
-| Machine               | 1 shared vCPU · 1 GB    | up to 4 ARM cores · 24 GB   |
-| Region near PH        | US only on free tier    | Singapore / Tokyo           |
-| Free egress           | ~1 GB/month             | ~10 TB/month                |
-| **Outbound SMTP 587** | usually allowed         | **usually blocked**         |
-| Main risk             | tight egress, US latency| ARM capacity often full     |
+The database is Supabase, which is PostgreSQL, so PHP needs the **`pdo_pgsql`** extension to
+reach it. Hostinger's shared plans document `PDO` and `pdo_mysql` and route PostgreSQL to VPS;
+the client extension is not something to rely on there. Shared hosting that lacks it cannot
+connect to the database at all — so a VPS, where you install extensions yourself, is the
+dependable option.
 
-They cut in opposite directions. Oracle is the better machine and much closer to Batangas,
-but it is the one likely to block outbound mail — and **the entire login is an emailed code**,
-so a machine that cannot reach Gmail cannot log anyone in.
+Nothing here needs a database *on* the server. Supabase stays where it is.
 
-Google's limit is egress: photos are ~2 MB each, so ~1 GB/month is roughly 500 photo views.
-Fine for a demo, not for a term of real use.
+## Pick the provider
 
-> If you only want to demo, and you want it to just work: **Google Cloud**. If you want it to
-> stay useful afterwards and are willing to fight the SMTP question: **Oracle**.
+|                       | Hostinger VPS           | Oracle Always Free          | Google Cloud e2-micro    |
+|-----------------------|-------------------------|-----------------------------|--------------------------|
+| Cost                  | paid monthly            | free                        | free                     |
+| Region near PH        | **Singapore**           | Singapore / Tokyo           | US only on free tier     |
+| `pdo_pgsql`           | you install it          | you install it              | you install it           |
+| **Outbound SMTP 587** | allowed                 | **usually blocked**         | usually allowed          |
+| Egress                | generous                | ~10 TB/month                | **~1 GB/month**          |
+| Support               | yes                     | none                        | none                     |
+| Main risk             | costs money             | ARM capacity often full     | trans-Pacific latency    |
+
+**Region is the deciding factor.** The Supabase project is in `ap-southeast-1` (Singapore) and
+every page makes several queries, so a US machine pays a Pacific crossing on each one — slower
+during an evaluation than the laptop already is. Pick Singapore.
+
+> **Paying and want it to just work: Hostinger VPS, Singapore.** Right region, SMTP works,
+> support exists.
+>
+> **Free: Oracle Always Free, Singapore** — plus a mail relay on port 2525 to get around
+> their SMTP block (see Step 3).
+>
+> **Google Cloud free tier is the wrong choice here** — US-only, on the far side of the ocean
+> from the database.
 
 ---
 
 ## Step 1 — Create the machine  *(only you can do this)*
 
-Account creation needs a credit card, a phone code and accepting terms. Free tier is not
-charged, but the card is required for identity checks.
+Account creation needs a card, a phone code and accepting terms — including on the free tiers,
+where the card is for identity checks rather than billing.
+
+**Hostinger VPS** — hPanel → VPS → Create
+- Location **Singapore**. This is most of the benefit; the default may be elsewhere
+- OS template **Ubuntu 22.04** plain — not a one-click LAMP image, since `provision_vm.sh`
+  installs the right versions and settings itself
+- Note the root password and public IP it gives you
+- hPanel has its own firewall page: allow **80** and **443** there as well as on the machine
 
 **Google Cloud** — console.cloud.google.com → Compute Engine → Create instance
 - Machine type **e2-micro**
@@ -151,6 +173,14 @@ php scripts/make_demo_qr.php https://pmo.bec.edu.ph/
 
 ## What this does not solve
 
-The machine is free but not guaranteed. Oracle reclaims idle instances and free ARM capacity
-in the good regions is frequently unavailable. Keep the nightly backup running, and never let
-this be the only copy of anything.
+**A VPS makes you the sysadmin.** Shared hosting patches itself; a VPS does not. Turn on
+automatic security updates once, on any provider:
+
+```bash
+sudo apt install -y unattended-upgrades && sudo dpkg-reconfigure -plow unattended-upgrades
+```
+
+On the free tiers the machine is also not guaranteed: Oracle reclaims idle instances, and free
+ARM capacity in the good regions is frequently unavailable.
+
+Either way, keep the nightly backup running and never let this be the only copy of anything.
