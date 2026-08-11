@@ -718,7 +718,7 @@ body{
 .tbl tbody tr:hover td{background:var(--surface2);}
 .equip-n{font-weight:700;}
 .equip-s{font-size:.7rem;color:var(--txt3);margin-top:1px;}
-.rid{font-family:'Outfit',sans-serif;font-weight:800;color:var(--maroon);font-size:.82rem;}
+.rid{font-family:'Outfit',sans-serif;font-weight:800;color:var(--maroon);font-size:.82rem;white-space:nowrap;}
 
 /* ─── STATUS BADGES ────────────────────────────── */
 .badge{display:inline-flex;align-items:center;gap:.3rem;padding:.28rem .72rem;border-radius:20px;font-size:.69rem;font-weight:800;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;transition:all .2s;}

@@ -622,7 +622,10 @@ body{
 .tbl tbody tr.rep-row{cursor:pointer;}
 .tbl tbody tr:hover td{background:var(--s2);}
 .tbl tbody tr:hover{transform:none;}
-.rid{font-family:'Outfit',sans-serif;font-weight:800;color:var(--m3);font-size:.78rem;}
+/* nowrap: the id is hyphenated, so on a 1366 or 1440 laptop - which is what
+   the office actually uses - it breaks into "BEC-" / "2026-" / "000153" and
+   takes three lines per row. It reads as one token or not at all. */
+.rid{font-family:'Outfit',sans-serif;font-weight:800;color:var(--m3);font-size:.78rem;white-space:nowrap;}
 .en{font-weight:700;}.esl{font-size:.64rem;color:var(--t3);}
 
 /* ── BADGES ─────────────────────────────────────────── */
@@ -1416,7 +1419,7 @@ textarea.fc{resize:vertical;min-height:70px;}
                 elseif($d==='PMO') echo '<span class="dept-pmo"><i class="fas fa-building"></i>PMO</span>';
                 else echo '<span class="dept-none">—</span>'; ?>
               </td>
-              <td style="font-size:.73rem;color:var(--t3);"><?php echo date('M j, Y',strtotime($r['report_date'])); ?></td>
+              <td style="font-size:.73rem;color:var(--t3);white-space:nowrap;"><?php echo date('M j, Y',strtotime($r['report_date'])); ?></td>
               <td style="font-size:.73rem;"><?php echo esc($r['technician_name']??'Unassigned'); ?></td>
               <td style="text-align:center;">
                 <div style="display:flex;gap:.25rem;justify-content:center;">

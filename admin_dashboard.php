@@ -579,7 +579,7 @@ body{
 .tbl tbody tr:hover{transform:none;}
 .en{font-weight:700;font-size:.82rem;}
 .es{font-size:.66rem;color:var(--t3);}
-.rid{font-family:'Outfit',sans-serif;font-weight:800;color:var(--m3);font-size:.78rem;}
+.rid{font-family:'Outfit',sans-serif;font-weight:800;color:var(--m3);font-size:.78rem;white-space:nowrap;}
 
 /* -- BADGES ------------------------------------- */
 .badge{display:inline-flex;align-items:center;gap:.25rem;padding:.22rem .6rem;border-radius:20px;font-size:.63rem;font-weight:800;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;}

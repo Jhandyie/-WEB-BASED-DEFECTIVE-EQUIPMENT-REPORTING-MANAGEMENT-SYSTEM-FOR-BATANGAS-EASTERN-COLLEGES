@@ -548,7 +548,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .tbl tbody td:first-child,.tbl tbody td:nth-last-child(2){white-space:nowrap;}
 .tbl tbody tr{transition:background .1s,transform .1s;}
 .tbl tbody tr:hover{transform:none;}
-.rid{font-family:'Outfit',sans-serif;font-weight:800;color:var(--m3);font-size:var(--fs-base);}
+.rid{font-family:'Outfit',sans-serif;font-weight:800;color:var(--m3);font-size:var(--fs-base);white-space:nowrap;}
 /* The ticket number is the way into the full record. Underlined only on hover
    so a column of them does not read as a wall of links. */
 .rid-lnk{text-decoration:none;border-bottom:1px solid transparent;
