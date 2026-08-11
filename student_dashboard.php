@@ -1762,11 +1762,14 @@ html { scroll-behavior: smooth; }
       <!-- Shown only for Senior High and the colleges, where the programme
            alone does not say which year group the reporter is in. -->
       <div class="fg" id="rLevelWrap" style="margin-top:.85rem;display:none;">
+        <!-- "your level" assumed a student. Teachers are not in the directory
+             and identify by the department and grade they teach, so the wording
+             has to fit both without asking which they are. -->
         <label class="fl" for="rLevel">Year / Grade Level <span class="req">*</span></label>
         <div class="fi-wrap">
           <i class="fas fa-layer-group fi-icon"></i>
           <select name="reporter_level" id="rLevel" class="fsel">
-            <option value="">Select your level…</option>
+            <option value="">Select the level you study or teach…</option>
           </select>
         </div>
       </div>
@@ -2069,7 +2072,10 @@ html { scroll-behavior: smooth; }
       return;
     }
     var ph = document.createElement('option');
-    ph.value = ''; ph.textContent = 'Select your level…'; ph.disabled = true; ph.selected = true;
+    // Must match the server-rendered placeholder: this rebuild replaces it the
+    // moment a department is chosen, so wording fixed only in the HTML above
+    // would show for a fraction of a second and then revert.
+    ph.value = ''; ph.textContent = 'Select the level you study or teach…'; ph.disabled = true; ph.selected = true;
     level.appendChild(ph);
     list.forEach(function (v) {
       var o = document.createElement('option');
