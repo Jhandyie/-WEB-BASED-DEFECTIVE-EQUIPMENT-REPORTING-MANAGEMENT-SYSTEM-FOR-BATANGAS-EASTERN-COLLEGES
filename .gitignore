@@ -89,6 +89,12 @@ uploads/_originals/
 scripts/__pycache__/
 data/apache_watchdog.pid
 
+# The HMAC key for reporter "remember this device" cookies. Anyone holding it
+# can forge a trusted-device cookie for any address and sign in without ever
+# receiving a code, so it must never be committed. It regenerates on first use,
+# at the cost of every remembered device verifying once more.
+data/.reporter_signing_key
+
 # Encrypted credential bundle produced by scripts/carry_secrets.ps1 - never commit
 bec-secrets.enc
 *.replaced_*
