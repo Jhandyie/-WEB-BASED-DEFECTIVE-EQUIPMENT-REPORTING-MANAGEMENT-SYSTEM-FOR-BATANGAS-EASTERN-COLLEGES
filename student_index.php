@@ -422,9 +422,44 @@ body::after {
 .otp-step-line { flex:1; height:2px; border-radius:2px;
   background:linear-gradient(90deg,#1A7A33,var(--maroon)); opacity:.35; }
 .otp-head { text-align:center; margin-bottom:var(--sp-5); }
-.otp-head .otp-ic { width:58px; height:58px; border-radius:50%; margin:0 auto var(--sp-3);
-  background:var(--gold-bg); border:1px solid rgba(201,150,12,.35); color:var(--gold);
-  display:flex; align-items:center; justify-content:center; font-size:1.35rem; }
+/* A drawn mascot, not an icon font. This used to be fa-envelope-open-text,
+   which is one of the glyphs missing from the subsetted fa-solid-900.woff2 —
+   the disc drew but sat empty. Inline SVG cannot fail that way, and it needs
+   no file, so it stays offline-safe like everything else here. */
+.otp-head .otp-ic { width:72px; height:72px; border-radius:50%; margin:0 auto var(--sp-3);
+  background:linear-gradient(160deg,#FDF6E8,#F6E4C4);
+  border:1px solid rgba(201,150,12,.35); overflow:hidden;
+  box-shadow:0 0 0 4px rgba(201,150,12,.22);
+  display:flex; align-items:center; justify-content:center; }
+.otp-head .otp-ic .otp-mascot { width:100%; height:100%; display:block; }
+
+.otp-mascot .m-body  { fill:var(--maroon); }
+.otp-mascot .m-face  { fill:#F6D3AE; }
+.otp-mascot .m-hair  { fill:#3A241C; }
+.otp-mascot .m-eye   { fill:#2B1B14; }
+.otp-mascot .m-glint { fill:#fff; }
+.otp-mascot .m-blush { fill:rgba(214,109,109,.5); }
+.otp-mascot .m-smile { fill:none; stroke:#2B1B14; stroke-width:2.3; stroke-linecap:round; }
+.otp-mascot .m-arm   { stroke:#F6D3AE; stroke-width:6; fill:none; stroke-linecap:round; }
+.otp-mascot .m-hand  { fill:#F6D3AE; }
+
+/* The arm pivots at the shoulder, so the rotation reads as a wave rather than
+   the whole limb sliding. view-box units let the origin be given in viewBox
+   coordinates instead of percentages of the bounding box.
+   The swing runs -6deg to 20deg rather than symmetrically about zero, and the
+   figure sits left of centre: a wider or centred swing puts the hand behind
+   the head at one end and outside the circular clip at the other. */
+.otp-mascot .m-wave { transform-box:view-box; transform-origin:62px 78px;
+  animation:otpWave 1.15s ease-in-out infinite; }
+.otp-mascot .m-bob  { transform-box:view-box; transform-origin:44px 70px;
+  animation:otpBob 2.3s ease-in-out infinite; }
+@keyframes otpWave { 0%,100%{transform:rotate(-6deg)} 50%{transform:rotate(20deg)} }
+@keyframes otpBob  { 0%,100%{transform:translateY(0)}  50%{transform:translateY(-2px)} }
+/* Anyone who has asked the OS to stop motion gets the mascot standing still,
+   mid-wave, rather than a screen that moves while they read a security code. */
+@media (prefers-reduced-motion: reduce) {
+  .otp-mascot .m-wave, .otp-mascot .m-bob { animation:none; }
+}
 .otp-head h2 { font-family:'Fraunces',serif; font-size:1.45rem; font-weight:700;
   color:var(--ink); letter-spacing:-.015em; margin-bottom:var(--sp-2); }
 .otp-head p { font-size:var(--fs-md); color:var(--ink3); line-height:1.65; max-width:34ch; margin:0 auto; }
@@ -809,7 +844,26 @@ body::after {
     </div>
 
     <div class="otp-head">
-      <div class="otp-ic"><i aria-hidden="true" class="fas fa-envelope-open-text"></i></div>
+      <div class="otp-ic" aria-hidden="true">
+        <svg class="otp-mascot" viewBox="0 0 100 100">
+          <g class="m-bob">
+            <path class="m-body" d="M24 100 v-9 a20 20 0 0 1 40 0 v9 z"/>
+            <g class="m-wave">
+              <path class="m-arm" d="M62 78 L75 50"/>
+              <circle class="m-hand" cx="78" cy="46" r="6.5"/>
+            </g>
+            <circle class="m-face" cx="44" cy="44" r="23"/>
+            <path class="m-hair" d="M23.8 33 A23 23 0 0 1 64.2 33 q-20.2 8 -40.4 0 z"/>
+            <ellipse class="m-eye" cx="36" cy="46" rx="3.9" ry="4.8"/>
+            <ellipse class="m-eye" cx="52" cy="46" rx="3.9" ry="4.8"/>
+            <circle class="m-glint" cx="37.4" cy="44.2" r="1.6"/>
+            <circle class="m-glint" cx="53.4" cy="44.2" r="1.6"/>
+            <ellipse class="m-blush" cx="27" cy="53" rx="4.2" ry="2.4"/>
+            <ellipse class="m-blush" cx="61" cy="53" rx="4.2" ry="2.4"/>
+            <path class="m-smile" d="M38 55 q6 6.5 12 0"/>
+          </g>
+        </svg>
+      </div>
       <h2>Confirm it&rsquo;s you</h2>
       <p>For your security, the Property Management Office sends a 6-digit
       verification code to your official college email before accepting a report.</p>
