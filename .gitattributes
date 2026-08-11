@@ -1,0 +1,14 @@
+# core.autocrlf is true on the development machine, so checkouts get CRLF.
+# That is fine for everything that only ever runs on Windows, and fatal for a
+# shell script: a shebang ending in CR fails on Linux with the unhelpful
+# "bad interpreter: /usr/bin/env bash^M". provision_vm.sh runs on the VM, so
+# it has to keep LF endings wherever it is checked out or copied from.
+*.sh text eol=lf
+
+# Fonts and images are binary; line-ending conversion corrupts them.
+*.woff2 binary
+*.woff  binary
+*.ttf   binary
+*.png   binary
+*.jpg   binary
+*.ico   binary
