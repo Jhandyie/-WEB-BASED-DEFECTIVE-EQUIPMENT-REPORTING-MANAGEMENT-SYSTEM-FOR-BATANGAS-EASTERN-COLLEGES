@@ -256,20 +256,24 @@
           padding: 24px;
           background: var(--maroon-d);
         }
-        /* Campus photograph, pushed well back so the card carries the screen.
-           Desaturated and deepened so the cyan foliage stops competing with
-           the maroon card. Declared only here, so phones never download it. */
+        /* Campus photograph, pushed back but still legible as a photograph —
+           the wash below reads as maroon light over the campus, not as a flat
+           maroon wall. Mildly desaturated so the cyan foliage stops competing
+           with the card. Declared only here, so phones never download it. */
         body::before {
           content: ''; position: fixed; inset: 0; z-index: -2;
           background: url('../assets/bec-background.jpg') center center / cover no-repeat;
-          filter: blur(9px) saturate(.42) brightness(.62) contrast(.95);
-          transform: scale(1.09);
+          filter: blur(6px) saturate(.72) brightness(.86);
+          transform: scale(1.06);
         }
+        /* Two layers on purpose: the radial darkens the rim so the card and the
+           white note below it keep their contrast, while the centre stays open
+           enough to see what the photograph is of. */
         body::after {
           content: ''; position: fixed; inset: 0; z-index: -1;
           background:
-            radial-gradient(115% 85% at 50% 36%, rgba(74,14,14,.30) 0%, rgba(26,5,5,.84) 100%),
-            linear-gradient(135deg, rgba(45,5,5,.72), rgba(74,14,14,.62));
+            radial-gradient(120% 90% at 50% 34%, rgba(74,14,14,.18) 0%, rgba(26,5,5,.55) 100%),
+            linear-gradient(135deg, rgba(45,5,5,.34), rgba(74,14,14,.26));
         }
         .auth-card {
           max-width: 430px; flex: none;
@@ -284,7 +288,9 @@
         .form-note { margin-top: 16px; }
         .form-hint .long { display: inline; }
         .auth-foot { padding: 12px var(--pad); }
-        .page-note { display: block; margin-top: 16px; font-size: .74rem; color: rgba(255,255,255,.7); text-align: center; }
+        /* The shadow is what lets this line stay readable now that the wash
+           behind it is light enough to show the photograph through. */
+        .page-note { display: block; margin-top: 16px; font-size: .74rem; color: rgba(255,255,255,.82); text-align: center; text-shadow: 0 1px 3px rgba(20,4,4,.55); }
       }
 
       /* ---------- landscape phone / very short screens ----------

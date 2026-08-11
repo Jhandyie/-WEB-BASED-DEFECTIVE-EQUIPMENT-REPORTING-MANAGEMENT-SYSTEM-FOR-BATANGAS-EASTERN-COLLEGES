@@ -258,7 +258,9 @@
         font-size: .72rem; color: var(--ink3);
         display: flex; align-items: center; justify-content: center; gap: 6px;
       }
-      .page-note { margin-top: 16px; font-size: .72rem; color: var(--ink3); text-align: center; }
+      /* This line sits on the campus photograph, not on the card, so it takes
+         white and a shadow rather than the muted card ink. */
+      .page-note { margin-top: 16px; font-size: .72rem; color: rgba(255,255,255,.82); text-align: center; text-shadow: 0 1px 3px rgba(20,4,4,.55); }
 
       /* Messages */
       .message {
