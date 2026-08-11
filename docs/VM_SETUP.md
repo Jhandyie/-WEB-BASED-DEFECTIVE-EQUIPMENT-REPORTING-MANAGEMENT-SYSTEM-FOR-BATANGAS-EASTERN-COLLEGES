@@ -73,7 +73,7 @@ where the card is for identity checks rather than billing.
   What matters is the *server to database* leg, since each page makes several queries — putting
   the web server next door to the database is the win, even though your own connection to it
   is 53 ms
-- OS template **Ubuntu 22.04** plain — not a one-click LAMP image, since `provision_vm.sh`
+- OS template **Ubuntu 24.04 LTS** plain — not a one-click LAMP image, since `provision_vm.sh`
   installs the right versions and settings itself
 - Note the root password and public IP it gives you
 - hPanel has its own firewall page: allow **80** and **443** there as well as on the machine
@@ -81,13 +81,13 @@ where the card is for identity checks rather than billing.
 **Google Cloud** — console.cloud.google.com → Compute Engine → Create instance
 - Machine type **e2-micro**
 - Region **us-west1**, **us-central1** or **us-east1** — the free tier is *only* these
-- Boot disk **Ubuntu 22.04 LTS**, 30 GB standard persistent disk
+- Boot disk **Ubuntu 24.04 LTS**, 30 GB standard persistent disk
 - Tick **Allow HTTP traffic** and **Allow HTTPS traffic**
 
 **Oracle Cloud** — cloud.oracle.com → Compute → Instances → Create
 - Shape **VM.Standard.A1.Flex** (ARM), 1–4 cores. If it says *out of capacity*, try another
   availability domain or come back later — this is common
-- Image **Ubuntu 22.04**
+- Image **Ubuntu 24.04 LTS**
 - Afterwards: **Networking → Security List → add ingress rules for 80 and 443**. Oracle does
   not open them for you and this is the usual reason a new instance looks dead
 
