@@ -712,7 +712,10 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .nav-item:focus-visib
     <div class="hero">
       <div class="hero-left">
         <div class="hero-eyebrow"><i class="fas fa-tools"></i> BEC Equipment Reporting & Maintenance System</div>
-        <h1 class="hero-title">Good <?php $h=date('G');echo $h<12?'Morning':($h<17?'Afternoon':'Evening');?>, <span class="hl"><?php echo htmlspecialchars($admin_first);?>!</span>
+        <?php /* Time-neutral on purpose. The English version keyed off the hour
+                 and so greeted anyone working at 1am with "Good Morning"; a
+                 greeting that holds all day cannot be wrong. */ ?>
+        <h1 class="hero-title">Maligayang araw, <span class="hl"><?php echo htmlspecialchars($admin_first);?>!</span>
           <?php if($adminUnit!==''): ?><span class="unit-badge"><i class="fas fa-<?php echo $adminUnit==='ITSO'?'laptop-code':'building-shield'; ?>"></i> <?php echo htmlspecialchars($adminUnit);?> Admin</span><?php endif; ?>
         </h1>
         <p class="hero-sub"><?php if($adminUnit!==''): ?>Your <strong><?php echo htmlspecialchars($adminUnit);?></strong> overview for today. <?php else: ?>Here's your operational overview for today. <?php endif; ?><?php if($criticalRep>0): ?><strong style="color:#FCA5A5;"><?php echo $criticalRep;?> critical <?php echo $criticalRep==1?'case needs':'cases need';?> immediate attention.</strong><?php endif; ?></p>
