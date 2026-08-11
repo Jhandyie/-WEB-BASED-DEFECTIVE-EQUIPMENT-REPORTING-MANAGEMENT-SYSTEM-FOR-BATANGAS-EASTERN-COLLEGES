@@ -48,7 +48,7 @@ When the installer offers components, Apache and PHP are required. MySQL is
 Put the folder at:
 
 ```
-C:\xampp\htdocs\-WEB-BASED
+C:\xampp\htdocs\bec-pmo
 ```
 
 The folder name becomes part of every URL, so keep it exactly as it is unless
@@ -88,7 +88,7 @@ files in the clear. Delete the `.enc` file once the new laptop works.
 ### 4. Run the setup script
 
 ```powershell
-cd C:\xampp\htdocs\-WEB-BASED
+cd C:\xampp\htdocs\bec-pmo
 powershell -ExecutionPolicy Bypass -File scripts\setup_new_machine.ps1 -Apply
 ```
 
@@ -208,6 +208,6 @@ failed the first time it ran.
 | Check before a demo | `php scripts\demo_preflight.php` |
 | Full lifecycle test | `php scripts\e2e_smoke.php` |
 | Start the demo | Desktop → **Start BEC Demo** |
-| Local address | `http://localhost/-WEB-BASED/` |
+| Local address | `http://localhost/bec-pmo/` |
 | Watchdog log | `logs\watchdog.log` |
 | Apache log | `C:\xampp\apache\logs\error.log` |

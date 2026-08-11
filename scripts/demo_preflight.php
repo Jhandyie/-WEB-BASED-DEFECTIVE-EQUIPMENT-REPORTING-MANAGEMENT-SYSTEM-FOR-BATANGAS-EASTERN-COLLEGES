@@ -11,7 +11,7 @@
  *   php scripts/demo_preflight.php [base-url]
  */
 
-$base = rtrim($argv[1] ?? 'http://localhost/-WEB-BASED', '/');
+$base = rtrim($argv[1] ?? 'http://localhost/bec-pmo', '/');
 $root = dirname(__DIR__);
 
 // Load first: this is what pins the timezone and the error-display policy,

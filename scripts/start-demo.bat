@@ -2,7 +2,7 @@
 setlocal
 title BEC PMO - Demo Tunnel
 
-set "APP_DIR=C:\xampp\htdocs\-WEB-BASED"
+set "APP_DIR=C:\xampp\htdocs\bec-pmo"
 set "PHP=C:\xampp\php\php.exe"
 set "HTTPD=C:\xampp\apache\bin\httpd.exe"
 set "NGROK=C:\Users\Jhan\tools\ngrok\ngrok.exe"
@@ -94,7 +94,7 @@ if not exist "%NGROK%" (
 echo.
 echo ============================================================
 echo   Public URL ^(same every time^):
-echo     https://%DEMO_URL%/-WEB-BASED/
+echo     https://%DEMO_URL%/bec-pmo/
 echo.
 echo   Printable QR sheet:
 echo     Desktop\BEC-demo-QR.html
@@ -102,7 +102,7 @@ echo     ^(rebuild it with: php scripts\make_demo_qr.php^)
 echo.
 echo   To INSTALL the technician app on a phone, open this on the
 echo   phone ^(the address above is https, which app install needs^):
-echo     https://%DEMO_URL%/-WEB-BASED/technician/login.html
+echo     https://%DEMO_URL%/bec-pmo/technician/login.html
 echo     Android Chrome:  menu  then  Install app
 echo     iPhone Safari:   Share  then  Add to Home Screen
 echo.
@@ -116,7 +116,7 @@ call :stopawake
 echo.
 echo  Tunnel closed. Sleep prevention released - normal power settings are back.
 echo  The system is still running locally at
-echo    http://localhost/-WEB-BASED/
+echo    http://localhost/bec-pmo/
 pause
 exit /b 0
 

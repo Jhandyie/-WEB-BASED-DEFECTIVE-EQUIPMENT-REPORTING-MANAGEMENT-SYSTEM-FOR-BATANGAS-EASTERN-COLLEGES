@@ -92,7 +92,7 @@ entirely; Segment A provides narration for both cases.
 > criticism, is what makes this evaluation useful. Shall we begin?"
 
 **Do:** Distribute the consent form, obtain the signature, and open the landing page at
-`http://localhost/-WEB-BASED/` (or the public demonstration URL).
+`http://localhost/bec-pmo/` (or the public demonstration URL).
 
 ---
 

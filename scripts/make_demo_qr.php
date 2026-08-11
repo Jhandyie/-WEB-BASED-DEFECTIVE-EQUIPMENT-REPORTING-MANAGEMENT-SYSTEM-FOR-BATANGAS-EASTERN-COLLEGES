@@ -13,7 +13,7 @@
  * Defaults to the permanent ngrok demo URL and writes to the Desktop.
  */
 
-$url = $argv[1] ?? 'https://defuse-grafted-hardcover.ngrok-free.dev/-WEB-BASED/';
+$url = $argv[1] ?? 'https://defuse-grafted-hardcover.ngrok-free.dev/bec-pmo/';
 $out = $argv[2] ?? (getenv('USERPROFILE') ?: getenv('HOME')) . '/OneDrive/Desktop/BEC-demo-QR.html';
 
 $root = dirname(__DIR__);

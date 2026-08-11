@@ -26,7 +26,7 @@ c:\xampp\php\php.exe scripts\build_fonts.php      # re-vendor webfonts (needs in
 scripts\start-demo.bat                            # Apache + preflight + public tunnel + watchdog
 ```
 
-The app runs at `http://localhost/-WEB-BASED/`. There is no way to run "one test" — `e2e_smoke.php`
+The app runs at `http://localhost/bec-pmo/`. There is no way to run "one test" — `e2e_smoke.php`
 is a single linear walk through the workflow; comment out later steps if you need a shorter loop.
 
 **`e2e_smoke.php` does not execute browser JavaScript.** It posts over raw HTTP, so it stays green

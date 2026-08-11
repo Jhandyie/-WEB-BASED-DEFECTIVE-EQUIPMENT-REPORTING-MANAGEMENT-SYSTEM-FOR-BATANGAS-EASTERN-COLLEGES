@@ -1,14 +1,14 @@
 # Rename the project folder from "-WEB-BASED" to a cleaner name.
 #
-# The folder name is visible in every URL (http://localhost/-WEB-BASED/), and a
+# The folder name is visible in every URL (http://localhost/bec-pmo/), and a
 # leading hyphen reads like a typo to anyone shown the system.
 #
 # RUN THIS FROM c:\xampp\htdocs, NOT FROM INSIDE THE PROJECT. A directory cannot
 # be renamed while the shell's working directory is inside it.
 #
 #   cd c:\xampp\htdocs
-#   powershell -ExecutionPolicy Bypass -File ".\-WEB-BASED\scripts\rename_project_folder.ps1"          # dry run
-#   powershell -ExecutionPolicy Bypass -File ".\-WEB-BASED\scripts\rename_project_folder.ps1" -Apply   # do it
+#   powershell -ExecutionPolicy Bypass -File ".\bec-pmo\scripts\rename_project_folder.ps1"          # dry run
+#   powershell -ExecutionPolicy Bypass -File ".\bec-pmo\scripts\rename_project_folder.ps1" -Apply   # do it
 #
 # ASCII only, deliberately: Windows PowerShell reads .ps1 as ANSI, and a dash
 # that is not a plain hyphen terminates the string literal it sits in.
@@ -20,7 +20,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$root = Split-Path -Parent $PSScriptRoot          # ...\htdocs\-WEB-BASED
+$root = Split-Path -Parent $PSScriptRoot          # ...\htdocs\bec-pmo
 $htdocs = Split-Path -Parent $root                # ...\htdocs
 $oldPath = Join-Path $htdocs $OldName
 $newPath = Join-Path $htdocs $NewName

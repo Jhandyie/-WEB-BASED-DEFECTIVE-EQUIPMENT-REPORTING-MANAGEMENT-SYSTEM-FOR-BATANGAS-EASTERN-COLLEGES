@@ -1,7 +1,7 @@
 # User Manual — BEC PMO Equipment Reporting System
 
 Quick, role-by-role instructions for everyday use.
-*(URLs are relative to the site root, e.g. `https://your-site/…` or `http://localhost/-WEB-BASED/…`)*
+*(URLs are relative to the site root, e.g. `https://your-site/…` or `http://localhost/bec-pmo/…`)*
 
 ---
 

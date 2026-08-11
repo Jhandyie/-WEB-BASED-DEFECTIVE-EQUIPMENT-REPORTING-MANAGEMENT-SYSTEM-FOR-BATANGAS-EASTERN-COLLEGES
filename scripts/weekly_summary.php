@@ -108,7 +108,7 @@ $html = '<div style="font-family:Segoe UI,Arial,sans-serif;background:#F4F1EC;pa
       . '<h3 style="font-size:14px;color:' . $M . ';margin:22px 0 6px;">Most-reported equipment this week</h3>'
       . '<ul style="margin:0;padding-left:18px;font-size:13px;color:#1C1008;">' . $equipList . '</ul>'
       . '<div style="text-align:center;margin-top:22px;">'
-        . '<a href="' . $he(rtrim((string)dbEnv('APP_BASE_URL', 'http://localhost/-WEB-BASED'), '/')) . '/admin_dashboard.php" '
+        . '<a href="' . $he(rtrim((string)dbEnv('APP_BASE_URL', 'http://localhost/bec-pmo'), '/')) . '/admin_dashboard.php" '
         . 'style="display:inline-block;background:linear-gradient(135deg,' . $MD . ',' . $M . ');color:#fff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 26px;border-radius:10px;">Open the PMO Dashboard</a>'
       . '</div>'
     . '</div>'

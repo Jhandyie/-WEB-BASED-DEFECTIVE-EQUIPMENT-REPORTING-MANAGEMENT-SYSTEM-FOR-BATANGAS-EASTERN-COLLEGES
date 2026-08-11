@@ -12,11 +12,11 @@
  *     c:\xampp\php\php.exe scripts\e2e_smoke.php
  *
  * Notes:
- *  - Requires Apache running at http://localhost/-WEB-BASED/
+ *  - Requires Apache running at http://localhost/bec-pmo/
  *  - Sends a handful of REAL emails to the smoke mailbox below (evidence!)
  */
 error_reporting(E_ALL & ~E_DEPRECATED);
-$BASE  = 'http://localhost/-WEB-BASED';
+$BASE  = 'http://localhost/bec-pmo';
 $ROOT  = realpath(__DIR__ . '/..');
 $SMOKE_MAIL = 'jhanmarkdecastro128@gmail.com';   // where smoke emails land
 $JAR_R = tempnam(sys_get_temp_dir(), 'smk_r');

@@ -68,7 +68,7 @@ Every transition notifies the right people **in-app and by branded email**
    with an app password for SMTP.
 2. Clone into your web root:
    ```
-   c:\xampp\htdocs\-WEB-BASED
+   c:\xampp\htdocs\bec-pmo
    ```
 3. Create the database: run `supabase/schema.sql` against your Supabase project.
 4. Configure secrets (all are gitignored — copy from the examples):
@@ -77,7 +77,7 @@ Every transition notifies the right people **in-app and by branded email**
    - `data/system_settings.json` — SMTP account(s) per role (`smtp_username`,
      `smtp_password` app password, `from_name: "BEC PMO"`), plus optional `mail_redirects`
    - `config/sla.php` — SLA hours per priority
-5. Open `http://localhost/-WEB-BASED/` — the landing page routes every audience to its portal.
+5. Open `http://localhost/bec-pmo/` — the landing page routes every audience to its portal.
 6. *(Optional)* Schedule backups: `scripts/backup_db.php` daily via Task Scheduler
    (`BEC PMO DB Backup`), archives to `backups/` with 14-day rotation.
 

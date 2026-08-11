@@ -4,7 +4,7 @@
  * weights this project uses, and emit a local @font-face stylesheet.
  * Run once; the result is committed so the app never depends on the CDN.
  */
-$root = 'C:/xampp/htdocs/-WEB-BASED';
+$root = 'C:/xampp/htdocs/bec-pmo';
 $dir  = $root . '/assets/vendor/fonts';
 if (!is_dir($dir)) mkdir($dir, 0775, true);
 

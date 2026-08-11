@@ -303,7 +303,7 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
     <div class="note">
       <strong>How the automated backup runs.</strong> A Windows Task Scheduler job runs <code>php scripts\backup_db.php</code> nightly, producing rotating compressed archives of every database table (the same snapshots listed above), then rotating logs and flushing the mail outbox. To (re)create the scheduled task, run in an elevated PowerShell:
       <br><br>
-      <code>schtasks /Create /SC DAILY /ST 01:30 /TN "BEC PMO DB Backup" /TR "\"C:\xampp\php\php.exe\" \"C:\xampp\htdocs\-WEB-BASED\scripts\backup_db.php\""</code>
+      <code>schtasks /Create /SC DAILY /ST 01:30 /TN "BEC PMO DB Backup" /TR "\"C:\xampp\php\php.exe\" \"C:\xampp\htdocs\bec-pmo\scripts\backup_db.php\""</code>
     </div>
   </div>
 <script src="assets/sidebar_autohide.js" defer></script>

@@ -20,7 +20,7 @@ cloudflared tunnel --url http://localhost:80
 ```
 
 It prints a URL like `https://random-words.trycloudflare.com` — share
-`https://…trycloudflare.com/-WEB-BASED/` and everything works over HTTPS
+`https://…trycloudflare.com/bec-pmo/` and everything works over HTTPS
 (including PWA installs and OTP emails), as long as your laptop stays on.
 
 > Limits: the URL changes each run and dies when the tunnel closes. Demo tool, not production.

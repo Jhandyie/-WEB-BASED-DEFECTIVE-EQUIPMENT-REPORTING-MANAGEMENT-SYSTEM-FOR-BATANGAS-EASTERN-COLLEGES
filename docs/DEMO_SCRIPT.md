@@ -7,7 +7,7 @@ lifecycle**, hitting every "wow" feature in a natural order. Follow it top to bo
 
 ## Before the defense (30-minute checklist)
 
-- [ ] Start **Apache** (XAMPP) and open `http://localhost/-WEB-BASED/` — confirm the landing page loads
+- [ ] Start **Apache** (XAMPP) and open `http://localhost/bec-pmo/` — confirm the landing page loads
 - [ ] Internet is up (Supabase + Gmail + Becca need it)
 - [ ] *(Optional, impressive)* `cloudflared tunnel --url http://localhost:80` → gives a public
       HTTPS URL so **panelists can open the system on their own phones** and you can demo the

@@ -19,7 +19,7 @@
 #>
 
 param(
-    [string]$Url      = 'http://localhost/-WEB-BASED/index.php',
+    [string]$Url      = 'http://localhost/bec-pmo/index.php',
     [int]   $Every    = 15,     # seconds between checks
     [int]   $Timeout  = 10,     # seconds to wait for a reply
     [string]$Httpd    = 'C:\xampp\apache\bin\httpd.exe',
