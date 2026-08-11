@@ -51,16 +51,31 @@ function reporterSigningKey(): string {
     return $key;
 }
 
-/** Is this address someone BEC recognises? Same rule as the sign-in gate. */
+/**
+ * Is this address someone BEC recognises?
+ *
+ * An address on the college domain qualifies on its own. The directory is a
+ * roster, not a security boundary: it holds 3,587 students and no faculty at
+ * all, so requiring membership silently locked out every teacher — the send
+ * below returns a success-shaped reply and mails nothing, and the screen still
+ * says a code is on its way. That was found during a live demo.
+ *
+ * Dropping the requirement costs nothing real. Possession of the mailbox is
+ * what the code proves, and it is still proved: an address nobody can open
+ * receives a code nobody can read. The directory is still consulted, so people
+ * recorded under another domain keep working, and a name held on file still
+ * overrides whatever is typed into the form.
+ */
 function reporterEmailIsKnown(string $email): bool {
     $email = strtolower(trim($email));
     if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) { return false; }
+    if (str_ends_with($email, '@bec.edu.ph')) { return true; }
     $dirCount = function_exists('becdir_count') ? becdir_count() : 0;
     if ($dirCount > 0) {
         return becdir_email_exists($email)
             || (function_exists('becdir_is_system_user') && becdir_is_system_user($email));
     }
-    return str_ends_with($email, '@bec.edu.ph');
+    return false;
 }
 
 /**
