@@ -1134,7 +1134,12 @@ function cardPayload(array $u): string {
    BEC Admin — User Management  |  Maroon × Gold × Warm
    Outfit (headings) · DM Sans (body)
 ═══════════════════════════════════════════════════════ */
-:root{
+/* One type scale and one space scale, shared with the defect record and the
+   BEC directory so the admin pages agree rather than each being internally
+   consistent in its own dialect. Steps only — nothing between them. */
+:root{--fs-xs:.6rem;--fs-sm:.68rem;--fs-base:.76rem;--fs-md:.82rem;--fs-lg:.88rem;
+  --sp-0:.125rem;--sp-1:.25rem;--sp-2:.5rem;--sp-3:.75rem;--sp-4:1rem;--sp-5:1.5rem;
+  
   --m1:#2D0505;--m2:#4A0E0E;--m3:#7B1D1D;--m4:#9B2C2C;
   --g1:#92600A;--g2:#D4A017;--g3:#F0C040;--gp:#FEF9E7;
   --bg:#F4EFE6;--s1:#FFFFFF;--s2:#FAF7F0;--s3:#F2EAD9;
@@ -1162,38 +1167,59 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   border-bottom:1px solid var(--bdr);height:58px;padding:0 1.75rem;
   display:flex;align-items:center;justify-content:space-between;
   position:sticky;top:0;z-index:200;box-shadow:var(--sh0);}
-.tb-l{display:flex;align-items:center;gap:.55rem;}
+.tb-l{display:flex;align-items:center;gap:var(--sp-2);}
 .mob-tog{display:none;background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--t2);}
 .pg-title{font-family:'Outfit',sans-serif;font-weight:700;font-size:1rem;color:var(--t1);}
-.bc{font-size:.68rem;color:var(--t3);display:flex;align-items:center;gap:.25rem;}
+.bc{font-size:var(--fs-sm);color:var(--t3);display:flex;align-items:center;gap:var(--sp-1);}
 .bc a{color:var(--t3);text-decoration:none;}.bc a:hover{color:var(--m3);}
-.bc i{font-size:.55rem;}
-.tb-r{display:flex;align-items:center;gap:.55rem;}
+.bc i{font-size:var(--fs-xs);}
+.tb-r{display:flex;align-items:center;gap:var(--sp-2);}
 .ic-btn{width:34px;height:34px;background:var(--s2);border:1px solid var(--bdr);border-radius:var(--r1);
-  display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--t2);font-size:.85rem;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--t2);font-size:var(--fs-md);
   transition:all .17s;text-decoration:none;position:relative;box-shadow:none;}
 .ic-btn:hover{background:var(--m3);color:#fff;transform:none;box-shadow:none;}
 .pip{position:absolute;top:5px;right:5px;width:7px;height:7px;background:var(--g2);border-radius:50%;
   border:2px solid var(--s1);animation:pp 2.2s ease-in-out infinite;}
 @keyframes pp{0%,100%{transform:scale(1);}50%{transform:scale(1.4);}}
-.pg{padding:1.5rem 1.75rem;flex:1;}
+.pg{padding:var(--sp-5) 1.75rem;flex:1;}
 
 /* ── FLASH ───────────────────────────────────────── */
-.flash{display:flex;align-items:center;gap:.65rem;padding:.7rem 1.1rem;border-radius:var(--r2);
-  margin-bottom:1.125rem;font-size:.81rem;font-weight:600;animation:fIn .25s ease;border-left:3px solid;}
+.flash{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3) var(--sp-4);border-radius:var(--r2);
+  margin-bottom:var(--sp-4);font-size:var(--fs-md);font-weight:600;animation:fIn .25s ease;border-left:3px solid;}
 @keyframes fIn{from{opacity:0;transform:translateY(-5px);}to{opacity:1;transform:translateY(0);}}
 .flash.ok{background:#F0FDF4;color:#15803D;border-color:#22C55E;}
 .flash.err{background:#FFF1F2;color:#DC2626;border-color:#EF4444;}
 
 /* ── PAGE HEADER ─────────────────────────────────── */
-.ph{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:1.25rem;gap:1rem;flex-wrap:wrap;}
-.ph h1{font-family:'Outfit',sans-serif;font-size:1.45rem;font-weight:800;display:flex;align-items:center;gap:.45rem;}
+.ph{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:var(--sp-5);gap:var(--sp-4);flex-wrap:wrap;}
+.ph h1{font-family:'Outfit',sans-serif;font-size:1.45rem;font-weight:800;display:flex;align-items:center;gap:var(--sp-2);}
 .ph h1 i{color:var(--m3);}
-.ph-sub{font-size:.78rem;color:var(--t3);margin-top:.18rem;}
+/* .76rem: one page-subtitle size across the admin pages, matching .head p in
+   admin-shell.css and .ph-sub everywhere else. */
+.ph-sub{font-size:var(--fs-base);color:var(--t3);margin-top:var(--sp-0);}
+
+/* Two patterns that were repeated inline attributes. Both carried sizes the
+   scale could not reach — a .72rem hint and a .3rem icon gap — because a scale
+   only governs the stylesheet, and an attribute is not in it. As classes they
+   join the scale and are stated once instead of five times. */
+/* Fixed layout is what makes the colgroup binding rather than advisory: with
+   auto layout the browser re-measures from content and the declared widths are
+   only a suggestion it is free to ignore. */
+.u-fixed{table-layout:fixed;}
+.u-fixed tbody td{overflow:hidden;text-overflow:ellipsis;}
+/* A header too long for its column should shorten, not print over its
+   neighbour — the headers are nowrap and fixed layout will not widen for them. */
+.u-fixed thead th{overflow:hidden;text-overflow:ellipsis;}
+/* The empty-state row spans every column and must not be ellipsed to nothing. */
+.u-fixed tbody td[colspan]{overflow:visible;text-overflow:clip;}
+
+.mh-ic{margin-right:var(--sp-1);opacity:.8;}
+.fhint{font-size:var(--fs-sm);color:var(--t3,#9A7A7A);margin:var(--sp-2) 0 0;line-height:1.5;}
+.fhint[hidden]{display:none;}
 
 /* ── BUTTONS ─────────────────────────────────────── */
-.btn{display:inline-flex;align-items:center;gap:.32rem;padding:.4rem .875rem;
-  border-radius:var(--r1);font-family:'DM Sans',sans-serif;font-size:.77rem;font-weight:700;
+.btn{display:inline-flex;align-items:center;gap:var(--sp-1);padding:var(--sp-2) var(--sp-4);
+  border-radius:var(--r1);font-family:'DM Sans',sans-serif;font-size:var(--fs-base);font-weight:700;
   cursor:pointer;border:none;transition:all .17s;text-decoration:none;white-space:nowrap;}
 .btn:hover{transform:none;}.btn:active{transform:translateY(0);}
 .btn-maroon{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;box-shadow:none;}
@@ -1208,16 +1234,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .btn-amber:hover{box-shadow:none;}
 .btn-ghost{background:var(--s2);color:var(--t2);border:1px solid var(--bdr);}
 .btn-ghost:hover{background:var(--s3);}
-.btn-sm{padding:.3rem .65rem;font-size:.71rem;}
-.bico{width:26px;height:26px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:var(--r1);font-size:.7rem;}
+.btn-sm{padding:var(--sp-1) var(--sp-3);font-size:var(--fs-sm);}
+.bico{width:26px;height:26px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:var(--r1);font-size:var(--fs-sm);}
 .bi-v{background:#EFF6FF;color:#1D4ED8;}.bi-v:hover{background:#DBEAFE;}
 .bi-e{background:#FFFBEB;color:#D97706;}.bi-e:hover{background:#FEF3C7;}
 .bi-k{background:#F0FDF4;color:#15803D;}.bi-k:hover{background:#DCFCE7;}
 .bi-d{background:#FFF1F2;color:#BE123C;}.bi-d:hover{background:#FFE4E6;}
 
 /* ── SUMMARY CARDS ───────────────────────────────── */
-.sums{display:grid;grid-template-columns:repeat(6,1fr);gap:.7rem;margin-bottom:1.375rem;}
-.scard{background:var(--s1);border-radius:var(--r3);padding:.95rem 1.05rem;
+.sums{display:grid;grid-template-columns:repeat(6,1fr);gap:var(--sp-3);margin-bottom:var(--sp-5);}
+.scard{background:var(--s1);border-radius:var(--r3);padding:var(--sp-4) var(--sp-4);
   border:1px solid var(--bdr);position:relative;overflow:hidden;
   transition:all .26s cubic-bezier(.4,0,.2,1);box-shadow:var(--sh0);cursor:pointer;text-decoration:none;display:block;}
 .scard::before{content:'';position:absolute;top:-16px;right:-16px;width:66px;height:66px;border-radius:50%;
@@ -1234,7 +1260,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .sc-e{--sk:#16A34A;--skl:rgba(22,163,74,.14);}
 .sc-f{--sk:#DC2626;--skl:rgba(220,38,38,.14);}
 .sico{width:36px;height:36px;border-radius:var(--r2);display:flex;align-items:center;justify-content:center;
-  font-size:.84rem;margin-bottom:.5rem;background:var(--sib);color:var(--sic);
+  font-size:var(--fs-md);margin-bottom:var(--sp-2);background:var(--sib);color:var(--sic);
   box-shadow:none;transition:all .26s;position:relative;z-index:1;}
 .scard:hover .sico{transform:none;}
 .sc-a .sico{--sib:#FDECEA;--sic:var(--m3);}
@@ -1244,9 +1270,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .sc-e .sico{--sib:#F0FDF4;--sic:#16A34A;}
 .sc-f .sico{--sib:#FFF1F2;--sic:#DC2626;}
 .snum{font-family:'Outfit',sans-serif;font-size:1.9rem;font-weight:800;color:var(--t1);line-height:1;
-  margin-bottom:.1rem;position:relative;z-index:1;transition:color .26s;}
+  margin-bottom:var(--sp-0);position:relative;z-index:1;transition:color .26s;}
 .scard:hover .snum{color:var(--sk);}
-.slbl{font-size:.57rem;text-transform:uppercase;letter-spacing:.7px;color:var(--t3);font-weight:700;position:relative;z-index:1;}
+.slbl{font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.7px;color:var(--t3);font-weight:700;position:relative;z-index:1;}
 .scard{animation:scIn .3s ease both;}
 .scard:nth-child(1){animation-delay:.05s;}.scard:nth-child(2){animation-delay:.09s;}
 .scard:nth-child(3){animation-delay:.13s;}.scard:nth-child(4){animation-delay:.17s;}
@@ -1254,39 +1280,39 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 @keyframes scIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
 
 /* ── FILTER / ROLE TABS ──────────────────────────── */
-.rtabs{display:flex;gap:.35rem;flex-wrap:wrap;margin-bottom:.875rem;}
-.rtab-n{margin-left:.38rem;padding:.05rem .35rem;border-radius:20px;font-size:.62rem;
+.rtabs{display:flex;gap:var(--sp-1);flex-wrap:wrap;margin-bottom:var(--sp-4);}
+.rtab-n{margin-left:var(--sp-2);padding:var(--sp-0) var(--sp-1);border-radius:20px;font-size:var(--fs-xs);
   font-weight:800;background:rgba(0,0,0,.07);color:inherit;}
 .rtab.on .rtab-n{background:rgba(255,255,255,.24);}
 /* the two admin units, set apart from the role tabs beside them */
-.tab-div{width:1px;align-self:stretch;background:var(--bdr);margin:.1rem .35rem;}
+.tab-div{width:1px;align-self:stretch;background:var(--bdr);margin:var(--sp-0) var(--sp-1);}
 .rtab.u-pmo.on{background:#C2410C;border-color:#9A3412;color:#fff;}
 .rtab.u-itso.on{background:#2563EB;border-color:#1D4ED8;color:#fff;}
 .rtab{min-height:1.95rem;}
 /* ── PAGER ───────────────────────────────────────── */
-.pager{display:flex;align-items:center;justify-content:space-between;gap:1rem;
-  flex-wrap:wrap;margin-top:1rem;padding:.75rem .95rem;background:var(--s1);
+.pager{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-4);
+  flex-wrap:wrap;margin-top:var(--sp-4);padding:var(--sp-3) var(--sp-4);background:var(--s1);
   border:1px solid var(--bdr);border-radius:var(--r2);box-shadow:var(--sh0);}
-.pager-count{font-size:.72rem;color:var(--t3);white-space:nowrap;}
+.pager-count{font-size:var(--fs-sm);color:var(--t3);white-space:nowrap;}
 .pager-count strong{color:var(--t2);}
-.pager-btns{display:inline-flex;align-items:center;gap:.3rem;flex-wrap:wrap;}
-.pgb{display:inline-flex;align-items:center;gap:.3rem;min-width:2rem;justify-content:center;
-  padding:.34rem .7rem;border-radius:var(--r1);border:1.5px solid var(--bdr);
+.pager-btns{display:inline-flex;align-items:center;gap:var(--sp-1);flex-wrap:wrap;}
+.pgb{display:inline-flex;align-items:center;gap:var(--sp-1);min-width:2rem;justify-content:center;
+  padding:var(--sp-1) var(--sp-3);border-radius:var(--r1);border:1.5px solid var(--bdr);
   background:var(--s1);color:var(--t2);font-family:'DM Sans',sans-serif;
-  font-size:.72rem;font-weight:700;text-decoration:none;transition:all .17s;}
+  font-size:var(--fs-sm);font-weight:700;text-decoration:none;transition:all .17s;}
 .pgb:hover{border-color:var(--m3);color:var(--m3);transform:none;}
 .pgb.on{background:var(--m3);border-color:var(--m2);color:#fff;cursor:default;}
 .pgb.on:hover{transform:none;color:#fff;}
 .pgb.off{opacity:.4;cursor:not-allowed;}
 .pgb.off:hover{border-color:var(--bdr);color:var(--t2);transform:none;}
-.pgb i{font-size:.6rem;}
-.pg-gap{color:var(--t4);font-size:.72rem;padding:0 .1rem;}
-.capnote{display:flex;align-items:flex-start;gap:.55rem;margin-bottom:.875rem;
-  padding:.6rem .85rem;border-radius:var(--r1);font-size:.76rem;line-height:1.55;
+.pgb i{font-size:var(--fs-xs);}
+.pg-gap{color:var(--t4);font-size:var(--fs-sm);padding:0 var(--sp-0);}
+.capnote{display:flex;align-items:flex-start;gap:var(--sp-2);margin-bottom:var(--sp-4);
+  padding:var(--sp-2) var(--sp-3);border-radius:var(--r1);font-size:var(--fs-base);line-height:1.55;
   background:#FFFBEF;border:1px solid rgba(201,150,12,.32);border-left:3px solid var(--g1,#C9960C);color:var(--t2);}
-.capnote i{color:#C9960C;margin-top:.15rem;flex-shrink:0;}
-.rtab{display:inline-flex;align-items:center;gap:.3rem;padding:.3rem .75rem;border-radius:20px;
-  font-size:.72rem;font-weight:700;cursor:pointer;text-decoration:none;border:1.5px solid transparent;
+.capnote i{color:#C9960C;margin-top:var(--sp-0);flex-shrink:0;}
+.rtab{display:inline-flex;align-items:center;gap:var(--sp-1);padding:var(--sp-1) var(--sp-3);border-radius:20px;
+  font-size:var(--fs-sm);font-weight:700;cursor:pointer;text-decoration:none;border:1.5px solid transparent;
   transition:all .17s;background:var(--s1);color:var(--t2);border-color:var(--bdr);}
 .rtab:hover{transform:none;}
 .rtab.on{background:var(--m3);color:#fff;border-color:var(--m2);}
@@ -1298,19 +1324,19 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
    dropdowns and the buttons share a single baseline instead of each being
    sized by its own text — that was what made the old bar look ragged. */
 .fbar{--fh:2.2rem;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r3);
-  padding:.7rem .85rem;margin-bottom:1.1rem;display:flex;gap:.5rem;align-items:center;
-  flex-wrap:wrap;row-gap:.55rem;box-shadow:var(--sh0);}
+  padding:var(--sp-3) var(--sp-3);margin-bottom:var(--sp-4);display:flex;gap:var(--sp-2);align-items:center;
+  flex-wrap:wrap;row-gap:var(--sp-2);box-shadow:var(--sh0);}
 .fbar>*{height:var(--fh);}
 .fsw{position:relative;flex:1 1 15rem;min-width:11rem;}
-.fsw i{position:absolute;left:.7rem;top:50%;transform:translateY(-50%);color:var(--t3);font-size:.72rem;pointer-events:none;}
-.fsi{width:100%;height:100%;padding:0 .7rem 0 1.9rem;background:var(--s2);border:1.5px solid var(--bdr);
-  border-radius:var(--r1);font-size:.79rem;color:var(--t1);font-family:'DM Sans',sans-serif;outline:none;transition:border-color .18s;}
+.fsw i{position:absolute;left:.7rem;top:50%;transform:translateY(-50%);color:var(--t3);font-size:var(--fs-sm);pointer-events:none;}
+.fsi{width:100%;height:100%;padding:0 var(--sp-3) 0 1.9rem;background:var(--s2);border:1.5px solid var(--bdr);
+  border-radius:var(--r1);font-size:var(--fs-md);color:var(--t1);font-family:'DM Sans',sans-serif;outline:none;transition:border-color .18s;}
 .fsi:focus{border-color:var(--m3);box-shadow:0 0 0 3px rgba(123,29,29,.07);}
 /* The native arrow is drawn at a size the browser picks and sits hard against
    the edge; appearance:none plus one inline chevron keeps the three dropdowns
    identical to each other and to the field beside them. */
-.fsel{max-width:13.5rem;padding:0 1.85rem 0 .7rem;background:var(--s2);border:1.5px solid var(--bdr);
-  border-radius:var(--r1);font-size:.79rem;color:var(--t2);font-family:'DM Sans',sans-serif;
+.fsel{max-width:13.5rem;padding:0 1.85rem 0 var(--sp-3);background:var(--s2);border:1.5px solid var(--bdr);
+  border-radius:var(--r1);font-size:var(--fs-md);color:var(--t2);font-family:'DM Sans',sans-serif;
   font-weight:600;outline:none;cursor:pointer;transition:border-color .18s;
   -webkit-appearance:none;appearance:none;text-overflow:ellipsis;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%237B1D1D' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -1319,30 +1345,30 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .fsel:focus{border-color:var(--m3);box-shadow:0 0 0 3px rgba(123,29,29,.07);}
 .fgo{display:inline-flex;align-items:center;justify-content:center;min-width:2.4rem;
   background:var(--m3);color:#fff;border:1.5px solid var(--m2);border-radius:var(--r1);
-  cursor:pointer;font-size:.8rem;transition:background .17s,transform .17s;}
+  cursor:pointer;font-size:var(--fs-md);transition:background .17s,transform .17s;}
 .fgo:hover{background:var(--m2);transform:none;}
-.fclr{display:inline-flex;align-items:center;gap:.35rem;padding:0 .8rem;border:1.5px solid var(--bdr);
-  border-radius:var(--r1);background:var(--s1);color:var(--t3);font-size:.75rem;font-weight:700;
+.fclr{display:inline-flex;align-items:center;gap:var(--sp-1);padding:0 var(--sp-3);border:1.5px solid var(--bdr);
+  border-radius:var(--r1);background:var(--s1);color:var(--t3);font-size:var(--fs-base);font-weight:700;
   text-decoration:none;transition:all .17s;}
 .fclr:hover{color:var(--m3);border-color:var(--m3);}
 /* View toggle and the match count keep to the far end of the strip. */
-.fbar-r{margin-left:auto;display:inline-flex;align-items:center;gap:.75rem;}
+.fbar-r{margin-left:auto;display:inline-flex;align-items:center;gap:var(--sp-3);}
 .fbar-r .vt{height:100%;}
-.fcount{font-size:.72rem;color:var(--t3);white-space:nowrap;}
+.fcount{font-size:var(--fs-sm);color:var(--t3);white-space:nowrap;}
 .fcount strong{color:var(--t2);}
 
 /* ── USER TABLE / CARDS ──────────────────────────── */
 .panel{background:#FFFFFF;border-radius:var(--r3);border:1px solid #E5D9C6;box-shadow:var(--sh1);overflow:hidden;transition:box-shadow .22s;}
 .panel:hover{box-shadow:var(--sh2);}
-.ph3{padding:.875rem 1.25rem;border-bottom:1px solid #E5D9C6;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(to right,#FAF7F0,#FFFFFF);}
-.ph3 h3{font-family:'Outfit',sans-serif;font-size:.9rem;font-weight:700;color:var(--t1);
-  display:flex;align-items:center;gap:.35rem;margin:0;}
+.ph3{padding:var(--sp-4) var(--sp-5);border-bottom:1px solid #E5D9C6;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(to right,#FAF7F0,#FFFFFF);}
+.ph3 h3{font-family:'Outfit',sans-serif;font-size:var(--fs-lg);font-weight:700;color:var(--t1);
+  display:flex;align-items:center;gap:var(--sp-1);margin:0;}
 .ph3 h3 i{color:var(--m3);}
 
 /* View toggle */
 .vt{display:flex;background:var(--s2);border:1.5px solid var(--bdr);border-radius:var(--r1);padding:2px;gap:2px;}
-.vt-b{display:flex;align-items:center;gap:.28rem;padding:.28rem .62rem;border-radius:6px;
-  font-size:.71rem;font-weight:700;cursor:pointer;background:none;border:none;
+.vt-b{display:flex;align-items:center;gap:var(--sp-1);padding:var(--sp-1) var(--sp-2);border-radius:6px;
+  font-size:var(--fs-sm);font-weight:700;cursor:pointer;background:none;border:none;
   color:var(--t3);font-family:'DM Sans',sans-serif;transition:all .18s;}
 .vt-b.on{background:var(--s1);color:var(--m3);box-shadow:var(--sh0);}
 .vt-b:not(.on):hover{color:var(--t2);}
@@ -1366,7 +1392,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 
 /* User avatar in table */
 .tav{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-  font-family:'Outfit',sans-serif;font-weight:800;font-size:.77rem;color:#fff;
+  font-family:'Outfit',sans-serif;font-weight:800;font-size:var(--fs-base);color:#fff;
   flex-shrink:0;box-shadow:none;transition:transform .22s;}
 .tbl tbody tr:hover .tav{transform:none;}
 /* Every row the same height. The name wrapped onto a second line for anyone
@@ -1375,17 +1401,17 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
    is held to one line and ellipsised; the full value is on the row's own
    detail view, and the name column is wide enough that truncation is rare. */
 .tbl tbody tr{height:3.4rem;}
-.tuser{display:flex;align-items:center;gap:.625rem;min-width:0;}
+.tuser{display:flex;align-items:center;gap:var(--sp-3);min-width:0;}
 .tuser > div{min-width:0;}
-.tname{font-weight:700;font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.tuid{font-size:.66rem;color:var(--t3);font-family:'Outfit',sans-serif;font-weight:700;
+.tname{font-weight:700;font-size:var(--fs-md);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tuid{font-size:var(--fs-sm);color:var(--t3);font-family:'Outfit',sans-serif;font-weight:700;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .tbl td.temail{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:15rem;}
 .tbl td .dept-pmo,.tbl td .dept-itso,.tbl td .dept-gen{white-space:nowrap;max-width:100%;overflow:hidden;}
 
 /* Badges */
-.bdg{display:inline-flex;align-items:center;gap:.22rem;padding:.2rem .58rem;border-radius:20px;
-  font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;}
+.bdg{display:inline-flex;align-items:center;gap:var(--sp-1);padding:var(--sp-1) var(--sp-2);border-radius:20px;
+  font-size:var(--fs-xs);font-weight:800;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;}
 .bdg::before{content:'';width:4px;height:4px;border-radius:50%;background:currentColor;
   flex-shrink:0;animation:dot 2.2s ease-in-out infinite;}
 @keyframes dot{0%,100%{opacity:1;}50%{opacity:.4;}}
@@ -1398,17 +1424,17 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .r-stud{background:#ECFEFF;color:#0891B2;}
 .s-act{background:#F0FDF4;color:#15803D;}
 .s-inact{background:#FFF1F2;color:#DC2626;}
-.dept-itso{display:inline-flex;align-items:center;gap:.2rem;padding:.17rem .5rem;border-radius:20px;
-  font-size:.6rem;font-weight:800;background:#ECFEFF;color:#0891B2;border:1px solid #A5F3FC;}
-.dept-pmo{display:inline-flex;align-items:center;gap:.2rem;padding:.17rem .5rem;border-radius:20px;
-  font-size:.6rem;font-weight:800;background:#F5F3FF;color:#7C3AED;border:1px solid #DDD6FE;}
-.dept-gen{display:inline-flex;align-items:center;gap:.2rem;padding:.17rem .5rem;border-radius:20px;
-  font-size:.6rem;font-weight:700;background:var(--s2);color:var(--t2);border:1px solid var(--bdr);}
+.dept-itso{display:inline-flex;align-items:center;gap:var(--sp-1);padding:var(--sp-0) var(--sp-2);border-radius:20px;
+  font-size:var(--fs-xs);font-weight:800;background:#ECFEFF;color:#0891B2;border:1px solid #A5F3FC;}
+.dept-pmo{display:inline-flex;align-items:center;gap:var(--sp-1);padding:var(--sp-0) var(--sp-2);border-radius:20px;
+  font-size:var(--fs-xs);font-weight:800;background:#F5F3FF;color:#7C3AED;border:1px solid #DDD6FE;}
+.dept-gen{display:inline-flex;align-items:center;gap:var(--sp-1);padding:var(--sp-0) var(--sp-2);border-radius:20px;
+  font-size:var(--fs-xs);font-weight:700;background:var(--s2);color:var(--t2);border:1px solid var(--bdr);}
 
 /* ── GRID VIEW ───────────────────────────────────── */
-.ugrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.875rem;padding:1rem;}
+.ugrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:var(--sp-4);padding:var(--sp-4);}
 .ucard{background:var(--s1);border-radius:var(--r3);border:1.5px solid var(--bdr);
-  padding:1.25rem 1.1rem 1rem;position:relative;overflow:hidden;
+  padding:var(--sp-5) var(--sp-4) var(--sp-4);position:relative;overflow:hidden;
   transition:all .24s cubic-bezier(.4,0,.2,1);box-shadow:var(--sh0);}
 .ucard::before{content:'';position:absolute;top:-20px;right:-20px;width:80px;height:80px;
   border-radius:50%;background:var(--ucol,var(--m3));opacity:.04;transition:all .28s;}
@@ -1426,36 +1452,36 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .ucard.role-reporter{--ucol:#7C3AED;--ucol-s:rgba(124,58,237,.12);}
 .ucard.role-student{--ucol:#0891B2;--ucol-s:rgba(8,145,178,.12);}
 .ucard.inactive{opacity:.6;filter:grayscale(.3);}
-.uc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.875rem;}
+.uc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:var(--sp-4);}
 .uc-av{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;
   font-family:'Outfit',sans-serif;font-weight:900;font-size:1.1rem;color:#fff;
   box-shadow:none;transition:transform .25s;flex-shrink:0;position:relative;z-index:1;}
 .ucard:hover .uc-av{transform:none;}
 .uc-status{flex-shrink:0;}
 .uc-name{font-family:'Outfit',sans-serif;font-size:.95rem;font-weight:800;color:var(--t1);
-  line-height:1.2;margin-bottom:.12rem;position:relative;z-index:1;}
-.uc-id{font-size:.63rem;color:var(--t3);font-family:'Outfit',sans-serif;font-weight:700;margin-bottom:.4rem;}
-.uc-email{font-size:.72rem;color:var(--t2);margin-bottom:.5rem;display:flex;align-items:center;gap:.25rem;
+  line-height:1.2;margin-bottom:var(--sp-0);position:relative;z-index:1;}
+.uc-id{font-size:var(--fs-xs);color:var(--t3);font-family:'Outfit',sans-serif;font-weight:700;margin-bottom:var(--sp-2);}
+.uc-email{font-size:var(--fs-sm);color:var(--t2);margin-bottom:var(--sp-2);display:flex;align-items:center;gap:var(--sp-1);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.uc-meta{display:flex;gap:.3rem;flex-wrap:wrap;margin-bottom:.75rem;}
-.uc-stats{display:grid;grid-template-columns:1fr 1fr;gap:.4rem;margin-bottom:.875rem;}
-.uc-stat{background:var(--s2);border-radius:var(--r1);padding:.45rem .55rem;text-align:center;}
+.uc-meta{display:flex;gap:var(--sp-1);flex-wrap:wrap;margin-bottom:var(--sp-3);}
+.uc-stats{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2);margin-bottom:var(--sp-4);}
+.uc-stat{background:var(--s2);border-radius:var(--r1);padding:var(--sp-2) var(--sp-2);text-align:center;}
 .uc-stat-n{font-family:'Outfit',sans-serif;font-size:1.1rem;font-weight:800;color:var(--t1);}
-.uc-stat-l{font-size:.57rem;text-transform:uppercase;letter-spacing:.6px;color:var(--t3);font-weight:700;}
-.uc-acts{display:flex;gap:.3rem;flex-wrap:wrap;}
+.uc-stat-l{font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.6px;color:var(--t3);font-weight:700;}
+.uc-acts{display:flex;gap:var(--sp-1);flex-wrap:wrap;}
 .ucard{animation:ucIn .3s ease both;}
 @keyframes ucIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
 
 /* ── MODAL ───────────────────────────────────────── */
 .mo{position:fixed;inset:0;background:rgba(26,8,8,.6);backdrop-filter:blur(7px);
   z-index:500;display:none;align-items:flex-start;justify-content:center;
-  padding:1.5rem 1rem;overflow-y:auto;}
+  padding:var(--sp-5) var(--sp-4);overflow-y:auto;}
 .mo.open{display:flex;animation:moFade .18s ease;}
 @keyframes moFade{from{opacity:0}to{opacity:1}}
 .mw{background:var(--s1);border-radius:var(--r4);width:100%;max-width:560px;
   box-shadow:var(--sh3);animation:mUp .28s cubic-bezier(.4,0,.2,1);border:1px solid var(--bdr);margin:auto;}
 @keyframes mUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
-.mhd{padding:1.25rem 1.5rem 1rem;
+.mhd{padding:var(--sp-5) var(--sp-5) var(--sp-4);
   background:linear-gradient(120deg,var(--m1) 0%,#3D0A0A 45%,var(--m3) 100%);
   border-radius:var(--r4) var(--r4) 0 0;display:flex;justify-content:space-between;
   align-items:flex-start;position:relative;overflow:hidden;}
@@ -1463,86 +1489,86 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   background:rgba(212,160,23,.08);pointer-events:none;animation:sealSpin 18s linear infinite;}
 .mhd-t{position:relative;z-index:1;}
 .mhd-t h2{font-family:'Outfit',sans-serif;font-size:1.05rem;font-weight:800;color:#fff;}
-.mhd-t p{font-size:.7rem;color:rgba(255,255,255,.42);margin-top:.1rem;}
+.mhd-t p{font-size:var(--fs-sm);color:rgba(255,255,255,.42);margin-top:var(--sp-0);}
 .mx{width:27px;height:27px;background:rgba(255,255,255,.1);border:none;border-radius:50%;
-  color:rgba(255,255,255,.6);font-size:.82rem;cursor:pointer;
+  color:rgba(255,255,255,.6);font-size:var(--fs-md);cursor:pointer;
   display:flex;align-items:center;justify-content:center;
   flex-shrink:0;transition:all .18s;position:relative;z-index:1;}
 .mx:hover{background:rgba(255,255,255,.22);color:#fff;transform:rotate(90deg);}
-.mb{padding:1.375rem 1.5rem;}
-.mf{padding:.8rem 1.5rem 1.25rem;border-top:1px solid var(--bdr);
-  display:flex;justify-content:flex-end;gap:.45rem;flex-wrap:wrap;
+.mb{padding:var(--sp-5) var(--sp-5);}
+.mf{padding:var(--sp-3) var(--sp-5) var(--sp-5);border-top:1px solid var(--bdr);
+  display:flex;justify-content:flex-end;gap:var(--sp-2);flex-wrap:wrap;
   background:var(--s2);border-radius:0 0 var(--r4) var(--r4);}
 
 /* Profile modal header */
-.prof-head{display:flex;align-items:center;gap:1rem;margin-bottom:1.25rem;
-  padding-bottom:1rem;border-bottom:1.5px solid var(--bdr);}
+.prof-head{display:flex;align-items:center;gap:var(--sp-4);margin-bottom:var(--sp-5);
+  padding-bottom:var(--sp-4);border-bottom:1.5px solid var(--bdr);}
 .prof-av{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;
   font-family:'Outfit',sans-serif;font-weight:900;font-size:1.4rem;color:#fff;
   flex-shrink:0;box-shadow:none;}
 .prof-name{font-family:'Outfit',sans-serif;font-size:1.05rem;font-weight:800;}
-.prof-id{font-size:.68rem;color:var(--t3);font-family:'Outfit',sans-serif;font-weight:700;margin-top:.1rem;}
+.prof-id{font-size:var(--fs-sm);color:var(--t3);font-family:'Outfit',sans-serif;font-weight:700;margin-top:var(--sp-0);}
 
 /* Form */
-.fg{display:flex;flex-direction:column;gap:.28rem;margin-bottom:.7rem;}
-.fl{font-size:.63rem;font-weight:800;text-transform:uppercase;letter-spacing:.65px;color:var(--t2);}
+.fg{display:flex;flex-direction:column;gap:var(--sp-1);margin-bottom:var(--sp-3);}
+.fl{font-size:var(--fs-xs);font-weight:800;text-transform:uppercase;letter-spacing:.65px;color:var(--t2);}
 .fl span{color:var(--m3);}
-.fc{padding:.5rem .82rem;background:var(--s2);border:1.5px solid var(--bdr);border-radius:var(--r1);
-  font-size:.82rem;color:var(--t1);font-family:'DM Sans',sans-serif;outline:none;transition:all .18s;}
+.fc{padding:var(--sp-2) var(--sp-3);background:var(--s2);border:1.5px solid var(--bdr);border-radius:var(--r1);
+  font-size:var(--fs-md);color:var(--t1);font-family:'DM Sans',sans-serif;outline:none;transition:all .18s;}
 .fc:focus{border-color:var(--m3);background:var(--s1);box-shadow:0 0 0 3px rgba(123,29,29,.07);}
-.fg2{display:grid;grid-template-columns:1fr 1fr;gap:.625rem;}
+.fg2{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);}
 .pass-wrap{position:relative;}
 .pass-wrap .fc{padding-right:2.4rem;}
 .pass-toggle{position:absolute;right:.7rem;top:50%;transform:translateY(-50%);
-  background:none;border:none;color:var(--t3);cursor:pointer;font-size:.8rem;padding:.15rem;}
+  background:none;border:none;color:var(--t3);cursor:pointer;font-size:var(--fs-md);padding:var(--sp-0);}
 .pass-toggle:hover{color:var(--t1);}
-.strength-bar{height:3px;background:var(--s3);border-radius:3px;margin-top:.25rem;overflow:hidden;}
+.strength-bar{height:3px;background:var(--s3);border-radius:3px;margin-top:var(--sp-1);overflow:hidden;}
 .strength-fill{height:100%;border-radius:3px;transition:width .3s,background .3s;}
 
 /* Detail rows */
-.dr{display:flex;gap:.75rem;padding:.44rem 0;border-bottom:1px solid var(--bdr);align-items:flex-start;}
+.dr{display:flex;gap:var(--sp-3);padding:var(--sp-2) 0;border-bottom:1px solid var(--bdr);align-items:flex-start;}
 .dr:last-child{border:none;}
-.dk{width:110px;flex-shrink:0;font-size:.63rem;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--t3);padding-top:.1rem;}
-.dv{font-size:.81rem;color:var(--t1);flex:1;line-height:1.5;}
+.dk{width:110px;flex-shrink:0;font-size:var(--fs-xs);font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--t3);padding-top:var(--sp-0);}
+.dv{font-size:var(--fs-md);color:var(--t1);flex:1;line-height:1.5;}
 
 /* Danger zone */
 .danger-zone{background:#FFF1F2;border:1.5px solid #FECDD3;border-radius:var(--r2);
-  padding:.875rem 1rem;margin-top:1rem;}
-.dz-title{font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.7px;
-  color:#DC2626;margin-bottom:.625rem;display:flex;align-items:center;gap:.3rem;}
-.dz-row{display:flex;align-items:center;justify-content:space-between;gap:.75rem;
-  padding:.4rem 0;border-bottom:1px solid #FECDD3;}
+  padding:var(--sp-4) var(--sp-4);margin-top:var(--sp-4);}
+.dz-title{font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.7px;
+  color:#DC2626;margin-bottom:var(--sp-3);display:flex;align-items:center;gap:var(--sp-1);}
+.dz-row{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);
+  padding:var(--sp-2) 0;border-bottom:1px solid #FECDD3;}
 .dz-row:last-child{border:none;padding-bottom:0;}
-.dz-desc{font-size:.77rem;color:var(--t2);line-height:1.4;}
-.dz-desc strong{display:block;font-size:.8rem;color:var(--t1);margin-bottom:.1rem;}
+.dz-desc{font-size:var(--fs-base);color:var(--t2);line-height:1.4;}
+.dz-desc strong{display:block;font-size:var(--fs-md);color:var(--t1);margin-bottom:var(--sp-0);}
 
 /* ── EXPORT MENU ─────────────────────────────────── */
 .exp-drop{position:relative;}
 #expMenu{display:none;position:absolute;right:0;top:calc(100% + 6px);
   background:var(--s1);border:1.5px solid var(--bdr);border-radius:var(--r2);
   box-shadow:var(--sh3);z-index:300;min-width:145px;overflow:hidden;}
-.exp-opt{width:100%;padding:.6rem 1rem;background:none;border:none;text-align:left;
-  font-size:.77rem;font-family:'DM Sans',sans-serif;cursor:pointer;
-  display:flex;align-items:center;gap:.5rem;color:var(--t1);}
+.exp-opt{width:100%;padding:var(--sp-2) var(--sp-4);background:none;border:none;text-align:left;
+  font-size:var(--fs-base);font-family:'DM Sans',sans-serif;cursor:pointer;
+  display:flex;align-items:center;gap:var(--sp-2);color:var(--t1);}
 .exp-opt:hover{background:var(--s2);}
 .exp-opt+.exp-opt{border-top:1px solid var(--bdr);}
 
 /* ── TOAST / EMPTY ───────────────────────────────── */
-.ttray{position:fixed;top:1.25rem;left:50%;transform:translateX(-50%);align-items:center;display:flex;flex-direction:column;gap:.38rem;z-index:9999;}
+.ttray{position:fixed;top:1.25rem;left:50%;transform:translateX(-50%);align-items:center;display:flex;flex-direction:column;gap:var(--sp-2);z-index:9999;}
 .tst{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r2);
-  padding:.68rem .88rem;display:flex;align-items:flex-start;gap:.5rem;
+  padding:var(--sp-3) var(--sp-4);display:flex;align-items:flex-start;gap:var(--sp-2);
   box-shadow:var(--sh3);min-width:240px;animation:tIn .22s cubic-bezier(.4,0,.2,1);border-left:3px solid var(--m3);}
 .tst.ok{border-left-color:#16A34A;}.tst.err{border-left-color:#DC2626;}
 @keyframes tIn{from{transform:translateX(60px);opacity:0}to{transform:translateX(0);opacity:1}}
-.tst-t{font-size:.77rem;font-weight:700;color:var(--t1);}
-.tst-m{font-size:.69rem;color:var(--t2);margin-top:1px;}
-.empty{text-align:center;padding:2.5rem 1.5rem;color:var(--t3);}
-.empty i{font-size:2.2rem;display:block;margin-bottom:.65rem;opacity:.22;}
+.tst-t{font-size:var(--fs-base);font-weight:700;color:var(--t1);}
+.tst-m{font-size:var(--fs-sm);color:var(--t2);margin-top:1px;}
+.empty{text-align:center;padding:2.5rem var(--sp-5);color:var(--t3);}
+.empty i{font-size:2.2rem;display:block;margin-bottom:var(--sp-3);opacity:.22;}
 
 /* ── RESPONSIVE ──────────────────────────────────── */
 @media(max-width:1280px){.sums{grid-template-columns:repeat(3,1fr);}}
 @media(max-width:768px){.sb{transform:translateX(-100%);}.sb.open{transform:translateX(0);}
-  .wrap{margin-left:0;}.pg{padding:1rem;}.mob-tog{display:flex;}
+  .wrap{margin-left:0;}.pg{padding:var(--sp-4);}.mob-tog{display:flex;}
   .sums{grid-template-columns:1fr 1fr;}.fg2{grid-template-columns:1fr;}}
 </style>
 </head>
@@ -1757,12 +1783,33 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
            clips (overflow:hidden, for its rounded corners), so without this the
            Joined date and the whole Actions column are simply not reachable. -->
       <div class="tblwrap">
-      <table class="tbl" id="uTbl">
+      <table class="tbl u-fixed" id="uTbl">
+        <?php /* Nine columns sized by their content needed 1,608px inside a
+                 1,102px panel, so Actions — the Edit and Delete buttons — sat
+                 506px off the right edge, reachable only by scrolling a table
+                 that gives no sign it scrolls. Percentages rather than rem: they
+                 are relative to the table, so the row fits whatever width the
+                 panel has instead of fitting one screen and clipping on the
+                 next. Text that no longer fits ellipses, which the columns
+                 already did. */ ?>
+        <?php /* Reports and Tasks hold single digits, so their width is set
+                 entirely by the header word above them, not by the data. They
+                 need more than the numbers suggest; Email needs less than it
+                 wants, and the full address is one click away in the row. */ ?>
+        <colgroup>
+          <col style="width:18%"><col style="width:17%"><col style="width:11%">
+          <col style="width:14%"><col style="width:6%"><col style="width:8%">
+          <col style="width:7%"><col style="width:9%"><col style="width:10%">
+        </colgroup>
         <thead>
+          <?php /* "Year" and "Tasks" rather than "Year Level" and "Active
+                   Tasks": the headers are nowrap, so at these widths the long
+                   pair ran into the column beside it. The short words say the
+                   same thing over a column of numbers. */ ?>
           <tr>
             <th>User</th><th>Email</th><th class="nw">Standing</th><th>Department</th>
-            <th class="c nw">Year Level</th>
-            <th class="c">Reports</th><th class="c">Active Tasks</th><th class="c nw">Joined</th>
+            <th class="c nw">Year</th>
+            <th class="c">Reports</th><th class="c">Tasks</th><th class="c nw">Joined</th>
             <th class="c">Actions</th>
           </tr>
         </thead>
@@ -1985,7 +2032,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   <div class="mw">
     <div class="mhd">
       <div class="mhd-t">
-        <h2><i class="fas fa-user-plus" style="margin-right:.3rem;opacity:.8;"></i> Add New User</h2>
+        <h2><i class="fas fa-user-plus mh-ic"></i> Add New User</h2>
         <p>Register a reporter, or create a login for PMO staff, a technician, or an administrator.</p>
       </div>
       <button class="mx" onclick="document.getElementById('createMo').classList.remove('open')"><i class="fas fa-times"></i></button>
@@ -2034,7 +2081,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
               <option value="__other">Other…</option>
             </select>
             <input type="text" name="department" id="cuDeptTxt" class="fc" placeholder="Type the department…" maxlength="100" style="margin-top:.4rem;display:none;">
-            <p id="cuDeptHint" style="font-size:.72rem;color:var(--t3,#9A7A7A);margin:.4rem 0 0;line-height:1.5;display:none;"><i class="fas fa-circle-info"></i> For an <strong>Administrator</strong> this sets which dashboard they oversee — pick <strong>PMO</strong> or <strong>ITSO</strong>.</p>
+            <p id="cuDeptHint" class="fhint" hidden><i class="fas fa-circle-info"></i> For an <strong>Administrator</strong> this sets which dashboard they oversee — pick <strong>PMO</strong> or <strong>ITSO</strong>.</p>
           </div>
         </div>
         <?php if($hasUserTypeCol): /* hidden until scripts/2026_08_reporter_user_type.sql has run */ ?>
@@ -2046,7 +2093,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
               <option value="<?php echo esc($tVal); ?>"><?php echo esc($tLbl); ?></option>
             <?php endforeach; ?>
           </select>
-          <p style="font-size:.72rem;color:var(--t3,#9A7A7A);margin:.4rem 0 0;line-height:1.5;"><i class="fas fa-circle-info"></i> Everyone who reports is a <strong>Reporter</strong>. This says who they are at BEC, so the PMO knows whether a report came from a student, a teacher, or staff.</p>
+          <p class="fhint"><i class="fas fa-circle-info"></i> Everyone who reports is a <strong>Reporter</strong>. This says who they are at BEC, so the PMO knows whether a report came from a student, a teacher, or staff.</p>
         </div>
         <?php if($hasYearLevelCol): ?>
         <div class="fg" id="cuYearBlock">
@@ -2057,7 +2104,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
               <option value="<?php echo esc($yOpt); ?>"><?php echo esc($yOpt); ?></option>
             <?php endforeach; ?>
           </select>
-          <p style="font-size:.72rem;color:var(--t3,#9A7A7A);margin:.4rem 0 0;line-height:1.5;"><i class="fas fa-circle-info"></i> Students only. Chosen from the registrar's enrolment list, so it matches the directory exactly.</p>
+          <p class="fhint"><i class="fas fa-circle-info"></i> Students only. Chosen from the registrar's enrolment list, so it matches the directory exactly.</p>
         </div>
         <?php endif; ?>
         <?php endif; ?>
@@ -2096,7 +2143,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   <div class="mw">
     <div class="mhd">
       <div class="mhd-t">
-        <h2><i class="fas fa-user-shield" style="margin-right:.3rem;opacity:.8;"></i> Invite Technician</h2>
+        <h2><i class="fas fa-user-shield mh-ic"></i> Invite Technician</h2>
         <p>Send a secure email invitation. The technician verifies their identity and sets their own password to activate the account.</p>
       </div>
       <button class="mx" onclick="document.getElementById('inviteMo').classList.remove('open')"><i class="fas fa-times"></i></button>
@@ -2148,7 +2195,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   <div class="mw">
     <div class="mhd">
       <div class="mhd-t">
-        <h2><i class="fas fa-user-edit" style="margin-right:.3rem;opacity:.8;"></i> Edit User</h2>
+        <h2><i class="fas fa-user-edit mh-ic"></i> Edit User</h2>
         <p id="editSubtitle">Update user account details.</p>
       </div>
       <button class="mx" onclick="document.getElementById('editMo').classList.remove('open')"><i class="fas fa-times"></i></button>
@@ -2196,7 +2243,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
               <option value="__other">Other…</option>
             </select>
             <input type="text" name="department" id="eDept" class="fc" placeholder="Type the department…" maxlength="100" style="margin-top:.4rem;display:none;">
-            <p id="eDeptHint" style="font-size:.72rem;color:var(--t3,#9A7A7A);margin:.4rem 0 0;line-height:1.5;display:none;"><i class="fas fa-circle-info"></i> For an <strong>Administrator</strong> this sets which dashboard they oversee — pick <strong>PMO</strong> or <strong>ITSO</strong>.</p>
+            <p id="eDeptHint" class="fhint" hidden><i class="fas fa-circle-info"></i> For an <strong>Administrator</strong> this sets which dashboard they oversee — pick <strong>PMO</strong> or <strong>ITSO</strong>.</p>
           </div>
           <div class="fg">
             <label class="fl">Phone</label>
@@ -2249,7 +2296,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   <div class="mw">
     <div class="mhd">
       <div class="mhd-t">
-        <h2><i class="fas fa-id-card" style="margin-right:.3rem;opacity:.8;"></i> User Profile</h2>
+        <h2><i class="fas fa-id-card mh-ic"></i> User Profile</h2>
         <p id="profSubtitle">Account details</p>
       </div>
       <button class="mx" onclick="document.getElementById('profileMo').classList.remove('open')"><i class="fas fa-times"></i></button>
@@ -2277,7 +2324,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   <div class="mw" style="max-width:420px;">
     <div class="mhd">
       <div class="mhd-t">
-        <h2><i class="fas fa-key" style="margin-right:.3rem;opacity:.8;"></i> Reset Password</h2>
+        <h2><i class="fas fa-key mh-ic"></i> Reset Password</h2>
         <p id="resetSubtitle">Set a new password for this user.</p>
       </div>
       <button class="mx" onclick="document.getElementById('resetMo').classList.remove('open')"><i class="fas fa-times"></i></button>
@@ -2551,7 +2598,10 @@ function deptRoleSync(roleId, selId, starId, hintId){
   var isAdmin=(role==='admin');
   var star=document.getElementById(starId), hint=document.getElementById(hintId);
   if(star) star.style.display=isAdmin?'':'none';
-  if(hint) hint.style.display=isAdmin?'':'none';
+  /* The hint starts hidden via the attribute, not an inline style, so it has to
+     be toggled by the same thing. Clearing style.display would leave [hidden]
+     still applying and the hint would never appear. */
+  if(hint) hint.hidden=!isAdmin;
 }
 // Block submit if an Administrator has no PMO/ITSO unit set.
 function deptGuard(roleId, txtId){
