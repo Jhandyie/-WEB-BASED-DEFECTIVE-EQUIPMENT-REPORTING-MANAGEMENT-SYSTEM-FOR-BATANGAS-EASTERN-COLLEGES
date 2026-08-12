@@ -1886,8 +1886,13 @@ html { scroll-behavior: smooth; }
           <label class="fl" for="assetTag">Asset Tag / Equipment ID <span class="opt">(if visible)</span></label>
           <div class="fi-wrap">
             <i class="fas fa-barcode fi-icon"></i>
+            <?php /* Carries the scanned unit's tag like every other field here.
+                     It was the one that did not: the tag was read from the
+                     record and printed in the banner above, then dropped before
+                     the field, so someone who had just scanned the sticker on
+                     the equipment was asked to type its number in by hand. */ ?>
             <input type="text" name="asset_tag" id="assetTag" class="fi" placeholder="e.g. BEC-LAB2-PC05" maxlength="40"
-              value="<?php echo htmlspecialchars($_POST['asset_tag'] ?? ''); ?>">
+              value="<?php echo htmlspecialchars($_POST['asset_tag'] ?? ($prefillEq['asset_tag'] ?? '')); ?>">
           </div>
           <div class="fi-hint"><i class="fas fa-info-circle"></i> Auto-filled when you select an inventory item, or type it manually if visible.</div>
         </div>
