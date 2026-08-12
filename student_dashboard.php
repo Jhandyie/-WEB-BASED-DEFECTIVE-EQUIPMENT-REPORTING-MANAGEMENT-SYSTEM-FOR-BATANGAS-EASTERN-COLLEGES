@@ -2683,8 +2683,16 @@ if (videoInput) {
   }
 
   function scrollToForm() {
-    const y = (bar.getBoundingClientRect().top + window.scrollY) - 12;
-    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+    const top = bar.getBoundingClientRect().top;
+    // Nothing to do if the top of the form is already on screen. Scrolling on
+    // every Next and Back - including when the page had not moved at all -
+    // made the whole thing lurch up and down between steps.
+    if (top >= -4 && top <= window.innerHeight * 0.5) return;
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({
+      top: Math.max(0, top + window.scrollY - 12),
+      behavior: reduce ? 'auto' : 'smooth'
+    });
   }
 
   nextBtn.addEventListener('click', () => goTo(current + 1));
