@@ -2190,16 +2190,23 @@ function escapeHtml(value) {
   }[char]));
 }
 
+// One lowercased haystack per item, built once rather than on every keystroke:
+// there are over a thousand records and this runs while someone is typing.
+const equipHaystack = equipData.map(e =>
+  [e.name, e.id, e.category, e.asset_tag, e.location]
+    .filter(Boolean).join(' ').toLowerCase()
+);
+
 function renderDropdown(query) {
   const q = query.trim().toLowerCase();
-  const matches = q
-    ? equipData.filter(e =>
-      (e.name || '').toLowerCase().includes(q) ||
-      (e.id || '').toLowerCase().includes(q) ||
-      (e.category || '').toLowerCase().includes(q) ||
-      (e.asset_tag || '').toLowerCase().includes(q) ||
-      (e.location || '').toLowerCase().includes(q)
-    )
+  // Each word must appear somewhere across all the fields, not all of them in
+  // one field. Matching per-field meant "aircon computer lab" found nothing -
+  // "aircon" is the name and "computer lab" is the location, and no single
+  // field held both - even though naming a thing and where it is, is exactly
+  // how someone describes the equipment in front of them.
+  const terms = q ? q.split(/\s+/).filter(Boolean) : [];
+  const matches = terms.length
+    ? equipData.filter((e, i) => terms.every(t => equipHaystack[i].includes(t)))
     : equipData.slice();
 
   if (!matches.length) {
@@ -2345,8 +2352,14 @@ const locationIndexed = locationParts.map((p, i) => ({
 
 function renderLocationDropdown(query) {
   const q = (query || '').trim().toLowerCase();
-  const matches = q
-    ? locationIndexed.filter(entry => entry.lc.includes(q))
+  // Every word has to appear somewhere, but they need not be adjacent. A
+  // location reads "Annex 1 Campus - Building 12 ... - Bookstore", so matching
+  // the query as one contiguous run meant "annex bookstore" - the natural way
+  // to describe that room - returned "No location found" while "bookstore"
+  // alone worked. People type what they remember, in their own order.
+  const terms = q ? q.split(/\s+/).filter(Boolean) : [];
+  const matches = terms.length
+    ? locationIndexed.filter(entry => terms.every(t => entry.lc.includes(t)))
     : locationIndexed;
 
   if (!matches.length) {
