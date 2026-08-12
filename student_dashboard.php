@@ -2190,6 +2190,11 @@ function wireComboDismiss(input, dd) {
   document.addEventListener('pointerup', () => {
     if (!holdingInside) return;
     holdingInside = false;
+    // Only worth restoring focus if the list is still open — that is the drag
+    // case this exists for. When a choice has just closed it, refocusing put
+    // the cursor back in the field and the focus handler opened the list
+    // straight back up, so on a phone picking an item appeared to do nothing.
+    if (!dd.classList.contains('open')) return;
     if (document.activeElement !== input && !dd.contains(document.activeElement)) {
       input.focus({ preventScroll: true });
     }
@@ -2291,7 +2296,11 @@ function renderDropdown(query) {
   focusIdx = -1;
 }
 
-function selectEquip(data) {
+/* byTap: chosen with a finger or mouse rather than the keyboard. The field is
+   then blurred, which shuts the on-screen keyboard and — the point of it —
+   stops the focus handler below re-opening the list the instant it closes.
+   Keyboard selection keeps focus, so arrow-key users are not thrown out. */
+function selectEquip(data, byTap) {
   const category = data.cat || data.category || '';
   const assetTag = data.assetTag || data.asset_tag || '';
   searchEl.value   = data.name || '';
@@ -2308,6 +2317,7 @@ function selectEquip(data) {
   }
   dropdown.classList.remove('open');
   focusIdx = -1;
+  if (byTap) searchEl.blur();
 }
 
 catDisplay.addEventListener('change', () => {
@@ -2327,11 +2337,15 @@ wireComboDismiss(searchEl, dropdown);
 
 // One delegated listener instead of one per row — the rows are rebuilt on every
 // keystroke, so per-row listeners were being created and thrown away in bulk.
-dropdown.addEventListener('mousedown', e => {
+/* pointerdown, not mousedown: on a phone mousedown is a synthesised event that
+   arrives after the touch has already moved focus, so the list closed and the
+   re-focused field opened it again. pointerdown fires for touch, pen and mouse
+   alike, before any of that. */
+dropdown.addEventListener('pointerdown', e => {
   const el = e.target.closest('.eq-item');
   if (!el) return;
   e.preventDefault();
-  selectEquip(equipData[Number(el.dataset.index)] || {});
+  selectEquip(equipData[Number(el.dataset.index)] || {}, true);
 });
 
 searchEl.addEventListener('keydown', e => {
@@ -2430,11 +2444,12 @@ function renderLocationDropdown(query) {
   locationFocusIdx = -1;
 }
 
-function selectLocation(location) {
+function selectLocation(location, byTap) {
   locationSearchEl.value = location;
   locationHiddenEl.value = location;
   locationDropdown.classList.remove('open');
   locationFocusIdx = -1;
+  if (byTap) locationSearchEl.blur();   // see selectEquip: keeps it shut on touch
 }
 
 locationSearchEl.addEventListener('input', () => {
@@ -2444,11 +2459,11 @@ locationSearchEl.addEventListener('input', () => {
 locationSearchEl.addEventListener('focus', () => renderLocationDropdown(locationSearchEl.value));
 wireComboDismiss(locationSearchEl, locationDropdown);
 
-locationDropdown.addEventListener('mousedown', e => {
+locationDropdown.addEventListener('pointerdown', e => {
   const el = e.target.closest('.loc-item');
   if (!el) return;
   e.preventDefault();
-  selectLocation(locationData[Number(el.dataset.index)] || '');
+  selectLocation(locationData[Number(el.dataset.index)] || '', true);
 });
 locationSearchEl.addEventListener('keydown', e => {
   const items = locationDropdown.querySelectorAll('.loc-item');
