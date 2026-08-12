@@ -1239,6 +1239,39 @@ body::after {
 .btn-cancel { padding:.9rem 1.25rem;border:1.5px solid var(--border);border-radius:11px;color:var(--ink3);font-size:.85rem;font-weight:500;background:none;cursor:pointer;transition:all .18s; text-decoration:none;display:inline-flex;align-items:center; }
 .btn-cancel:hover { border-color:var(--maroon);color:var(--maroon); }
 
+/* ── One section at a time ──────────────────────────────────────────────────
+   Reporters said the form was too much scrolling and asked to finish one part
+   before the next appears. Only .wz — added by JavaScript — hides anything, so
+   with scripting off or broken the form stays the single scrollable page it has
+   always been, and every field is still submitted by the same one form. */
+.wz .section-card { display:none; }
+.wz .section-card.wz-on { display:block; }
+.wz-nav { display:flex;align-items:center;gap:.8rem;margin-top:1.4rem;flex-wrap:wrap; }
+.wz-nav .wz-count { font-size:.78rem;color:var(--ink3);margin-right:auto; }
+.wz-next {
+  flex:1;min-width:200px;padding:.9rem 1.5rem;
+  background:var(--maroon-d);color:#fff;border:none;border-radius:11px;
+  font-family:'DM Sans',sans-serif;font-size:.95rem;font-weight:600;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:.55rem;
+  transition:all .22s cubic-bezier(.22,1,.36,1);
+  box-shadow:0 8px 20px rgba(74,14,14,.25);letter-spacing:-.01em;-webkit-appearance:none;
+}
+.wz-next:hover { background:var(--maroon);box-shadow:0 14px 28px rgba(74,14,14,.3); }
+.wz-back {
+  padding:.9rem 1.25rem;border:1.5px solid var(--border);border-radius:11px;
+  color:var(--ink3);font-size:.85rem;font-weight:500;background:none;cursor:pointer;
+  /* Named properties, not "all": "all" includes visibility, which is how this
+     button is shown and hidden between steps, and animating it left the control
+     still reading as hidden for the length of the transition. */
+  transition:border-color .18s, color .18s;
+  display:inline-flex;align-items:center;gap:.4rem;min-height:44px;
+}
+.wz-back:hover { border-color:var(--maroon);color:var(--maroon); }
+@media(max-width:640px){
+  .wz-nav .wz-count { width:100%;margin:0 0 .2rem;text-align:center; }
+  .wz-next { min-width:0; }
+}
+
 /* ── Form progress stepper (sticky, scrollspy) ── */
 .fsteps{position:sticky;top:.6rem;z-index:60;display:flex;gap:6px;margin:0 0 1.1rem;padding:8px;border-radius:14px;
   background:rgba(255,255,255,.88);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
@@ -2572,10 +2605,11 @@ if (videoInput) {
     chip.type = 'button';
     chip.className = 'fstep';
     chip.innerHTML = '<span class="fs-n">' + (i + 1) + '</span><span class="fs-lbl">' + (shortNames[title] || title) + '</span>';
-    chip.addEventListener('click', () => sec.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    chip.addEventListener('click', () => goTo(i, true));
     bar.appendChild(chip);
     return chip;
   });
+
   function markActive(idx) {
     chips.forEach((c, i) => {
       c.classList.toggle('on', i === idx);
@@ -2584,14 +2618,78 @@ if (videoInput) {
       else c.querySelector('.fs-n').innerHTML = i < idx ? '<i class="fas fa-check" style="font-size:.56rem"></i>' : (i + 1);
     });
   }
-  function spy() {
-    const probe = window.innerHeight * 0.32;
-    let idx = 0;
-    sections.forEach((sec, i) => { if (sec.getBoundingClientRect().top <= probe) idx = i; });
-    markActive(idx);
+
+  /* Everything above is the old scrollspy stepper. From here it drives one
+     section at a time instead, because reporters asked to finish a part before
+     the next appears rather than scroll past all five. The form, its single
+     submit and the server-side validation are untouched: this only decides
+     which section is on screen. */
+  const submitRow = form.querySelector('.submit-row');
+  const dupBox    = form.querySelector('.dup-override');
+  let current = 0;
+  let furthest = 0;
+
+  const nav = document.createElement('div');
+  nav.className = 'wz-nav';
+  nav.innerHTML =
+    '<button type="button" class="wz-back"><i class="fas fa-arrow-left" style="font-size:.75rem"></i> Back</button>' +
+    '<span class="wz-count"></span>' +
+    '<button type="button" class="wz-next">Next <span class="btn-arrow"><i class="fas fa-arrow-right"></i></span></button>';
+  submitRow.parentNode.insertBefore(nav, submitRow);
+  const backBtn  = nav.querySelector('.wz-back');
+  const nextBtn  = nav.querySelector('.wz-next');
+  const countEl  = nav.querySelector('.wz-count');
+
+  function render() {
+    sections.forEach((s, i) => s.classList.toggle('wz-on', i === current));
+    const last = current === sections.length - 1;
+    nav.style.display        = last ? 'none' : 'flex';
+    submitRow.style.display  = last ? '' : 'none';
+    if (dupBox) dupBox.style.display = last ? '' : 'none';
+    backBtn.style.visibility = current === 0 ? 'hidden' : 'visible';
+    countEl.textContent      = 'Step ' + (current + 1) + ' of ' + sections.length;
+    markActive(current);
   }
-  window.addEventListener('scroll', spy, { passive: true });
-  spy();
+
+  function goTo(i, viaChip) {
+    if (i < 0 || i > sections.length - 1) return;
+    // Forward only once the section you are leaving is complete; back is always
+    // free, and a chip may only reach a step already visited.
+    if (i > current) {
+      if (viaChip && i > furthest) return;
+      for (let s = current; s < i; s++) {
+        if (!rfValidate(sections[s], true)) { current = s; render(); scrollToForm(); return; }
+      }
+    }
+    current = i;
+    furthest = Math.max(furthest, current);
+    render();
+    scrollToForm();
+  }
+
+  function scrollToForm() {
+    const y = (bar.getBoundingClientRect().top + window.scrollY) - 12;
+    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+  }
+
+  nextBtn.addEventListener('click', () => goTo(current + 1));
+  backBtn.addEventListener('click', () => goTo(current - 1));
+
+  /* Submit validates the whole form, so a missing field may sit on a step that
+     is off screen. This lets the validator bring it into view before it
+     complains about it. */
+  window.wzRevealField = function (el) {
+    const sec = el && el.closest ? el.closest('.section-card') : null;
+    if (!sec) return;
+    const i = sections.indexOf(sec);
+    if (i >= 0 && i !== current) { current = i; furthest = Math.max(furthest, i); render(); }
+  };
+
+  // render() first, then hide: if anything in here threw, the form would be
+  // left with .wz applied and no section shown at all. This way a failure
+  // leaves every section visible - the page as it was before any of this.
+  render();
+  form.classList.add('wz');
 })();
 
 /* ── Inline required-field warnings (red outline + message under the field) ── */
@@ -2611,9 +2709,15 @@ function rfFieldOk(el) {
   const m = anchor.nextElementSibling;
   if (m && m.classList && m.classList.contains('f-msg')) m.remove();
 }
-function rfValidate() {
+/* scope: what to check — one section while stepping, the whole form on submit.
+   quiet: mark the fields inline but skip the popup, which is too heavy a
+   response to "you missed one on this step".
+   Fields hidden because they were pre-filled already hold their values, so they
+   pass on their own and need no special handling here. */
+function rfValidate(scope, quiet) {
+  const root = scope || reportForm;
   const bad = [];
-  reportForm.querySelectorAll('input[required], textarea[required], select[required]').forEach((el) => {
+  root.querySelectorAll('input[required], textarea[required], select[required]').forEach((el) => {
     if (el.type === 'hidden') return;
     const empty = el.type === 'checkbox' ? !el.checked : !String(el.value || '').trim();
     if (empty) {
@@ -2636,8 +2740,11 @@ function rfValidate() {
       else l = el.getAttribute('placeholder') || 'A required field';
       if (!seen[l]) { seen[l] = 1; labels.push(l); }
     });
+    // Whatever is wrong may be on a step that is not on screen, so move there
+    // first - otherwise the popup names a field the reporter cannot see.
+    if (window.wzRevealField) window.wzRevealField(bad[0]);
     if (window.setErrFirstField) window.setErrFirstField(bad[0]);
-    if (window.showErrModal) {
+    if (!quiet && window.showErrModal) {
       window.showErrModal(
         labels.length === 1 ? 'One more detail needed' : 'Some details are missing',
         'Please complete the following before submitting your report:',
@@ -2645,6 +2752,7 @@ function rfValidate() {
       );
     } else {
       bad[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (typeof bad[0].focus === 'function') { try { bad[0].focus({ preventScroll: true }); } catch (e) { bad[0].focus(); } }
     }
   }
   return bad.length === 0;
