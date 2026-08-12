@@ -1989,26 +1989,31 @@ html { scroll-behavior: smooth; }
         </div>
       </div>
 
-      <div class="photo-zone" id="photo-zone">
-        <input type="file" name="photos[]" id="photo-input" data-shrink aria-label="Upload photos of the defective equipment" accept="image/jpeg,image/png,image/webp" multiple>
-        <div class="photo-icon"><i class="fas fa-cloud-upload-alt"></i></div>
-        <div class="photo-title">Drag &amp; drop photos here, or tap to choose</div>
-        <div class="photo-sub">JPG, PNG, WEBP — up to <strong>10 photos</strong>, max 10MB each</div>
-        <div class="photo-meta" id="photo-meta"></div>
+      <?php /* One picker for both. Its accept list names images and videos, so
+               the phone's own sheet offers the gallery, "Take Photo" and
+               "Take Video" together - which is what a reporter wanted when they
+               tapped "evidence" - instead of making them decide which of two
+               boxes they needed before they had chosen anything.
+               photos[] and videos[] are still submitted separately, filled from
+               here, so nothing downstream changed. */ ?>
+      <div class="photo-zone" id="media-zone">
+        <input type="file" id="media-input" aria-label="Add photos or a video of the problem"
+               accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" multiple>
+        <div class="photo-icon"><i class="fas fa-camera-retro"></i></div>
+        <div class="photo-title">Add photos or a video — tap to choose, or drag them here</div>
+        <div class="photo-sub">Photos: up to <strong>10</strong>, max 10MB each &middot; Video: up to <strong>2</strong>, max 20MB each</div>
+        <div class="photo-meta" id="media-meta"></div>
       </div>
-      <div class="cam-sep">or</div>
-      <div class="cam-row"><button type="button" class="cam-trigger" data-camera="photo" data-camera-target="#photo-input"><i class="fas fa-camera"></i> Take a photo</button></div>
-      <div class="photo-grid" id="photo-grid"></div>
 
-      <div class="photo-zone" id="video-zone" style="margin-top:1.25rem;">
-        <input type="file" name="videos[]" id="video-input" aria-label="Upload a short video of the problem" accept="video/mp4,video/webm,video/quicktime" multiple>
-        <div class="photo-icon"><i class="fas fa-video"></i></div>
-        <div class="photo-title">Add a short video (optional), or tap to choose</div>
-        <div class="photo-sub">MP4, WEBM, MOV — up to <strong>2 videos</strong>, max 20MB each</div>
-        <div class="photo-meta" id="video-meta"></div>
-      </div>
-      <div class="cam-sep">or</div>
-      <div class="cam-row"><button type="button" class="cam-trigger" data-camera="video" data-camera-target="#video-input"><i class="fas fa-video"></i> Record a video</button></div>
+      <?php /* Kept, hidden: these carry the files to the server under the names
+               it already expects, and photo_shrink.js still finds photos[] by
+               its data-shrink hook at submit time. */ ?>
+      <input type="file" name="photos[]" id="photo-input" data-shrink accept="image/jpeg,image/png,image/webp" multiple hidden tabindex="-1" aria-hidden="true">
+      <input type="file" name="videos[]" id="video-input" accept="video/mp4,video/webm,video/quicktime" multiple hidden tabindex="-1" aria-hidden="true">
+
+      <div class="photo-meta" id="photo-meta"></div>
+      <div class="photo-grid" id="photo-grid"></div>
+      <div class="photo-meta" id="video-meta"></div>
       <div class="photo-grid" id="video-grid"></div>
     </div>
 
@@ -2493,7 +2498,7 @@ locationSearchEl.addEventListener('keydown', e => {
 
 // ── Multi-photo uploader (drag-drop, preview, size, remove, limits) ────────
 const photoInput = document.getElementById('photo-input');
-const photoZone  = document.getElementById('photo-zone');
+// (the separate photo drop-zone is gone; #media-zone handles both now)
 const photoGrid  = document.getElementById('photo-grid');
 const photoMeta  = document.getElementById('photo-meta');
 const MAX_PHOTOS = 10;
@@ -2544,8 +2549,6 @@ function addFiles(fileList){
   if (errs.length) { photoMeta.innerHTML = '<span style="color:#b42318">'+errs[0]+'</span>'; }
 }
 
-photoInput.addEventListener('change', () => { addFiles(photoInput.files); });
-
 photoGrid.addEventListener('click', e => {
   const btn = e.target.closest('.pg-x'); if (!btn) return;
   const i = parseInt(btn.dataset.i, 10);
@@ -2553,17 +2556,9 @@ photoGrid.addEventListener('click', e => {
   syncPhotoInput(); renderPhotos();
 });
 
-// Drag & drop
-['dragenter','dragover'].forEach(ev => photoZone.addEventListener(ev, e => { e.preventDefault(); photoZone.classList.add('drag'); }));
-['dragleave','dragend'].forEach(ev => photoZone.addEventListener(ev, e => { e.preventDefault(); photoZone.classList.remove('drag'); }));
-photoZone.addEventListener('drop', e => {
-  e.preventDefault(); photoZone.classList.remove('drag');
-  if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files);
-});
-
 // ── Video evidence picker (mirrors photos; up to 2 short clips) ──
 const videoInput = document.getElementById('video-input');
-const videoZone  = document.getElementById('video-zone');
+// (the separate video drop-zone is gone; #media-zone handles both now)
 const videoGrid  = document.getElementById('video-grid');
 const videoMeta  = document.getElementById('video-meta');
 const MAX_VIDEOS = 2;
@@ -2598,16 +2593,50 @@ function addVideoFiles(fileList){
   if (errs.length) { videoMeta.innerHTML = '<span style="color:#b42318">'+errs[0]+'</span>'; }
 }
 if (videoInput) {
-  videoInput.addEventListener('change', () => { addVideoFiles(videoInput.files); });
   videoGrid.addEventListener('click', e => {
     const btn = e.target.closest('.pg-x'); if (!btn) return;
     const i = parseInt(btn.dataset.i, 10);
     if (videoStore[i]) { URL.revokeObjectURL(videoStore[i].url); videoStore.splice(i,1); }
     syncVideoInput(); renderVideos();
   });
-  ['dragenter','dragover'].forEach(ev => videoZone.addEventListener(ev, e => { e.preventDefault(); videoZone.classList.add('drag'); }));
-  ['dragleave','dragend'].forEach(ev => videoZone.addEventListener(ev, e => { e.preventDefault(); videoZone.classList.remove('drag'); }));
-  videoZone.addEventListener('drop', e => { e.preventDefault(); videoZone.classList.remove('drag'); if (e.dataTransfer && e.dataTransfer.files) addVideoFiles(e.dataTransfer.files); });
+}
+
+/* ── The single evidence picker ───────────────────────────────────────────────
+   Sorts what arrives by type and hands each kind to the picker that already
+   knew how to deal with it, so the counts, the size limits, the previews and
+   the two form fields all behave exactly as they did when there were two boxes.
+   The reporter simply no longer has to choose which box before choosing a file. */
+const mediaZone  = document.getElementById('media-zone');
+const mediaInput = document.getElementById('media-input');
+const mediaMeta  = document.getElementById('media-meta');
+
+function addMedia(fileList) {
+  const files  = Array.from(fileList || []);
+  if (!files.length) return;
+  const images = files.filter(f => /^image\//i.test(f.type));
+  const videos = files.filter(f => /^video\//i.test(f.type));
+  // Anything that is neither - a PDF dragged in by mistake - is named rather
+  // than dropped in silence.
+  const other  = files.filter(f => !/^(image|video)\//i.test(f.type));
+  if (images.length) addFiles(images);
+  if (videos.length) addVideoFiles(videos);
+  mediaMeta.innerHTML = other.length
+    ? '<span style="color:#b42318">' + other[0].name + ': not a photo or video</span>'
+    : '';
+}
+
+if (mediaZone && mediaInput) {
+  mediaInput.addEventListener('change', () => {
+    addMedia(mediaInput.files);
+    // Cleared so picking the same file twice in a row still raises a change.
+    mediaInput.value = '';
+  });
+  ['dragenter','dragover'].forEach(ev => mediaZone.addEventListener(ev, e => { e.preventDefault(); mediaZone.classList.add('drag'); }));
+  ['dragleave','dragend'].forEach(ev => mediaZone.addEventListener(ev, e => { e.preventDefault(); mediaZone.classList.remove('drag'); }));
+  mediaZone.addEventListener('drop', e => {
+    e.preventDefault(); mediaZone.classList.remove('drag');
+    if (e.dataTransfer && e.dataTransfer.files) addMedia(e.dataTransfer.files);
+  });
 }
 
 /* ── Form progress stepper: built from the section cards, scrollspy-highlighted ── */
