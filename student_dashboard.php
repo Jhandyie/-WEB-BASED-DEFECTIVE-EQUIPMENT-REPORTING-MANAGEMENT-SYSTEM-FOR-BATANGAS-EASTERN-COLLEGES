@@ -2697,8 +2697,14 @@ if (mediaZone && mediaInput) {
      which section is on screen. */
   const submitRow = form.querySelector('.submit-row');
   const dupBox    = form.querySelector('.dup-override');
-  let current = 0;
-  let furthest = 0;
+  // A duplicate notice sends the form back with everything still filled in and
+  // a tickbox at the end that has to be agreed to. Starting at step 1 would
+  // make the reporter walk all five steps again to reach it, so open on the
+  // step that holds the notice and the submit button.
+  let current = dupBox ? Math.max(0, sections.length - 1) : 0;
+  // Everything up to here has already been filled in and accepted once, so the
+  // earlier steps are reachable from the chips rather than locked behind Next.
+  let furthest = current;
 
   const nav = document.createElement('div');
   nav.className = 'wz-nav';
