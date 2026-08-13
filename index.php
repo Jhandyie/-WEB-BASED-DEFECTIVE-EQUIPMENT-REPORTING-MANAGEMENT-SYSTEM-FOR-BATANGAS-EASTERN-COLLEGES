@@ -887,17 +887,17 @@ a { text-decoration: none; color: inherit; }
       <div class="becca-visual" aria-hidden="true">
         <div class="becca-card">
           <div class="bc-head">
-            <span class="bc-av"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="Becca" width="180" height="260" loading="lazy" decoding="async"></span>
+            <span class="bc-av"><img src="assets/becca-mascot.svg" alt="Becca" width="100" height="100" loading="lazy" decoding="async"></span>
             <div><b>Becca</b><small><span class="bc-dot"></span> Online · BEC Support AI</small></div>
           </div>
           <div class="bc-body">
             <div class="bc-msg u">How do I report a broken projector?</div>
             <div class="bc-row">
-              <span class="bc-mav"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="" width="180" height="260" loading="lazy" decoding="async"></span>
+              <span class="bc-mav"><img src="assets/becca-mascot.svg" alt="" width="100" height="100" loading="lazy" decoding="async"></span>
               <div class="bc-msg b">Sign in on the report page, choose the equipment and room, attach a photo, and set the priority. You'll get an email as soon as the PMO reviews it. 👍</div>
             </div>
             <div class="bc-row">
-              <span class="bc-mav"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="" width="180" height="260" loading="lazy" decoding="async"></span>
+              <span class="bc-mav"><img src="assets/becca-mascot.svg" alt="" width="100" height="100" loading="lazy" decoding="async"></span>
               <div class="bc-typing"><span></span><span></span><span></span></div>
             </div>
           </div>

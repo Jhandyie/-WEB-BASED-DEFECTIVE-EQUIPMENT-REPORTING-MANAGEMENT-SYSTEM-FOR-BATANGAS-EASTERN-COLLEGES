@@ -59,13 +59,13 @@
 </style>
 
 <button class="tia-fab" id="tiaFab" type="button" aria-label="Open BECCA AI technician assistant" title="BECCA AI">
-  <span class="tia-ic"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="AI" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=&quot;fas fa-robot&quot;></i>'"></span>
+  <span class="tia-ic"><img src="assets/becca-mascot.svg" alt="AI" onerror="this.style.display='none';this.parentElement.innerHTML='<i class=&quot;fas fa-robot&quot;></i>'"></span>
 </button>
 
 <div class="tia-overlay" id="tiaOverlay">
   <div class="tia-panel" role="dialog" aria-label="BECCA AI">
     <div class="tia-head">
-      <div class="tia-av"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="AI"></div>
+      <div class="tia-av"><img src="assets/becca-mascot.svg" alt="AI"></div>
       <div class="tia-t"><b>BECCA AI</b><small>Technician assistant · read-only</small></div>
       <button class="tia-x" id="tiaClose" type="button" aria-label="Close"><i class="fas fa-xmark"></i></button>
     </div>
@@ -93,13 +93,13 @@
 
   function add(role,text){
     const row=document.createElement('div'); row.className='tia-row '+(role==='u'?'u':'bot');
-    const av = role==='u' ? '' : '<span class="tia-mav"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="AI"></span>';
+    const av = role==='u' ? '' : '<span class="tia-mav"><img src="assets/becca-mascot.svg" alt="AI"></span>';
     row.innerHTML=av+'<div class="tia-b">'+fmt(text)+'</div>';
     msgs.appendChild(row); msgs.scrollTop=msgs.scrollHeight; return row;
   }
   function typing(){
     const row=document.createElement('div'); row.className='tia-row bot'; row.id='tiaTyping';
-    row.innerHTML='<span class="tia-mav"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="AI"></span><div class="tia-b"><span class="tia-dots"><span></span><span></span><span></span></span></div>';
+    row.innerHTML='<span class="tia-mav"><img src="assets/becca-mascot.svg" alt="AI"></span><div class="tia-b"><span class="tia-dots"><span></span><span></span><span></span></span></div>';
     msgs.appendChild(row); msgs.scrollTop=msgs.scrollHeight;
   }
   function untype(){ const t=document.getElementById('tiaTyping'); if(t) t.remove(); }

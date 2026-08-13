@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Becca">
+  <title>Becca</title>
+  <!--
+    The same character as the reporter sign-in screen, kept as one file so the
+    two never drift apart. Colours are literal rather than CSS variables: an
+    SVG loaded through <img> is its own document and inherits nothing from the
+    page around it. Animation declared here still runs in that context;
+    scripting would not, which is why none is used.
+  -->
+  <style>
+    .m-body  { fill:#7B1D1D; }
+    .m-face  { fill:#F6D3AE; }
+    .m-hair  { fill:#3A241C; }
+    .m-eye   { fill:#2B1B14; }
+    .m-glint { fill:#fff; }
+    .m-blush { fill:rgba(214,109,109,.5); }
+    .m-smile { fill:none; stroke:#2B1B14; stroke-width:2.3; stroke-linecap:round; }
+    .m-arm   { stroke:#F6D3AE; stroke-width:6; fill:none; stroke-linecap:round; }
+    .m-hand  { fill:#F6D3AE; }
+
+    /* Swings -6deg to 20deg rather than symmetrically about zero: a centred
+       swing tucks the hand behind the head at one end and outside the frame at
+       the other, because the head is wide relative to this viewBox. */
+    .m-wave { transform-box:view-box; transform-origin:62px 78px;
+              animation:beccaWave 1.15s ease-in-out infinite; }
+    .m-bob  { transform-box:view-box; transform-origin:44px 70px;
+              animation:beccaBob 2.3s ease-in-out infinite; }
+    @keyframes beccaWave { 0%,100%{transform:rotate(-6deg)} 50%{transform:rotate(20deg)} }
+    @keyframes beccaBob  { 0%,100%{transform:translateY(0)}  50%{transform:translateY(-2px)} }
+    @media (prefers-reduced-motion: reduce) {
+      .m-wave, .m-bob { animation:none; }
+    }
+  </style>
+
+  <g class="m-bob">
+    <path class="m-body" d="M24 100 v-9 a20 20 0 0 1 40 0 v9 z"/>
+    <g class="m-wave">
+      <path class="m-arm" d="M62 78 L75 50"/>
+      <circle class="m-hand" cx="78" cy="46" r="6.5"/>
+    </g>
+    <circle class="m-face" cx="44" cy="44" r="23"/>
+    <path class="m-hair" d="M23.8 33 A23 23 0 0 1 64.2 33 q-20.2 8 -40.4 0 z"/>
+    <ellipse class="m-eye" cx="36" cy="46" rx="3.9" ry="4.8"/>
+    <ellipse class="m-eye" cx="52" cy="46" rx="3.9" ry="4.8"/>
+    <circle class="m-glint" cx="37.4" cy="44.2" r="1.6"/>
+    <circle class="m-glint" cx="53.4" cy="44.2" r="1.6"/>
+    <ellipse class="m-blush" cx="27" cy="53" rx="4.2" ry="2.4"/>
+    <ellipse class="m-blush" cx="61" cy="53" rx="4.2" ry="2.4"/>
+    <path class="m-smile" d="M38 55 q6 6.5 12 0"/>
+  </g>
+</svg>

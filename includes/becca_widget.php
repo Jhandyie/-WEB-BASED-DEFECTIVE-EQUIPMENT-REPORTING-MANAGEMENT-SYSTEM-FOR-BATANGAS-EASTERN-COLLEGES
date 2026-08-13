@@ -264,7 +264,7 @@
 
 <!-- ══ FLOATING CHAT LAUNCHER (left) ══ -->
 <button id="chatFab" type="button" onclick="openChat()" aria-label="Open BEC Support assistant">
-  <span class="fab-ic"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="Becca AI" onerror="this.style.display='none';this.insertAdjacentHTML('afterend','<i class=\'fas fa-robot\'></i>')"></span>
+  <span class="fab-ic"><img src="assets/becca-mascot.svg" alt="Becca AI" onerror="this.style.display='none';this.insertAdjacentHTML('afterend','<i class=\'fas fa-robot\'></i>')"></span>
   <span class="fab-txt"><b>Ask Becca</b><span>BEC Support AI</span></span>
 </button>
 
@@ -274,7 +274,7 @@
 
     <div class="ch">
       <div class="ch-av">
-        <img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="BEC Support AI" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:50%">
+        <img src="assets/becca-mascot.svg" alt="BEC Support AI" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:50%">
         <div class="ch-av-dot"></div>
       </div>
       <div class="ch-info">
@@ -573,7 +573,7 @@ function addMsg(role, text, chips, suggest, actions = []) {
 
   const avatar = role === 'u'
     ? '<div class="mav"><i aria-hidden="true" class="fas fa-user"></i></div>'
-    : '<div class="mav mav-ai"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="Becca"></div>';
+    : '<div class="mav mav-ai"><img src="assets/becca-mascot.svg" alt="Becca"></div>';
   row.innerHTML = `
     ${avatar}
     <div class="mcol">
@@ -591,7 +591,7 @@ function showTyping() {
   row.className = 'trow'; row.id = 'typing';
   row.innerHTML = `
     <div class="mav mav-ai" style="width:25px;height:25px;border-radius:50%;overflow:hidden;flex-shrink:0">
-      <img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="Becca" style="width:100%;height:100%;object-fit:cover;display:block">
+      <img src="assets/becca-mascot.svg" alt="Becca" style="width:100%;height:100%;object-fit:cover;display:block">
     </div>
     <div class="tbub"><div class="tdots"><span></span><span></span><span></span></div></div>`;
   box.appendChild(row);

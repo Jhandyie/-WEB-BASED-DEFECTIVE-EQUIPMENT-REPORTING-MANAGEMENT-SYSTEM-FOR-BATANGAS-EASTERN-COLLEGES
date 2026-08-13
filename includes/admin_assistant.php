@@ -127,13 +127,13 @@ try {
 })();
 </script>
 <button class="aia-fab" id="aiaFab" type="button" aria-label="Open BECCA AI admin assistant" title="BECCA AI">
-  <span class="aia-ic"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="AI"></span>
+  <span class="aia-ic"><img src="assets/becca-mascot.svg" alt="AI"></span>
 </button>
 
 <div class="aia-overlay" id="aiaOverlay">
   <div class="aia-panel" role="dialog" aria-label="BECCA AI">
     <div class="aia-head">
-      <div class="aia-av"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="AI"></div>
+      <div class="aia-av"><img src="assets/becca-mascot.svg" alt="AI"></div>
       <div class="aia-t"><b>BECCA AI</b><small>Administrative assistant · read-only</small></div>
       <button class="aia-x" id="aiaClose" type="button" aria-label="Close"><i class="fas fa-xmark"></i></button>
     </div>
@@ -162,13 +162,13 @@ try {
 
   function add(role,text){
     const row=document.createElement('div'); row.className='aia-row '+(role==='u'?'u':'bot');
-    const av = role==='u' ? '' : '<span class="aia-mav"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="AI"></span>';
+    const av = role==='u' ? '' : '<span class="aia-mav"><img src="assets/becca-mascot.svg" alt="AI"></span>';
     row.innerHTML=av+'<div class="aia-b">'+fmt(text)+'</div>';
     msgs.appendChild(row); msgs.scrollTop=msgs.scrollHeight; return row;
   }
   function typing(){
     const row=document.createElement('div'); row.className='aia-row bot'; row.id='aiaTyping';
-    row.innerHTML='<span class="aia-mav"><img src="assets/Gemini_Generated_Image_e35zfue35zfue35z.png" alt="AI"></span><div class="aia-b"><span class="aia-dots"><span></span><span></span><span></span></span></div>';
+    row.innerHTML='<span class="aia-mav"><img src="assets/becca-mascot.svg" alt="AI"></span><div class="aia-b"><span class="aia-dots"><span></span><span></span><span></span></span></div>';
     msgs.appendChild(row); msgs.scrollTop=msgs.scrollHeight;
   }
   function untype(){ const t=document.getElementById('aiaTyping'); if(t) t.remove(); }
