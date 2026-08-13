@@ -195,7 +195,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $conn->prepare($sql);
             $stmt->bind_param(str_repeat('s', count($insVals)), ...$insVals);
             $stmt->execute();
-            $_SESSION['flash'] = ['ok', "Equipment \"$name\" added (ID: $eid)."];
+            // Third element carries what the label needs, so the confirmation
+            // can offer to print it there and then. Whoever just added the
+            // item is the person holding it; sending them back to the list to
+            // find it again is the moment a label stops getting made.
+            $_SESSION['flash'] = ['ok', "Equipment \"$name\" added (ID: $eid).",
+                                  ['id' => $eid, 'name' => $name, 'tag' => $tag, 'loc' => $loc]];
         }
     }
 
@@ -817,6 +822,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 @keyframes pp{0%,100%{transform:scale(1);}50%{transform:scale(1.4);}}
 .pg{padding:1.5rem 1.75rem;flex:1;}
 
+/* Sits at the end of the "added" confirmation, so the label can be printed by
+   the person still holding the equipment. */
+.flash-qr{margin-left:auto;flex-shrink:0;display:inline-flex;align-items:center;gap:.4rem;
+  background:var(--m3,#7B1D1D);color:#fff;border:0;border-radius:8px;padding:.45rem .85rem;
+  font-family:inherit;font-size:.78rem;font-weight:600;cursor:pointer;}
+.flash-qr:hover{background:var(--m2,#4A0E0E);}
+
 /* -- FLASH ------------------------------------------ */
 .flash{display:flex;align-items:center;gap:.65rem;padding:.7rem 1.1rem;border-radius:var(--r2);
   margin-bottom:1.125rem;font-size:.81rem;font-weight:600;animation:fIn .25s ease;border-left:3px solid;}
@@ -1120,10 +1132,18 @@ textarea.fc{resize:vertical;min-height:72px;}
 
   <div class="pg">
 
-    <?php if(isset($_SESSION['flash'])): [$ft,$fm]=$_SESSION['flash']; unset($_SESSION['flash']); ?>
+    <?php if(isset($_SESSION['flash'])):
+            $__f = $_SESSION['flash']; unset($_SESSION['flash']);
+            $ft = $__f[0] ?? 'ok'; $fm = $__f[1] ?? ''; $fq = $__f[2] ?? null; ?>
     <div class="flash <?php echo $ft;?>">
       <i class="fas fa-<?php echo $ft==='ok'?'check-circle':'exclamation-circle';?>"></i>
-      <?php echo esc($fm); ?>
+      <span><?php echo esc($fm); ?></span>
+      <?php if ($fq): ?>
+      <button type="button" class="flash-qr"
+        onclick="openQR('<?php echo esc($fq['id']);?>','<?php echo esc($fq['name']);?>','<?php echo esc($fq['tag']);?>','<?php echo esc($fq['loc']);?>')">
+        <i class="fas fa-qrcode"></i> Print QR label
+      </button>
+      <?php endif; ?>
     </div>
     <?php endif; ?>
 
@@ -1949,7 +1969,10 @@ function printQR(){
   + '.title{text-align:center;font-size:10px;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:#7B1D1D;padding:9px 10px 2px;}'
   + '.sub{text-align:center;font-size:9px;color:#9E8070;padding-bottom:9px;}'
   + '.qrwrap{text-align:center;padding:0 10px 8px;}'
-  + '.qrwrap img{width:46mm;height:46mm;border:1px solid #E8DDD0;border-radius:8px;padding:5px;}'
+  // 38.1mm is 1.5in exactly, and content-box keeps it that way: the sheet sets
+  // box-sizing:border-box globally, which would otherwise let the border and
+  // padding eat into the code and print it undersized.
+  + '.qrwrap img{width:38.1mm;height:38.1mm;box-sizing:content-box;border:1px solid #E8DDD0;border-radius:8px;padding:4px;}'
   + '.scan{font-size:10.5px;font-weight:700;color:#4A0E0E;margin-top:6px;}'
   + '.scan span{display:block;font-size:8.5px;font-weight:400;color:#9E8070;margin-top:2px;}'
   + 'table{width:100%;border-collapse:collapse;font-size:10px;margin-top:2px;}'
