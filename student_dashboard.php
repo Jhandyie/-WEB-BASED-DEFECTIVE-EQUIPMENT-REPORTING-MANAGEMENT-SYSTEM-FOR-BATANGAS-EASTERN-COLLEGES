@@ -2347,14 +2347,17 @@ wireComboDismiss(searchEl, dropdown);
 
 // One delegated listener instead of one per row — the rows are rebuilt on every
 // keystroke, so per-row listeners were being created and thrown away in bulk.
-/* pointerdown, not mousedown: on a phone mousedown is a synthesised event that
-   arrives after the touch has already moved focus, so the list closed and the
-   re-focused field opened it again. pointerdown fires for touch, pen and mouse
-   alike, before any of that. */
-dropdown.addEventListener('pointerdown', e => {
+/* Selection happens on click, never on pointerdown. preventDefault() during
+   pointerdown cancels the browser's own scroll gesture, so the list could not
+   be scrolled with a finger at all - it only closed on whatever was under the
+   first touch. A click arrives after a genuine tap and never during a drag,
+   which is exactly the distinction needed here.
+   The mousedown below is desktop-only housekeeping: it stops the press moving
+   focus out of the input, and does not affect touch scrolling. */
+dropdown.addEventListener('mousedown', e => { if (e.target.closest('.eq-item')) e.preventDefault(); });
+dropdown.addEventListener('click', e => {
   const el = e.target.closest('.eq-item');
   if (!el) return;
-  e.preventDefault();
   selectEquip(equipData[Number(el.dataset.index)] || {}, true);
 });
 
@@ -2469,10 +2472,12 @@ locationSearchEl.addEventListener('input', () => {
 locationSearchEl.addEventListener('focus', () => renderLocationDropdown(locationSearchEl.value));
 wireComboDismiss(locationSearchEl, locationDropdown);
 
-locationDropdown.addEventListener('pointerdown', e => {
+// click, not pointerdown - see the equipment list above: preventing the default
+// on pointerdown stops the finger scrolling the list.
+locationDropdown.addEventListener('mousedown', e => { if (e.target.closest('.loc-item')) e.preventDefault(); });
+locationDropdown.addEventListener('click', e => {
   const el = e.target.closest('.loc-item');
   if (!el) return;
-  e.preventDefault();
   selectLocation(locationData[Number(el.dataset.index)] || '', true);
 });
 locationSearchEl.addEventListener('keydown', e => {
@@ -2711,7 +2716,12 @@ if (mediaZone && mediaInput) {
     const last = current === sections.length - 1;
     nav.style.display        = last ? 'none' : 'flex';
     submitRow.style.display  = last ? '' : 'none';
-    if (dupBox) dupBox.style.display = last ? '' : 'none';
+    // 'flex', not '': the duplicate notice carries display:flex in an inline
+    // style attribute and has no stylesheet rule to fall back on, so clearing
+    // the property dropped it to display:inline and the checkbox and its text
+    // ran together. It is required, so a notice nobody could read was also a
+    // submit nobody could complete.
+    if (dupBox) dupBox.style.display = last ? 'flex' : 'none';
     backBtn.style.visibility = current === 0 ? 'hidden' : 'visible';
     countEl.textContent      = 'Step ' + (current + 1) + ' of ' + sections.length;
     markActive(current);
