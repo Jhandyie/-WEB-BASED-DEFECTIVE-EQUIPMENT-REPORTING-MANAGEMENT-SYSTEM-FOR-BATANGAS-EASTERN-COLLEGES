@@ -1150,5 +1150,8 @@ a { text-decoration: none; color: inherit; }
 </script>
 <?php require __DIR__ . '/includes/site_ui.php'; ?>
 <?php require __DIR__ . '/includes/becca_widget.php'; ?>
+<?php /* Opposite corner to Becca: she answers questions about campus equipment,
+         this reports the website itself misbehaving. Two jobs, two controls. */ ?>
+<?php require __DIR__ . '/includes/issue_widget.php'; ?>
 </body>
 </html>
