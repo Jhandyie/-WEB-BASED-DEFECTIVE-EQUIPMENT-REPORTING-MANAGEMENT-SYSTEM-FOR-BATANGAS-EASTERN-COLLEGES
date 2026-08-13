@@ -665,7 +665,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $size = (int)($_FILES['photos']['size'][$i] ?? 0);
                 if ($size <= 0 || $size > $max_size) { $error = 'Each photo must be a valid image under 10MB.'; break; }
                 $info = @getimagesize($tmp);
-                if ($info === false || !isset($allowedImg[$info[2]])) { $error = 'Photos must be valid JPG, PNG, or WEBP images.'; break; }
+                if ($info === false || !isset($allowedImg[$info[2]])) { $error = 'Photos must be JPG, PNG or WEBP. An iPhone HEIC photo will not upload — screenshot it and attach that, or set Settings › Camera › Formats › Most Compatible.'; break; }
                 $safeExt = $allowedImg[$info[2]];
                 $rel  = 'uploads/reports/' . $ticket . '_' . ($count + 1) . '.' . $safeExt;
                 $dest = __DIR__ . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $rel);
@@ -2538,7 +2538,18 @@ function addFiles(fileList){
   const errs = [];
   Array.from(fileList).forEach(file => {
     if (photoStore.length >= MAX_PHOTOS){ errs.push('Maximum '+MAX_PHOTOS+' photos.'); return; }
-    if (!OK_TYPES.includes(file.type)){ errs.push(file.name+': unsupported type'); return; }
+    if (!OK_TYPES.includes(file.type)){
+      // HEIC is what an iPhone stores by default. iOS converts it to JPEG on
+      // upload as long as the accept list does not mention HEIC - which is why
+      // it must not be added there - but a file picked out of Files, or from
+      // some Android cameras, still arrives in the original format. Say what to
+      // do about it rather than "unsupported type".
+      const heic = /hei[cf]/i.test(file.type) || /\.hei[cf]$/i.test(file.name);
+      errs.push(heic
+        ? file.name + ' is an iPhone HEIC photo. Take a screenshot of it and attach that, or set Settings › Camera › Formats › Most Compatible.'
+        : file.name + ' is not a JPG, PNG or WEBP photo.');
+      return;
+    }
     if (file.size > MAX_BYTES){ errs.push(file.name+': over 10MB'); return; }
     if (photoStore.some(p => p.file.name===file.name && p.file.size===file.size)) return; // dedupe
     photoStore.push({ file, url: URL.createObjectURL(file) });
@@ -2584,7 +2595,7 @@ function addVideoFiles(fileList){
   const errs = [];
   Array.from(fileList).forEach(file => {
     if (videoStore.length >= MAX_VIDEOS){ errs.push('Maximum '+MAX_VIDEOS+' videos.'); return; }
-    if (!OK_VTYPES.includes(file.type)){ errs.push(file.name+': unsupported type'); return; }
+    if (!OK_VTYPES.includes(file.type)){ errs.push(file.name+' is not an MP4, WEBM or MOV video.'); return; }
     if (file.size > MAX_VBYTES){ errs.push(file.name+': over 20MB'); return; }
     if (videoStore.some(v => v.file.name===file.name && v.file.size===file.size)) return;
     videoStore.push({ file, url: URL.createObjectURL(file) });
@@ -2613,11 +2624,17 @@ const mediaMeta  = document.getElementById('media-meta');
 function addMedia(fileList) {
   const files  = Array.from(fileList || []);
   if (!files.length) return;
-  const images = files.filter(f => /^image\//i.test(f.type));
-  const videos = files.filter(f => /^video\//i.test(f.type));
+  // Some pickers hand over a file with no type at all - a .heic out of Files on
+  // an iPhone is the common one - so fall back to the extension. Getting this
+  // wrong would send it to the "not a photo or video" branch instead of the
+  // advice about HEIC.
+  const isImg = f => /^image\//i.test(f.type) || (!f.type && /\.(jpe?g|png|webp|hei[cf])$/i.test(f.name));
+  const isVid = f => /^video\//i.test(f.type) || (!f.type && /\.(mp4|webm|mov)$/i.test(f.name));
+  const images = files.filter(isImg);
+  const videos = files.filter(f => !isImg(f) && isVid(f));
   // Anything that is neither - a PDF dragged in by mistake - is named rather
   // than dropped in silence.
-  const other  = files.filter(f => !/^(image|video)\//i.test(f.type));
+  const other  = files.filter(f => !isImg(f) && !isVid(f));
   if (images.length) addFiles(images);
   if (videos.length) addVideoFiles(videos);
   mediaMeta.innerHTML = other.length
