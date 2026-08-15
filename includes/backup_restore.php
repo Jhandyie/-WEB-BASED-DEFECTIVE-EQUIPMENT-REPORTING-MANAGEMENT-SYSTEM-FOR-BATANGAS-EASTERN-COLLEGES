@@ -128,7 +128,8 @@ if (!function_exists('becListBackups')) {
                 'created_at' => $meta['created_at'],
                 'tables'     => $meta['tables'],
                 'rows'       => $meta['rows'],
-                'kind'       => str_starts_with($file, 'bec_pre_restore') ? 'pre-restore' : 'backup',
+                'kind'       => str_starts_with($file, 'bec_pre_restore') ? 'pre-restore'
+                              : (str_starts_with($file, 'bec_imported') ? 'imported' : 'backup'),
             ];
         }
         usort($out, static fn($a, $b) => $b['mtime'] <=> $a['mtime']);
@@ -150,6 +151,143 @@ if (!function_exists('becResolveBackupPath')) {
         $base = realpath(becBackupDir());
         if ($real === false || $base === false || !str_starts_with($real, $base)) { return null; }
         return $real;
+    }
+}
+
+if (!function_exists('becInspectBackupArchive')) {
+    /**
+     * Read an archive and report exactly what it is, without changing anything.
+     *
+     * This is the gate for importing a file from outside the server (an archive
+     * downloaded on another machine, kept off-site, or handed over on a USB
+     * stick). Every check names the specific thing that is wrong, because the
+     * failure mode that matters here is a plausible-looking file that is not
+     * actually one of ours — a renamed XLSX, a truncated download, an archive
+     * from a different system — being accepted and then offered on the restore
+     * list as if it were a real snapshot.
+     *
+     * @param string $path Absolute path to a candidate .zip (may be an upload tmp file).
+     * @return array{ok:bool,message:string,tables:array<string,int>,rows:int,
+     *               created_at:?string,known:int,unknown:array<int,string>,restorable:int}
+     */
+    function becInspectBackupArchive(string $path, ?PDO $pdo = null): array {
+        $out = ['ok' => false, 'message' => '', 'tables' => [], 'rows' => 0,
+                'created_at' => null, 'known' => 0, 'unknown' => [], 'restorable' => 0];
+
+        if (!is_file($path) || !is_readable($path)) {
+            $out['message'] = 'The file could not be read from disk.';
+            return $out;
+        }
+        if ((int) filesize($path) === 0) {
+            $out['message'] = 'The file is empty (0 bytes) — the download or copy did not complete.';
+            return $out;
+        }
+        // ZIP local-file-header magic. A renamed .xlsx also starts PK, which is
+        // why the manifest check below is the one that actually decides.
+        $fh = @fopen($path, 'rb');
+        $magic = $fh ? (string) fread($fh, 4) : '';
+        if ($fh) { fclose($fh); }
+        if (strncmp($magic, "PK\x03\x04", 4) !== 0) {
+            $out['message'] = 'This is not a ZIP archive (its first bytes are wrong). Upload the .zip exactly as downloaded — do not rename another file to .zip.';
+            return $out;
+        }
+
+        try {
+            $entries = becXlsxUnzip($path);
+        } catch (Throwable $e) {
+            $out['message'] = 'The ZIP could not be opened — it is corrupt or only partly downloaded.';
+            return $out;
+        }
+        if (!$entries) {
+            $out['message'] = 'The ZIP is readable but contains no files.';
+            return $out;
+        }
+
+        if (!isset($entries['manifest.json'])) {
+            $out['message'] = 'This ZIP has no manifest.json, so it is not a BEC database snapshot. Only archives produced by this system (or by scripts\\backup_db.php) can be imported.';
+            return $out;
+        }
+        $manifest = json_decode((string) $entries['manifest.json'], true);
+        if (!is_array($manifest) || !isset($manifest['tables']) || !is_array($manifest['tables'])) {
+            $out['message'] = 'The manifest inside this ZIP is missing or unreadable, so the archive cannot be trusted.';
+            return $out;
+        }
+        $out['created_at'] = isset($manifest['created_at']) ? (string) $manifest['created_at'] : null;
+
+        // Count what is actually present, not what the manifest claims.
+        foreach ($entries as $name => $bytes) {
+            if (!preg_match('#^tables/([A-Za-z0-9_]+)\.json$#', (string) $name, $m)) { continue; }
+            $rows = json_decode((string) $bytes, true);
+            if (!is_array($rows)) {
+                $out['message'] = 'Table data for "' . $m[1] . '" inside the archive is not valid JSON — the file is damaged.';
+                return $out;
+            }
+            $out['tables'][$m[1]] = count($rows);
+            $out['rows'] += count($rows);
+        }
+        if (!$out['tables']) {
+            $out['message'] = 'The archive has a manifest but no tables/*.json data files, so there is nothing to recover from it.';
+            return $out;
+        }
+
+        // How much of it this database could actually take. Reported, not
+        // enforced: an archive from an older schema is still worth keeping, it
+        // just recovers fewer tables.
+        if ($pdo !== null) {
+            try {
+                $present = array_fill_keys(becPublicTableNames($pdo), true);
+                $pks     = becTablePrimaryKeys($pdo);
+                foreach ($out['tables'] as $t => $n) {
+                    if (!isset($present[$t])) { $out['unknown'][] = $t; continue; }
+                    $out['known']++;
+                    if (!empty($pks[$t]) && $n > 0) { $out['restorable']++; }
+                }
+            } catch (Throwable $e) { /* schema comparison is advisory only */ }
+        }
+
+        $out['ok'] = true;
+        $out['message'] = count($out['tables']) . ' table(s), ' . number_format($out['rows']) . ' record(s)';
+        return $out;
+    }
+}
+
+if (!function_exists('becImportBackupArchive')) {
+    /**
+     * Take a validated archive into backups/ so it appears on the snapshot list
+     * and can be restored from.
+     *
+     * Imports are named bec_imported_* deliberately: becCreateDatabaseBackup()
+     * rotates by filename prefix (newest 14 of bec_db_backup_*), so an archive
+     * carrying its original name would be deleted by a later backup — exactly
+     * the file someone went out of their way to bring back onto the server.
+     *
+     * @param string $srcPath   Uploaded temp file (already inspected).
+     * @param bool   $isUpload  Use move_uploaded_file() rather than copy().
+     * @return array{ok:bool,message:string,file:?string}
+     */
+    function becImportBackupArchive(string $srcPath, bool $isUpload = true): array {
+        $dir  = becBackupDir();
+        $file = 'bec_imported_' . date('Ymd_His') . '.zip';
+        // Two imports inside one second would otherwise collide silently.
+        $n = 1;
+        while (file_exists($dir . '/' . $file)) { $file = 'bec_imported_' . date('Ymd_His') . '_' . (++$n) . '.zip'; }
+        $dest = $dir . '/' . $file;
+
+        $moved = $isUpload ? @move_uploaded_file($srcPath, $dest) : @copy($srcPath, $dest);
+        if (!$moved) {
+            return ['ok' => false, 'message' => 'The archive could not be written to the backups folder — check that it is writable.', 'file' => null];
+        }
+        @chmod($dest, 0644);
+
+        // Read it back from its final location: what gets listed and restored is
+        // this copy, so this copy is what has to be verifiable.
+        $verify = becInspectBackupArchive($dest);
+        if (!$verify['ok']) {
+            @unlink($dest);
+            return ['ok' => false, 'message' => 'The archive did not survive the copy intact (' . $verify['message'] . '). Nothing was imported.', 'file' => null];
+        }
+
+        return ['ok' => true, 'message' => $verify['message'], 'file' => $file];
     }
 }
 

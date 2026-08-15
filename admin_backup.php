@@ -42,6 +42,20 @@ if (isset($_GET['dl'])) {
 $flash = $_SESSION['backup_flash'] ?? null;
 unset($_SESSION['backup_flash']);
 
+/* An upload larger than post_max_size arrives with $_POST and $_FILES both
+   empty — including the CSRF token — so the generic "security token invalid"
+   would be the message for what is really a file-size problem. Catch it first
+   and say what actually happened. */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($_POST) && empty($_FILES)
+    && (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
+    $_SESSION['backup_flash'] = ['err',
+        'That file is larger than this server accepts in one request (post_max_size = '
+        . ini_get('post_max_size') . ', upload_max_filesize = ' . ini_get('upload_max_filesize')
+        . '). Raise those limits in php.ini, or copy the .zip straight into the backups\\ folder.'];
+    header('Location: admin_backup.php');
+    exit();
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireCsrf();
     $action = (string)($_POST['action'] ?? '');
@@ -67,6 +81,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             @unlink($path);
             logActivity($admin_id, 'backup.delete', 'Deleted backup ' . basename($path));
             $flash = ['ok', 'Deleted backup ' . basename($path) . '.'];
+        }
+    } elseif ($action === 'import') {
+        /* Bring an archive back onto the server — the other half of Download.
+           Nothing is written into backups/ until the file has been proven to be
+           a readable BEC snapshot, and the copy that lands is re-read and
+           verified before it is reported as imported. */
+        $f = $_FILES['archive'] ?? null;
+        $errCode = $f['error'] ?? UPLOAD_ERR_NO_FILE;
+        if (!$f || $errCode !== UPLOAD_ERR_OK) {
+            $msgs = [
+                UPLOAD_ERR_INI_SIZE   => 'The file is larger than upload_max_filesize (' . ini_get('upload_max_filesize') . ').',
+                UPLOAD_ERR_FORM_SIZE  => 'The file is larger than this form allows.',
+                UPLOAD_ERR_PARTIAL    => 'The upload was interrupted and only part of the file arrived.',
+                UPLOAD_ERR_NO_FILE    => 'No file was chosen.',
+                UPLOAD_ERR_NO_TMP_DIR => 'The server has no temporary folder for uploads.',
+                UPLOAD_ERR_CANT_WRITE => 'The server could not write the uploaded file to disk.',
+                UPLOAD_ERR_EXTENSION  => 'A PHP extension blocked the upload.',
+            ];
+            $flash = ['err', 'Import failed. ' . ($msgs[$errCode] ?? 'The upload did not complete.')];
+        } elseif (!is_uploaded_file((string)$f['tmp_name'])) {
+            $flash = ['err', 'Import rejected: that file did not arrive as an upload.'];
+        } elseif (!preg_match('/\.zip$/i', (string)$f['name'])) {
+            $flash = ['err', 'Import rejected: a backup archive must be a .zip file. You chose "' . basename((string)$f['name']) . '".'];
+        } else {
+            $pdo = null;
+            try { $pdo = getPgsqlPdoConnection(); } catch (Throwable $e) { /* inspect without the schema comparison */ }
+            $chk = becInspectBackupArchive((string)$f['tmp_name'], $pdo);
+            if (!$chk['ok']) {
+                $flash = ['err', 'Import rejected: ' . $chk['message']];
+                logActivity($admin_id, 'backup.import_reject', 'Rejected upload ' . basename((string)$f['name']) . ': ' . $chk['message']);
+            } else {
+                $res = becImportBackupArchive((string)$f['tmp_name'], true);
+                if (!$res['ok']) {
+                    $flash = ['err', $res['message']];
+                } else {
+                    $note = 'Imported ' . basename((string)$f['name']) . ' as ' . $res['file'] . ' — ' . $chk['message'];
+                    // Say plainly how much of it this database can actually take.
+                    $scope = $chk['known'] > 0
+                        ? ' ' . $chk['restorable'] . ' of ' . count($chk['tables']) . ' table(s) can be recovered into the current database.'
+                        : ' None of its tables match the current database schema.';
+                    if ($chk['unknown']) {
+                        $scope .= ' Not in this schema: ' . implode(', ', array_slice($chk['unknown'], 0, 6))
+                                . (count($chk['unknown']) > 6 ? ' …' : '') . '.';
+                    }
+                    logActivity($admin_id, 'backup.import', $note);
+                    $flash = ['ok', 'Imported as ' . $res['file'] . ' — ' . $chk['message']
+                                  . ($chk['created_at'] ? ', taken ' . bdt($chk['created_at']) : '') . '.' . $scope
+                                  . ' It is now on the snapshot list and can be recovered from.'];
+                }
+            }
         }
     } elseif ($action === 'restore') {
         $path = becResolveBackupPath((string)($_POST['file'] ?? ''));
@@ -172,6 +236,14 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
   .tag{display:inline-block;padding:.16rem .5rem;border-radius:12px;font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px;}
   .tag.backup{background:rgba(123,29,29,.08);color:var(--maroon);}
   .tag.pre-restore{background:#FFF7E6;color:#9A6A00;}
+  .tag.imported{background:#EAF3FF;color:#1D4E89;}
+  /* Import picker */
+  input[type=file]{width:100%;padding:.5rem .6rem;border:1.5px dashed var(--border);border-radius:9px;background:#fff;
+    font-size:.8rem;font-family:'DM Sans',sans-serif;margin-bottom:10px;cursor:pointer;}
+  input[type=file]:hover{border-color:var(--maroon);}
+  .imp-pick{background:#F4F9F5;border:1px solid #CFE6D6;color:#1C5C2E;border-radius:9px;
+    padding:8px 11px;font-size:.78rem;line-height:1.5;margin-bottom:10px;}
+  .imp-pick.bad{background:#FDECEC;border-color:#F3C0C0;color:#8A1C1C;}
   .rowact{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;}
   .empty{text-align:center;padding:44px 20px;color:var(--ink3);}
   .empty i{font-size:2rem;color:var(--border);display:block;margin-bottom:10px;}
@@ -236,7 +308,9 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
           <tbody>
             <?php foreach ($backups as $b): ?>
             <tr>
-              <td><span class="fname"><?php echo be($b['file']); ?></span><br><span class="tag <?php echo be($b['kind']); ?>"><?php echo $b['kind'] === 'pre-restore' ? 'pre-restore safety' : 'backup'; ?></span></td>
+              <td><span class="fname"><?php echo be($b['file']); ?></span><br><span class="tag <?php echo be($b['kind']); ?>"><?php
+                echo $b['kind'] === 'pre-restore' ? 'pre-restore safety' : ($b['kind'] === 'imported' ? 'imported' : 'backup');
+              ?></span></td>
               <td style="white-space:nowrap;"><?php echo bdt($b['created_at'] ?: $b['mtime']); ?></td>
               <td style="white-space:nowrap;"><?php echo $b['tables'] !== null ? (int)$b['tables'] . ' tables · ' . number_format((int)$b['rows']) . ' rows' : '—'; ?></td>
               <td style="white-space:nowrap;"><?php echo bsize($b['size']); ?></td>
@@ -270,6 +344,28 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
               <input type="hidden" name="action" value="backup">
               <button class="btn" type="submit"><i class="fas fa-cloud-arrow-up"></i> Back up now</button>
             </form>
+          </div>
+        </div>
+
+        <!-- The other half of Download: an archive kept off-site, or made on a
+             different machine, has to be able to come back. -->
+        <div class="card" style="margin-bottom:18px;">
+          <div class="ch"><div class="ci"><i class="fas fa-file-import"></i></div><h3>Import a snapshot</h3></div>
+          <div class="cb">
+            <p>Upload a backup <code style="font-family:inherit;">.zip</code> produced by this system — one you downloaded earlier, or one taken on another machine. It is checked before it is accepted and then joins the list above, ready to recover from.</p>
+            <form method="post" enctype="multipart/form-data" id="importForm">
+              <?php echo csrf_field(); ?>
+              <input type="hidden" name="action" value="import">
+              <label class="fl" for="archive">Backup archive (.zip)</label>
+              <input type="file" name="archive" id="archive" accept=".zip,application/zip" required>
+              <div class="imp-pick" id="impPick" hidden></div>
+              <button class="btn" type="submit"><i class="fas fa-file-import"></i> Import snapshot</button>
+            </form>
+            <div class="warn" style="margin-top:12px;">
+              <i class="fas fa-circle-info"></i> Importing only stores the archive — <strong>no data is changed</strong>.
+              Recovering records from it is the separate, confirmed step below.
+              Server limit: <?php echo be(ini_get('upload_max_filesize')); ?> per file.
+            </div>
           </div>
         </div>
 
@@ -307,6 +403,52 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
     </div>
   </div>
 <script src="assets/sidebar_autohide.js" defer></script>
+<script>
+/* Import picker: say what was chosen before it is sent, and refuse the two
+   mistakes that are obvious without the server — the wrong kind of file, and an
+   empty one. Everything that actually decides whether an archive is a genuine
+   BEC snapshot is checked server-side; this only saves a pointless round trip. */
+(function () {
+  var input = document.getElementById('archive');
+  if (!input) { return; }
+  var note = document.getElementById('impPick');
+  var form = document.getElementById('importForm');
+  var MAX = <?php
+      // The smaller of the two PHP limits, in bytes — the real ceiling.
+      $toB = static function ($v) {
+          $v = trim((string)$v); $n = (float)$v; $u = strtolower(substr($v, -1));
+          if ($u === 'g') { $n *= 1073741824; } elseif ($u === 'm') { $n *= 1048576; } elseif ($u === 'k') { $n *= 1024; }
+          return (int)$n;
+      };
+      $lim = min($toB(ini_get('upload_max_filesize')), $toB(ini_get('post_max_size')));
+      echo $lim > 0 ? $lim : 0;
+  ?>;
+
+  function human(b) {
+    if (b < 1024) { return b + ' B'; }
+    if (b < 1048576) { return Math.round(b / 1024) + ' KB'; }
+    return (b / 1048576).toFixed(1) + ' MB';
+  }
+
+  function check() {
+    var f = input.files && input.files[0];
+    if (!f) { note.hidden = true; return true; }
+    var bad = '';
+    if (!/\.zip$/i.test(f.name)) { bad = 'Not a .zip file. A backup archive is the .zip exactly as it was downloaded.'; }
+    else if (f.size === 0)       { bad = 'This file is empty (0 bytes) — the copy or download did not finish.'; }
+    else if (MAX && f.size > MAX) { bad = 'This file is ' + human(f.size) + ', over the server limit of ' + human(MAX) + '.'; }
+    note.hidden = false;
+    note.className = 'imp-pick' + (bad ? ' bad' : '');
+    note.textContent = bad
+      ? f.name + ' — ' + bad
+      : 'Ready to import: ' + f.name + ' (' + human(f.size) + '). It will be checked on the server before anything is stored.';
+    return !bad;
+  }
+
+  input.addEventListener('change', check);
+  form.addEventListener('submit', function (ev) { if (!check()) { ev.preventDefault(); } });
+})();
+</script>
 <?php require_once __DIR__ . '/includes/admin_assistant.php'; ?>
 <?php require __DIR__ . '/includes/admin_ui.php'; ?>
 </body>
