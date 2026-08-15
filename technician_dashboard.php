@@ -188,6 +188,21 @@ $notesField = isset($drCols['technician_notes']) ? 'technician_notes' : (isset($
 $notesExpr = $notesField !== '' ? 'r.' . $notesField : "''";
 $instExpr = isset($drCols['handler_instructions']) ? 'r.handler_instructions' : (isset($drCols['instructions']) ? 'r.instructions' : "''");
 $join = '';
+/* Who reported it. None of this was ever selected, so the workspace could tell
+   a technician which room to walk to but not who to look for once they got
+   there — and the reporter is the only person who knows what the equipment was
+   doing when it failed. Same defensive shape as the columns above: a schema
+   without one of these degrades to an empty string rather than a fatal. */
+$reporterExpr     = isset($drCols['reporter_name'])       ? 'r.reporter_name'       : "''";
+$reporterMailExpr = isset($drCols['reporter_email'])      ? 'r.reporter_email'      : "''";
+$reporterDeptExpr = isset($drCols['reporter_department']) ? 'r.reporter_department' : "''";
+$reporterCrsExpr  = isset($drCols['reporter_course'])     ? 'r.reporter_course'     : "''";
+$reporterLvlExpr  = isset($drCols['reporter_level'])      ? 'r.reporter_level'      : "''";
+$usableExpr       = isset($drCols['usable_status'])       ? 'r.usable_status'       : "''";
+$reporterSelect   = "$reporterExpr reporter_name,$reporterMailExpr reporter_email,"
+                  . "$reporterDeptExpr reporter_department,$reporterCrsExpr reporter_course,"
+                  . "$reporterLvlExpr reporter_level,$usableExpr usable_status,";
+
 $equipmentExpr = isset($drCols['equipment_name']) ? 'r.equipment_name' : 'CAST(r.equipment_id AS CHAR)';
 $locationExpr = isset($drCols['location']) ? 'r.location' : "''";
 $assetExpr = "''";
@@ -348,8 +363,8 @@ if ($search !== '') {
 }
 $activeStatuses = ['assigned','accepted','in_progress','waiting_for_materials','for_replacement','completed'];
 $historyStatuses = ['verified','closed'];
-$activeSql = "SELECT r.report_id,$equipmentIdExpr equipment_id,r.assigned_date assigned_date,$startedExpr started_at,$equipmentExpr equipment_name,$issueExpr issue_description,$priorityExpr priority,$statusExpr status,$locationExpr location,$reportDateExpr report_date,$completionExpr completion_date,$notesExpr technician_notes,$instExpr handler_instructions,$assetExpr asset_tag,$categoryExpr category_name,r.photo_path photo_path,r.defect_photos defect_photos,r.defect_videos defect_videos FROM defect_reports r $join WHERE $assigneeWhere AND $statusExpr IN ('assigned','accepted','in_progress','waiting_for_materials','for_replacement','completed') $searchSql ORDER BY FIELD($statusExpr,'assigned','accepted','in_progress','waiting_for_materials','for_replacement','completed'), FIELD($priorityExpr,'critical','high','medium','low'), $reportDateExpr DESC";
-$historySql = "SELECT r.report_id,$equipmentIdExpr equipment_id,$equipmentExpr equipment_name,$issueExpr issue_description,$priorityExpr priority,$statusExpr status,$locationExpr location,$reportDateExpr report_date,$completionExpr completion_date,$notesExpr technician_notes,$instExpr handler_instructions,$assetExpr asset_tag,$categoryExpr category_name,r.photo_path photo_path,r.defect_photos defect_photos,r.defect_videos defect_videos FROM defect_reports r $join WHERE $assigneeWhere AND $statusExpr IN ('verified','closed') $searchSql ORDER BY COALESCE($completionExpr,$reportDateExpr) DESC";
+$activeSql = "SELECT r.report_id,$equipmentIdExpr equipment_id,r.assigned_date assigned_date,$startedExpr started_at,$equipmentExpr equipment_name,$issueExpr issue_description,$priorityExpr priority,$statusExpr status,$locationExpr location,$reportDateExpr report_date,$completionExpr completion_date,$notesExpr technician_notes,$instExpr handler_instructions,$assetExpr asset_tag,$categoryExpr category_name,{$reporterSelect}r.photo_path photo_path,r.defect_photos defect_photos,r.defect_videos defect_videos FROM defect_reports r $join WHERE $assigneeWhere AND $statusExpr IN ('assigned','accepted','in_progress','waiting_for_materials','for_replacement','completed') $searchSql ORDER BY FIELD($statusExpr,'assigned','accepted','in_progress','waiting_for_materials','for_replacement','completed'), FIELD($priorityExpr,'critical','high','medium','low'), $reportDateExpr DESC";
+$historySql = "SELECT r.report_id,$equipmentIdExpr equipment_id,$equipmentExpr equipment_name,$issueExpr issue_description,$priorityExpr priority,$statusExpr status,$locationExpr location,$reportDateExpr report_date,$completionExpr completion_date,$notesExpr technician_notes,$instExpr handler_instructions,$assetExpr asset_tag,$categoryExpr category_name,{$reporterSelect}r.photo_path photo_path,r.defect_photos defect_photos,r.defect_videos defect_videos FROM defect_reports r $join WHERE $assigneeWhere AND $statusExpr IN ('verified','closed') $searchSql ORDER BY COALESCE($completionExpr,$reportDateExpr) DESC";
 $activeStmt = $conn->prepare($activeSql);
 $activeStmt->bind_param($assigneeTypes . $searchTypes, ...array_merge($assigneeVals, $searchVals));
 $activeStmt->execute();
@@ -793,6 +808,21 @@ body.modal-open .bell-fab{display:none;}
 .sec.collapsed > .sec-h{margin-bottom:0;}
 .sec.collapsed > :not(.sec-h){display:none!important;}
 .copy{font-size:.87rem;line-height:1.7;color:var(--ink2);}
+/* Reporter block — one line of who, one tap to reach them. Wraps on a phone
+   rather than pushing the Email action off the edge. */
+.reporter{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:11px 13px;border-radius:12px;
+  border:1px solid var(--bdr);background:linear-gradient(135deg,#fff 60%,var(--field));box-shadow:0 1px 3px rgba(44,10,10,.04);}
+.rp-av{width:38px;height:38px;flex-shrink:0;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-family:'Outfit',sans-serif;font-weight:800;font-size:.82rem;color:#fff;
+  background:linear-gradient(135deg,var(--maroon),var(--gold));}
+.rp-tx{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1;}
+.rp-tx strong{font-size:.88rem;color:var(--ink);}
+.rp-tx span{font-size:.74rem;color:var(--ink3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rp-act{display:inline-flex;align-items:center;gap:6px;padding:8px 13px;border-radius:10px;text-decoration:none;
+  background:var(--field);border:1px solid var(--bdr);color:var(--maroon);font-size:.78rem;font-weight:700;min-height:38px;}
+.rp-act:hover{background:#fff;border-color:var(--maroon);}
+.rp-warn{display:flex;align-items:center;gap:8px;margin-top:9px;padding:9px 12px;border-radius:10px;
+  background:#FEF2F2;border:1px solid #FECACA;color:#8A1C1C;font-size:.78rem;line-height:1.5;}
 .facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px;}
 .facts>div{position:relative;overflow:hidden;padding:11px 13px 11px 16px;border-radius:12px;border:1px solid var(--bdr);
   background:linear-gradient(135deg,#fff 60%,var(--field));box-shadow:0 1px 3px rgba(44,10,10,.04);}
@@ -1308,6 +1338,41 @@ body.modal-open{overflow:hidden;}
               <div class="sec-h"><small>Issue summary</small><h3>Issue Description</h3></div>
               <div class="copy"><?php echo nl2br(e((string)($row['issue_description'] ?? 'No issue description recorded.'))); ?></div>
             </div>
+
+            <?php
+              /* Who to look for on arrival. The room number gets you to the door;
+                 this is the person who watched it fail. Rendered only when the
+                 report actually carries a reporter — walk-in reports logged at
+                 the PMO counter often do not. */
+              $rpName = trim((string)($row['reporter_name'] ?? ''));
+              $rpMail = trim((string)($row['reporter_email'] ?? ''));
+              $rpDept = trim((string)($row['reporter_department'] ?? ''));
+              $rpCrs  = trim((string)($row['reporter_course'] ?? ''));
+              $rpLvl  = trim((string)($row['reporter_level'] ?? ''));
+              $rpSub  = implode(' · ', array_filter([$rpCrs, $rpLvl]));
+            ?>
+            <?php if ($rpName !== '' || $rpMail !== ''): ?>
+            <div class="sec">
+              <div class="sec-h"><small>Who reported it</small><h3>Reporter</h3></div>
+              <div class="reporter">
+                <div class="rp-av"><?php echo e(initials($rpName !== '' ? $rpName : 'Reporter')); ?></div>
+                <div class="rp-tx">
+                  <strong><?php echo e($rpName !== '' ? $rpName : 'Not recorded'); ?></strong>
+                  <?php if ($rpDept !== ''): ?><span><?php echo e($rpDept); ?></span><?php endif; ?>
+                  <?php if ($rpSub !== ''): ?><span><?php echo e($rpSub); ?></span><?php endif; ?>
+                </div>
+                <?php if ($rpMail !== ''): ?>
+                <a class="rp-act" href="mailto:<?php echo e($rpMail); ?>?subject=<?php echo rawurlencode('BEC PMO — Report ' . (string)($row['report_id'] ?? '')); ?>"
+                   aria-label="Email <?php echo e($rpName !== '' ? $rpName : 'the reporter'); ?>">
+                  <i class="fas fa-envelope"></i><span>Email</span>
+                </a>
+                <?php endif; ?>
+              </div>
+              <?php if (strcasecmp(trim((string)($row['usable_status'] ?? '')), 'No') === 0): ?>
+              <div class="rp-warn"><i class="fas fa-triangle-exclamation"></i> The reporter marked this equipment <strong>not usable</strong> — it is out of service until repaired.</div>
+              <?php endif; ?>
+            </div>
+            <?php endif; ?>
 
             <?php if (trim((string)($row['handler_instructions'] ?? '')) !== ''): ?>
             <div class="sec">
