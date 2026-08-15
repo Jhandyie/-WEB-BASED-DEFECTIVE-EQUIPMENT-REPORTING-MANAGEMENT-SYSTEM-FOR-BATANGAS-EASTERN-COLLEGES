@@ -29,8 +29,14 @@ node_modules/
 .env.local
 .env.*.local
 config/chat_secrets.php
-# Mail credentials (Gmail app password lives here) — keep out of git
+# Mail credentials (Gmail app password lives here) — keep out of git.
+# The wildcard matters: set_mail_password.ps1 and the settings screen leave
+# dated copies like system_settings.json.backup_20260812_122341 beside the
+# original, and those carry the same app password. Only the exact filename was
+# listed, so the backups showed up as untracked and a single `git add -A` would
+# have published the password to a public repository.
 data/system_settings.json
+data/system_settings.json.*
 
 # Automated database backups (large, contain user data)
 /backups/
