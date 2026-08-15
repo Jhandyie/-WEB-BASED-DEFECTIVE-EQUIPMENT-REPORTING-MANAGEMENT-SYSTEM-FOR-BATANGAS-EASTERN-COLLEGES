@@ -178,6 +178,17 @@ $unitFilter = function ($r) use ($df, $dfExplicit) {
 };
 $sq = $_GET['search']   ?? '';
 $vw = $_GET['view']     ?? 'table'; // 'table' | 'kanban'
+// Where the ticket came from. Preventive ones are raised by a schedule on
+// admin_preventive.php rather than reported by a person, and until this filter
+// existed there was no way to see them as a group — is_preventive was written
+// on every generated row and read by nothing.
+$kf = strtolower(trim((string)($_GET['kind'] ?? 'all')));
+if (!in_array($kf, ['all', 'preventive', 'reported'], true)) { $kf = 'all'; }
+$kindFilter = function ($r) use ($kf) {
+    if ($kf === 'all') return true;
+    $isPm = !empty($r['is_preventive']) && $r['is_preventive'] !== 'f';
+    return $kf === 'preventive' ? $isPm : !$isPm;
+};
 
 // Workflow stages — each stat card / status filter covers a group of raw statuses, so the
 // counts and the filtered list stay consistent and always add up to the total.
@@ -192,6 +203,7 @@ $stages = [
 $all_raw  = getDefectReportsWithFilters('all','all','');
 $all_raw  = array_values(array_filter($all_raw, fn($r) => !in_array(($r['status'] ?? ''), ['deleted',''], true)));
 $all_raw  = array_values(array_filter($all_raw, $unitFilter)); // scope counts to the active unit
+$all_raw  = array_values(array_filter($all_raw, $kindFilter)); // …and to preventive/reported
 
 // Fetch by priority + search from the DB; apply the status-STAGE filter in PHP so the list
 // matches the stat cards (e.g. "In Progress" includes accepted / waiting / for-replacement).
@@ -202,6 +214,7 @@ if ($sf !== 'all') {
     $reports = array_values(array_filter($reports, fn($r) => in_array(($r['status'] ?? ''), $sfStatuses, true)));
 }
 $reports = array_values(array_filter($reports, $unitFilter));
+$reports = array_values(array_filter($reports, $kindFilter));
 
 /* ─── EXPORT ────────────────────────────────────────────
    Built here, from the records, while $reports still holds everything the
@@ -252,6 +265,7 @@ if (in_array($exportFmt, ['csv', 'xlsx', 'pdf'], true)) {
         'Status Filter'   => $sf !== 'all' ? ucwords(str_replace('_', ' ', $sf)) : '',
         'Priority Filter' => $pf !== 'all' ? ucfirst($pf) : '',
         'Unit Filter'     => $df !== 'all' ? $df : '',
+        'Origin Filter'   => $kf !== 'all' ? ($kf === 'preventive' ? 'Preventive (scheduled)' : 'Reported by a person') : '',
         'Search'          => $sq !== '' ? $sq : '',
     ]);
 
@@ -603,6 +617,10 @@ body{
   font-family:'DM Sans',sans-serif;outline:none;cursor:pointer;transition:border-color .18s;}
 .fsel:focus{border-color:var(--m3);}
 .fcount{font-size:.7rem;color:var(--t3);white-space:nowrap;margin-left:.2rem;}
+/* Tickets a preventive schedule raised on its own, not a person */
+.pm-tag{display:inline-flex;align-items:center;gap:.25rem;margin-left:.35rem;padding:.1rem .4rem;border-radius:5px;
+  background:#E9F9EF;color:#166534;font-size:.55rem;font-weight:800;letter-spacing:.4px;vertical-align:middle;}
+.pm-tag i{font-size:.55rem;}
 
 /* ── PANEL / TABLE ──────────────────────────────────── */
 .panel{background:#FFFFFF;border-radius:var(--r3);border:1px solid #E5D9C6;box-shadow:var(--sh1);overflow:hidden;transition:box-shadow .22s;}
@@ -1374,6 +1392,11 @@ textarea.fc{resize:vertical;min-height:70px;}
         <option value="ITSO" <?php echo $df==='ITSO'?'selected':''; ?>>ITSO</option>
         <option value="PMO"  <?php echo $df==='PMO'?'selected':''; ?>>PMO</option>
       </select>
+      <select class="fsel" id="fsk" aria-label="Filter by ticket origin" onchange="go()">
+        <option value="all"        <?php echo $kf==='all'?'selected':''; ?>>All Origins</option>
+        <option value="reported"   <?php echo $kf==='reported'?'selected':''; ?>>Reported by a person</option>
+        <option value="preventive" <?php echo $kf==='preventive'?'selected':''; ?>>Preventive (scheduled)</option>
+      </select>
       <span class="fcount"><?php echo count($reports); ?> result<?php echo count($reports)!=1?'s':''; ?></span>
     </div>
 
@@ -1402,8 +1425,12 @@ textarea.fc{resize:vertical;min-height:70px;}
               <i class="fas fa-folder-open"></i>No reports match your current filters.
             </div></td></tr>
             <?php else: foreach($reportsPage as $r): ?>
-            <tr class="rep-row" tabindex="0" role="button" aria-label="Open report details" data-rid="<?php echo esc($r['report_id']); ?>" data-view-url="?view_id=<?php echo $r['report_id']; ?>&status=<?php echo $sf; ?>&priority=<?php echo $pf; ?>&dept=<?php echo $df; ?>&search=<?php echo urlencode($sq); ?>&view=<?php echo $vw; ?>">
-              <td><span class="rid"><?php echo esc($r['report_id']); ?></span></td>
+            <tr class="rep-row" tabindex="0" role="button" aria-label="Open report details" data-rid="<?php echo esc($r['report_id']); ?>" data-view-url="?view_id=<?php echo $r['report_id']; ?>&status=<?php echo $sf; ?>&priority=<?php echo $pf; ?>&dept=<?php echo $df; ?>&kind=<?php echo $kf; ?>&search=<?php echo urlencode($sq); ?>&view=<?php echo $vw; ?>">
+              <td><span class="rid"><?php echo esc($r['report_id']); ?></span>
+                <?php if(!empty($r['is_preventive']) && $r['is_preventive'] !== 'f'): ?>
+                <span class="pm-tag" title="Raised automatically by a preventive maintenance schedule"><i class="fas fa-calendar-check"></i> PM</span>
+                <?php endif; ?>
+              </td>
               <td>
                 <div class="en"><?php echo esc($r['equipment_name']??'N/A'); ?></div>
                 <?php if(!empty($r['asset_tag'])): ?>
@@ -1423,7 +1450,7 @@ textarea.fc{resize:vertical;min-height:70px;}
               <td style="font-size:.73rem;"><?php echo esc($r['technician_name']??'Unassigned'); ?></td>
               <td style="text-align:center;">
                 <div style="display:flex;gap:.25rem;justify-content:center;">
-                  <a href="?view_id=<?php echo $r['report_id']; ?>&status=<?php echo $sf; ?>&priority=<?php echo $pf; ?>&dept=<?php echo $df; ?>&search=<?php echo urlencode($sq); ?>&view=<?php echo $vw; ?>"
+                  <a href="?view_id=<?php echo $r['report_id']; ?>&status=<?php echo $sf; ?>&priority=<?php echo $pf; ?>&dept=<?php echo $df; ?>&kind=<?php echo $kf; ?>&search=<?php echo urlencode($sq); ?>&view=<?php echo $vw; ?>"
                     class="btn bico bi-v" title="View Details"><i class="fas fa-eye"></i></a>
                   <?php if (($r['status'] ?? '') === 'reported'): ?>
                   <form method="POST" style="display:inline;margin:0;" onsubmit="return confirm('Mark report <?php echo esc($r['report_id']); ?> as officially Received by the PMO?\n\nThe reporter will be notified by email and in-app, and this will be recorded in the audit log and tracking timeline.');">
@@ -2037,6 +2064,7 @@ function go() {
   url.searchParams.set('status',   document.getElementById('fss').value);
   url.searchParams.set('priority', document.getElementById('fsp').value);
   url.searchParams.set('dept',     document.getElementById('fsd').value);
+  url.searchParams.set('kind',     document.getElementById('fsk').value);
   url.searchParams.set('search',   document.getElementById('fsq').value);
   url.searchParams.set('view',     '<?php echo $vw; ?>');
   location.href = url.toString();
