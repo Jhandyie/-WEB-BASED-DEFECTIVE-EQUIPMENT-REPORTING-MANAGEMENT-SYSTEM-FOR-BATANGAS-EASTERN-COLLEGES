@@ -641,6 +641,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
    Fixed layout is what makes the colgroup binding rather than advisory. */
 .asg-tbl{table-layout:fixed;}
 .asg-tbl td .en,.asg-tbl td .esl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* The queue row is the button that opens the dispatch drawer, so it has to look
+   like one: a pointer, a hover, and a visible focus ring for keyboard use. */
+tr.pick-row{cursor:pointer;}
+tr.pick-row:hover>td{background:#FFF7ED;}
+tr.pick-row:focus-visible{outline:2px solid var(--m3,#7a1220);outline-offset:-2px;}
+tr.pick-row .rid-lnk{cursor:alias;}
 
 /* -- TECHNICIAN PROFILE ---------------------------- */
 /* The card's one control that is not the card. Sized to the same 22px box the
@@ -1180,7 +1186,34 @@ textarea.fc{resize:vertical;min-height:80px;}
                     $r['reporter_name']?? '', $r['issue_description'] ?? '',
                 ]))));
               ?>
+              <?php
+                /* The whole row is the target, not just the Assign button in the
+                   last cell. Clicking the equipment — the natural thing to click
+                   when you have decided this is the one — used to do nothing at
+                   all, on a page whose entire job is picking a report. The
+                   payload lives on the row so the row and the button dispatch
+                   the identical object instead of two copies of it. */
+                $rowRep = htmlspecialchars(json_encode([
+                    'id'         => $r['report_id'],
+                    'equipment'  => $r['equipment_name']??'N/A',
+                    'asset'      => $r['asset_tag']??'',
+                    // Full text, not the 90-character stub the table shows. Whoever
+                    // is dispatching needs to read the fault before choosing who
+                    // to send, and the panel has room for it.
+                    'issue'      => $r['issue_description']??'',
+                    'location'   => $r['location']??'',
+                    'reported'   => !empty($r['report_date']) ? date('M j, Y', strtotime($r['report_date'])) : '',
+                    'reporter'   => $r['reporter_name']??'',
+                    'priority'   => $r['priority']??'medium',
+                    'dept'       => $r['department_assigned']??'',
+                    'photos'     => photoListFromRow($r),
+                    'videos'     => videoListFromRow($r),
+                ]), ENT_QUOTES);
+              ?>
               <tr id="row-<?php echo esc($r['report_id']); ?>"
+                  class="pick-row" role="button" tabindex="0"
+                  aria-label="Dispatch report <?php echo esc($r['report_id']); ?> — <?php echo esc($r['equipment_name'] ?? 'equipment'); ?>"
+                  data-rep="<?php echo $rowRep; ?>"
                   data-hay="<?php echo esc($rowHay); ?>"
                   data-prio="<?php echo esc(strtolower((string)($r['priority'] ?? ''))); ?>"
                   data-rank="<?php echo $rowRank; ?>"
@@ -1189,7 +1222,11 @@ textarea.fc{resize:vertical;min-height:80px;}
                 <td><a class="rid rid-lnk" title="Open the full record in a new tab"
                        target="_blank" rel="noopener"
                        href="admin_defect_reports.php?view_id=<?php echo urlencode($r['report_id']); ?>"><?php echo esc($r['report_id']); ?></a></td>
-                <td>
+                <?php /* The reported fault in full, on hover. The column itself
+                         stays as it is — a 50-character stub was tried and
+                         removed for good reason (see the header note) — but the
+                         text should not require a click to reach either. */ ?>
+                <td title="<?php echo esc(trim(preg_replace('~\s+~', ' ', (string)($r['issue_description'] ?? ''))) ?: 'No description given.'); ?>">
                   <div class="en"><?php echo esc($r['equipment_name']??'N/A'); ?></div>
                   <?php if(!empty($r['asset_tag'])): ?><div class="esl"><?php echo esc($r['asset_tag']); ?></div><?php endif; ?>
                 </td>
@@ -1219,23 +1256,9 @@ textarea.fc{resize:vertical;min-height:80px;}
                   <?php echo $uAgeT; ?><?php echo $uStale ? ' <i class="fas fa-triangle-exclamation" style="font-size:var(--fs-xs);"></i>' : ''; ?>
                 </td>
                 <td style="text-align:center;">
-                  <button class="btn btn-maroon btn-sm"
-                    onclick="selectReport(<?php echo htmlspecialchars(json_encode([
-                      'id'         => $r['report_id'],
-                      'equipment'  => $r['equipment_name']??'N/A',
-                      'asset'      => $r['asset_tag']??'',
-                      // Full text, not the 90-character stub the table shows. Whoever
-                      // is dispatching needs to read the fault before choosing who
-                      // to send, and the panel has room for it.
-                      'issue'      => $r['issue_description']??'',
-                      'location'   => $r['location']??'',
-                      'reported'   => !empty($r['report_date']) ? date('M j, Y', strtotime($r['report_date'])) : '',
-                      'reporter'   => $r['reporter_name']??'',
-                      'priority'   => $r['priority']??'medium',
-                      'dept'       => $r['department_assigned']??'',
-                      'photos'     => photoListFromRow($r),
-                      'videos'     => videoListFromRow($r),
-                    ]),ENT_QUOTES); ?>)">
+                  <?php /* Same payload as the row — read back off it rather than
+                           written twice, so the two can never drift apart. */ ?>
+                  <button class="btn btn-maroon btn-sm" onclick="pickRow(this.closest('tr'))">
                     <i class="fas fa-user-plus"></i> Assign
                   </button>
                 </td>
@@ -2110,6 +2133,32 @@ document.addEventListener('keydown', function (e) {
   if (mo) { mo.classList.remove('open'); return; }
   var dw = document.getElementById('asgDw');
   if (dw && dw.classList.contains('open')) { closeDispatch(); }
+});
+
+/* Picking a report from the queue.
+   The Assign button in the last cell used to be the only live target on the
+   row, so clicking the equipment — the obvious thing to click once you have
+   decided which fault to dispatch — did nothing at all. The whole row is the
+   button now; the report-id link keeps its own job (open the full record in a
+   new tab) and stops the click from reaching the row. */
+function pickRow(tr) {
+  if (!tr) { return; }
+  var raw = tr.getAttribute('data-rep');
+  if (!raw) { return; }
+  try { selectReport(JSON.parse(raw)); } catch (e) { /* malformed payload: leave the row inert */ }
+}
+document.addEventListener('click', function (ev) {
+  var tr = ev.target.closest && ev.target.closest('tr.pick-row');
+  if (!tr) { return; }
+  if (ev.target.closest('a,button')) { return; }   // links and buttons speak for themselves
+  pickRow(tr);
+});
+document.addEventListener('keydown', function (ev) {
+  if (ev.key !== 'Enter' && ev.key !== ' ') { return; }
+  var tr = ev.target.closest && ev.target.closest('tr.pick-row');
+  if (!tr || ev.target !== tr) { return; }
+  ev.preventDefault();
+  pickRow(tr);
 });
 
 function selectReport(data) {
