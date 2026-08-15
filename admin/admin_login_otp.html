@@ -351,10 +351,6 @@
 
               <button type="submit" class="btn-primary"><i class="fas fa-right-to-bracket"></i> Sign In</button>
 
-              <div class="switch-row">
-                Need an administrator account?
-                <button type="button" id="register">Register here</button>
-              </div>
             </form>
           </div>
 
@@ -477,8 +473,11 @@
         let resendTimer = null;
         let resendCountdown = 30;
 
-        // Toggle sign-in / sign-up
-        registerBtn.addEventListener("click", () => container.classList.add("active"));
+        // Toggle sign-in / sign-up. The "Register here" link was removed from the
+        // sign-in panel — admin accounts are created in User Management, not by
+        // self-service — so #register no longer exists and this must not throw:
+        // an uncaught error here would leave every listener below it unwired.
+        if (registerBtn) { registerBtn.addEventListener("click", () => container.classList.add("active")); }
         loginBtn.addEventListener("click", () => {
             container.classList.remove("active");
             cancelOTP();
