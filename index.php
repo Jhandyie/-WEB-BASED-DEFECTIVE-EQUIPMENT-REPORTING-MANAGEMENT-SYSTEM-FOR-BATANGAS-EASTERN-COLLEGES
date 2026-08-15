@@ -733,6 +733,10 @@ a { text-decoration: none; color: inherit; }
       <div class="hero-cta">
         <a class="btn btn-primary" href="student_index.php">Report defective equipment <span class="btn-arrow"><i class="fas fa-arrow-right" aria-hidden="true"></i></span></a>
         <a class="btn btn-ghost" href="track_report.php"><i class="fas fa-magnifying-glass" aria-hidden="true"></i> Track a report</a>
+        <?php /* The PMO's other counter service. Reporting a fault and booking a
+                 room are the two reasons anyone comes to this office, so both
+                 start from the hero rather than one hiding in the nav. */ ?>
+        <a class="btn btn-ghost" href="reserve_venue.php"><i class="fas fa-calendar-check" aria-hidden="true"></i> Reserve a venue</a>
       </div>
       <div class="hero-pills">
         <span class="hpill"><i class="fas fa-certificate" aria-hidden="true"></i> Official institutional system</span>
@@ -813,6 +817,33 @@ a { text-decoration: none; color: inherit; }
           <li><span class="cs-n">1</span><div class="cs-tx"><b>Sign in with your BEC email</b><span>Use your official <strong>@bec.edu.ph</strong> account — no separate registration needed.</span></div></li>
           <li><span class="cs-n">2</span><div class="cs-tx"><b>Describe the problem</b><span>Add the equipment, location, priority, and attach photo or video evidence.</span></div></li>
           <li><span class="cs-n">3</span><div class="cs-tx"><b>Track it to resolution</b><span>Get email updates as the PMO reviews, assigns, and completes the repair.</span></div></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ VENUE RESERVATION ══
+       The PMO's second counter service. It reuses .cta-portal / .portal-card /
+       .cta-steps from the section above rather than introducing a parallel set
+       of classes, so the two services read as one office. -->
+  <section class="section" id="reserve">
+    <div class="container">
+      <div class="sec-head">
+        <span class="sec-eyebrow"><span class="dot"></span> Venue reservation</span>
+        <h2 class="sec-title">Booking a venue? <em>Check it is free first</em></h2>
+        <p class="sec-sub">The same Venue Reservation Form the PMO keeps on paper — filed online, so you find out straight away whether the room is already taken for your time slot.</p>
+      </div>
+      <div class="cta-portal">
+        <a class="portal-card cta-main" href="reserve_venue.php">
+          <div class="pc-ic"><i class="fas fa-calendar-check" aria-hidden="true"></i></div>
+          <div class="pc-title">Reserve a Venue</div>
+          <p class="pc-desc">For departments and student organisations — seminars, meetings, lectures, film showings and social gatherings. Tell the PMO the materials you need and they will be prepared.</p>
+          <span class="pc-enter">Open the form <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
+        </a>
+        <ul class="cta-steps">
+          <li><span class="cs-n">1</span><div class="cs-tx"><b>Fill in the form</b><span>Venue, date and time, activity, expected participants — and the chairs, tables or sound system you need.</span></div></li>
+          <li><span class="cs-n">2</span><div class="cs-tx"><b>The slot is held for you</b><span>Submitting reserves that window immediately, so nobody else can book the same room at the same hour.</span></div></li>
+          <li><span class="cs-n">3</span><div class="cs-tx"><b>PMO approves and issues a VRF number</b><span>Your department head or adviser endorses it, the Property Management Officer approves, and any fees are assessed by the office.</span></div></li>
         </ul>
       </div>
     </div>

@@ -22,6 +22,7 @@ $__sections = [
         ['defects',       'admin_defect_reports.php',     'fa-exclamation-triangle','Defect Reports'],
         ['assign',        'admin_assign_technicians.php', 'fa-user-cog',            'Assign Technicians'],
         ['preventive',    'admin_preventive.php',         'fa-calendar-check',      'Preventive Maint.'],
+        ['reservations',  'admin_reservations.php',       'fa-file-signature',      'Venue Reservations'],
     ],
     'Management' => [
         ['inventory',     'admin_inventory.php',          'fa-boxes',               'Inventory'],
