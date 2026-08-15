@@ -1104,8 +1104,13 @@ function esc($s){return htmlspecialchars((string)($s??''),ENT_QUOTES,'UTF-8');}
  * of them was sitting in the page source. Nothing here needs them.
  */
 function cardPayload(array $u): string {
+    /* Student and employee numbers are deliberately not carried here. The
+       profile does not show them, so putting them in the page source would be
+       publishing an identifier for every person on the roster for nothing.
+       (The roster export still has its own columns — that is a file an admin
+       asks for, not markup shipped to every page load.) */
     $keep = ['user_id','fullname','email','role','user_type','department','program','course',
-             'phone','contact_number','student_number','employee_number','year_level',
+             'phone','contact_number','year_level',
              'specialization','position','status','created_at','report_count','active_tasks','is_directory'];
     $out = [];
     foreach ($keep as $k) {
@@ -2635,16 +2640,25 @@ function openProfile(u){
   add('Phone', u.phone);
   add('Contact No.', u.contact_number);
   if (has(u.department)) addHtml('Department', deptBadge(u.department));
-  add('Course / Program', u.program || u.course);
   addHtml('Role', roleBadge(u.role||''));
   add('User Type', u.user_type);
-  add('Year Level', u.year_level);
-  add('Student No.', u.student_number);
-  add('Employee No.', u.employee_number);
+  /* Course and Year Level describe a student. Staff accounts were being shown
+     them too, because the registration form writes whatever was typed: one
+     admin's profile read "Course: Bachelor of Science in Information Systems,
+     Year Level: 4th Year", and another had the ITSO office name sitting in the
+     course field. Ask the role first — for staff, Position and Specialization
+     are the equivalent facts, and they are already below. */
+  const isStaff = ['admin','technician','pmo','staff'].indexOf(String(u.role||'').toLowerCase()) !== -1;
+  if (!isStaff) {
+    add('Course / Program', u.program || u.course);
+    add('Year Level', u.year_level);
+  }
   add('Specialization', u.specialization);
   add('Position', u.position);
-  // Only show Account ID when it isn't just a copy of the student/employee number (directory records reuse it).
-  if (u.user_id && u.user_id !== u.student_number && u.user_id !== u.employee_number) add('Account ID', u.user_id);
+  /* A directory record's user_id IS its student/employee number, so showing it
+     as "Account ID" would put the number back on the profile under a different
+     label. Registered accounts have a real account id worth showing. */
+  if (!u.is_directory) add('Account ID', u.user_id);
   add('Status', u.status);
   rows.push(['Reports Filed', `<span style="font-family:'Outfit',sans-serif;font-weight:800;font-size:.9rem;color:var(--m3);">${u.report_count||0}</span>`]);
   if (!u.is_directory) rows.push(['Active Tasks', `<span style="font-family:'Outfit',sans-serif;font-weight:800;font-size:.9rem;">${u.active_tasks||0}</span>`]);
