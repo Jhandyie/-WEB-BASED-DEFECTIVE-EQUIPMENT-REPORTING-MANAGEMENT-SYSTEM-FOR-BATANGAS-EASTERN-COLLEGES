@@ -51,14 +51,25 @@ if ($browser === null) {
     exit(1);
 }
 
-/** Render a URL with scripts executed and return the resulting DOM. */
+/**
+ * Render a URL with scripts executed and return the resulting DOM.
+ *
+ * Headless Edge occasionally returns nothing at all for a page it serves fine
+ * on the next attempt — an empty dump is not evidence the page is broken, so it
+ * is retried once before being believed. (Reporting a working sign-in page as
+ * failed is worse than a slow run: a suite that cries wolf gets ignored.)
+ */
 function renderDom(string $browser, string $url, string $profileDir): string {
-    $cmd = '"' . $browser . '"'
-         . ' --headless=new --disable-gpu --no-sandbox --no-first-run'
-         . ' --user-data-dir=' . escapeshellarg($profileDir)
-         . ' --virtual-time-budget=20000 --dump-dom ' . escapeshellarg($url)
-         . ' 2>NUL';
-    return (string) shell_exec($cmd);
+    for ($attempt = 1; $attempt <= 2; $attempt++) {
+        $cmd = '"' . $browser . '"'
+             . ' --headless=new --disable-gpu --no-sandbox --no-first-run'
+             . ' --user-data-dir=' . escapeshellarg($profileDir . '_' . $attempt)
+             . ' --virtual-time-budget=20000 --dump-dom ' . escapeshellarg($url)
+             . ' 2>NUL';
+        $dom = (string) shell_exec($cmd);
+        if (trim($dom) !== '') { return $dom; }
+    }
+    return '';
 }
 
 /* The seeder. Named _ui_smoke_session.php, not _diag_*.php, so it is obvious in
@@ -87,7 +98,24 @@ header('Location: ' . ($_GET['to'] ?? 'admin_dashboard.php'));
 exit;
 PHP);
 
+/**
+ * Fetch a page over plain HTTP, with no session and no browser.
+ *
+ * Used for the sign-in screens. Two reasons, and both matter: they must be
+ * tested *signed out*, which is the state a visitor is actually in, and headless
+ * Edge returns an empty document for admin/admin_login_otp.html every time while
+ * curl and a real browser serve it fine — an engine quirk, not a fault in the
+ * page. What is asserted there is server-rendered markup, so HTTP sees exactly
+ * what the browser would.
+ */
+function fetchPage(string $url): string {
+    $ctx = stream_context_create(['http' => ['timeout' => 20, 'ignore_errors' => true]]);
+    return (string) @file_get_contents($url, false, $ctx);
+}
+
 /* Each check: [label, role, page, [assertions]].
+   role 'none' means "fetch it signed out over HTTP"; any other role signs in
+   first and renders it in the browser so its scripts run.
    An assertion is [name, regex, shouldMatch]. Keep them about behaviour the
    browser produced, not text PHP printed — that is what e2e_smoke already sees. */
 $checks = [
@@ -128,6 +156,36 @@ $checks = [
         ['renders',                  '/<\/html>/i',                 true],
         ['CSRF token injected',      '/name="csrf_token"/',         true],
     ]],
+
+    /* The public surfaces matter most of all: they are the ones a stranger
+       reaches without a login, so a script error there is visible to everyone
+       and reported by no one.
+
+       issue_report.php is deliberately absent from this list. It is a JSON
+       endpoint, not a page — it answers GET with 405 — so loading it in a
+       browser proves nothing. Its protections (per-IP rate limiting, uploads
+       validated by content) are the sort a POST test would have to exercise. */
+    ['Track a report (public)', 'admin', 'track_report.php', [
+        ['renders',                  '/<\/html>/i',                 true],
+        ['tracking form present',    '/<form|<input/',              true],
+    ]],
+    ['Public reports list', 'admin', 'public_reports.php', [
+        ['renders',                  '/<\/html>/i',                 true],
+        ['no CDN dependency',        '/cdnjs|jsdelivr|fonts\.googleapis/', false],
+    ]],
+    ['Reporter sign-in', 'admin', 'student_index.php', [
+        ['renders',                  '/<\/html>/i',                 true],
+    ]],
+    ['Admin sign-in (signed out)', 'none', 'admin/admin_login_otp.html', [
+        ['renders',                  '/<\/html>/i',                 true],
+        ['no dead remember-me box',  '/rememberMe/',                false],
+        ['forgot-password offered',  '/forgotPassword\(\)/',        true],
+    ]],
+    ['Technician sign-in (signed out)', 'none', 'technician/login.html', [
+        ['renders',                  '/<\/html>/i',                 true],
+        ['no dead remember-me box',  '/rememberMe/',                false],
+        ['forgot-password offered',  '/forgotPassword\(\)/',        true],
+    ]],
 ];
 
 $pass = 0; $fail = 0; $lines = [];
@@ -136,8 +194,12 @@ try {
     echo str_repeat('=', 62), "\n  UI SMOKE — ", $base, "\n", str_repeat('=', 62), "\n\n";
 
     foreach ($checks as [$label, $role, $page, $assertions]) {
-        $url = $base . '/_ui_smoke_session.php?role=' . $role . '&to=' . rawurlencode($page);
-        $dom = renderDom($browser, $url, $tmpDir . '/p' . md5($page));
+        if ($role === 'none') {
+            $dom = fetchPage($base . '/' . $page);
+        } else {
+            $url = $base . '/_ui_smoke_session.php?role=' . $role . '&to=' . rawurlencode($page);
+            $dom = renderDom($browser, $url, $tmpDir . '/p' . md5($page));
+        }
 
         if ($keep) { file_put_contents($tmpDir . '/' . preg_replace('/\W+/', '_', $page) . '.html', $dom); }
 
@@ -147,9 +209,17 @@ try {
             $fail++; $lines[] = "$label: empty render";
             continue;
         }
-        // A leaked warning means the page "works" but is printing its guts at a
-        // panel — worth failing on, not just noting.
-        $assertions[] = ['no PHP error leaked', '/(Fatal error|Parse error|Warning:|Notice:)/', false];
+        /* A leaked warning means the page "works" but is printing its guts at a
+           panel — worth failing on, not just noting.
+
+           The pattern has to be the *shape* of a PHP error, not the word: a bare
+           /Notice:/ flagged the reporter sign-in page, where the match was its
+           data-privacy copy ("Notice: short consent line..."). Real PHP output
+           always carries the file and line, either as "... on line 12" or, with
+           html_errors on, as "<b>Warning</b>:". */
+        $assertions[] = ['no PHP error leaked',
+            '/(?:<b>\s*(?:Fatal error|Parse error|Warning|Notice|Deprecated)\s*<\/b>|(?:Fatal error|Parse error|Warning|Notice|Deprecated):[^<\n]{0,300}? on line \d+)/i',
+            false];
 
         foreach ($assertions as [$name, $rx, $want]) {
             $got = (bool) preg_match($rx, $dom);
