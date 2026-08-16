@@ -132,9 +132,9 @@
         display: flex; align-items: center; justify-content: space-between;
         margin: 4px 0 18px; font-size: .82rem;
       }
-      .checkbox-group { display: flex; align-items: center; gap: 7px; }
-      .checkbox-group input { width: auto; accent-color: var(--maroon); cursor: pointer; }
-      .checkbox-group label { color: var(--ink2); cursor: pointer; }
+      /* With the checkbox gone this row holds one link, which belongs on the
+         right where it already sat. */
+      .row-between.row-end { justify-content: flex-end; }
 
       .btn-primary {
         width: 100%; padding: 12px 16px;
@@ -341,11 +341,13 @@
                 </div>
               </div>
 
-              <div class="row-between">
-                <div class="checkbox-group">
-                  <input type="checkbox" id="rememberMe">
-                  <label for="rememberMe">Keep me signed in</label>
-                </div>
+              <!-- "Keep me signed in" was removed rather than wired up. The box
+                   had an id but no name, so it was never submitted, nothing read
+                   it, and the session cookie is lifetime 0 either way — ticking
+                   it did nothing at all. A control that silently keeps no promise
+                   is worse than none, and on a shared campus machine a persistent
+                   administrator session is a liability, not a convenience. -->
+              <div class="row-between row-end">
                 <a href="#" onclick="forgotPassword(); return false;">Forgot password?</a>
               </div>
 

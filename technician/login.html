@@ -161,16 +161,8 @@
         display: flex; align-items: center; justify-content: space-between;
         flex-wrap: wrap; gap: 0 12px; margin: 2px 0 14px; font-size: .84rem;
       }
-      .remember-label {
-        display: flex; align-items: center; gap: 9px; cursor: pointer;
-        min-height: var(--tap); padding: 4px 0;
-        -webkit-user-select: none; user-select: none;
-      }
-      .remember-label input[type="checkbox"] {
-        width: 19px; height: 19px; flex-shrink: 0;
-        accent-color: var(--maroon); cursor: pointer;
-      }
-      .remember-label span { color: var(--ink2); }
+      /* One link left in this row now, keeping its right-hand position. */
+      .opt-row.opt-end { justify-content: flex-end; }
       .forgot-link {
         color: var(--maroon); font-weight: 600; text-decoration: none;
         display: inline-flex; align-items: center; min-height: var(--tap); padding: 4px 0;
@@ -195,8 +187,7 @@
 
       /* Keyboard users need a visible ring; pointer users should not see it. */
       .btn-login:focus-visible, .toggle-pwd:focus-visible,
-      .forgot-link:focus-visible, .help-toggle:focus-visible,
-      .remember-label input:focus-visible {
+      .forgot-link:focus-visible, .help-toggle:focus-visible {
         outline: 2px solid var(--maroon); outline-offset: 2px;
       }
 
@@ -359,11 +350,12 @@
             </div>
           </div>
 
-          <div class="opt-row">
-            <label class="remember-label">
-              <input type="checkbox" id="rememberMe" />
-              <span>Keep me signed in</span>
-            </label>
+          <!-- "Keep me signed in" removed: the box was never submitted (id but
+               no name), nothing read it, and the session cookie is lifetime 0
+               regardless — so it promised something that never happened. A
+               technician's phone is often shared on the floor, which is the last
+               place a login should persist. -->
+          <div class="opt-row opt-end">
             <a href="#" class="forgot-link" onclick="forgotPassword(); return false;">Forgot password?</a>
           </div>
 

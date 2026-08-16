@@ -211,3 +211,30 @@ body{font-size:.875rem;}
    .ph-sub on the h1 pages. This element had drifted to three values for a
    single role — .86rem here, .78rem on two pages, .76rem on a third. */
 .head p{font-size:.76rem;color:var(--t3,#9C7A7A);margin-top:5px;max-width:760px;}
+
+/* ---- panel & card headings ----------------------------------------------- */
+/* The title on a panel or card — "Snapshots", "Report Records", "Schedules" —
+   is one role, and it had drifted into three unrelated treatments: Fraunces at
+   1.05rem on Backup & Recovery, Outfit at .88rem on Defect Reports, and the
+   interface face at 1rem on Preventive, Reservations and the BEC Directory.
+   Three faces and three sizes for the same thing, on pages sitting one click
+   apart.
+
+   The interface face at 1rem is the resolution, and it is not an arbitrary
+   pick: css/typography.css states the rule outright — "Section and card titles
+   stay on the interface face: a serif at 0.9rem in a dense admin table reads
+   cluttered, not premium." Fraunces stays where it earns its keep, on the page
+   title above.
+
+   Declared here rather than patched page by page so the next panel added
+   inherits it. No !important — a page with a real reason to differ can still
+   say so, deliberately, and be visible in review when it does. */
+.panel h2,
+.card .ch h3,
+.ph3 h3{
+  font-family:'DM Sans',system-ui,sans-serif;
+  font-size:1rem;
+  font-weight:700;
+  line-height:1.28;
+  color:var(--t1,#1A0808);
+}

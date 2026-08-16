@@ -229,7 +229,8 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
   .card.act .cb form{margin-top:auto;}
   .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 2px rgba(28,16,8,.04);overflow:hidden;}
   .card .ch{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
-  .card .ch h3{font-family:'Fraunces',serif;font-size:1.05rem;}
+  /* Face and size come from admin-shell.css, where every panel/card title on
+     the admin surface is now declared once. */
   .card .ch .ci{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,rgba(123,29,29,.1),rgba(201,150,12,.14));display:flex;align-items:center;justify-content:center;color:var(--maroon);font-size:.92rem;flex-shrink:0;}
   .card .cb{padding:16px 18px;}
   .card .cb p{font-size:.83rem;color:var(--ink2);line-height:1.55;margin-bottom:12px;}

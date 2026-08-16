@@ -626,8 +626,9 @@ body{
 .panel{background:#FFFFFF;border-radius:var(--r3);border:1px solid #E5D9C6;box-shadow:var(--sh1);overflow:hidden;transition:box-shadow .22s;}
 .panel:hover{box-shadow:var(--sh2);}
 .ph3{padding:.875rem 1.25rem;border-bottom:1px solid #E5D9C6;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(to right,#FAF7F0,#FFFFFF);}
-.ph3 h3{font-family:'Outfit',sans-serif;font-size:.88rem;font-weight:700;
-  color:var(--t1);display:flex;align-items:center;gap:.32rem;margin:0;}
+/* Face, size and weight come from admin-shell.css; only the layout of this
+   particular header (icon beside the text) is this page's business. */
+.ph3 h3{color:var(--t1);display:flex;align-items:center;gap:.32rem;margin:0;}
 .ph3 h3 i{color:var(--m3);}
 .tbl{width:100%;border-collapse:collapse;}
 .tbl thead th{padding:.52rem 1rem;font-size:.6rem;text-transform:uppercase;
