@@ -81,6 +81,20 @@ file_put_contents($seeder, <<<'PHP'
 require_once __DIR__ . '/includes/session_bootstrap.php';
 require_once __DIR__ . '/config/database.php';
 $role = $_GET['role'] ?? 'admin';
+
+/* The reporter portal does not use a role session at all: it runs on a guest
+   session keyed by email, checked by becGuestSessionActive(). Seeding a role
+   here would have bounced straight back to the sign-in screen. */
+if ($role === 'guest') {
+    startPublicSession();
+    $_SESSION['guest_email'] = 'ui.smoke@bec.edu.ph';
+    $_SESSION['guest_name']  = 'UI Smoke';
+    $_SESSION['guest_since'] = time();
+    $_SESSION['guest_last']  = time();
+    header('Location: ' . ($_GET['to'] ?? 'student_dashboard.php'));
+    exit;
+}
+
 startRoleSession($role === 'tech' ? 'technician' : 'admin');
 $pdo = getPgsqlPdoConnection();
 $want = $role === 'tech' ? 'technician' : 'admin';
@@ -108,9 +122,31 @@ PHP);
  * page. What is asserted there is server-rendered markup, so HTTP sees exactly
  * what the browser would.
  */
-function fetchPage(string $url): string {
-    $ctx = stream_context_create(['http' => ['timeout' => 20, 'ignore_errors' => true]]);
-    return (string) @file_get_contents($url, false, $ctx);
+function fetchPage(string $url, string $cookie = ''): string {
+    $opts = ['http' => ['timeout' => 20, 'ignore_errors' => true]];
+    if ($cookie !== '') { $opts['http']['header'] = "Cookie: {$cookie}\r\n"; }
+    return (string) @file_get_contents($url, false, stream_context_create($opts));
+}
+
+/**
+ * Sign in through the seeder over HTTP and return the session cookie.
+ *
+ * For pages that are fully server-rendered: their content does not depend on a
+ * script running, so HTTP sees exactly what a browser would, and it sidesteps
+ * the headless engine returning an empty document for some URLs. Pages whose
+ * behaviour is produced by JavaScript stay in the browser, where they belong.
+ */
+function sessionCookieFor(string $base, string $role): string {
+    $ctx = stream_context_create(['http' => [
+        'timeout' => 20, 'ignore_errors' => true, 'follow_location' => 0,
+    ]]);
+    @file_get_contents($base . '/_ui_smoke_session.php?role=' . $role . '&to=index.php', false, $ctx);
+    foreach ($http_response_header ?? [] as $h) {
+        if (stripos($h, 'Set-Cookie:') === 0 && preg_match('/Set-Cookie:\s*(BECSESSID_[A-Z]+=[^;]+)/i', $h, $m)) {
+            return $m[1];
+        }
+    }
+    return '';
 }
 
 /* Each check: [label, role, page, [assertions]].
@@ -118,6 +154,22 @@ function fetchPage(string $url): string {
    first and renders it in the browser so its scripts run.
    An assertion is [name, regex, shouldMatch]. Keep them about behaviour the
    browser produced, not text PHP printed — that is what e2e_smoke already sees. */
+/* A report the seeded technician actually owns — the completion, cost and
+   service-report pages all key off ?report=, and a report belonging to someone
+   else would be refused by the guard rather than rendered. Resolved live so the
+   suite keeps working as the demo data changes. */
+$techReport = '';
+try {
+    require_once $root . '/config/database.php';
+    $pdo = getPgsqlPdoConnection();
+    $techReport = (string) $pdo->query(
+        "SELECT d.report_id FROM public.defect_reports d
+           JOIN public.users u ON u.user_id = d.assigned_to
+          WHERE u.role = 'technician' AND u.status = 'active'
+          ORDER BY u.user_id, d.report_date DESC LIMIT 1"
+    )->fetchColumn();
+} catch (Throwable $e) { /* the per-report pages are skipped below */ }
+
 $checks = [
     ['Landing', 'admin', 'index.php', [
         ['renders',                  '/<\/html>/i',                 true],
@@ -176,6 +228,41 @@ $checks = [
     ['Reporter sign-in', 'admin', 'student_index.php', [
         ['renders',                  '/<\/html>/i',                 true],
     ]],
+    /* The rest of the admin surface. These carry the heaviest queries and the
+       most markup, so a fatal here is both likely and loud. */
+    ['User management', 'admin', 'admin_users.php', [
+        ['roster renders',           '/<table|urow/',               true],
+        ['search present',           '/id="fsq"/',                  true],
+    ]],
+    ['Inventory', 'admin', 'admin_inventory.php', [
+        ['renders',                  '/<\/html>/i',                 true],
+    ]],
+    ['Analytics', 'admin', 'admin_analytics.php', [
+        ['renders',                  '/<\/html>/i',                 true],
+        ['charts vendored, not CDN', '/cdnjs|jsdelivr/',            false],
+    ]],
+    ['BEC directory', 'admin', 'admin_bec_directory.php', [
+        ['renders',                  '/<\/html>/i',                 true],
+    ]],
+    ['Notifications', 'admin', 'admin_notifications.php', [
+        ['renders',                  '/<\/html>/i',                 true],
+    ]],
+    /* No reservation exists in a clean database, so the useful assertion is the
+       one that would otherwise be found by a panellist: that asking for a
+       record which is not there gives a civil answer, not a stack trace. */
+    ['VRF print (missing record)', 'http:admin', 'admin_reservation_print.php?id=0', [
+        ['answers civilly',          '/no longer exists/i',         true],
+        ['no stack trace',           '/Stack trace|PDOException/',  false],
+    ]],
+
+    /* The reporter portal — the surface most people actually use. Runs on a
+       guest session, not a role. */
+    ['Reporter dashboard', 'guest', 'student_dashboard.php', [
+        ['renders',                  '/<\/html>/i',                 true],
+        ['CSRF token injected',      '/name="csrf_token"/',         true],
+        ['not bounced to sign-in',   '/student_index\.php["\']\s*;?\s*<\/script>/', false],
+    ]],
+
     ['Admin sign-in (signed out)', 'none', 'admin/admin_login_otp.html', [
         ['renders',                  '/<\/html>/i',                 true],
         ['no dead remember-me box',  '/rememberMe/',                false],
@@ -188,6 +275,25 @@ $checks = [
     ]],
 ];
 
+/* The technician's own paperwork — where a repair actually gets written up.
+   Appended rather than inlined because all three need a real report id. */
+if ($techReport !== '') {
+    /* technician_complete_task.php is deliberately not listed. It is a JSON
+       endpoint, not a page: it answers GET with 400 and calls requireCsrf(true)
+       on POST. A browser wraps that JSON in <html><pre>, so a "renders" check
+       passed while proving nothing at all. */
+    $checks[] = ['Cost estimate', 'http:tech', 'technician_cost_estimate.php?report=' . rawurlencode($techReport), [
+        ['renders',                  '/<\/html>/i',                 true],
+    ]];
+    $checks[] = ['Service report', 'http:tech', 'technician_service_report.php?report=' . rawurlencode($techReport), [
+        ['renders',                  '/<\/html>/i',                 true],
+    ]];
+    $checks[] = ['Printable ticket', 'http:tech', 'defect_report_ticket.php?report=' . rawurlencode($techReport), [
+        ['renders',                  '/<\/html>/i',                 true],
+        ['ticket number shown',      '/' . preg_quote($techReport, '/') . '/', true],
+    ]];
+}
+
 $pass = 0; $fail = 0; $lines = [];
 
 try {
@@ -196,6 +302,12 @@ try {
     foreach ($checks as [$label, $role, $page, $assertions]) {
         if ($role === 'none') {
             $dom = fetchPage($base . '/' . $page);
+        } elseif (str_starts_with($role, 'http:')) {
+            // "http:admin" / "http:tech" — server-rendered, fetched with a session.
+            $r = substr($role, 5);
+            static $cookies = [];
+            if (!isset($cookies[$r])) { $cookies[$r] = sessionCookieFor($base, $r); }
+            $dom = fetchPage($base . '/' . $page, $cookies[$r]);
         } else {
             $url = $base . '/_ui_smoke_session.php?role=' . $role . '&to=' . rawurlencode($page);
             $dom = renderDom($browser, $url, $tmpDir . '/p' . md5($page));
