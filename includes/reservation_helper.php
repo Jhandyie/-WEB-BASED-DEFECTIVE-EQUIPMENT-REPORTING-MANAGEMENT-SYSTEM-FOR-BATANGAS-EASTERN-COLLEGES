@@ -90,7 +90,14 @@ function vrNextNumber(PDO $pdo): string {
  * grows as the office uses the system. Equipment locations follow as a starting
  * point on day one, when nothing has been reserved yet.
  */
-function vrVenueSuggestions(PDO $pdo, int $limit = 120): array {
+/*
+ * The cap has to clear the whole list, not trim it. At 120 the suggestions ran
+ * alphabetically through Annex 1 and stopped partway into Annex 2, so all 52
+ * Main Campus rooms were missing — and because the box still accepts free text,
+ * nothing looked broken: the list just quietly had no Main Campus in it. There
+ * are 178 distinct locations, a few KB of strings; 500 leaves room to grow.
+ */
+function vrVenueSuggestions(PDO $pdo, int $limit = 500): array {
     $out = [];
     try {
         foreach ($pdo->query("SELECT DISTINCT venue FROM public.venue_reservations ORDER BY venue")->fetchAll(PDO::FETCH_COLUMN) as $v) {
