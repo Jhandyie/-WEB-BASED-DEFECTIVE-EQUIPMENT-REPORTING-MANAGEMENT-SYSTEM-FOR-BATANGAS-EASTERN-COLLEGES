@@ -160,7 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $done = ['ok', 'Schedule deleted. Tickets it already generated are kept.'];
     } elseif ($act === 'run_now') {
         $n = runPreventiveMaintenanceSweep(true);
-        $done = ['ok', $n > 0 ? "$n preventive task(s) generated." : 'Nothing is due right now — no tasks generated.'];
+        $done = ['ok', $n > 0 ? "$n preventive ticket" . ($n === 1 ? '' : 's') . " generated." : 'Nothing is due right now, so no tickets were generated.'];
     }
 
     if ($done) {
@@ -489,7 +489,7 @@ $eqJson = json_encode($eqPayload, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_H
           <p><?php if ($adminUnit !== '' && !$unitExplicit): ?>Showing <strong><?php echo pm_e($adminUnit); ?></strong> equipment by default — use the <em>Unit</em> filter to view All or the other office. <?php endif; ?>Recurring maintenance schedules that raise a ticket on their own when they come due.</p>
         </div>
         <div class="head-acts">
-          <button class="btn ghost" type="submit" form="runForm"><i class="fas fa-bolt"></i> Run Due Now</button>
+          <button class="btn ghost" type="submit" form="runForm"><i class="fas fa-bolt"></i> Generate Due Tickets</button>
           <button class="btn m" type="button" id="newBtn"><i class="fas fa-plus"></i> New Schedule</button>
         </div>
       </div>
@@ -614,7 +614,7 @@ $eqJson = json_encode($eqPayload, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_H
           <div class="form-actions">
             <button class="btn m" type="submit"><i class="fas fa-plus"></i> Create Schedule</button>
             <button class="btn ghost" type="button" id="newCancel">Cancel</button>
-            <span class="hint">Due schedules also run automatically when you open this page or the dashboard.</span>
+            <span class="hint">Due schedules also run automatically whenever you open this page or the dashboard.</span>
           </div>
         </form>
       </div>

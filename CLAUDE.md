@@ -19,6 +19,7 @@ There is no test runner, linter, or package manager. These scripts are the tooli
 
 ```bash
 c:\xampp\php\php.exe scripts\e2e_smoke.php        # full-lifecycle E2E over real HTTP (needs Apache up)
+c:\xampp\php\php.exe scripts\ui_smoke.php         # renders pages in headless Edge and asserts the DOM
 c:\xampp\php\php.exe scripts\demo_preflight.php   # 15-point health check; exit 0 = safe to demo
 c:\xampp\php\php.exe -l <file.php>                # syntax check a single file
 c:\xampp\php\php.exe scripts\backup_db.php        # DB snapshot → backups/ (also a Task Scheduler job)
@@ -30,8 +31,12 @@ The app runs at `http://localhost/bec-pmo/`. There is no way to run "one test" �
 is a single linear walk through the workflow; comment out later steps if you need a shorter loop.
 
 **`e2e_smoke.php` does not execute browser JavaScript.** It posts over raw HTTP, so it stays green
-while the UI is entirely broken for real users (this has happened). For any client-side change,
-verify in headless Edge:
+while the UI is entirely broken for real users (this has happened). `scripts/ui_smoke.php` covers
+that gap — it loads the real pages in headless Edge, lets their scripts run, and asserts against
+the DOM the browser produced (a token injected by `csrf_inject.php`, a date field wrapped by
+`date_picker.js`, a recurrence preview a page filled in). Exit 0 = the interface works. It writes
+a temporary session seeder at the web root and deletes it in a `finally`, so nothing that grants a
+session outlives the run. For a one-off check of a page it does not cover, drive Edge directly:
 
 ```
 "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --headless --disable-gpu ^

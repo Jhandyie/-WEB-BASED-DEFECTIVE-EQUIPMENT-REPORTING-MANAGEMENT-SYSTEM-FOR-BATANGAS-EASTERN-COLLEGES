@@ -837,7 +837,7 @@ a { text-decoration: none; color: inherit; }
         <a class="portal-card cta-main" href="reserve_venue.php">
           <div class="pc-ic"><i class="fas fa-calendar-check" aria-hidden="true"></i></div>
           <div class="pc-title">Reserve a Venue</div>
-          <p class="pc-desc">For departments and student organisations — seminars, meetings, lectures, film showings and social gatherings. Tell the PMO the materials you need and they will be prepared.</p>
+          <p class="pc-desc">For departments and student organizations — seminars, meetings, lectures, film showings and social gatherings. Tell the PMO the materials you need and they will be prepared.</p>
           <span class="pc-enter">Open the form <i class="fas fa-arrow-right" aria-hidden="true"></i></span>
         </a>
         <ul class="cta-steps">

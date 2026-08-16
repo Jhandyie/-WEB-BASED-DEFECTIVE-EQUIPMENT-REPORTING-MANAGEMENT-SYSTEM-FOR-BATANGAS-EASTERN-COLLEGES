@@ -89,13 +89,13 @@ function vrNextNumber(PDO $pdo): string {
  * Venues already reserved come first — they are the real, curated list, and it
  * grows as the office uses the system. Equipment locations follow as a starting
  * point on day one, when nothing has been reserved yet.
- */
-/*
+ *
  * The cap has to clear the whole list, not trim it. At 120 the suggestions ran
- * alphabetically through Annex 1 and stopped partway into Annex 2, so all 52
- * Main Campus rooms were missing — and because the box still accepts free text,
- * nothing looked broken: the list just quietly had no Main Campus in it. There
- * are 178 distinct locations, a few KB of strings; 500 leaves room to grow.
+ * alphabetically through Annex 1, stopped partway into Annex 2, and never
+ * reached Main Campus — all 52 of its rooms missing. Nothing looked broken,
+ * because the box still accepts free text; the list simply had no Main Campus
+ * in it. There are 178 distinct locations, a few KB of strings; 500 leaves room
+ * to grow.
  */
 function vrVenueSuggestions(PDO $pdo, int $limit = 500): array {
     $out = [];
@@ -202,7 +202,7 @@ function vrNotifyApplicant(array $r, string $event, array $opts = []): bool {
         $headline = 'We received your request';
         $summary  = $venue . ' is held for ' . $when . ' while the PMO reviews your request.';
         $accent   = '#C9960C';
-        $action   = 'Your department head or organisation adviser still needs to endorse the request. '
+        $action   = 'Your department head or organization adviser still needs to endorse the request. '
                   . 'The Property Management Office will confirm once a decision is made — you do not need to do anything else for now.';
     }
 
@@ -212,7 +212,7 @@ function vrNotifyApplicant(array $r, string $event, array $opts = []): bool {
         'Date & time' => $when,
         'Activity'    => vrNatureLabel((string)($r['nature'] ?? ''), (string)($r['nature_other'] ?? '')),
         'Applicant'   => (string)($r['applicant_name'] ?? ''),
-        'Department / Organisation' => (string)($r['department_org'] ?? ''),
+        'Department / Organization' => (string)($r['department_org'] ?? ''),
     ];
     if (!empty($r['participants'])) { $facts['Expected participants'] = (int)$r['participants']; }
 

@@ -211,9 +211,22 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
   .stat.s-g{--sk:var(--success);} .stat.s-g .s-ic{background:#EEF7F0;color:var(--success);}
   .stat .lbl{font-size:.66rem;text-transform:uppercase;letter-spacing:.6px;color:var(--ink3);font-weight:700;}
   .stat .val{font-family:'Fraunces',serif;font-size:1.4rem;margin-top:4px;color:var(--ink);line-height:1.1;}
+  /* Two of the three tiles hold a phrase, not a number, and were shrunk with an
+     inline font-size — so the row rendered at 1.4rem, 1rem, 1rem and read
+     ragged. One modifier instead, and the baselines line up. */
+  .stat .val.txt{font-size:1rem;line-height:1.35;}
   .stat .sub{font-size:.72rem;color:var(--ink3);margin-top:2px;}
-  .grid{display:grid;grid-template-columns:1.4fr 1fr;gap:18px;align-items:start;}
-  @media(max-width:960px){ .grid{grid-template-columns:1fr;} }
+  /* Back up / Import / Recover are peer actions, so they sit in one row above
+     the list rather than stacked in a narrow right-hand column. With the import
+     card added, that column ran far taller than the table beside it and left a
+     column of white space down the page. */
+  .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:start;margin-bottom:18px;}
+  @media(max-width:1100px){ .actions{grid-template-columns:1fr;} }
+  .card.act{display:flex;flex-direction:column;}
+  .card.act .cb{display:flex;flex-direction:column;flex:1;}
+  /* Push each card's button to the bottom so the three line up across the row
+     however much text sits above them. */
+  .card.act .cb form{margin-top:auto;}
   .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:0 1px 2px rgba(28,16,8,.04);overflow:hidden;}
   .card .ch{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
   .card .ch h3{font-family:'Fraunces',serif;font-size:1.05rem;}
@@ -273,7 +286,6 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
         <i class="fas fa-chevron-right"></i><span>Backup &amp; Recovery</span>
       </div>
     </div>
-    <a class="back" href="admin_dashboard.php"><i class="fas fa-arrow-left"></i> Dashboard</a>
   </div>
 
   <div class="wrap">
@@ -291,13 +303,74 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
 
     <div class="stats">
       <div class="stat s-m"><div class="s-ic"><i class="fas fa-database"></i></div><div class="s-tx"><div class="lbl">Snapshots stored</div><div class="val"><?php echo count($backups); ?></div><div class="sub"><?php echo bsize($totalBytes); ?> on disk</div></div></div>
-      <div class="stat s-a"><div class="s-ic"><i class="fas fa-clock-rotate-left"></i></div><div class="s-tx"><div class="lbl">Latest snapshot</div><div class="val" style="font-size:1rem;"><?php echo $lastRun ? bdt($lastRun) : '—'; ?></div><div class="sub"><?php echo $lastRun ? 'most recent backup' : 'no backups yet'; ?></div></div></div>
-      <div class="stat s-g"><div class="s-ic"><i class="fas fa-calendar-check"></i></div><div class="s-tx"><div class="lbl">Automated schedule</div><div class="val" style="font-size:1rem;">Daily</div><div class="sub">Windows Task Scheduler</div></div></div>
+      <div class="stat s-a"><div class="s-ic"><i class="fas fa-clock-rotate-left"></i></div><div class="s-tx"><div class="lbl">Latest snapshot</div><div class="val txt"><?php echo $lastRun ? bdt($lastRun) : '—'; ?></div><div class="sub"><?php echo $lastRun ? 'Most recent backup' : 'No backups yet'; ?></div></div></div>
+      <div class="stat s-g"><div class="s-ic"><i class="fas fa-calendar-check"></i></div><div class="s-tx"><div class="lbl">Automated schedule</div><div class="val txt">Daily</div><div class="sub">Windows Task Scheduler</div></div></div>
     </div>
 
-    <div class="grid">
-      <!-- Snapshots list -->
-      <div class="card">
+      <!-- Actions -->
+      <div class="actions">
+        <div class="card act">
+          <div class="ch"><div class="ci"><i class="fas fa-cloud-arrow-up"></i></div><h3>Back Up Now</h3></div>
+          <div class="cb">
+            <p>Create an immediate snapshot of the entire database. Snapshots are compressed, and the newest 14 are kept automatically.</p>
+            <form method="post">
+              <?php echo csrf_field(); ?>
+              <input type="hidden" name="action" value="backup">
+              <button class="btn" type="submit"><i class="fas fa-cloud-arrow-up"></i> Back Up Now</button>
+            </form>
+          </div>
+        </div>
+
+        <!-- The other half of Download: an archive kept off-site, or made on a
+             different machine, has to be able to come back. -->
+        <div class="card act">
+          <div class="ch"><div class="ci"><i class="fas fa-file-import"></i></div><h3>Import a Snapshot</h3></div>
+          <div class="cb">
+            <p>Upload a backup <code style="font-family:inherit;">.zip</code> produced by this system — one you downloaded earlier, or one taken on another machine. It is checked before it is accepted and then joins the list above, ready to recover from.</p>
+            <form method="post" enctype="multipart/form-data" id="importForm">
+              <?php echo csrf_field(); ?>
+              <input type="hidden" name="action" value="import">
+              <label class="fl" for="archive">Backup archive (.zip)</label>
+              <input type="file" name="archive" id="archive" accept=".zip,application/zip" required>
+              <div class="imp-pick" id="impPick" hidden></div>
+              <button class="btn" type="submit"><i class="fas fa-file-import"></i> Import Snapshot</button>
+            </form>
+            <div class="warn" style="margin-top:12px;">
+              <i class="fas fa-circle-info"></i> Importing only stores the archive — <strong>no data is changed</strong>.
+              Recovering records from it is the separate, confirmed step below.
+              Server limit: <?php echo be(ini_get('upload_max_filesize')); ?> per file.
+            </div>
+          </div>
+        </div>
+
+        <div class="card act">
+          <div class="ch"><div class="ci"><i class="fas fa-clock-rotate-left"></i></div><h3>Recover Data</h3></div>
+          <div class="cb">
+            <?php if (!$backups): ?>
+              <p>No snapshot is available to recover from yet.</p>
+            <?php else: ?>
+            <p>Restore records from a chosen snapshot. Missing records are recovered and changed records are reverted to the backed-up version; <strong>records newer than the snapshot are kept</strong> and nothing is deleted.</p>
+            <div class="warn"><i class="fas fa-shield-halved"></i> A safety snapshot of the current database is taken automatically <em>before</em> the restore, so this action is reversible. The whole restore runs in one transaction — if anything fails, no changes are applied.</div>
+            <form method="post" onsubmit="return this.confirm.value.trim().toUpperCase()==='RESTORE' || (alert('Type RESTORE to confirm.'),false);">
+              <?php echo csrf_field(); ?>
+              <input type="hidden" name="action" value="restore">
+              <label class="fl">Snapshot to recover from</label>
+              <select name="file" required>
+                <?php foreach ($backups as $b): ?>
+                <option value="<?php echo be($b['file']); ?>"><?php echo be($b['file']); ?> — <?php echo bdt($b['created_at'] ?: $b['mtime']); ?><?php echo $b['rows'] !== null ? ' (' . number_format((int)$b['rows']) . ' rows)' : ''; ?></option>
+                <?php endforeach; ?>
+              </select>
+              <label class="fl">Type <code style="font-family:inherit;">RESTORE</code> to confirm</label>
+              <input type="text" name="confirm" placeholder="RESTORE" autocomplete="off" required>
+              <button class="btn danger" type="submit"><i class="fas fa-clock-rotate-left"></i> Recover Records</button>
+            </form>
+            <?php endif; ?>
+          </div>
+        </div>
+    </div>
+
+    <!-- Snapshots list -->
+    <div class="card">
         <div class="ch"><div class="ci"><i class="fas fa-database"></i></div><h3>Snapshots</h3></div>
         <?php if (!$backups): ?>
           <div class="empty"><i class="fas fa-box-open"></i><strong>No backups yet.</strong><div>Use “Back up now” to create the first snapshot.</div></div>
@@ -332,69 +405,6 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
         </div>
         <?php endif; ?>
       </div>
-
-      <!-- Actions -->
-      <div>
-        <div class="card" style="margin-bottom:18px;">
-          <div class="ch"><div class="ci"><i class="fas fa-cloud-arrow-up"></i></div><h3>Back up now</h3></div>
-          <div class="cb">
-            <p>Create an immediate snapshot of the entire database. Snapshots are compressed and the newest 14 are kept automatically.</p>
-            <form method="post">
-              <?php echo csrf_field(); ?>
-              <input type="hidden" name="action" value="backup">
-              <button class="btn" type="submit"><i class="fas fa-cloud-arrow-up"></i> Back up now</button>
-            </form>
-          </div>
-        </div>
-
-        <!-- The other half of Download: an archive kept off-site, or made on a
-             different machine, has to be able to come back. -->
-        <div class="card" style="margin-bottom:18px;">
-          <div class="ch"><div class="ci"><i class="fas fa-file-import"></i></div><h3>Import a snapshot</h3></div>
-          <div class="cb">
-            <p>Upload a backup <code style="font-family:inherit;">.zip</code> produced by this system — one you downloaded earlier, or one taken on another machine. It is checked before it is accepted and then joins the list above, ready to recover from.</p>
-            <form method="post" enctype="multipart/form-data" id="importForm">
-              <?php echo csrf_field(); ?>
-              <input type="hidden" name="action" value="import">
-              <label class="fl" for="archive">Backup archive (.zip)</label>
-              <input type="file" name="archive" id="archive" accept=".zip,application/zip" required>
-              <div class="imp-pick" id="impPick" hidden></div>
-              <button class="btn" type="submit"><i class="fas fa-file-import"></i> Import snapshot</button>
-            </form>
-            <div class="warn" style="margin-top:12px;">
-              <i class="fas fa-circle-info"></i> Importing only stores the archive — <strong>no data is changed</strong>.
-              Recovering records from it is the separate, confirmed step below.
-              Server limit: <?php echo be(ini_get('upload_max_filesize')); ?> per file.
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="ch"><div class="ci"><i class="fas fa-clock-rotate-left"></i></div><h3>Recover data</h3></div>
-          <div class="cb">
-            <?php if (!$backups): ?>
-              <p>No snapshot is available to recover from yet.</p>
-            <?php else: ?>
-            <p>Restore records from a chosen snapshot. Missing records are recovered and changed records are reverted to the backed-up version; <strong>records newer than the snapshot are kept</strong> and nothing is deleted.</p>
-            <div class="warn"><i class="fas fa-shield-halved"></i> A safety snapshot of the current database is taken automatically <em>before</em> the restore, so this action is reversible. The whole restore runs in one transaction — if anything fails, no changes are applied.</div>
-            <form method="post" onsubmit="return this.confirm.value.trim().toUpperCase()==='RESTORE' || (alert('Type RESTORE to confirm.'),false);">
-              <?php echo csrf_field(); ?>
-              <input type="hidden" name="action" value="restore">
-              <label class="fl">Snapshot to recover from</label>
-              <select name="file" required>
-                <?php foreach ($backups as $b): ?>
-                <option value="<?php echo be($b['file']); ?>"><?php echo be($b['file']); ?> — <?php echo bdt($b['created_at'] ?: $b['mtime']); ?><?php echo $b['rows'] !== null ? ' (' . number_format((int)$b['rows']) . ' rows)' : ''; ?></option>
-                <?php endforeach; ?>
-              </select>
-              <label class="fl">Type <code style="font-family:inherit;">RESTORE</code> to confirm</label>
-              <input type="text" name="confirm" placeholder="RESTORE" autocomplete="off" required>
-              <button class="btn danger" type="submit"><i class="fas fa-clock-rotate-left"></i> Recover records</button>
-            </form>
-            <?php endif; ?>
-          </div>
-        </div>
-      </div>
-    </div>
 
     <div class="note">
       <strong>How the automated backup runs.</strong> A Windows Task Scheduler job runs <code>php scripts\backup_db.php</code> nightly, producing rotating compressed archives of every database table (the same snapshots listed above), then rotating logs and flushing the mail outbox. To (re)create the scheduled task, run in an elevated PowerShell:

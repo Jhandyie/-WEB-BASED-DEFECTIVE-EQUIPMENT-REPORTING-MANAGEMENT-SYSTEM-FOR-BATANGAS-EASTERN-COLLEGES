@@ -346,7 +346,7 @@ if ($q !== '') {
       <div class="fbar">
         <div class="fsw">
           <i class="fas fa-search"></i>
-          <input type="text" class="fsi" id="fq" placeholder="Search VRF no., applicant, organisation, venue, OR no.…"
+          <input type="text" class="fsi" id="fq" placeholder="Search VRF no., applicant, organization, venue, OR no.…"
                  value="<?php echo rv_e($q); ?>" oninput="rvDebounce()" onkeydown="if(event.key==='Enter'){event.preventDefault();rvGo();}">
         </div>
         <select class="fsel" id="fs" aria-label="Filter by status" onchange="rvGo()">
@@ -376,7 +376,7 @@ if ($q !== '') {
             <h3>No reservations yet</h3>
             <p>When someone files a Venue Reservation Form it lands here for the PMO to endorse, approve or
                disapprove — and the venue is held against double-booking the moment it is submitted.</p>
-            <a class="btn m" href="reserve_venue.php?walkin=1"><i class="fas fa-plus"></i> File the first request</a>
+            <a class="btn m" href="reserve_venue.php?walkin=1"><i class="fas fa-plus"></i> File the First Request</a>
           </div>
         <?php elseif (!$rows): ?>
           <div class="empty">
@@ -457,7 +457,7 @@ if ($q !== '') {
         <?php /* The office keeps a signed paper copy in the folder; this is that
                  copy, filled in. Opens in its own tab so the queue stays put. */ ?>
         <a class="btn ghost sm" id="rvPrint" href="#" target="_blank" rel="noopener"
-           style="margin-left:auto;"><i class="fas fa-print"></i> Print form</a>
+           style="margin-left:auto;"><i class="fas fa-print"></i> Print Form</a>
         <button class="x" type="button" data-close aria-label="Close" style="margin-left:.4rem;"><i class="fas fa-xmark"></i></button>
       </div>
       <div class="dlg-b">
@@ -476,7 +476,7 @@ if ($q !== '') {
               <input type="hidden" name="id" class="rvId">
               <label for="advName">Dept. head / org. adviser</label>
               <input type="text" id="advName" name="adviser_name" placeholder="Name over printed signature" required>
-              <button class="btn ghost sm" type="submit"><i class="fas fa-signature"></i> Record endorsement</button>
+              <button class="btn ghost sm" type="submit"><i class="fas fa-signature"></i> Record Endorsement</button>
             </form>
           </div>
 
@@ -488,7 +488,7 @@ if ($q !== '') {
               <input type="hidden" name="id" class="rvId">
               <label for="apRemarks">Remarks (optional)</label>
               <textarea id="apRemarks" name="remarks" rows="2" placeholder="Conditions, notes…"></textarea>
-              <button class="btn ok sm" type="submit"><i class="fas fa-check"></i> Approve &amp; issue VRF no.</button>
+              <button class="btn ok sm" type="submit"><i class="fas fa-check"></i> Approve &amp; Issue VRF No.</button>
             </form>
             <form method="POST" id="disapproveForm" style="margin-top:.6rem;">
               <?php echo csrf_field(); ?>
@@ -522,7 +522,7 @@ if ($q !== '') {
               </div>
               <label for="pCashier">Cashier</label>
               <input type="text" id="pCashier" name="cashier_name">
-              <button class="btn m sm" type="submit"><i class="fas fa-save"></i> Save payment</button>
+              <button class="btn m sm" type="submit"><i class="fas fa-save"></i> Save Payment</button>
             </form>
           </div>
 
@@ -538,7 +538,7 @@ if ($q !== '') {
                   <option value="<?php echo $sv; ?>"><?php echo rv_e($sl); ?></option>
                 <?php endforeach; ?>
               </select>
-              <button class="btn ghost sm" type="submit"><i class="fas fa-arrow-right"></i> Update status</button>
+              <button class="btn ghost sm" type="submit"><i class="fas fa-arrow-right"></i> Update Status</button>
             </form>
           </div>
         </div>
@@ -581,7 +581,7 @@ function rvOpen(tr) {
   document.getElementById('rvPrint').href = 'admin_reservation_print.php?id=' + encodeURIComponent(d.id) + '&auto=1';
 
   var facts = [
-    ['Applicant', esc(d.name)], ['Department / Organisation', esc(d.org)],
+    ['Applicant', esc(d.name)], ['Department / Organization', esc(d.org)],
     ['Venue', esc(d.venue)], ['Date &amp; time', esc(d.when) + ' <span style="color:#9C7A7A">(' + esc(d.dur) + ')</span>'],
     ['Nature of activity', esc(d.nature)], ['Expected participants', d.pax ? esc(d.pax) : '—'],
     ['Status', esc(d.slabel)], ['Endorsed by', d.adviser ? esc(d.adviser) : 'Not yet endorsed'],
@@ -624,7 +624,7 @@ function rvOpen(tr) {
   if (d.status === 'disapproved' || d.status === 'cancelled') {
     warn = 'This request no longer holds the venue — the slot is free for other bookings.';
   } else if (!d.adviser && d.status === 'submitted') {
-    warn = 'Not yet endorsed by a department head or organisation adviser. The paper form needs that signature before the PMO signs.';
+    warn = 'Not yet endorsed by a department head or organization adviser. The paper form needs that signature before the PMO signs.';
   }
   document.getElementById('rvWarn').innerHTML = warn
     ? '<div class="warnbox"><i class="fas fa-circle-info"></i><div>' + esc(warn) + '</div></div>' : '';

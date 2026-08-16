@@ -9,7 +9,7 @@
  * taken at that hour.
  *
  * Open to anyone who can reach the site, like issue_report.php: a student
- * organisation asking for the AVR should not need an account first. A signed-in
+ * organization asking for the AVR should not need an account first. A signed-in
  * session just pre-fills the applicant.
  */
 require_once __DIR__ . '/includes/session_bootstrap.php';
@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $date   = $fv['date'];
     $errors = [];
     if ($fv['applicant_name'] === '')  { $errors[] = 'your name'; }
-    if ($fv['department_org'] === '')  { $errors[] = 'your department or organisation'; }
+    if ($fv['department_org'] === '')  { $errors[] = 'your department or organization'; }
     if ($fv['venue'] === '')           { $errors[] = 'the venue'; }
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) { $errors[] = 'the date'; }
     if (!preg_match('/^\d{2}:\d{2}$/', $fv['start_time']) || !preg_match('/^\d{2}:\d{2}$/', $fv['end_time'])) {
@@ -238,7 +238,7 @@ $venues = vrVenueSuggestions($pdo);
       <i class="fas fa-circle-check"></i>
       <h2>Reservation request submitted</h2>
       <p>The venue is now held for your window while the Property Management Office reviews it.
-         Your VRF number is issued when it is approved. Your department head or organisation adviser
+         Your VRF number is issued when it is approved. Your department head or organization adviser
          still needs to endorse it — the PMO records that signature on their side.</p>
       <?php if (!empty($mailedReceipt)): ?>
         <p style="font-size:.82rem;color:var(--ink3);margin-top:-.6rem;">
@@ -287,7 +287,7 @@ $venues = vrVenueSuggestions($pdo);
               <input type="text" id="an" name="applicant_name" value="<?php echo rq_e($fv['applicant_name']); ?>" required>
             </div>
             <div class="fg">
-              <label for="ao">Department / organisation *</label>
+              <label for="ao">Department / organization *</label>
               <input type="text" id="ao" name="department_org" value="<?php echo rq_e($fv['department_org']); ?>" required>
             </div>
             <div class="fg">
