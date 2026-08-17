@@ -21,14 +21,21 @@
 
 const AI_ENDPOINT_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/';
 
-// Model IDs retire. gemini-2.5-flash was closed to new keys and started refusing
-// every request with "no longer available to new users" — which, because the
-// callers fall back silently, looks like "Becca got dumb" rather than an outage.
-// scripts/check_ai_key.php exists to catch that; run it before a demo.
-// If you would rather never touch this again, set gemini_model to
-// 'gemini-flash-latest' in config/chat_secrets.php: it always resolves to the
-// current Flash, at the cost of the model changing under you without warning.
-const AI_DEFAULT_MODEL = 'gemini-3.6-flash';
+// Flash-Lite, not Flash. Measured on this workload (Aug 2026): Flash answered in
+// ~7.0s and Flash-Lite in ~2.6s for the same question and a comparably complete
+// answer. Becca reads troubleshooting steps off a knowledge base rather than
+// reasoning hard, so the smaller model loses little, and a reporter watching a
+// spinner for seven seconds assumes the page is broken. Flash-Lite also gets a
+// higher free-tier request ceiling, which matters when a room full of people
+// tries the assistant at once. Set gemini_model to 'gemini-3.6-flash' in
+// config/chat_secrets.php to trade the speed back for the larger model.
+//
+// This is a "-latest" alias deliberately: the pinned lite ids retire and start
+// 404ing (gemini-2.5-flash-lite already does), and a 404 here is invisible —
+// the callers fall back silently, so it reads as "Becca got dumb" rather than an
+// outage. The cost is that the model behind the alias can change without notice.
+// scripts/check_ai_key.php catches both failure modes; run it before a demo.
+const AI_DEFAULT_MODEL = 'gemini-flash-lite-latest';
 
 /** Read config/chat_secrets.php once per request. */
 function aiChatConfig(): array
