@@ -53,8 +53,10 @@ cookies), so files must **not** be moved into subfolders without updating
 ### AI assistant (Becca)
 | File | Purpose |
 |---|---|
-| `chat_proxy.php` | Public/reporter chat proxy (Anthropic API + offline fallback) |
+| `includes/ai_client.php` | The only place the app calls a model. Key loading, Gemini request/response mapping, graceful failure |
+| `chat_proxy.php` | Public/reporter chat proxy (Gemini via `includes/ai_client.php` + offline fallback) |
 | `admin_chat_proxy.php` / `technician_chat_proxy.php` | Role-specific proxies |
+| `scripts/check_ai_key.php` | Pre-demo check: key valid, configured model reachable, live round-trip |
 | `push_subscribe.php` | Web-push subscription endpoint |
 
 ### Shared helpers kept at root (required by many pages)

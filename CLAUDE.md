@@ -135,7 +135,8 @@ notifications and branded email. `users.department` (PMO or ITSO) scopes which r
 
 ## Secrets
 
-All gitignored, all needed to run: `.env` (Supabase), `config/chat_secrets.php` (Anthropic API key),
+All gitignored, all needed to run: `.env` (Supabase), `config/chat_secrets.php` (Gemini API key),
 `data/system_settings.json` (Gmail SMTP app password per role). Copy from the `.example` files.
+`scripts/check_ai_key.php` verifies the Gemini key and that the configured model is reachable.
 `scripts/carry_secrets.ps1` moves them between machines as an encrypted bundle;
 `scripts/setup_new_machine.ps1` and `docs/SETUP_NEW_LAPTOP.md` cover a fresh install.

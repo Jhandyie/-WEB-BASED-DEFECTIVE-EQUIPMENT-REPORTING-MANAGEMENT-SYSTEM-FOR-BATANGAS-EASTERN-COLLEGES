@@ -142,7 +142,7 @@ Write-Host "  5. Configuration carried from the old machine" -ForegroundColor Wh
 $secrets = @(
     @{ path = '.env';                      what = 'Supabase database credentials'; sample = '.env.example' },
     @{ path = 'data\system_settings.json'; what = 'e-mail (Gmail SMTP) settings';   sample = $null },
-    @{ path = 'config\chat_secrets.php';   what = 'Anthropic API key for the assistant (optional - it falls back to a built-in brain)'; sample = $null }
+    @{ path = 'config\chat_secrets.php';   what = 'Gemini API key for the assistant (optional - it falls back to a built-in brain)'; sample = $null }
 )
 foreach ($s in $secrets) {
     $p = Join-Path $AppDir $s.path

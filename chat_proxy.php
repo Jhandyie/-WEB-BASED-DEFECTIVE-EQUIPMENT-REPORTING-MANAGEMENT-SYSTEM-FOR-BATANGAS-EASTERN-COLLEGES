@@ -1,6 +1,6 @@
 <?php
 // chat_proxy.php
-// Secure server-side proxy for Anthropic Claude API
+// Secure server-side proxy for the Gemini API (see includes/ai_client.php)
 // Place this file in the SAME directory as student_index.php
 //
 // "Becca" build: adds a consistent, warm persona, emotional
@@ -11,6 +11,7 @@
 
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/rate_limiter.php';
+require_once __DIR__ . '/includes/ai_client.php';
 
 header('Content-Type: application/json');
 // Same-origin only. This used to answer any website's script with
@@ -33,41 +34,8 @@ try {
     exit();
 }
 
-function chatProxyConfig(): array
-{
-    static $config = null;
-    if ($config !== null) {
-        return $config;
-    }
-
-    $config = [];
-    $localConfigPath = __DIR__ . '/config/chat_secrets.php';
-    if (is_file($localConfigPath)) {
-        $loaded = require $localConfigPath;
-        if (is_array($loaded)) {
-            $config = $loaded;
-        }
-    }
-
-    return $config;
-}
-
-function chatAnthropicApiKey(): string
-{
-    $envKey = getenv('ANTHROPIC_API_KEY');
-    if (is_string($envKey) && trim($envKey) !== '') {
-        return trim($envKey);
-    }
-
-    $serverKey = $_SERVER['ANTHROPIC_API_KEY'] ?? '';
-    if (is_string($serverKey) && trim($serverKey) !== '') {
-        return trim($serverKey);
-    }
-
-    $config = chatProxyConfig();
-    $configKey = $config['anthropic_api_key'] ?? '';
-    return is_string($configKey) ? trim($configKey) : '';
-}
+// Key loading and the model call itself live in includes/ai_client.php — all three
+// chat proxies share them, so the provider is configured in exactly one place.
 
 function logChatProxyError(string $message, array $context = []): void
 {
@@ -890,7 +858,6 @@ $snapshot = chatBuildSystemSnapshot($conn);
 $analytics = chatBuildAnalytics($conn);
 $matchedReport = chatLookupReport($conn, $lastUserMessage);
 $localReply = chatBuildLocalReply($lastUserMessage, $lang, $snapshot, $matchedReport, $analytics);
-$anthropicApiKey = chatAnthropicApiKey();
 
 $knowledge_base = [
     "Projector not working: Check the power cable and HDMI connection. Press the Source or Input button on the remote. Allow 30 seconds for lamp warm-up. Power cycle by turning off, waiting 10 seconds, then back on. Note the room number and submit a defect report if it persists.",
@@ -1014,88 +981,38 @@ if ($matchedReport) {
     exit;
 }
 
-if ($anthropicApiKey === '') {
-    logChatProxyError('Anthropic API key missing');
+$ai = aiChatComplete($system_prompt, $messages, [
+    'temperature' => 0.8,   // natural variation so replies never feel scripted
+    'max_tokens'  => 1024,
+    'timeout'     => 30,
+]);
+
+// No key, rate limit, network trouble, refusal — the reporter still gets an answer,
+// just the hand-written one built above from live data.
+if (!$ai['ok']) {
+    logChatProxyError('AI completion failed', [
+        'reason' => $ai['reason'],
+        'http_code' => $ai['http_code'],
+        'model' => $ai['model'],
+    ]);
     echo json_encode([
         'reply' => $localReply['reply'],
         'suggest' => $localReply['suggest'],
         'chips' => $localReply['chips'],
         'actions' => chatBuildActions($lastUserMessage, $lang, $localReply['suggest'], false),
         'source' => 'local_fallback',
-        'warning' => 'AI service not configured',
-    ]);
-    exit;
-}
-
-// Build the API request payload
-$payload = [
-    'model'      => 'claude-haiku-4-5',
-    'max_tokens' => 1024,
-    'temperature'=> 0.8,   // natural variation so replies never feel scripted
-    'system'     => $system_prompt,
-    'messages'   => $messages,
-];
-
-// Call the Anthropic API using cURL
-$ch = curl_init('https://api.anthropic.com/v1/messages');
-curl_setopt_array($ch, [
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_POST           => true,
-    CURLOPT_POSTFIELDS     => json_encode($payload),
-    CURLOPT_HTTPHEADER     => [
-        'Content-Type: application/json',
-        'x-api-key: ' . $anthropicApiKey,
-        'anthropic-version: 2023-06-01',
-    ],
-    CURLOPT_TIMEOUT        => 30,
-    CURLOPT_SSL_VERIFYPEER => true,
-]);
-
-$response = curl_exec($ch);
-$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-$curlError = curl_error($ch);
-curl_close($ch);
-
-if ($curlError) {
-    logChatProxyError('Anthropic cURL error', [
-        'curl_error' => $curlError,
-        'http_code' => $httpCode,
-    ]);
-    echo json_encode([
-        'reply' => $localReply['reply'],
-        'suggest' => $localReply['suggest'],
-        'chips' => $localReply['chips'],
-        'actions' => chatBuildActions($lastUserMessage, $lang, $localReply['suggest'], $matchedReport !== null),
-        'source' => 'local_fallback',
-        'warning' => 'AI service unavailable',
-    ]);
-    exit;
-}
-
-$data = json_decode($response, true);
-
-if ($httpCode !== 200) {
-    logChatProxyError('Anthropic API error', [
-        'http_code' => $httpCode,
-        'response' => $data ?: $response,
-    ]);
-    echo json_encode([
-        'reply' => $localReply['reply'],
-        'suggest' => $localReply['suggest'],
-        'chips' => $localReply['chips'],
-        'actions' => chatBuildActions($lastUserMessage, $lang, $localReply['suggest'], $matchedReport !== null),
-        'source' => 'local_fallback',
-        'warning' => $data['error']['message'] ?? 'API error',
+        'warning' => $ai['error'],
     ]);
     exit;
 }
 
 // Return the AI response to the frontend
-$aiText = $data['content'][0]['text'] ?? '';
+$aiText = $ai['text'];
+$suggestReport = str_contains($aiText, '[SUGGEST_REPORT]');
 echo json_encode([
     'reply'   => $aiText,
-    'suggest' => str_contains($aiText, '[SUGGEST_REPORT]'),
+    'suggest' => $suggestReport,
     'chips' => $localReply['chips'],
-    'actions' => chatBuildActions($lastUserMessage, $lang, str_contains($aiText, '[SUGGEST_REPORT]'), $matchedReport !== null),
-    'source' => 'anthropic',
+    'actions' => chatBuildActions($lastUserMessage, $lang, $suggestReport, false),
+    'source' => 'gemini',
 ]);

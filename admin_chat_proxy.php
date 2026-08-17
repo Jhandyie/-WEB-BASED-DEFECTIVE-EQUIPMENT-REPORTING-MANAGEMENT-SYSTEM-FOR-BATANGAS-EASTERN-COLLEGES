@@ -7,13 +7,14 @@
  * live model is unavailable (no key / no credit / API error) it falls back to a
  * built-in analytics + how-to brain so it always responds.
  *
- * Admin-session gated. Same Anthropic key as the student bot (config/chat_secrets.php
- * or ANTHROPIC_API_KEY).
+ * Admin-session gated. Shares the student bot's model client and key
+ * (includes/ai_client.php, config/chat_secrets.php or GEMINI_API_KEY).
  */
 require_once __DIR__ . '/includes/session_bootstrap.php';
 startRoleSession('admin');
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/config/sla.php';
+require_once __DIR__ . '/includes/ai_client.php';
 
 header('Content-Type: application/json');
 
@@ -22,20 +23,6 @@ if (($_SESSION['role'] ?? '') !== 'admin' || empty($_SESSION['user_id'])) {
     http_response_code(403);
     echo json_encode(['error' => 'Admin access required.']);
     exit;
-}
-
-function adminChatApiKey(): string
-{
-    $env = getenv('ANTHROPIC_API_KEY');
-    if (is_string($env) && trim($env) !== '') return trim($env);
-    $srv = $_SERVER['ANTHROPIC_API_KEY'] ?? '';
-    if (is_string($srv) && trim($srv) !== '') return trim($srv);
-    $p = __DIR__ . '/config/chat_secrets.php';
-    if (is_file($p)) {
-        $c = require $p;
-        if (is_array($c) && !empty($c['anthropic_api_key'])) return trim((string) $c['anthropic_api_key']);
-    }
-    return '';
 }
 
 function adminChatLog(string $msg, array $ctx = []): void
@@ -265,47 +252,16 @@ WORKFLOW REFERENCE (for how-to questions)
 Use the live data above to answer data questions precisely. Keep replies short and skimmable.
 SYS;
 
-$apiKey = adminChatApiKey();
-if ($apiKey === '') {
-    echo json_encode(['reply' => $fallback, 'source' => 'local_fallback', 'warning' => 'AI service not configured']);
+$ai = aiChatComplete($system_prompt, $messages, ['max_tokens' => 1024, 'timeout' => 45]);
+
+if (!$ai['ok']) {
+    adminChatLog('ai completion failed', [
+        'reason' => $ai['reason'],
+        'code' => $ai['http_code'],
+        'model' => $ai['model'],
+    ]);
+    echo json_encode(['reply' => $fallback, 'source' => 'local_fallback', 'warning' => $ai['error']]);
     exit;
 }
 
-$payload = [
-    'model'      => 'claude-haiku-4-5',
-    'max_tokens' => 1024,
-    'system'     => $system_prompt,
-    'messages'   => $messages,
-];
-$ch = curl_init('https://api.anthropic.com/v1/messages');
-curl_setopt_array($ch, [
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_POST           => true,
-    CURLOPT_POSTFIELDS     => json_encode($payload),
-    CURLOPT_HTTPHEADER     => [
-        'Content-Type: application/json',
-        'x-api-key: ' . $apiKey,
-        'anthropic-version: 2023-06-01',
-    ],
-    CURLOPT_TIMEOUT        => 45,
-    CURLOPT_SSL_VERIFYPEER => true,
-]);
-$res  = curl_exec($ch);
-$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-$err  = curl_error($ch);
-curl_close($ch);
-
-if ($err) {
-    adminChatLog('curl error', ['err' => $err]);
-    echo json_encode(['reply' => $fallback, 'source' => 'local_fallback', 'warning' => 'AI service unavailable']);
-    exit;
-}
-$body = json_decode($res, true);
-if ($code !== 200) {
-    adminChatLog('api error', ['code' => $code, 'resp' => $body ?: $res]);
-    echo json_encode(['reply' => $fallback, 'source' => 'local_fallback', 'warning' => $body['error']['message'] ?? 'API error']);
-    exit;
-}
-$aiText = $body['content'][0]['text'] ?? '';
-if (trim($aiText) === '') { $aiText = $fallback; }
-echo json_encode(['reply' => $aiText, 'source' => 'anthropic']);
+echo json_encode(['reply' => $ai['text'], 'source' => 'gemini']);

@@ -49,7 +49,7 @@ No Composer, no Node, no database server needed on the host — Supabase stays a
 
 2. **Recreate the secret files** (they are gitignored on purpose — copy them from your PC):
    - `.env` — Supabase connection (same values as local)
-   - `config/chat_secrets.php` — Anthropic API key
+   - `config/chat_secrets.php` — Gemini API key
    - `data/system_settings.json` — SMTP accounts (`from_name: "BEC PMO"`, Gmail app password)
    - `config/sla.php` — SLA hours (already committed; adjust if needed)
 
@@ -115,7 +115,7 @@ someone is comfortable maintaining a server — shared hosting is less work for 
 ## Security notes for production
 
 - Never commit the secret files; recreate them on the server only.
-- Rotate the Gmail app password and Anthropic key if they were ever shared.
+- Rotate the Gmail app password and Gemini key if they were ever shared.
 - Consider institutional mailboxes (e.g., `pmo@bec.edu.ph` via Google Workspace SMTP) instead
   of a personal Gmail — see `docs/EMAIL_DELIVERABILITY.md` for the SPF/DKIM/DMARC setup.
 - Keep the GitHub repository **private**; access tokens should be short-lived and revoked after use.

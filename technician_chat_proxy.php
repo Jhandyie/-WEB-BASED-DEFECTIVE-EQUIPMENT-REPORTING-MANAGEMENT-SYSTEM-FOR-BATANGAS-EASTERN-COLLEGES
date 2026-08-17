@@ -7,12 +7,13 @@
  * → complete), and gives practical troubleshooting guidance. Falls back
  * to a built-in brain when the AI service is unavailable, so it always answers.
  *
- * Technician-session gated. Same Anthropic key as the other assistants.
+ * Technician-session gated. Shares the model client and key with the other assistants.
  */
 require_once __DIR__ . '/includes/session_bootstrap.php';
 startRoleSession('technician');
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/config/sla.php';
+require_once __DIR__ . '/includes/ai_client.php';
 
 header('Content-Type: application/json');
 
@@ -23,20 +24,6 @@ if (($_SESSION['role'] ?? '') !== 'technician' || empty($_SESSION['user_id'])) {
 }
 $techId   = trim((string)$_SESSION['user_id']);
 $techName = trim((string)($_SESSION['fullname'] ?? 'Technician'));
-
-function techChatApiKey(): string
-{
-    $env = getenv('ANTHROPIC_API_KEY');
-    if (is_string($env) && trim($env) !== '') return trim($env);
-    $srv = $_SERVER['ANTHROPIC_API_KEY'] ?? '';
-    if (is_string($srv) && trim($srv) !== '') return trim($srv);
-    $p = __DIR__ . '/config/chat_secrets.php';
-    if (is_file($p)) {
-        $c = require $p;
-        if (is_array($c) && !empty($c['anthropic_api_key'])) return trim((string) $c['anthropic_api_key']);
-    }
-    return '';
-}
 
 function techChatLog(string $msg, array $ctx = []): void
 {
@@ -193,47 +180,16 @@ SLA reference: {$slaSummary}.
 Language: reply in the language the technician uses (English or Filipino).
 SYS;
 
-$apiKey = techChatApiKey();
-if ($apiKey === '') {
-    echo json_encode(['reply' => $fallback, 'source' => 'local_fallback', 'warning' => 'AI service not configured']);
+$ai = aiChatComplete($system_prompt, $messages, ['max_tokens' => 1024, 'timeout' => 45]);
+
+if (!$ai['ok']) {
+    techChatLog('ai completion failed', [
+        'reason' => $ai['reason'],
+        'code' => $ai['http_code'],
+        'model' => $ai['model'],
+    ]);
+    echo json_encode(['reply' => $fallback, 'source' => 'local_fallback', 'warning' => $ai['error']]);
     exit;
 }
 
-$payload = [
-    'model'      => 'claude-haiku-4-5',
-    'max_tokens' => 1024,
-    'system'     => $system_prompt,
-    'messages'   => $messages,
-];
-$ch = curl_init('https://api.anthropic.com/v1/messages');
-curl_setopt_array($ch, [
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_POST           => true,
-    CURLOPT_POSTFIELDS     => json_encode($payload),
-    CURLOPT_HTTPHEADER     => [
-        'Content-Type: application/json',
-        'x-api-key: ' . $apiKey,
-        'anthropic-version: 2023-06-01',
-    ],
-    CURLOPT_TIMEOUT        => 45,
-    CURLOPT_SSL_VERIFYPEER => true,
-]);
-$res  = curl_exec($ch);
-$code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-$err  = curl_error($ch);
-curl_close($ch);
-
-if ($err) {
-    techChatLog('curl error', ['err' => $err]);
-    echo json_encode(['reply' => $fallback, 'source' => 'local_fallback', 'warning' => 'AI service unavailable']);
-    exit;
-}
-$body = json_decode($res, true);
-if ($code !== 200) {
-    techChatLog('api error', ['code' => $code, 'resp' => $body ?: $res]);
-    echo json_encode(['reply' => $fallback, 'source' => 'local_fallback', 'warning' => $body['error']['message'] ?? 'API error']);
-    exit;
-}
-$aiText = $body['content'][0]['text'] ?? '';
-if (trim($aiText) === '') { $aiText = $fallback; }
-echo json_encode(['reply' => $aiText, 'source' => 'anthropic']);
+echo json_encode(['reply' => $ai['text'], 'source' => 'gemini']);

@@ -32,7 +32,7 @@ Every transition notifies the right people **in-app and by branded email**
 
 ## Feature highlights
 
-- **Becca AI assistant ×3** — student, admin, and technician variants (Anthropic Claude via a
+- **Becca AI assistant ×3** — student, admin, and technician variants (Google Gemini via a
   server-side proxy; each is session-gated, reads live data for its role, and falls back to a
   built-in rules brain so it always answers). English & Filipino.
 - **Backup & data recovery** — automated daily database snapshots (rotating compressed archives
@@ -58,7 +58,8 @@ Every transition notifies the right people **in-app and by branded email**
 - **PHP 8** on Apache (XAMPP) — no framework, no Composer dependencies
 - **Supabase PostgreSQL** through a custom mysqli-compatibility adapter (`config/database.php`)
 - **Vanilla JS + CSS** design system (Fraunces / DM Sans / Outfit, maroon `#7B1D1D` / gold `#C9960C`)
-- **Anthropic Claude API** for the Becca assistants (server-side proxies; keys never reach the browser)
+- **Google Gemini API** (free tier) for the Becca assistants via `includes/ai_client.php`
+  (server-side proxies; keys never reach the browser)
 - **Gmail SMTP** for all transactional email (`includes/mail_helper.php`)
 - **PWA** — manifest + service worker for the installable technician app
 
@@ -73,7 +74,8 @@ Every transition notifies the right people **in-app and by branded email**
 3. Create the database: run `supabase/schema.sql` against your Supabase project.
 4. Configure secrets (all are gitignored — copy from the examples):
    - `.env` ← from `.env.example` (Supabase connection)
-   - `config/chat_secrets.php` ← from `config/chat_secrets.example.php` (Anthropic API key)
+   - `config/chat_secrets.php` ← from `config/chat_secrets.example.php` (Gemini API key —
+     free at <https://aistudio.google.com/apikey>)
    - `data/system_settings.json` — SMTP account(s) per role (`smtp_username`,
      `smtp_password` app password, `from_name: "BEC PMO"`), plus optional `mail_redirects`
    - `config/sla.php` — SLA hours per priority

@@ -138,7 +138,7 @@ They are gitignored on purpose, so cloning does **not** bring them:
 
 ```
 .env                        Supabase connection
-config/chat_secrets.php     Anthropic API key
+config/chat_secrets.php     Gemini API key
 data/system_settings.json   SMTP account + app password
 ```
 

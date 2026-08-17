@@ -24,7 +24,7 @@ backs up `php.ini` before touching it.
 | The project folder | USB stick, or `git clone` | Must end up inside `C:\xampp\htdocs\`. |
 | `.env` | **the old laptop** | Supabase credentials. Not in git. |
 | `data\system_settings.json` | **the old laptop** | Gmail SMTP settings. Not in git. |
-| `config\chat_secrets.php` | **the old laptop** | Anthropic key for the assistant. Optional — without it the assistant falls back to its built-in answers. |
+| `config\chat_secrets.php` | **the old laptop** | Gemini key for the assistant. Optional — without it the assistant falls back to its built-in answers. |
 | ngrok | <https://ngrok.com/download> | Plus the account that owns the reserved demo URL. |
 
 > **The three files above are deliberately not in git.** They hold passwords and
@@ -65,7 +65,7 @@ config\chat_secrets.php
 ```
 
 **These must never be pushed to GitHub.** The repository is public, so a
-Supabase service-role key, a Gmail password and an Anthropic key committed there
+Supabase service-role key, a Gmail password and a Gemini key committed there
 are readable by anyone — and automated scrapers find new secrets in public
 repositories within minutes. It would mean rotating all three, and until then
 anyone could read or delete the student data.

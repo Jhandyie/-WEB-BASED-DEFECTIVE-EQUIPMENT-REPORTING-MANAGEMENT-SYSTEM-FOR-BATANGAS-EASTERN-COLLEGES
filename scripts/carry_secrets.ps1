@@ -5,7 +5,7 @@
     repository is public:
 
         .env                        Supabase database credentials
-        config\chat_secrets.php     Anthropic API key
+        config\chat_secrets.php     Gemini API key
         data\system_settings.json   Gmail SMTP settings
 
     A clone gives you the code and none of these, so the new laptop cannot
