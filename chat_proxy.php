@@ -64,10 +64,20 @@ function chatDetectLanguage(string $text): string
         return 'en';
     }
 
+    // Two Filipino words in a message is the bar. Single stray hits are tolerated
+    // on purpose, because a couple of these ("may", "ba") are English words too.
     $filipinoPatterns = [
-        '/\b(kumusta|kamusta|musta|paano|bakit|saan|kailan|sino|ano|alin|gaano|pwede|puwede|gusto|kailangan|salamat|opo|po|hindi|oo|meron|wala|nasaan|pakitulong|patulong|paki|sir[ae]|sira na|gumagana|gumana|ayaw|hindi gumagana|nagloloko|nagha-hang|mabagal|maingay|lumalamig|mainit|tagas|ingay|ayos|paayos|ipagawa|mag-report|mag track|mag-track|ireport|ulat|isyu|problema|kasaysayan|itinatag|paaralan|eskwela|kagamitan)\b/u',
-        '/\b(nag-|pag-|mag-|ma-|ipa-|ipag-|pinaka)[[:alpha:]-]*/u',
-        '/\b(ako|ikaw|kayo|kami|tayo|nila|namin|atin|ito|iyan|iyon|dito|doon|ang|ng|mga|na[mn]an)\b/u',
+        // Content words, with the optional "-ng" linker: wala -> walang,
+        // sira -> sirang, ano -> anong. Without it a sentence like "walang tunog
+        // yung speaker" scored zero, so Becca answered in Filipino (the model
+        // reads the language itself) under English quick-reply chips.
+        '/\b(kumusta|kamusta|musta|paano|bakit|saan|kailan|sino|ano|alin|gaano|pwede|puwede|gusto|kailangan|salamat|opo|po|hindi|oo|meron|mayroon|wala|nasaan|pakitulong|patulong|paki|sir[ae]|sira|gumagana|gumana|ayaw|nagloloko|nagha-hang|mabagal|maingay|lumalamig|mainit|tagas|ingay|ayos|paayos|ipagawa|mag-report|mag track|mag-track|ireport|ulat|isyu|problema|kasaysayan|itinatag|paaralan|eskwela|kagamitan)(ng)?\b/u',
+        // Affixes. A bare "ma" is deliberately absent — it would swallow
+        // maintenance, manual and machine, which are everywhere in this app.
+        '/\b(nag-|pag-|mag-|ma-|ipa-|ipag-|pinaka|paki|naka|napaka|pinag)[[:alpha:]-]*/u',
+        // Pronouns, markers and particles — the connective tissue that survives
+        // even in a short, half-English sentence like "sirang projector sa 105".
+        '/\b(ako|ikaw|kayo|kami|tayo|nila|namin|atin|ito|iyan|iyon|dito|doon|ang|ng|mga|na[mn]an|sa|nasa|may|yung|yun|iyong|nung|kasi|lang|din|rin|ba|daw|pala|talaga|parang|pero|kaya|kung|kapag|tapos|saka|para|dahil)\b/u',
     ];
 
     $score = 0;
