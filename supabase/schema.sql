@@ -366,6 +366,34 @@ create index if not exists idx_maintenance_history_equipment on public.maintenan
 create index if not exists idx_maintenance_history_date on public.maintenance_history (maintenance_date desc);
 
 -- =========================================================
+-- Preventive maintenance schedules.
+-- Admins define a recurring task against a piece of equipment; the sweep in
+-- includes/preventive_helper.php generates a defect report once next_due falls
+-- due, then advances next_due by frequency_days.
+-- =========================================================
+
+create table if not exists public.preventive_schedules (
+  id serial primary key,
+  title varchar(255) not null,
+  equipment_id varchar(32) not null references public.equipment(equipment_id) on delete cascade,
+  equipment_name varchar(200),
+  location varchar(200),
+  category varchar(120),
+  frequency_days integer not null default 30,
+  next_due date not null,
+  last_generated date,
+  priority text not null default 'medium' check (priority in ('critical','high','medium','low')),
+  assigned_to varchar(32),
+  instructions text,
+  status text not null default 'active' check (status in ('active','paused')),
+  created_by varchar(32),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_pm_status_due on public.preventive_schedules (status, next_due);
+create index if not exists idx_pm_equipment on public.preventive_schedules (equipment_id);
+
+-- =========================================================
 -- Sequential ticket numbering: BEC-YYYY-XXXXXX
 -- One counter row per year; incremented atomically in app code.
 -- =========================================================
