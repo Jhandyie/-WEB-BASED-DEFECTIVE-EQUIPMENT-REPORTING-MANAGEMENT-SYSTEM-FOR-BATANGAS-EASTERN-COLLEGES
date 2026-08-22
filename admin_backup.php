@@ -190,7 +190,7 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
   .topbar a.back{color:var(--ink2);text-decoration:none;font-size:.78rem;font-weight:600;
     background:var(--surface);border:1px solid var(--border);padding:7px 14px;border-radius:8px;}
   .topbar a.back:hover{background:var(--maroon);border-color:var(--maroon);color:#fff;}
-  .wrap{max-width:none;margin:0;padding:24px 28px 60px;}
+  .wrap{max-width:none;margin:0;padding:1.5rem 1.75rem 4rem;}
   .head h2 .h2-ic{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,rgba(123,29,29,.1),rgba(201,150,12,.14));color:var(--maroon);display:inline-flex;align-items:center;justify-content:center;font-size:.9rem;}
   .flash{margin:16px 0;padding:12px 16px;border-radius:10px;font-size:.86rem;display:flex;gap:10px;align-items:flex-start;line-height:1.5;}
   .flash.ok{background:#EEF7F0;border:1px solid #BFE3C8;color:#1A5A2A;}

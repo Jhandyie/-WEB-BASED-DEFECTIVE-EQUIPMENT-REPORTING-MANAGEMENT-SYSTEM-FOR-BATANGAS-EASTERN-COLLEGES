@@ -204,13 +204,21 @@ body{font-size:.875rem;}
    declaration with it. */
 .head{margin-bottom:18px;}
 /* flex so headings that lead with an .h2-ic icon line up; harmless for text-only */
+/* margin:0 is load-bearing, not tidiness. Seven admin pages open with a
+   *,*::before,*::after{margin:0} reset and five do not, so on those five the h2
+   kept its ~20px user-agent top margin and the page heading rendered 18px lower
+   than on the rest. Clicking down the sidebar made the content jump each time it
+   crossed between the two groups. Stated here because this file owns .head h2,
+   so one declaration settles every page rather than five separate resets that
+   the next new page would not inherit. Same reasoning for .head p below. */
 .head h2{font-family:'Fraunces',Georgia,'Times New Roman',serif;
   font-size:1.45rem;font-weight:800;letter-spacing:0;line-height:1.28;
+  margin:0;
   color:var(--t1,#1A0808);display:flex;align-items:center;gap:.6rem;}
 /* .76rem is the one page-subtitle size across the admin surface, matching
    .ph-sub on the h1 pages. This element had drifted to three values for a
    single role — .86rem here, .78rem on two pages, .76rem on a third. */
-.head p{font-size:.76rem;color:var(--t3,#9C7A7A);margin-top:5px;max-width:760px;}
+.head p{font-size:.76rem;color:var(--t3,#9C7A7A);margin:5px 0 0;max-width:760px;}
 
 /* ---- panel & card headings ----------------------------------------------- */
 /* The title on a panel or card — "Snapshots", "Report Records", "Schedules" —

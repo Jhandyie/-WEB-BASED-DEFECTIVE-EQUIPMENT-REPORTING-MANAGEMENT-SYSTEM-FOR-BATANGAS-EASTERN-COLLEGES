@@ -187,7 +187,7 @@ $statusMeta = [
   body{margin:0;font-family:'DM Sans',sans-serif;background:var(--paper);color:var(--ink);min-height:100vh;}
   .main{margin-left:var(--sb);transition:margin-left .26s ease;}
   body.becSbHide .main{margin-left:0 !important;}
-  .wrap{max-width:none;margin:0;padding:24px 28px 64px;}
+  .wrap{max-width:none;margin:0;padding:1.5rem 1.75rem 4rem;}
   .head-row{display:flex;align-items:flex-start;justify-content:space-between;gap:1.5rem;margin-bottom:18px;}
   .unit-badge{display:inline-flex;align-items:center;gap:.35rem;vertical-align:middle;margin-left:.55rem;padding:.22rem .6rem;border-radius:999px;background:linear-gradient(135deg,var(--m),#a01a2b);color:#fff;font-size:.62rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;box-shadow:0 2px 8px rgba(122,18,32,.25);}
   .unit-badge i{font-size:.6rem;}

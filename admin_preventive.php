@@ -307,7 +307,7 @@ $eqJson = json_encode($eqPayload, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_H
   .main{margin-left:var(--sb);transition:margin-left .26s ease;}
   body.becSbHide .main{margin-left:0 !important;}
   /* Header */
-  .wrap{max-width:none;margin:0;padding:24px 28px 64px;} /* full-width desktop view */
+  .wrap{max-width:none;margin:0;padding:1.5rem 1.75rem 4rem;} /* full-width desktop view */
   .head-row{display:flex;align-items:flex-start;justify-content:space-between;gap:1.5rem;margin-bottom:18px;}
   .head{margin-bottom:0;}
   .unit-badge{display:inline-flex;align-items:center;gap:.35rem;vertical-align:middle;margin-left:.55rem;padding:.22rem .6rem;border-radius:999px;background:linear-gradient(135deg,var(--m),#a01a2b);color:#fff;font-family:'DM Sans',sans-serif;font-size:.62rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;box-shadow:0 2px 8px rgba(122,18,32,.25);}

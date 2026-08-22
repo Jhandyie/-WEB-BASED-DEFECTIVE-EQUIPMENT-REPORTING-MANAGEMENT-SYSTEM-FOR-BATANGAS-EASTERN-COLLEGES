@@ -211,7 +211,7 @@ $hasFilter = ($search !== '' || $tf !== 'all' || $df !== 'all' || $yf !== 'all')
   /* sidebar styling lives in assets/css/admin-shell.css */
   .main{margin-left:var(--sb);transition:margin-left .26s ease;}
   body.becSbHide .main{margin-left:0 !important;}
-  .wrap{max-width:none;margin:0;padding:22px 28px 60px;} /* full-width desktop view */
+  .wrap{max-width:none;margin:0;padding:1.5rem 1.75rem 4rem;} /* full-width desktop view */
   .flash{padding:var(--sp-3) var(--sp-4);border-radius:10px;margin-bottom:var(--sp-4);font-size:var(--fs-lg);}
   .flash.ok{background:#E9F9EF;border:1px solid #b6e6c6;color:var(--success);}
   .flash.err{background:#FEF2F2;border:1px solid #FECACA;color:var(--danger);}

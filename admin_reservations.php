@@ -202,7 +202,7 @@ if ($q !== '') {
   body{margin:0;font-family:'DM Sans',sans-serif;background:var(--paper);color:var(--ink);min-height:100vh;}
   .main{margin-left:var(--sb);transition:margin-left .26s ease;}
   body.becSbHide .main{margin-left:0 !important;}
-  .wrap{max-width:none;margin:0;padding:24px 28px 64px;}
+  .wrap{max-width:none;margin:0;padding:1.5rem 1.75rem 4rem;}
   .head-row{display:flex;align-items:flex-start;justify-content:space-between;gap:1.5rem;margin-bottom:18px;}
   .head{margin-bottom:0;}
   .head-acts{display:flex;gap:.5rem;flex-shrink:0;}
