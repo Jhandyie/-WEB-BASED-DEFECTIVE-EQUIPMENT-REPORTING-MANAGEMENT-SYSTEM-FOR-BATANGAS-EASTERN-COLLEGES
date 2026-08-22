@@ -861,5 +861,7 @@ trackInput.addEventListener('keydown', event => {
 });
 </script>
 <?php require __DIR__ . '/includes/csrf_inject.php'; ?>
+<?php require __DIR__ . '/includes/becca_tokens.php'; ?>
+<?php require __DIR__ . '/includes/becca_widget.php'; ?>
 </body>
 </html>

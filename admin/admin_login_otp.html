@@ -573,6 +573,15 @@
                 hideLoading();
 
                 if (data.success) {
+                    // An account listed in config/demo_access.php skips the emailed code:
+                    // the server has already signed it in, so go straight to the dashboard.
+                    if (data.data && data.data.require_otp === false) {
+                        AuthLoader.show('Access granted', 'Loading your dashboard...');
+                        setTimeout(function () {
+                            window.location.href = (data.data.redirect || '../admin_dashboard.php');
+                        }, 900);
+                        return;
+                    }
                     showMessage('success', data.message || 'Credentials verified!', 'signInMessage');
                     requestOTP(email);
                 } else {

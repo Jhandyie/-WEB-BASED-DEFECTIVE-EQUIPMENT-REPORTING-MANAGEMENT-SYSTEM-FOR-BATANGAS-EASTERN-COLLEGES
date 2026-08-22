@@ -170,10 +170,22 @@ try {
     )->fetchColumn();
 } catch (Throwable $e) { /* the per-report pages are skipped below */ }
 
+/* Venue reservation is hidden while it is excluded from the capstone study
+   (see config/features.php). Its pages then redirect, so the checks that walk
+   them are skipped rather than failing — and come back when the flag does. */
+$venueOn = true;
+$__featFile = __DIR__ . '/../config/features.php';
+if (is_file($__featFile)) {
+    require_once $__featFile;
+    if (function_exists('becVenueEnabled')) { $venueOn = becVenueEnabled(); }
+}
+
 $checks = [
     ['Landing', 'admin', 'index.php', [
         ['renders',                  '/<\/html>/i',                 true],
-        ['reserve-a-venue entry',    '/reserve_venue\.php/',        true],
+        // With venue reservation excluded from the study, the landing page must
+        // offer no way into it. With the flag on, the entry point must be there.
+        ['reserve-a-venue entry',    '/reserve_venue\.php/',        $venueOn],
         ['no CDN dependency',        '/cdnjs|jsdelivr|fonts\.googleapis/', false],
     ]],
     ['Venue reservation form', 'admin', 'reserve_venue.php', [
@@ -274,6 +286,17 @@ $checks = [
         ['forgot-password offered',  '/forgotPassword\(\)/',        true],
     ]],
 ];
+
+/* Skip the venue walkthroughs while the module is switched off: the pages
+   redirect to index.php, so every assertion about their markup would fail on
+   a page that is behaving exactly as intended. */
+if (!$venueOn) {
+    $checks = array_values(array_filter($checks, static function ($c) {
+        return $c[0] !== 'Venue reservation form'
+            && $c[0] !== 'Venue reservations queue'
+            && $c[0] !== 'VRF print (missing record)';
+    }));
+}
 
 /* The technician's own paperwork — where a repair actually gets written up.
    Appended rather than inlined because all three need a real report id. */

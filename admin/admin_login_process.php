@@ -107,7 +107,7 @@ function verifyLogin() {
     }
 
     try {
-        $user = findUserByEmailAndRole($email, $role, ['user_id', 'email', 'fullname', 'password', 'status']);
+        $user = findUserByEmailAndRole($email, $role, ['user_id', 'email', 'fullname', 'password', 'status', 'username', 'role']);
         if (!$user) {
             http_response_code(401);
             echo json_encode(['success' => false, 'message' => 'Invalid email or password']);
@@ -130,6 +130,38 @@ function verifyLogin() {
 
         // Password is correct — clear the brute-force counter and request OTP
         RateLimiter::clear('admin_login:' . RateLimiter::clientIp() . ':' . strtolower($email));
+
+        // Accounts listed in config/demo_access.php sign in without the emailed code, so a
+        // tester can reach the portal without access to the mailbox. The password above was
+        // still verified in full and the rate limits still applied: only the second factor is
+        // skipped, and the sign-in is logged as a bypass so the trail stays honest.
+        if (adminOtpBypassAllowed($email)) {
+            session_regenerate_id(true);
+            $_SESSION['user_id']    = $user['user_id'];
+            $_SESSION['user_email'] = $user['email'];
+            $_SESSION['fullname']   = $user['fullname'];
+            $_SESSION['role']       = $user['role'] ?? 'admin';
+            $_SESSION['username']   = $user['username'] ?? '';
+            $_SESSION['logged_in']  = true;
+            $_SESSION['login_time'] = time();
+            unset($_SESSION['temp_user_id'], $_SESSION['temp_user_email'], $_SESSION['temp_user_name']);
+
+            updateUserLastLogin((string)$user['user_id']);
+            logActivity((string)$user['user_id'], 'auth.login',
+                'Admin login WITHOUT OTP (demo bypass via config/demo_access.php) for ' . ($user['email'] ?? ''));
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'Login successful!',
+                'data'    => [
+                    'email'       => $email,
+                    'require_otp' => false,
+                    'redirect'    => '../admin_dashboard.php',
+                ],
+            ]);
+            exit();
+        }
+
         $_SESSION['temp_user_id'] = $user['user_id'];
         $_SESSION['temp_user_email'] = $user['email'];
         $_SESSION['temp_user_name'] = $user['fullname'];
@@ -432,6 +464,41 @@ function checkSession() {
         echo json_encode(['success' => false, 'message' => 'No active session']);
     }
     exit();
+}
+
+
+/**
+ * May this address sign in to the admin portal without the emailed code?
+ *
+ * The list lives in config/demo_access.php, which is gitignored and optional: a
+ * missing or malformed file means no bypass for anyone, which is the state a fresh
+ * checkout is in. See config/demo_access.example.php.
+ */
+function adminOtpBypassAllowed(string $email): bool {
+    $email = strtolower(trim($email));
+    if ($email === '') { return false; }
+
+    static $list = null;
+    if ($list === null) {
+        $list = [];
+        $path = __DIR__ . '/../config/demo_access.php';
+        if (is_file($path)) {
+            try {
+                $cfg = include $path;
+                if (is_array($cfg) && isset($cfg['otp_bypass_emails']) && is_array($cfg['otp_bypass_emails'])) {
+                    foreach ($cfg['otp_bypass_emails'] as $entry) {
+                        $entry = strtolower(trim((string)$entry));
+                        if ($entry !== '') { $list[] = $entry; }
+                    }
+                }
+            } catch (\Throwable $e) {
+                error_log('demo_access.php could not be read: ' . $e->getMessage());
+                $list = [];
+            }
+        }
+    }
+
+    return in_array($email, $list, true);
 }
 
 ?>

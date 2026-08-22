@@ -7,6 +7,8 @@
  * paid. The decision boxes on the form (PMO approval, School Administrator
  * disapproval, Accounting assessment, Cashier's OR number) are the actions here.
  */
+require_once __DIR__ . '/config/features.php';
+if (!becVenueEnabled()) { header('Location: admin_dashboard.php'); exit; }
 require_once __DIR__ . '/includes/session_bootstrap.php';
 startRoleSession('admin');
 require_once __DIR__ . '/config/database.php';
@@ -264,16 +266,29 @@ if ($q !== '') {
   /* Detail dialog */
   .ovl{position:fixed;inset:0;background:rgba(26,8,8,.5);backdrop-filter:blur(3px);z-index:900;display:flex;align-items:flex-start;justify-content:center;padding:3vh 1rem;overflow-y:auto;}
   .ovl[hidden]{display:none;}
-  .dlg{background:var(--surface);border-radius:16px;width:100%;max-width:760px;box-shadow:0 26px 70px rgba(26,8,8,.34);overflow:hidden;}
+  .dlg{background:var(--surface);border-radius:16px;width:100%;max-width:880px;box-shadow:0 26px 70px rgba(26,8,8,.34);overflow:hidden;}
   .dlg-h{display:flex;align-items:center;gap:.6rem;padding:1.05rem 1.3rem;border-bottom:1px solid var(--border);font-family:'Outfit',sans-serif;font-weight:700;font-size:.98rem;}
   .dlg-h i.lead{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,rgba(123,29,29,.1),rgba(201,150,12,.12));color:var(--m);display:inline-flex;align-items:center;justify-content:center;font-size:.85rem;}
   .dlg-h .x{margin-left:auto;background:transparent;border:none;color:var(--ink3);font-size:1rem;cursor:pointer;width:2rem;height:2rem;border-radius:8px;}
   .dlg-h .x:hover{background:#f1eadf;color:var(--ink);}
   .dlg-b{padding:1.3rem;max-height:64vh;overflow-y:auto;}
-  .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.75rem;margin-bottom:1.1rem;}
-  .kv > div{padding:.6rem .75rem;background:#faf7f0;border:1px solid var(--border);border-radius:10px;min-width:0;}
-  .kv small{display:block;font-size:.58rem;font-weight:800;letter-spacing:.7px;text-transform:uppercase;color:var(--g);margin-bottom:3px;}
-  .kv strong{font-size:.84rem;font-weight:700;word-break:break-word;}
+  /* The detail view is the Venue Reservation Form on screen: the same sections in
+     the same order, each value on a ruled line under a right-aligned label. The
+     tile grid this replaced sized every fact equally, so a one-word status took
+     as much room as a full venue name and nothing lined up down the page. */
+  .rvform{border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:1.15rem;}
+  .rvsec + .rvsec{border-top:1px solid var(--border);}
+  .rvsec > h5{margin:0;padding:.5rem .95rem;font-family:'Outfit',sans-serif;font-size:.62rem;
+    font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--m);
+    background:#faf7f0;border-bottom:1px solid var(--border);}
+  .rvflds{padding:.85rem .95rem .3rem;}
+  .rvf{display:flex;align-items:baseline;gap:.65rem;margin-bottom:.62rem;}
+  .rvf .l{flex:0 0 11rem;font-size:.61rem;font-weight:800;letter-spacing:.6px;
+    text-transform:uppercase;color:var(--g);text-align:right;line-height:1.5;}
+  .rvf .v{flex:1;min-width:0;font-size:.86rem;font-weight:650;color:var(--ink);
+    border-bottom:1px dotted var(--border);padding:0 .25rem 4px;word-break:break-word;line-height:1.5;}
+  .rvf .v.empty{color:var(--ink3);font-weight:500;}
+  @media(max-width:640px){.rvf{display:block;}.rvf .l{text-align:left;margin-bottom:2px;}}
   .blk{margin-bottom:1.1rem;}
   .blk h4{margin:0 0 .45rem;font-size:.7rem;text-transform:uppercase;letter-spacing:.6px;color:var(--ink2);}
   .blk .copy{font-size:.85rem;line-height:1.65;color:var(--ink2);white-space:pre-wrap;}
@@ -462,7 +477,7 @@ if ($q !== '') {
       </div>
       <div class="dlg-b">
         <div id="rvWarn"></div>
-        <div class="kv" id="rvFacts"></div>
+        <div id="rvFacts"></div>
         <div class="blk" id="rvDescBlk"><h4>Description of activity</h4><div class="copy" id="rvDesc"></div></div>
         <div class="blk" id="rvMatBlk"><h4>Materials requested</h4><ul class="mat" id="rvMats"></ul></div>
         <div class="blk" id="rvDecBlk"><h4>Decision</h4><div class="copy" id="rvDec"></div></div>
@@ -580,18 +595,42 @@ function rvOpen(tr) {
   document.querySelectorAll('.rvId').forEach(function (i) { i.value = d.id; });
   document.getElementById('rvPrint').href = 'admin_reservation_print.php?id=' + encodeURIComponent(d.id) + '&auto=1';
 
-  var facts = [
-    ['Applicant', esc(d.name)], ['Department / Organization', esc(d.org)],
-    ['Venue', esc(d.venue)], ['Date &amp; time', esc(d.when) + ' <span style="color:#9C7A7A">(' + esc(d.dur) + ')</span>'],
-    ['Nature of activity', esc(d.nature)], ['Expected participants', d.pax ? esc(d.pax) : '—'],
-    ['Status', esc(d.slabel)], ['Endorsed by', d.adviser ? esc(d.adviser) : 'Not yet endorsed'],
-    ['Contact', esc(d.email || d.phone || '—')], ['CF #', esc(d.cf || '—')],
-    ['Assessment', peso(d.assess)], ['Paid', peso(d.paid) + (d.ptype ? ' (' + esc(d.ptype) + ')' : '')],
-    ['OR no.', esc(d.orno || '—') + (d.ordate ? ' · ' + esc(d.ordate) : '')], ['Cashier', esc(d.cashier || '—')]
+  // Same sections, same order as admin_reservation_print.php, so the person
+  // checking the screen against the signed paper copy reads down both alike.
+  var dash = '\u2014';
+  var sections = [
+    ['Applicant', [
+      ['Name of Applicant', esc(d.name)],
+      ['Department / Organization', esc(d.org)],
+      ['Contact', esc(d.email || d.phone || dash)]
+    ]],
+    ['Activity', [
+      ['Venue', esc(d.venue)],
+      ['Nature of Activity', esc(d.nature)],
+      ['Date and Time', esc(d.when) + (d.dur ? ' <span style="color:#9C7A7A;font-weight:600">(' + esc(d.dur) + ')</span>' : '')],
+      ['Expected Participants', d.pax ? esc(d.pax) : dash]
+    ]],
+    ['Endorsement and Status', [
+      ['Status', esc(d.slabel)],
+      ['Endorsed By', d.adviser ? esc(d.adviser) : 'Not yet endorsed']
+    ]],
+    ['Cashier and Payment', [
+      ['CF No.', esc(d.cf || dash)],
+      ['Assessment', peso(d.assess)],
+      ['Amount Paid', peso(d.paid) + (d.ptype ? ' (' + esc(d.ptype) + ')' : '')],
+      ['OR No.', esc(d.orno || dash) + (d.ordate ? ' \u00b7 ' + esc(d.ordate) : '')],
+      ['Cashier', esc(d.cashier || dash)]
+    ]]
   ];
-  document.getElementById('rvFacts').innerHTML = facts.map(function (f) {
-    return '<div><small>' + f[0] + '</small><strong>' + f[1] + '</strong></div>';
-  }).join('');
+  document.getElementById('rvFacts').innerHTML = '<div class="rvform">' + sections.map(function (sec) {
+    var body = sec[1].map(function (fl) {
+      var v = fl[1];
+      var blank = (v === dash || v === '' || v === null || v === undefined);
+      return '<div class="rvf"><span class="l">' + fl[0] + '</span>'
+           + '<span class="v' + (blank ? ' empty' : '') + '">' + (blank ? dash : v) + '</span></div>';
+    }).join('');
+    return '<div class="rvsec"><h5>' + sec[0] + '</h5><div class="rvflds">' + body + '</div></div>';
+  }).join('') + '</div>';
 
   document.getElementById('rvDescBlk').hidden = !d.desc;
   document.getElementById('rvDesc').textContent = d.desc || '';

@@ -29,6 +29,7 @@ node_modules/
 .env.local
 .env.*.local
 config/chat_secrets.php
+config/demo_access.php
 # Mail credentials (Gmail app password lives here) — keep out of git.
 # The wildcard matters: set_mail_password.ps1 and the settings screen leave
 # dated copies like system_settings.json.backup_20260812_122341 beside the

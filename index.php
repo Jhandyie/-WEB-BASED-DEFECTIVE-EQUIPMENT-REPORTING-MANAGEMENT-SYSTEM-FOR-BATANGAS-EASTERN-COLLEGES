@@ -8,6 +8,7 @@
  * Read-only; no authentication required.
  */
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/config/features.php';
 
 if (!function_exists('lp_e')) {
     function lp_e($s) { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
@@ -736,7 +737,9 @@ a { text-decoration: none; color: inherit; }
         <?php /* The PMO's other counter service. Reporting a fault and booking a
                  room are the two reasons anyone comes to this office, so both
                  start from the hero rather than one hiding in the nav. */ ?>
+<?php if (becVenueEnabled()): ?>
         <a class="btn btn-ghost" href="reserve_venue.php"><i class="fas fa-calendar-check" aria-hidden="true"></i> Reserve a venue</a>
+<?php endif; ?>
       </div>
       <div class="hero-pills">
         <span class="hpill"><i class="fas fa-certificate" aria-hidden="true"></i> Official institutional system</span>
@@ -826,6 +829,7 @@ a { text-decoration: none; color: inherit; }
        The PMO's second counter service. It reuses .cta-portal / .portal-card /
        .cta-steps from the section above rather than introducing a parallel set
        of classes, so the two services read as one office. -->
+<?php if (becVenueEnabled()): ?>
   <section class="section" id="reserve">
     <div class="container">
       <div class="sec-head">
@@ -848,6 +852,7 @@ a { text-decoration: none; color: inherit; }
       </div>
     </div>
   </section>
+<?php endif; ?>
 
   <!-- ══ MODULES / CAPABILITIES ══ -->
   <section class="section">

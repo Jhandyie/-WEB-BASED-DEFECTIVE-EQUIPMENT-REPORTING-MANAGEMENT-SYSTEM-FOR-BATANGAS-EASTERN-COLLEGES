@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../config/features.php';
 /**
  * includes/site_nav.php — shared public top navigation (self-contained).
  * Scoped .bsnav-* classes + literal colours so it works on any page
@@ -91,7 +92,9 @@ if (!isset($nav_active)) { $nav_active = ''; }
       <a class="bsnav-link <?php echo $nav_active === 'home' ? 'active' : ''; ?>" href="index.php"><i aria-hidden="true" class="fas fa-house"></i> Home</a>
       <a class="bsnav-link <?php echo $nav_active === 'public' ? 'active' : ''; ?>" href="public_reports.php"><i aria-hidden="true" class="fas fa-list-ul"></i> Public Reports</a>
       <a class="bsnav-link <?php echo $nav_active === 'track' ? 'active' : ''; ?>" href="track_report.php"><i aria-hidden="true" class="fas fa-magnifying-glass"></i> Track Report</a>
+<?php if (becVenueEnabled()): ?>
       <a class="bsnav-link <?php echo $nav_active === 'reserve' ? 'active' : ''; ?>" href="reserve_venue.php"><i aria-hidden="true" class="fas fa-calendar-check"></i> Reserve a Venue</a>
+<?php endif; ?>
       <a class="bsnav-cta" href="student_index.php"><i aria-hidden="true" class="fas fa-plus"></i> Report defect</a>
     </div>
     <button class="bsnav-burger" id="bsnavBurger" type="button" aria-label="Menu" aria-expanded="false" aria-controls="bsnavLinks">

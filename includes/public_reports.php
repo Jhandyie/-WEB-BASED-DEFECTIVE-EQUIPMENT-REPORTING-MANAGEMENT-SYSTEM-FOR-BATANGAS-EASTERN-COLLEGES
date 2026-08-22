@@ -862,5 +862,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModalDi
 </script>
 <?php require __DIR__ . '/site_footer.php'; ?>
 <?php require __DIR__ . '/site_ui.php'; ?>
+<?php require __DIR__ . '/becca_tokens.php'; ?>
+<?php require __DIR__ . '/becca_widget.php'; ?>
 </body>
 </html>

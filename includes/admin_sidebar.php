@@ -17,12 +17,13 @@ $__sections = [
     'Overview' => [
         ['dashboard',     'admin_dashboard.php',          'fa-th-large',            'Dashboard'],
         ['analytics',     'admin_analytics.php',          'fa-chart-bar',           'Analytics'],
+        ['workorders',    'admin_work_orders.php',        'fa-clipboard-check',     'Work Orders'],
     ],
     'Reports' => [
         ['defects',       'admin_defect_reports.php',     'fa-exclamation-triangle','Defect Reports'],
         ['assign',        'admin_assign_technicians.php', 'fa-user-cog',            'Assign Technicians'],
         ['preventive',    'admin_preventive.php',         'fa-calendar-check',      'Preventive Maint.'],
-        ['reservations',  'admin_reservations.php',       'fa-file-signature',      'Venue Reservations'],
+        // Venue Reservations hidden: the module is excluded from the study.
     ],
     'Management' => [
         ['inventory',     'admin_inventory.php',          'fa-boxes',               'Inventory'],

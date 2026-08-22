@@ -12,6 +12,8 @@
  * organization asking for the AVR should not need an account first. A signed-in
  * session just pre-fills the applicant.
  */
+require_once __DIR__ . '/config/features.php';
+if (!becVenueEnabled()) { header('Location: index.php'); exit; }
 require_once __DIR__ . '/includes/session_bootstrap.php';
 startRoleSession('main');
 require_once __DIR__ . '/config/database.php';

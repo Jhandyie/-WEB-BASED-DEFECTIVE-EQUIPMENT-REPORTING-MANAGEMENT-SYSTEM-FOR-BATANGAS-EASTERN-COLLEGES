@@ -137,6 +137,12 @@ notifications and branded email. `users.department` (PMO or ITSO) scopes which r
 
 All gitignored, all needed to run: `.env` (Supabase), `config/chat_secrets.php` (Gemini API key),
 `data/system_settings.json` (Gmail SMTP app password per role). Copy from the `.example` files.
+`config/demo_access.php` is optional and holds one thing: admin addresses that may sign in
+without the emailed OTP, for testers who cannot reach the mailbox. Absent file = no bypass for
+anyone, which is how a fresh checkout starts; copy `config/demo_access.example.php` to enable it,
+and empty the list when the testing is over. The password and the login rate limits still apply —
+only the second factor is skipped — and each such sign-in is written to `activity_log` as a bypass.
+
 `scripts/check_ai_key.php` verifies the Gemini key and that the configured model is reachable.
 `scripts/carry_secrets.ps1` moves them between machines as an encrypted bundle;
 `scripts/setup_new_machine.ps1` and `docs/SETUP_NEW_LAPTOP.md` cover a fresh install.
