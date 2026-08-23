@@ -73,8 +73,12 @@ $bsfYear = date('Y');
           <li><a href="student_index.php">Report equipment</a></li>
           <li><a href="track_report.php">Track a report</a></li>
           <li><a href="public_reports.php">Public reports</a></li>
-          <li><a href="technician/login.html">Technician sign-in</a></li>
-          <li><a href="admin/admin_login_otp.html">Admin sign-in (PMO / ITSO)</a></li>
+          <?php /* Staff sign-in is deliberately not advertised here. This footer is
+                   shared by the landing page, Track a Report and Public Reports \u2014 all
+                   surfaces a stranger reaches without an account \u2014 and the people who
+                   need the admin and technician portals know their own addresses.
+                   Both pages still work when visited directly; only the signposting
+                   is gone. */ ?>
         </ul>
       </div>
       <div class="bsfoot-col">
