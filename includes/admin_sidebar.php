@@ -23,7 +23,6 @@ $__sections = [
         ['defects',       'admin_defect_reports.php',     'fa-exclamation-triangle','Defect Reports'],
         ['assign',        'admin_assign_technicians.php', 'fa-user-cog',            'Assign Technicians'],
         ['preventive',    'admin_preventive.php',         'fa-calendar-check',      'Preventive Maint.'],
-        // Venue Reservations hidden: the module is excluded from the study.
     ],
     'Management' => [
         ['inventory',     'admin_inventory.php',          'fa-boxes',               'Inventory'],
@@ -37,6 +36,18 @@ $__sections = [
         ['backup',        'admin_backup.php',              'fa-database',            'Backup & Recovery'],
     ],
 ];
+
+/* Venue Reservations follows config/features.php rather than being listed or
+   commented out by hand. It was removed from the array when the module was
+   hidden, so switching the flag back on restored the pages and the public nav
+   but left the admin without a way in. Gated here so one switch covers all. */
+if (!function_exists('becVenueEnabled')) {
+    $__feat = __DIR__ . '/../config/features.php';
+    if (is_file($__feat)) { require_once $__feat; }
+}
+if (function_exists('becVenueEnabled') && becVenueEnabled()) {
+    $__sections['Reports'][] = ['reservations', 'admin_reservations.php', 'fa-file-signature', 'Venue Reservations'];
+}
 ?>
 <aside class="sb" id="sb">
   <div class="sb-top">
