@@ -10,7 +10,6 @@ if (!function_exists('becSlaHours')) {
     function becSlaHours(): array {
         return [
             'critical' => 24,   // 1 day
-            'urgent'   => 24,   // 1 day
             'high'     => 72,   // 3 days
             'medium'   => 168,  // 7 days
             'low'      => 336,  // 14 days
@@ -41,7 +40,6 @@ if (!function_exists('becSlaHours')) {
         $h = becSlaHours();
         return "(CASE LOWER(COALESCE({$column},'medium'))"
             . " WHEN 'critical' THEN INTERVAL '{$h['critical']} hours'"
-            . " WHEN 'urgent'   THEN INTERVAL '{$h['urgent']} hours'"
             . " WHEN 'high'     THEN INTERVAL '{$h['high']} hours'"
             . " WHEN 'medium'   THEN INTERVAL '{$h['medium']} hours'"
             . " ELSE INTERVAL '{$h['low']} hours' END)";
@@ -51,7 +49,7 @@ if (!function_exists('becSlaHours')) {
     function becSlaSummaryText(): string {
         $h = becSlaHours();
         $d = fn($x) => rtrim(rtrim(number_format($x / 24, 1), '0'), '.');
-        return 'critical/urgent ≈ ' . $d($h['critical']) . ' day(s), high ≈ ' . $d($h['high'])
+        return 'critical ≈ ' . $d($h['critical']) . ' day(s), high ≈ ' . $d($h['high'])
             . ' day(s), medium ≈ ' . $d($h['medium']) . ' day(s), low ≈ ' . $d($h['low']) . ' day(s) from the report date';
     }
 }
