@@ -11,8 +11,36 @@
  *   php scripts/demo_preflight.php [base-url]
  */
 
-$base = rtrim($argv[1] ?? 'http://localhost/bec-pmo', '/');
 $root = dirname(__DIR__);
+
+/**
+ * Where is this install actually served from?
+ *
+ * On the XAMPP laptop the project sits in a subfolder, so it answers on
+ * /bec-pmo. On the Ubuntu host it IS the document root, so it answers on /.
+ * The default used to be the laptop's path, which meant that on the server this
+ * script reported four failures and "NOT READY" against a site that was serving
+ * perfectly — the worst possible message to get an hour before a defense.
+ *
+ * So ask rather than assume: try the folder path, then the document root, and
+ * keep whichever actually answers. An explicit argument still wins, and if
+ * neither responds the folder path is kept so the failure is reported against a
+ * sensible URL.
+ */
+function preflightDetectBase(string $root): string {
+    $candidates = [
+        'http://localhost/' . basename($root),
+        'http://localhost',
+    ];
+    foreach ($candidates as $candidate) {
+        [$code] = httpGet(rtrim($candidate, '/') . '/index.php', 8);
+        if ($code >= 200 && $code < 400) { return rtrim($candidate, '/'); }
+    }
+    return rtrim($candidates[0], '/');
+}
+
+$baseGiven = isset($argv[1]) && $argv[1] !== '';
+$base = $baseGiven ? rtrim($argv[1], '/') : '';
 
 // Load first: this is what pins the timezone and the error-display policy,
 // both of which this script then reports on.
@@ -45,6 +73,9 @@ echo "============================================================\n\n";
 
 /* ── 1. Web server ─────────────────────────────────────────── */
 echo "Web server\n";
+if ($base === '') { $base = preflightDetectBase($root); }
+echo "  checking ", $base, $baseGiven ? "\n" : "  (detected)\n";
+
 [$code, $body, $secs] = httpGet($base . '/index.php');
 if ($code === 200) {
     $ok('Apache is serving the landing page', sprintf('HTTP 200 in %.2fs', $secs));
