@@ -200,21 +200,27 @@ $stages = [
     'rejected'    => ['rejected'],
 ];
 
-$all_raw  = getDefectReportsWithFilters('all','all','');
-$all_raw  = array_values(array_filter($all_raw, fn($r) => !in_array(($r['status'] ?? ''), ['deleted',''], true)));
-$all_raw  = array_values(array_filter($all_raw, $unitFilter)); // scope counts to the active unit
-$all_raw  = array_values(array_filter($all_raw, $kindFilter)); // …and to preventive/reported
+/* The same four filters the closures above describe, handed to the database.
+   They used to run as array_filter() passes over every report ever filed, which
+   is the reason this page could not use a SQL LIMIT: the limit would have applied
+   before them and returned short pages. As SQL they compose with the limit, so the
+   list asks for one page and the cards ask for counts. See becDefectFilterClauses()
+   in config/database.php. $unitFilter/$kindFilter stay defined above — the kanban
+   view still uses them. */
+$listOpts = ['exclude_statuses' => ['deleted']];
+if ($sf !== 'all') { $listOpts['statuses'] = $stages[$sf] ?? [$sf]; }
+if ($df !== 'all') { $listOpts['dept'] = $df; $listOpts['dept_untriaged'] = !$dfExplicit; }
+if ($kf !== 'all') { $listOpts['kind'] = $kf; }
 
-// Fetch by priority + search from the DB; apply the status-STAGE filter in PHP so the list
-// matches the stat cards (e.g. "In Progress" includes accepted / waiting / for-replacement).
-$reports  = getDefectReportsWithFilters('all', $pf, $sq);
-$reports  = array_values(array_filter($reports, fn($r) => !in_array(($r['status'] ?? ''), ['deleted',''], true)));
-if ($sf !== 'all') {
-    $sfStatuses = $stages[$sf] ?? [$sf]; // stage key → its statuses; otherwise treat as an exact status
-    $reports = array_values(array_filter($reports, fn($r) => in_array(($r['status'] ?? ''), $sfStatuses, true)));
-}
-$reports = array_values(array_filter($reports, $unitFilter));
-$reports = array_values(array_filter($reports, $kindFilter));
+/* The cards count the same unit and kind scope but ignore the status stage,
+   priority and search — so every stage keeps showing its own total while one of
+   them is selected, which is what $all_raw did by fetching with no filters. */
+$cardOpts = ['exclude_statuses' => ['deleted']];
+if ($df !== 'all') { $cardOpts['dept'] = $df; $cardOpts['dept_untriaged'] = !$dfExplicit; }
+if ($kf !== 'all') { $cardOpts['kind'] = $kf; }
+
+// The pager's total, and the empty-state test, without fetching a single row.
+$totalReports = countDefectReportsWithFilters('all', $pf, $sq, $listOpts);
 
 /* ─── EXPORT ────────────────────────────────────────────
    Built here, from the records, while $reports still holds everything the
@@ -227,6 +233,9 @@ $reports = array_values(array_filter($reports, $kindFilter));
    dialog, where the filters are chosen independently of this page. */
 $exportFmt = strtolower(trim((string)($_GET['export'] ?? '')));
 if (in_array($exportFmt, ['csv', 'xlsx', 'pdf'], true)) {
+    // An export is the one request that legitimately wants the whole filtered set,
+    // so it is the one request that pays for it. The page render below never does.
+    $reports = getDefectReportsWithFilters('all', $pf, $sq, $listOpts);
     $dHeaders = ['Ticket', 'Equipment', 'Asset Tag', 'Location', 'Issue', 'Priority', 'Status',
                  'Unit', 'Reporter', 'Technician', 'Reported', 'Completed'];
     $flat = static fn($v) => trim(preg_replace('/\s+/u', ' ', (string)$v));
@@ -329,25 +338,29 @@ if (in_array($exportFmt, ['csv', 'xlsx', 'pdf'], true)) {
    calls the one architectural change still owed. The slice happens here, so the
    markup is O(page) instead of O(backlog).
 
-   Placed deliberately AFTER the export block above: export builds CSV/XLSX/PDF
-   from $reports and must keep seeing every filtered row, not just this page.
-   $reports also stays whole for the count in the pager and the empty-state test.
+   Placed deliberately AFTER the export block above: export is the one request
+   that genuinely wants every filtered row, so it fetches them itself and this
+   never runs for it.
 
-   Note this is a slice of an already-fetched result set — getDefectReportsWithFilters()
-   still reads the full filtered list from the database. That is a smaller cost than
-   it looks (one query either way, and the status-stage and PMO/ITSO unit filters are
-   applied in PHP above, so a SQL LIMIT here would paginate before those filters and
-   hand back short pages). Pushing the filters and the LIMIT into SQL is the next
-   step; it belongs with getDefectReportsWithFilters(), not here. */
+   The fetch is now a page, not a slice. The four filters this page used to apply
+   in PHP — the status stage, the PMO/ITSO unit scope, preventive-vs-reported and
+   dropping deleted rows — moved into SQL (becDefectFilterClauses), which is what
+   a LIMIT needed in order to be correct: applied before them it would have
+   returned short pages. So what this page reads no longer grows with the backlog
+   behind it, and the pager's total comes from a COUNT rather than from measuring
+   a fetched array. */
 const BEC_REPORTS_PER_PAGE = 25;
 
-$totalReports = count($reports);
 $totalPages   = max(1, (int)ceil($totalReports / BEC_REPORTS_PER_PAGE));
 $pageNum      = (int)($_GET['page'] ?? 1);
 if ($pageNum < 1)           { $pageNum = 1; }
 if ($pageNum > $totalPages) { $pageNum = $totalPages; }   // deep-link past the end lands on the last page
 $pageOffset   = ($pageNum - 1) * BEC_REPORTS_PER_PAGE;
-$reportsPage  = array_slice($reports, $pageOffset, BEC_REPORTS_PER_PAGE);
+
+// One page of rows, selected by the database. This is the whole point of the
+// change: what the page fetches no longer grows with the backlog behind it.
+$reportsPage  = getDefectReportsWithFilters('all', $pf, $sq,
+    $listOpts + ['limit' => BEC_REPORTS_PER_PAGE, 'offset' => $pageOffset]);
 
 /**
  * The pager's links have to carry the filters, or paging resets them to defaults.
@@ -392,14 +405,27 @@ if (isset($_GET['view_id'])) {
 
 
 /* ─── COUNTS ───────────────────────────────────────────── */
-function cnt($arr, $fn) { return count(array_filter($arr, $fn)); }
-$c_all  = count($all_raw);
-$c_pend = cnt($all_raw, fn($r)=>in_array($r['status'],$stages['pending'], true));
-$c_app  = cnt($all_raw, fn($r)=>in_array($r['status'],$stages['received'], true));
-$c_prog = cnt($all_raw, fn($r)=>in_array($r['status'],$stages['in_progress'], true));
-$c_done = cnt($all_raw, fn($r)=>in_array($r['status'],$stages['completed'], true));
-$c_rej  = cnt($all_raw, fn($r)=>in_array($r['status'],$stages['rejected'], true));
-$c_crit = cnt($all_raw, fn($r)=>$r['priority']==='critical'); // match the card link (?priority=critical shows all statuses)
+/* One grouped count instead of fetching every report and bucketing the array six
+   times over. Same numbers; the query returns one row per status/priority pair
+   whether there are eighty reports behind it or eighty thousand. */
+$__byStatus = []; $c_crit = 0; $c_all = 0;
+foreach (defectReportStatusCounts('all', '', $cardOpts) as $__row) {
+    $__n = (int)($__row['n'] ?? 0);
+    $__s = (string)($__row['status'] ?? '');
+    $__byStatus[$__s] = ($__byStatus[$__s] ?? 0) + $__n;
+    if ((string)($__row['priority'] ?? '') === 'critical') { $c_crit += $__n; }
+    $c_all += $__n;
+}
+$stageTotal = static function (array $statuses) use ($__byStatus): int {
+    $t = 0;
+    foreach ($statuses as $st) { $t += ($__byStatus[$st] ?? 0); }
+    return $t;
+};
+$c_pend = $stageTotal($stages['pending']);
+$c_app  = $stageTotal($stages['received']);
+$c_prog = $stageTotal($stages['in_progress']);
+$c_done = $stageTotal($stages['completed']);
+$c_rej  = $stageTotal($stages['rejected']);
 
 /* ─── KANBAN COLUMNS ───────────────────────────────────── */
 $cols = [
@@ -414,9 +440,12 @@ $cols = [
 // this is ever read. Bucketing every report six times over is not free at a real backlog.
 $kanban = [];
 if ($vw === 'kanban') {
+    // The board shows every card at once, so this view is the one that still wants
+    // the whole scope. It asks for it here rather than the table view paying for it.
+    $kanbanRows = getDefectReportsWithFilters('all', 'all', '', $cardOpts);
     foreach ($cols as $status => $_) { $kanban[$status] = []; }
     // completed bucket also includes verified/closed
-    foreach ($all_raw as $r) {
+    foreach ($kanbanRows as $r) {
         $s = $r['status'] ?? '';
         if (in_array($s, ['verified','closed'], true)) { $s = 'completed'; }
         if (isset($kanban[$s])) { $kanban[$s][] = $r; }
@@ -1393,7 +1422,7 @@ textarea.fc{resize:vertical;min-height:70px;}
         <option value="reported"   <?php echo $kf==='reported'?'selected':''; ?>>Reported by a person</option>
         <option value="preventive" <?php echo $kf==='preventive'?'selected':''; ?>>Preventive (scheduled)</option>
       </select>
-      <span class="fcount"><?php echo count($reports); ?> result<?php echo count($reports)!=1?'s':''; ?></span>
+      <span class="fcount"><?php echo $totalReports; ?> result<?php echo $totalReports != 1 ? 's' : ''; ?></span>
     </div>
 
     <!-- ════ TABLE VIEW ════════════════════════════════ -->
@@ -1416,7 +1445,7 @@ textarea.fc{resize:vertical;min-height:70px;}
             </tr>
           </thead>
           <tbody>
-            <?php if(empty($reports)): ?>
+            <?php if($totalReports === 0): ?>
             <tr><td colspan="9"><div class="empty">
               <i class="fas fa-folder-open"></i>No reports match your current filters.
             </div></td></tr>

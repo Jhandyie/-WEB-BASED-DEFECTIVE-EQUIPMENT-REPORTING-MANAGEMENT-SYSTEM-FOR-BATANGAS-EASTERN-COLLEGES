@@ -106,8 +106,13 @@ notifications and branded email. `users.department` (PMO or ITSO) scopes which r
   so anything O(rows) in a page load is O(backlog). `runSlaEscalationSweep()` cost 321 ms per
   overdue report and made admin pages 500 past ~2,000 reports; it is now batched, capped at 10 per
   run and throttled to once per 5 minutes. Check for this shape before adding page-load work.
-  Pagination is client-side today — page weight is the real scaling ceiling (~11 MB at 5,000
-  reports), and server-side pagination is the one architectural change still owed.
+  Defect Reports and User Management now page in SQL: `getDefectReportsWithFilters()` takes an
+  `$opts` array (`statuses`, `dept`, `kind`, `exclude_statuses`, `limit`, `offset`) and the
+  page's stage/unit/kind filters are `becDefectFilterClauses()` rather than `array_filter()`
+  passes — that ordering is the whole point, since a LIMIT applied before those filters returns
+  short pages. Counts come from `countDefectReportsWithFilters()` and
+  `defectReportStatusCounts()`. Export and the kanban board still want every filtered row, so
+  they fetch it themselves; nothing else on the page does. Add a new list page the same way.
 - **No CDN tags, ever.** Fonts, Font Awesome, Chart.js and SheetJS are vendored under
   `assets/vendor/` so the app works with no venue internet. Reintroducing
   `cdnjs.cloudflare.com`, `cdn.jsdelivr.net` or `fonts.googleapis.com` is a regression. The only

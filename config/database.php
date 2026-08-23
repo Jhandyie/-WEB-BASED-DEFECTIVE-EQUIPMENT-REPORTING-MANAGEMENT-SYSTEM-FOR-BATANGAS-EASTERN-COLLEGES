@@ -1693,10 +1693,11 @@ function deleteDefectReport($report_id) {
  * and a full Supabase round trip (~429 ms). Rows can only change mid-request if that request
  * writes, and every writer below calls defectReportCacheClear().
  */
-function getDefectReportsWithFilters($status = 'all', $priority = 'all', $search = '') {
-    $key = $status . "\0" . $priority . "\0" . $search;
+function getDefectReportsWithFilters($status = 'all', $priority = 'all', $search = '', array $opts = []) {
+    // $opts joins the key: two calls that differ only by page must not share a memo.
+    $key = $status . "\0" . $priority . "\0" . $search . "\0" . json_encode($opts);
     if (!isset($GLOBALS['__defect_report_cache'][$key])) {
-        $GLOBALS['__defect_report_cache'][$key] = fetchDefectReportsWithFilters($status, $priority, $search);
+        $GLOBALS['__defect_report_cache'][$key] = fetchDefectReportsWithFilters($status, $priority, $search, $opts);
     }
     return $GLOBALS['__defect_report_cache'][$key];
 }
@@ -1706,96 +1707,219 @@ function defectReportCacheClear() {
     $GLOBALS['__defect_report_cache'] = [];
 }
 
-function fetchDefectReportsWithFilters($status = 'all', $priority = 'all', $search = '') {
-    if (isPgSqlDriver()) {
-        $pdo = getPgsqlPdoConnection();
-        $sql = "SELECT dr.*, e.equipment_name, e.asset_tag as asset_tag,
-            COALESCE(c.category_name, CAST(e.category_id AS TEXT)) as category_name,
-            COALESCE(tu.fullname, tu.username, mt.fullname) as technician_name,
-            COALESCE(NULLIF(dr.reporter_name,''), u.fullname, u.username, d.full_name, NULLIF(dr.reporter_email,''), dr.reported_by) as reporter_name
-            FROM public.defect_reports dr
-            JOIN public.equipment e ON dr.equipment_id = e.equipment_id
-            LEFT JOIN public.categories c ON e.category_id = c.category_id
-            LEFT JOIN public.users tu ON dr.assigned_to = tu.user_id
-            LEFT JOIN public.maintenance_technicians mt ON dr.assigned_to = mt.technician_id
-            LEFT JOIN public.users u ON dr.reported_by = u.user_id
-                            LEFT JOIN public.bec_directory d ON dr.reporter_email IS NOT NULL AND lower(d.email) = lower(dr.reporter_email)
-            WHERE 1=1";
-
-        $params = [];
-        if ($status !== 'all') {
-            $sql .= ' AND dr.status = :status';
-            $params['status'] = $status;
-        }
-        if ($priority !== 'all') {
-            $sql .= ' AND dr.priority = :priority';
-            $params['priority'] = $priority;
-        }
-        if (!empty($search)) {
-            $sql .= " AND (dr.report_id LIKE :s OR e.equipment_name LIKE :s OR c.category_name LIKE :s OR dr.issue_description LIKE :s)";
-            $params['s'] = "%{$search}%";
-        }
-        $sql .= ' ORDER BY dr.report_date DESC';
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
-        $reports = $stmt->fetchAll();
-        return normalizeDefectReportRows($reports);
-    }
-
-    $conn = getDBConnection();
-
-    $sql = "SELECT dr.*, e.equipment_name, e.asset_tag as asset_tag,
-            COALESCE(c.category_name, CAST(e.category_id AS CHAR)) as category_name,
-            COALESCE(tu.fullname, tu.username, mt.fullname) as technician_name,
-            COALESCE(NULLIF(dr.reporter_name,''), u.fullname, u.username, d.full_name, NULLIF(dr.reporter_email,''), dr.reported_by) as reporter_name
-            FROM defect_reports dr
-            JOIN equipment e ON dr.equipment_id = e.equipment_id
-            LEFT JOIN categories c ON e.category_id = c.category_id
-            LEFT JOIN users tu ON dr.assigned_to = tu.user_id
-            LEFT JOIN maintenance_technicians mt ON dr.assigned_to = mt.technician_id
-            LEFT JOIN users u ON dr.reported_by = u.user_id
-                            LEFT JOIN bec_directory d ON dr.reporter_email IS NOT NULL AND lower(d.email) = lower(dr.reporter_email)
-            WHERE 1=1";
-
-    $params = [];
-    $types = "";
+/**
+ * status / priority / search — the filters this function always had.
+ *
+ * Split out so the list, its count and the stat-card totals build the same WHERE
+ * from one place. $named picks the placeholder style: true for PDO/Postgres,
+ * false for mysqli.
+ */
+function becDefectReportBaseFilters($status, $priority, $search, bool $named): array {
+    $sql = ''; $params = []; $types = '';
 
     if ($status !== 'all') {
-        $sql .= " AND dr.status = ?";
-        $params[] = $status;
-        $types .= "s";
+        if ($named) { $sql .= ' AND dr.status = :status';   $params['status'] = $status; }
+        else        { $sql .= ' AND dr.status = ?';         $params[] = $status; $types .= 's'; }
     }
-
     if ($priority !== 'all') {
-        $sql .= " AND dr.priority = ?";
-        $params[] = $priority;
-        $types .= "s";
+        if ($named) { $sql .= ' AND dr.priority = :priority'; $params['priority'] = $priority; }
+        else        { $sql .= ' AND dr.priority = ?';         $params[] = $priority; $types .= 's'; }
     }
-
     if (!empty($search)) {
-        $sql .= " AND (dr.report_id LIKE ? OR e.equipment_name LIKE ? OR c.category_name LIKE ? OR dr.issue_description LIKE ?)";
-        $search_param = "%$search%";
-        $params[] = $search_param;
-        $params[] = $search_param;
-        $params[] = $search_param;
-        $params[] = $search_param;
-        $types .= "ssss";
+        $like = "%{$search}%";
+        if ($named) {
+            $sql .= ' AND (dr.report_id LIKE :s OR e.equipment_name LIKE :s OR c.category_name LIKE :s OR dr.issue_description LIKE :s)';
+            $params['s'] = $like;
+        } else {
+            $sql .= ' AND (dr.report_id LIKE ? OR e.equipment_name LIKE ? OR c.category_name LIKE ? OR dr.issue_description LIKE ?)';
+            array_push($params, $like, $like, $like, $like);
+            $types .= 'ssss';
+        }
+    }
+    return ['sql' => $sql, 'params' => $params, 'types' => $types];
+}
+
+/**
+ * The report-list filters that used to run in PHP, expressed as SQL.
+ *
+ * admin_defect_reports.php applied four of its filters to the fetched array: the
+ * workflow-stage grouping, the PMO/ITSO unit scope, preventive-vs-reported, and
+ * dropping deleted rows. That is why the page could not use a SQL LIMIT — the
+ * limit would have applied before those filters and handed back short pages — so
+ * every render read the whole backlog in order to show 25 rows of it.
+ *
+ * Stated here instead, once, so the list, its count and the card totals all
+ * select the same rows and only the list pays to fetch them.
+ */
+function becDefectFilterClauses(array $opts, bool $named): array {
+    $sql = ''; $params = []; $types = ''; $n = 0;
+
+    $bind = function ($value, string $hint) use (&$params, &$types, &$n, $named) {
+        if ($named) {
+            $key = $hint . (++$n);
+            $params[$key] = $value;
+            return ':' . $key;
+        }
+        $params[] = $value; $types .= 's';
+        return '?';
+    };
+
+    // Statuses to keep — a workflow stage is several raw statuses.
+    $keep = array_values(array_filter((array)($opts['statuses'] ?? []), static fn($v) => $v !== null && $v !== ''));
+    if ($keep) {
+        $sql .= ' AND dr.status IN (' . implode(', ', array_map(static fn($v) => $bind($v, 'st'), $keep)) . ')';
     }
 
-    $sql .= " ORDER BY dr.report_date DESC";
-
-    $stmt = $conn->prepare($sql);
-    if (!empty($params)) {
-        $stmt->bind_param($types, ...$params);
+    // Statuses to drop. The empty string is handled by COALESCE rather than a
+    // placeholder, so a NULL status is excluded too — NOT IN alone would keep it.
+    if (array_key_exists('exclude_statuses', $opts)) {
+        $sql .= " AND COALESCE(dr.status, '') <> ''";
+        $drop = array_values(array_filter((array)$opts['exclude_statuses'], static fn($v) => $v !== null && $v !== ''));
+        if ($drop) {
+            $sql .= ' AND dr.status NOT IN (' . implode(', ', array_map(static fn($v) => $bind($v, 'xs'), $drop)) . ')';
+        }
     }
+
+    // Unit scope. A chosen unit is strict; the admin's DEFAULT view also surfaces
+    // reports not yet triaged (no department_assigned), so a pending item is never
+    // hidden from both offices at once. Same rule the PHP closure applied.
+    $dept = trim((string)($opts['dept'] ?? ''));
+    if ($dept !== '' && strtolower($dept) !== 'all') {
+        $p = $bind($dept, 'dept');
+        $sql .= !empty($opts['dept_untriaged'])
+            ? " AND (dr.department_assigned = {$p} OR COALESCE(dr.department_assigned, '') = '')"
+            : " AND dr.department_assigned = {$p}";
+    }
+
+    // Where the ticket came from. is_preventive is a real boolean in Postgres and
+    // a tinyint under mysqli, so the truth test is spelled per driver.
+    $kind = strtolower(trim((string)($opts['kind'] ?? '')));
+    if ($kind === 'preventive') {
+        $sql .= $named ? ' AND dr.is_preventive IS TRUE' : ' AND dr.is_preventive = 1';
+    } elseif ($kind === 'reported') {
+        $sql .= $named ? ' AND COALESCE(dr.is_preventive, FALSE) IS NOT TRUE' : ' AND COALESCE(dr.is_preventive, 0) = 0';
+    }
+
+    return ['sql' => $sql, 'params' => $params, 'types' => $types];
+}
+
+/** The SELECT list and joins shared by every report query below. */
+function becDefectReportSelect(bool $pg): string {
+    $castTo = $pg ? 'TEXT' : 'CHAR';
+    $p      = $pg ? 'public.' : '';
+    return "SELECT dr.*, e.equipment_name, e.asset_tag as asset_tag,
+            COALESCE(c.category_name, CAST(e.category_id AS {$castTo})) as category_name,
+            COALESCE(tu.fullname, tu.username, mt.fullname) as technician_name,
+            COALESCE(NULLIF(dr.reporter_name,''), u.fullname, u.username, d.full_name, NULLIF(dr.reporter_email,''), dr.reported_by) as reporter_name
+            FROM {$p}defect_reports dr
+            JOIN {$p}equipment e ON dr.equipment_id = e.equipment_id
+            LEFT JOIN {$p}categories c ON e.category_id = c.category_id
+            LEFT JOIN {$p}users tu ON dr.assigned_to = tu.user_id
+            LEFT JOIN {$p}maintenance_technicians mt ON dr.assigned_to = mt.technician_id
+            LEFT JOIN {$p}users u ON dr.reported_by = u.user_id
+            LEFT JOIN {$p}bec_directory d ON dr.reporter_email IS NOT NULL AND lower(d.email) = lower(dr.reporter_email)
+            WHERE 1=1";
+}
+
+/** Just the joins the WHERE needs, for counting without building rows. */
+function becDefectCountFrom(bool $pg): string {
+    $p = $pg ? 'public.' : '';
+    return "FROM {$p}defect_reports dr
+            JOIN {$p}equipment e ON dr.equipment_id = e.equipment_id
+            LEFT JOIN {$p}categories c ON e.category_id = c.category_id";
+}
+
+function fetchDefectReportsWithFilters($status = 'all', $priority = 'all', $search = '', array $opts = []) {
+    $pg    = isPgSqlDriver();
+    $base  = becDefectReportBaseFilters($status, $priority, $search, $pg);
+    $extra = becDefectFilterClauses($opts, $pg);
+
+    $limit  = isset($opts['limit'])  ? max(0, (int)$opts['limit'])  : 0;
+    $offset = isset($opts['offset']) ? max(0, (int)$opts['offset']) : 0;
+
+    $sql = becDefectReportSelect($pg) . $base['sql'] . $extra['sql'] . ' ORDER BY dr.report_date DESC';
+    // Cast to int above, so these are safe to inline — and both drivers refuse a
+    // bound parameter in LIMIT under some configurations.
+    if ($limit > 0) { $sql .= " LIMIT {$limit}" . ($offset > 0 ? " OFFSET {$offset}" : ''); }
+
+    if ($pg) {
+        $stmt = getPgsqlPdoConnection()->prepare($sql);
+        $stmt->execute(array_merge($base['params'], $extra['params']));
+        return normalizeDefectReportRows($stmt->fetchAll());
+    }
+
+    $conn   = getDBConnection();
+    $stmt   = $conn->prepare($sql);
+    $params = array_merge($base['params'], $extra['params']);
+    if ($params) { $stmt->bind_param($base['types'] . $extra['types'], ...$params); }
     $stmt->execute();
-    $result = $stmt->get_result();
-    $reports = $result->fetch_all(MYSQLI_ASSOC);
+    $reports = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
 
     return normalizeDefectReportRows($reports);
 }
+
 /**
+ * How many reports match, without fetching them.
+ *
+ * The pager needs a total and the list needs a page. This is the half that does
+ * not grow with the backlog.
+ */
+function countDefectReportsWithFilters($status = 'all', $priority = 'all', $search = '', array $opts = []) {
+    $pg    = isPgSqlDriver();
+    $base  = becDefectReportBaseFilters($status, $priority, $search, $pg);
+    $extra = becDefectFilterClauses($opts, $pg);
+    $sql   = 'SELECT COUNT(*) AS n ' . becDefectCountFrom($pg) . ' WHERE 1=1' . $base['sql'] . $extra['sql'];
+
+    if ($pg) {
+        $stmt = getPgsqlPdoConnection()->prepare($sql);
+        $stmt->execute(array_merge($base['params'], $extra['params']));
+        return (int)$stmt->fetchColumn();
+    }
+
+    $conn   = getDBConnection();
+    $stmt   = $conn->prepare($sql);
+    $params = array_merge($base['params'], $extra['params']);
+    if ($params) { $stmt->bind_param($base['types'] . $extra['types'], ...$params); }
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    return (int)($row['n'] ?? 0);
+}
+
+/**
+ * Reports grouped by status and priority, for the stat cards.
+ *
+ * The cards used to be counted by fetching every report and bucketing the array
+ * six times. One grouped count returns the same numbers and stays the same size
+ * whether the backlog is eighty rows or eighty thousand.
+ */
+function defectReportStatusCounts($priority = 'all', $search = '', array $opts = []) {
+    $pg    = isPgSqlDriver();
+    $base  = becDefectReportBaseFilters('all', $priority, $search, $pg);
+    $extra = becDefectFilterClauses($opts, $pg);
+    $sql   = 'SELECT dr.status AS status, dr.priority AS priority, COUNT(*) AS n '
+           . becDefectCountFrom($pg) . ' WHERE 1=1' . $base['sql'] . $extra['sql']
+           . ' GROUP BY dr.status, dr.priority';
+
+    $out = [];
+    if ($pg) {
+        $stmt = getPgsqlPdoConnection()->prepare($sql);
+        $stmt->execute(array_merge($base['params'], $extra['params']));
+        foreach ($stmt as $r) { $out[] = $r; }
+        return $out;
+    }
+
+    $conn   = getDBConnection();
+    $stmt   = $conn->prepare($sql);
+    $params = array_merge($base['params'], $extra['params']);
+    if ($params) { $stmt->bind_param($base['types'] . $extra['types'], ...$params); }
+    $stmt->execute();
+    $res = $stmt->get_result();
+    while ($r = $res->fetch_assoc()) { $out[] = $r; }
+    $stmt->close();
+    return $out;
+}/**
  * Dashboard helpers
  * These wrappers provide 7/30-day chart/stat blocks used by admin_dashboard.php.
  */

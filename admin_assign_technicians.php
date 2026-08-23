@@ -305,7 +305,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   position:sticky;top:0;z-index:200;box-shadow:var(--sh0);}
 .tb-l{display:flex;align-items:center;gap:.55rem;}
 .mob-tog{display:none;background:none;border:none;font-size:var(--fs-xl);cursor:pointer;color:var(--t2);}
-.pg-title{font-family:'Outfit',sans-serif;font-weight:700;font-size:var(--fs-xl);color:var(--t1);}
+/* .pg-title is set by assets/css/admin-shell.css. Restating it here with this
+   page's own scale variable made the topbar title 17.34px where every other
+   admin page draws it at 17px. */
 .bc{font-size:var(--fs-sm);color:var(--t3);display:flex;align-items:center;gap:var(--sp-1);}
 .bc a{color:var(--t3);text-decoration:none;}.bc a:hover{color:var(--m3);}
 .bc i{font-size:var(--fs-xs);}
