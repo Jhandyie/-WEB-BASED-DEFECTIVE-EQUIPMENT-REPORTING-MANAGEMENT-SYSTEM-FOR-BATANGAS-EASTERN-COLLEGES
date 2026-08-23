@@ -212,6 +212,24 @@ $checks = [
         ['origin filter',            '/id="fsk"/',                  true],
         ['filter bar',               '/id="fsq"/',                  true],
     ]],
+    /* The list pages in the database now, so a second page has to render on its
+       own rather than being a slice JavaScript reveals. #repPager is the hook
+       because it appears whenever there are results at all — asserting on a
+       'page=3' link instead would start failing the day the backlog drops below
+       three pages, which is not a regression. */
+    /* 'http:admin', not 'admin': the browser path reaches a page through the
+       seeder's redirect, which drops the query string and lands on a 404. Every
+       other check with a query string here uses the http: form for that reason.
+       The pager is server-rendered anyway, so no JS needs to run for this. */
+    ['Defect reports paging', 'http:admin', 'admin_defect_reports.php?page=2', [
+        ['pager rendered',           '/id="repPager"/',             true],
+        ['no PHP error leaked',      '/Fatal error|Undefined variable/',  false],
+    ]],
+    ['Work Orders', 'admin', 'admin_work_orders.php', [
+        ['renders',                  '/<\/html>/i',               true],
+        ['ledger rows carry data',   '/data-wo=/',                  true],
+        ['service record dialog',    '/id="woOvl"/',               true],
+    ]],
     ['Assign technicians', 'admin', 'admin_assign_technicians.php', [
         ['queue row is clickable',   '/class="pick-row"/',          true],
         ['dispatch drawer',          '/id="asgDw"/',                true],

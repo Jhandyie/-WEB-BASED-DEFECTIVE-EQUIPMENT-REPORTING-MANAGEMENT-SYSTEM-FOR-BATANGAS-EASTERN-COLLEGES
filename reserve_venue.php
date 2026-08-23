@@ -425,5 +425,7 @@ document.getElementById('vrfForm').addEventListener('submit', function (ev) {
   }
 });
 </script>
+<?php require __DIR__ . '/includes/becca_tokens.php'; ?>
+<?php require __DIR__ . '/includes/becca_widget.php'; ?>
 </body>
 </html>

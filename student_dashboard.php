@@ -3015,5 +3015,6 @@ window.addEventListener('DOMContentLoaded', function () {
 <!-- Downscales camera photos on the device before they upload. Not deferred:
      it has to be listening before the form can be submitted. -->
 <script src="assets/photo_shrink.js"></script>
+<?php require __DIR__ . '/includes/becca_widget.php'; ?>
 </body>
 </html>
