@@ -242,8 +242,8 @@ function jArr($arr){return json_encode(array_values($arr),JSON_UNESCAPED_UNICODE
   --sh3:0 14px 40px rgba(45,5,5,.13),0 4px 10px rgba(45,5,5,.07);
   --r1:8px;--r2:12px;--r3:18px;--r4:26px;--sb:262px;
   /* Chart palette */
-  --ch1:#7B1D1D;--ch2:#D4A017;--ch3:#2563EB;--ch4:#16A34A;
-  --ch5:#7C3AED;--ch6:#0891B2;--ch7:#DC2626;--ch8:#D97706;
+  --ch1:#7B1D1D;--ch2:#D4A017;--ch3:#2563EB;--ch4:var(--ok);
+  --ch5:#7C3AED;--ch6:#0891B2;--ch7:var(--bad);--ch8:#D97706;
 }
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
 html{scroll-behavior:smooth;}
@@ -368,7 +368,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .stat-lbl{font-size:.78rem;color:var(--t2);display:flex;align-items:center;gap:.35rem;}
 .stat-lbl i{font-size:.68rem;color:var(--m3);}
 .stat-val{font-family:'Outfit',sans-serif;font-weight:800;font-size:.95rem;color:var(--t1);}
-.stat-val.good{color:#16A34A;}.stat-val.warn{color:#D97706;}.stat-val.bad{color:#DC2626;}
+.stat-val.good{color:var(--ok);}.stat-val.warn{color:#D97706;}.stat-val.bad{color:var(--bad);}
 
 /* Resolution ring */
 .ring-wrap{display:flex;align-items:center;gap:1.25rem;padding:1rem;}
@@ -398,12 +398,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .fg2{display:grid;grid-template-columns:1fr 1fr;gap:.625rem;}
 
 /* ── TOAST ────────────────────────────────────────── */
-.ttray{position:fixed;top:1.25rem;left:50%;transform:translateX(-50%);align-items:center;display:flex;flex-direction:column;gap:.38rem;z-index:9999;}
-.tst{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r2);padding:.68rem .88rem;display:flex;align-items:flex-start;gap:.5rem;box-shadow:var(--sh3);min-width:240px;animation:tIn .22s cubic-bezier(.4,0,.2,1);border-left:3px solid var(--m3);}
-.tst.ok{border-left-color:#16A34A;}
-@keyframes tIn{from{transform:translateX(60px);opacity:0}to{transform:translateX(0);opacity:1}}
-.tst-t{font-size:.77rem;font-weight:700;color:var(--t1);}
-.tst-m{font-size:.69rem;color:var(--t2);margin-top:1px;}
+/* .ttray / .tst live in assets/css/admin-shell.css — one toast for every admin page. */
 .empty{text-align:center;padding:1.5rem;color:var(--t3);font-size:.8rem;}
 
 /* ── RESPONSIVE ───────────────────────────────────── */
@@ -529,7 +524,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
         <div class="knum" id="kn0"><?php echo $kpi_reports;?></div>
         <div class="klbl">Reports Filed</div>
       </div>
-      <div class="kcard" style="--kc:#16A34A;--kb:#F0FDF4;">
+      <div class="kcard" style="--kc:var(--ok);--kb:#F0FDF4;">
         <div class="kico"><i class="fas fa-check-circle"></i></div>
         <div class="knum" id="kn1"><?php echo $kpi_resolved;?></div>
         <div class="klbl">Resolved</div>
@@ -554,7 +549,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
         <div class="knum" id="kn5"><?php echo $avg_resolution_days;?>d</div>
         <div class="klbl">Avg Resolution</div>
       </div>
-      <div class="kcard" style="--kc:#DC2626;--kb:#FFF1F2;">
+      <div class="kcard" style="--kc:var(--bad);--kb:#FFF1F2;">
         <div class="kico" style="animation:critGlow 2s ease-in-out infinite;"><i class="fas fa-radiation-alt"></i></div>
         <div class="knum" id="kn6"><?php echo $kpi_crit;?></div>
         <div class="klbl">Critical Active</div>
@@ -664,7 +659,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
           <div class="cp-sub">Top items by defect count</div></div>
         </div>
         <div class="cp-body" style="padding:.75rem 1rem 1rem;">
-          <?php if(empty($top_eq_res)):?><div class="empty"><i class="fas fa-check-circle" style="color:#16A34A;font-size:1.5rem;display:block;margin-bottom:.4rem;"></i>No defects reported!</div>
+          <?php if(empty($top_eq_res)):?><div class="empty"><i class="fas fa-check-circle" style="color:var(--ok);font-size:1.5rem;display:block;margin-bottom:.4rem;"></i>No defects reported!</div>
           <?php else:?><canvas id="c5" style="width:100%;height:240px;"></canvas><?php endif;?>
         </div>
       </div>
@@ -727,7 +722,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
                   </div>
                 </td>
                 <td style="font-family:'Outfit',sans-serif;font-weight:800;"><?php echo (int)$t['total'];?></td>
-                <td style="font-family:'Outfit',sans-serif;font-weight:800;color:#16A34A;"><?php echo (int)$t['done'];?></td>
+                <td style="font-family:'Outfit',sans-serif;font-weight:800;color:var(--ok);"><?php echo (int)$t['done'];?></td>
                 <td>
                   <span style="font-family:'Outfit',sans-serif;font-weight:800;font-size:.85rem;color:<?php echo $rate>=80?'#16A34A':($rate>=50?'#D97706':'#DC2626');?>;">
                     <?php echo $rate;?>%
@@ -772,7 +767,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
         <?php if(empty($activity)):?>
         <div class="empty">No recent activity.</div>
         <?php else: foreach($activity as $a):
-          $pcol=['critical'=>'#DC2626','high'=>'#D97706','medium'=>'#2563EB','low'=>'#16A34A'][$a['priority']??'']??'#9C7A7A';
+          $pcol=becPriorityColor($a['priority'] ?? '');   // the one scale — config/database.php
           $stlbl=['reported'=>'Pending','assigned'=>'Assigned','in_progress'=>'In Progress','completed'=>'Completed','verified'=>'Verified','rejected'=>'Rejected'][$a['status']??'']??ucfirst($a['status']??'');
         ?>
         <div class="act-item">
@@ -889,7 +884,7 @@ new Chart(document.getElementById('c1'), {
 
 /* ─── CHART 2: Priority bar ──────────────────────────── */
 <?php if(!empty($prio_labels)):
-  $prioColors=['critical'=>'#DC2626','high'=>'#D97706','medium'=>'#2563EB','low'=>'#16A34A'];
+  $prioColors=becPriorityColorMap();   // the one scale — config/database.php
   $pColors = array_map(fn($p)=>$prioColors[$p]??'#7B1D1D', $prio_labels);
 ?>
 new Chart(document.getElementById('c2'), {

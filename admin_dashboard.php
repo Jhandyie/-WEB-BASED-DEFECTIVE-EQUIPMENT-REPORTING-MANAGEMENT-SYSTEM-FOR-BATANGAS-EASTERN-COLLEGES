@@ -336,12 +336,12 @@ function prLbl($p){return ucfirst($p??'-');}
   /* Status */
   --pend-bg:#FEF9E7; --pend-c:#92600A;
   --prog-bg:#EFF6FF; --prog-c:#1D4ED8;
-  --done-bg:#F0FDF4; --done-c:#15803D;
+  --done-bg:#F0FDF4; --done-c:var(--ok-tx);
   --rej-bg:#FFF1F2;  --rej-c:#BE123C;
   --crit-bg:#FFF7ED; --crit-c:#C2410C;
   --high-bg:#FFFBEB; --high-c:#B45309;
   --med-bg:#EFF6FF;  --med-c:#1D4ED8;
-  --low-bg:#F0FDF4;  --low-c:#15803D;
+  --low-bg:#F0FDF4;  --low-c:var(--ok-tx);
   /* Depth */
   --sh1:0 1px 3px rgba(45,5,5,.06),0 1px 2px rgba(45,5,5,.04);
   --sh2:0 4px 12px rgba(45,5,5,.08),0 2px 4px rgba(45,5,5,.05);
@@ -473,14 +473,14 @@ body{
 }
 @keyframes alertIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
 .ap-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.875rem;}
-.ap-head h3{font-family:'Outfit',sans-serif;font-size:.95rem;font-weight:700;color:#991B1B;display:flex;align-items:center;gap:.4rem;}
-.ap-cnt{background:#DC2626;color:#fff;font-size:.58rem;font-weight:900;padding:2px 7px;border-radius:20px;animation:bp 2s ease-in-out infinite;}
+.ap-head h3{font-family:'Outfit',sans-serif;font-size:.95rem;font-weight:700;color:var(--bad-tx);display:flex;align-items:center;gap:.4rem;}
+.ap-cnt{background:var(--bad);color:#fff;font-size:.58rem;font-weight:900;padding:2px 7px;border-radius:20px;animation:bp 2s ease-in-out infinite;}
 .alert-row{display:flex;align-items:flex-start;gap:.875rem;padding:.65rem .875rem;border-radius:var(--r2);margin-bottom:.4rem;cursor:default;transition:all .16s;}
 .alert-row:hover{transform:none;}
-.alert-row.crit{background:rgba(220,38,38,.06);border-left:3px solid #DC2626;}
+.alert-row.crit{background:rgba(220,38,38,.06);border-left:3px solid var(--bad);}
 .alert-row.high{background:rgba(234,179,8,.06);border-left:3px solid #CA8A04;}
 .ai{width:32px;height:32px;border-radius:var(--r1);display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0;}
-.alert-row.crit .ai{background:#FEE2E2;color:#DC2626;}
+.alert-row.crit .ai{background:#FEE2E2;color:var(--bad);}
 .alert-row.high .ai{background:#FEF9C3;color:#CA8A04;}
 .ac strong{display:block;font-size:.82rem;font-weight:700;color:var(--t1);}
 .ac p{font-size:.73rem;color:var(--t2);margin-top:.1rem;line-height:1.4;}
@@ -508,7 +508,7 @@ body{
 
 .qa-card.c1{--qc:var(--m3);}  .qa-card.c1 .qa-ic{background:#FDECEA;color:var(--m3);}
 .qa-card.c2{--qc:#1D4ED8;} .qa-card.c2 .qa-ic{background:#EFF6FF;color:#1D4ED8;}
-.qa-card.c3{--qc:#15803D;} .qa-card.c3 .qa-ic{background:#F0FDF4;color:#15803D;}
+.qa-card.c3{--qc:var(--ok-tx);} .qa-card.c3 .qa-ic{background:#F0FDF4;color:var(--ok-tx);}
 .qa-card.c4{--qc:#7C3AED;} .qa-card.c4 .qa-ic{background:#F5F3FF;color:#7C3AED;}
 
 /* -- STATS GRID --------------------------------- */
@@ -529,9 +529,9 @@ body{
 .sc.s0{--sk:var(--m3);   --sk-s:rgba(123,29,29,.12);}
 .sc.s1{--sk:#D97706;     --sk-s:rgba(217,119,6,.12);}
 .sc.s2{--sk:#2563EB;     --sk-s:rgba(37,99,235,.12);}
-.sc.s3{--sk:#16A34A;     --sk-s:rgba(22,163,74,.12);}
+.sc.s3{--sk:var(--ok);     --sk-s:rgba(22,163,74,.12);}
 .sc.s4{--sk:#7C3AED;     --sk-s:rgba(124,58,237,.12);}
-.sc.s5{--sk:#DC2626;     --sk-s:rgba(220,38,38,.12);}
+.sc.s5{--sk:var(--bad);     --sk-s:rgba(220,38,38,.12);}
 .sc.s6{--sk:#C2410C;     --sk-s:rgba(194,65,12,.12);}
 
 .sc-ic{
@@ -546,9 +546,9 @@ body{
 .sc.s0 .sc-ic{--ic-bg:#FDECEA;--ic-fg:var(--m3);}
 .sc.s1 .sc-ic{--ic-bg:#FFFBEB;--ic-fg:#D97706;}
 .sc.s2 .sc-ic{--ic-bg:#EFF6FF;--ic-fg:#2563EB;}
-.sc.s3 .sc-ic{--ic-bg:#F0FDF4;--ic-fg:#16A34A;}
+.sc.s3 .sc-ic{--ic-bg:#F0FDF4;--ic-fg:var(--ok);}
 .sc.s4 .sc-ic{--ic-bg:#F5F3FF;--ic-fg:#7C3AED;}
-.sc.s5 .sc-ic{--ic-bg:#FFF1F2;--ic-fg:#DC2626;}
+.sc.s5 .sc-ic{--ic-bg:#FFF1F2;--ic-fg:var(--bad);}
 .sc.s6 .sc-ic{--ic-bg:#FFF7ED;--ic-fg:#C2410C;animation:critPulse 2s ease-in-out infinite;}
 @keyframes critPulse{0%,100%{box-shadow:0 0 0 0 rgba(194,65,12,.3);}50%{box-shadow:0 0 0 5px rgba(194,65,12,0);}}
 
@@ -611,7 +611,7 @@ body{
 .btn-icon{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:var(--r1);padding:0;font-size:.75rem;}
 .btn-view{background:#EFF6FF;color:#1D4ED8;}
 .btn-view:hover{background:#DBEAFE;}
-.btn-edit{background:#F0FDF4;color:#15803D;}
+.btn-edit{background:#F0FDF4;color:var(--ok-tx);}
 .btn-edit:hover{background:#DCFCE7;}
 .btn-del{background:#FFF1F2;color:#BE123C;}
 .btn-del:hover{background:#FFE4E6;}
@@ -624,13 +624,10 @@ body{
 .lv{font-weight:700;font-size:.75rem;color:var(--t1);}
 
 /* -- TOAST -------------------------------------- */
-.ttray{position:fixed;top:1.25rem;left:50%;transform:translateX(-50%);align-items:center;display:flex;flex-direction:column;gap:.4rem;z-index:9999;}
-.toast{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r2);padding:.72rem .9rem;display:flex;align-items:flex-start;gap:.55rem;box-shadow:var(--sh3);min-width:250px;animation:tIn .22s ease;border-left:3px solid var(--m3);}
-.toast.ok{border-left-color:#15803D;}
-.toast.err{border-left-color:#DC2626;}
-@keyframes tIn{from{transform:translateX(60px);opacity:0}to{transform:translateX(0);opacity:1}}
-.tt{font-size:.78rem;font-weight:700;color:var(--t1);}
-.tm{font-size:.7rem;color:var(--t2);margin-top:1px;}
+/* .ttray / .tst live in assets/css/admin-shell.css — one toast for every admin page. */
+/* This page had its own toast under a fourth set of names (.toast/.tt/.tm)
+   with a third green. It now uses the shared .tst component like every other
+   admin page — see the JS below, which emits the shared class names. */
 
 /* -- RESPONSIVE --------------------------------- */
 @media(max-width:1280px){.stats-grid{grid-template-columns:repeat(4,1fr);}
@@ -765,10 +762,10 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .nav-item:focus-visib
         <div style="font-size:1.7rem;font-weight:800;color:var(--t1);margin-top:.3rem;line-height:1;"><?php echo $avgResolution!==null?$avgResolution:'—'; ?><span style="font-size:.8rem;font-weight:600;color:var(--t3);"><?php echo $avgResolution!==null?' days':''; ?></span></div>
         <div style="font-size:.66rem;color:var(--t3);margin-top:.3rem;">Report → completion (resolved)</div>
       </div>
-      <div style="background:var(--s1);border:1px solid var(--bdr);border-left:4px solid #16A34A;border-radius:14px;padding:.95rem 1.05rem;box-shadow:none;">
-        <div style="display:flex;align-items:center;gap:.45rem;color:var(--t3);font-size:.66rem;text-transform:uppercase;letter-spacing:.6px;font-weight:700;"><i class="fas fa-circle-check" style="color:#16A34A;"></i> Completion Rate</div>
+      <div style="background:var(--s1);border:1px solid var(--bdr);border-left:4px solid var(--ok);border-radius:14px;padding:.95rem 1.05rem;box-shadow:none;">
+        <div style="display:flex;align-items:center;gap:.45rem;color:var(--t3);font-size:.66rem;text-transform:uppercase;letter-spacing:.6px;font-weight:700;"><i class="fas fa-circle-check" style="color:var(--ok);"></i> Completion Rate</div>
         <div style="font-size:1.7rem;font-weight:800;color:var(--t1);margin-top:.3rem;line-height:1;"><?php echo $completionRate; ?><span style="font-size:.85rem;font-weight:600;color:var(--t3);">%</span></div>
-        <div style="height:5px;background:var(--s3);border-radius:4px;margin-top:.5rem;overflow:hidden;"><div style="height:100%;width:<?php echo (int)$completionRate; ?>%;background:linear-gradient(90deg,#16A34A,#4ADE80);"></div></div>
+        <div style="height:5px;background:var(--s3);border-radius:4px;margin-top:.5rem;overflow:hidden;"><div style="height:100%;width:<?php echo (int)$completionRate; ?>%;background:linear-gradient(90deg,var(--ok),#4ADE80);"></div></div>
       </div>
       <div style="background:var(--s1);border:1px solid var(--bdr);border-left:4px solid var(--g2);border-radius:14px;padding:.95rem 1.05rem;box-shadow:none;">
         <div style="display:flex;align-items:center;gap:.45rem;color:var(--t3);font-size:.66rem;text-transform:uppercase;letter-spacing:.6px;font-weight:700;"><i class="fas fa-screwdriver-wrench" style="color:var(--g1);"></i> Active Repairs</div>
@@ -901,7 +898,7 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .nav-item:focus-visib
             </div>
             <div style="text-align:center;"><div style="font-weight:800;font-size:1.02rem;color:var(--t1);line-height:1;"><?php echo $ts['total']; ?></div><div style="font-size:.58rem;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;margin-top:.2rem;">Load</div></div>
             <div style="text-align:center;"><div style="font-weight:700;color:#D97706;line-height:1;"><?php echo $ts['open']; ?></div><div style="font-size:.58rem;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;margin-top:.2rem;">Open</div></div>
-            <div style="text-align:center;"><div style="font-weight:700;color:#16A34A;line-height:1;"><?php echo $ts['completed']; ?></div><div style="font-size:.58rem;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;margin-top:.2rem;">Done</div></div>
+            <div style="text-align:center;"><div style="font-weight:700;color:var(--ok);line-height:1;"><?php echo $ts['completed']; ?></div><div style="font-size:.58rem;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;margin-top:.2rem;">Done</div></div>
             <div style="text-align:center;"><div style="font-weight:700;color:var(--t1);line-height:1;"><?php echo $ts['avg'] !== null ? $ts['avg'] . 'd' : '—'; ?></div><div style="font-size:.58rem;color:var(--t3);text-transform:uppercase;letter-spacing:.4px;margin-top:.2rem;">Avg</div></div>
           </div>
         <?php $rank++; endforeach; endif; ?>
@@ -937,7 +934,7 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .nav-item:focus-visib
         <div style="font-size:.7rem;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;font-weight:700;margin-bottom:.5rem;">Most Defective Assets</div>
         <?php if (empty($topDefectiveAssets)): ?>
           <div style="text-align:center;color:var(--t3);padding:1.2rem 1rem;font-size:.82rem;">
-            <i class="fas fa-shield-heart" style="font-size:1.4rem;display:block;margin-bottom:.5rem;color:#16A34A;"></i>
+            <i class="fas fa-shield-heart" style="font-size:1.4rem;display:block;margin-bottom:.5rem;color:var(--ok);"></i>
             No equipment defect history yet — the fleet looks healthy.
           </div>
         <?php else: $rk = 1; foreach ($topDefectiveAssets as $a):
@@ -952,7 +949,7 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .nav-item:focus-visib
               <div style="font-size:.68rem;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><i class="fas fa-location-dot" style="font-size:.6rem;"></i> <?php echo htmlspecialchars($a['location']); ?></div>
             </div>
             <div>
-              <div style="height:7px;background:var(--s3);border-radius:4px;overflow:hidden;"><div style="height:100%;width:<?php echo (int)round($rep / $maxAssetReports * 100); ?>%;background:linear-gradient(90deg,#DC2626,#F87171);"></div></div>
+              <div style="height:7px;background:var(--s3);border-radius:4px;overflow:hidden;"><div style="height:100%;width:<?php echo (int)round($rep / $maxAssetReports * 100); ?>%;background:linear-gradient(90deg,var(--bad),#F87171);"></div></div>
               <div style="font-size:.62rem;color:var(--t3);margin-top:.25rem;"><?php echo $rep; ?> report<?php echo $rep === 1 ? '' : 's'; ?></div>
             </div>
             <div style="text-align:right;font-weight:700;font-size:.8rem;color:<?php echo $sc; ?>;"><?php echo $dot; ?> <?php echo $score; ?></div>
@@ -978,7 +975,7 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .nav-item:focus-visib
           <tbody>
             <?php if(empty($recentReports)): ?>
             <tr><td colspan="7" style="text-align:center;padding:2.5rem;color:var(--t3);">
-              <i class="fas fa-check-circle" style="font-size:2.5rem;color:#22C55E;display:block;margin-bottom:.75rem;opacity:.6;"></i>
+              <i class="fas fa-check-circle" style="font-size:2.5rem;color:var(--ok);display:block;margin-bottom:.75rem;opacity:.6;"></i>
               All clear - no active defect reports.
             </td></tr>
             <?php else: foreach($recentReports as $r): ?>
@@ -1170,8 +1167,8 @@ function exportReport(){
 }
 
 function toast(type,msg,title){
-  const el=document.createElement('div');el.className='toast '+type;
-  el.innerHTML=`<div><div class="tt">${title}</div><div class="tm">${msg}</div></div>`;
+  const el=document.createElement('div');el.className='tst '+type;
+  el.innerHTML=`<div><div class="tst-t">${title}</div><div class="tst-m">${msg}</div></div>`;
   document.getElementById('ttray').appendChild(el);
   setTimeout(()=>el.remove(),4000);
 }

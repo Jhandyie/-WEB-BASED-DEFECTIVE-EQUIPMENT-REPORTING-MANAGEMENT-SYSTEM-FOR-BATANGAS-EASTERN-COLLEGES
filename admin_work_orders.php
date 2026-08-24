@@ -182,7 +182,7 @@ $statusMeta = [
 <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <link rel="stylesheet" href="assets/css/admin-shell.css">
 <style>
-  :root{--m:#7B1D1D;--md:#4A0E0E;--g:#C9960C;--ink:#1A0808;--ink2:#5C3838;--ink3:#9C7A7A;--paper:#F4EFE6;--surface:#fff;--border:#E5D9C6;--sb:262px;--danger:#B42318;--success:#1A7A33;--m1:#2D0505;--r1:8px;--r2:12px;}
+  :root{--m:#7B1D1D;--md:#4A0E0E;--g:#C9960C;--ink:#1A0808;--ink2:#5C3838;--ink3:#9C7A7A;--paper:#F4EFE6;--surface:#fff;--border:#E5D9C6;--sb:262px;--danger:var(--bad-tx);--success:var(--ok-tx);--m1:#2D0505;--r1:8px;--r2:12px;}
   *{box-sizing:border-box}
   body{margin:0;font-family:'DM Sans',sans-serif;background:var(--paper);color:var(--ink);min-height:100vh;}
   .main{margin-left:var(--sb);transition:margin-left .26s ease;}
@@ -297,8 +297,8 @@ $statusMeta = [
           <div class="ic" style="background:rgba(201,150,12,.12);color:#C9960C;"><i class="fas fa-hourglass-half"></i></div>
           <div><div class="n"><?php echo (int)$tot['completed']; ?></div><div class="l">Awaiting verification</div></div>
         </a>
-        <a class="stat <?php echo $sf === 'verified' ? 'on' : ''; ?>" style="--sk:#1A7A33;" href="<?php echo wo_e($keep(['status' => $sf === 'verified' ? 'all' : 'verified'])); ?>">
-          <div class="ic" style="background:rgba(26,122,51,.12);color:#1A7A33;"><i class="fas fa-clipboard-check"></i></div>
+        <a class="stat <?php echo $sf === 'verified' ? 'on' : ''; ?>" style="--sk:var(--ok-tx);" href="<?php echo wo_e($keep(['status' => $sf === 'verified' ? 'all' : 'verified'])); ?>">
+          <div class="ic" style="background:rgba(26,122,51,.12);color:var(--ok-tx);"><i class="fas fa-clipboard-check"></i></div>
           <div><div class="n"><?php echo (int)$tot['verified']; ?></div><div class="l">Verified</div></div>
         </a>
         <a class="stat <?php echo $sf === 'closed' ? 'on' : ''; ?>" style="--sk:#5C3838;" href="<?php echo wo_e($keep(['status' => $sf === 'closed' ? 'all' : 'closed'])); ?>">

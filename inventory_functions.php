@@ -280,7 +280,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($stmt->affected_rows > 0) {
                 $_SESSION['flash'] = ['ok', "Equipment \"$name\" updated."];
             } else {
-                $_SESSION['flash'] = ['err', 'No changes were saved. The selected item may not exist in equipment table.'];
+                $_SESSION['flash'] = ['err', 'No changes were saved. The selected item may not exist in the equipment table.'];
             }
         }
     }
@@ -830,11 +830,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .flash-qr:hover{background:var(--m2,#4A0E0E);}
 
 /* -- FLASH ------------------------------------------ */
-.flash{display:flex;align-items:center;gap:.65rem;padding:.7rem 1.1rem;border-radius:var(--r2);
-  margin-bottom:1.125rem;font-size:.81rem;font-weight:600;animation:fIn .25s ease;border-left:3px solid;}
+/* .flash lives in assets/css/admin-shell.css — one definition for every admin page. */
 @keyframes fIn{from{opacity:0;transform:translateY(-5px);}to{opacity:1;transform:translateY(0);}}
-.flash.ok{background:#F0FDF4;color:#15803D;border-color:#22C55E;}
-.flash.err{background:#FFF1F2;color:#DC2626;border-color:#EF4444;}
 
 /* -- BTN -------------------------------------------- */
 .btn{display:inline-flex;align-items:center;gap:.32rem;padding:.4rem .875rem;border-radius:var(--r1);
@@ -845,9 +842,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .btn-maroon:hover{box-shadow:none;}
 .btn-gold{background:linear-gradient(135deg,var(--g2),var(--g3));color:var(--m1);box-shadow:none;}
 .btn-gold:hover{box-shadow:none;}
-.btn-green{background:linear-gradient(135deg,#15803D,#22C55E);color:#fff;box-shadow:none;}
+.btn-green{background:linear-gradient(135deg,var(--ok-tx),var(--ok));color:#fff;box-shadow:none;}
 .btn-green:hover{box-shadow:none;}
-.btn-red{background:linear-gradient(135deg,#B91C1C,#EF4444);color:#fff;box-shadow:none;}
+.btn-red{background:linear-gradient(135deg,#B91C1C,var(--bad));color:#fff;box-shadow:none;}
 .btn-red:hover{box-shadow:none;}
 .btn-amber{background:linear-gradient(135deg,#D97706,#FBBF24);color:#fff;box-shadow:none;}
 .btn-amber:hover{box-shadow:none;}
@@ -872,9 +869,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .scard:hover::before{transform:none;opacity:.08;}
 .scard:hover::after{transform:scaleX(1);}
 .sc-a{--sk:var(--m3);--skl:rgba(123,29,29,.14);}
-.sc-b{--sk:#16A34A;--skl:rgba(22,163,74,.14);}
+.sc-b{--sk:var(--ok);--skl:rgba(22,163,74,.14);}
 .sc-c{--sk:#D97706;--skl:rgba(217,119,6,.14);}
-.sc-d{--sk:#DC2626;--skl:rgba(220,38,38,.14);}
+.sc-d{--sk:var(--bad);--skl:rgba(220,38,38,.14);}
 .sc-e{--sk:#6B7280;--skl:rgba(107,114,128,.14);}
 .sc-f{--sk:#C2410C;--skl:rgba(194,65,12,.14);animation:warnP 2.2s ease-in-out infinite;}
 @keyframes warnP{0%,100%{box-shadow:var(--sh0);}50%{box-shadow:0 0 0 3px rgba(194,65,12,.12),var(--sh0);}}
@@ -883,9 +880,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
   box-shadow:none;transition:all .26s;position:relative;z-index:1;}
 .scard:hover .sico{transform:none;}
 .sc-a .sico{--sib:#FDECEA;--sic:var(--m3);}
-.sc-b .sico{--sib:#F0FDF4;--sic:#16A34A;}
+.sc-b .sico{--sib:#F0FDF4;--sic:var(--ok);}
 .sc-c .sico{--sib:#FFFBEB;--sic:#D97706;}
-.sc-d .sico{--sib:#FFF1F2;--sic:#DC2626;animation:critP 2s ease-in-out infinite;}
+.sc-d .sico{--sib:#FFF1F2;--sic:var(--bad);animation:critP 2s ease-in-out infinite;}
 @keyframes critP{0%,100%{box-shadow:none;}50%{box-shadow:0 0 14px rgba(220,38,38,.35);}}
 .sc-e .sico{--sib:#F9FAFB;--sic:#6B7280;}
 .sc-f .sico{--sib:#FFF7ED;--sic:#C2410C;animation:critP 2s ease-in-out infinite;}
@@ -950,14 +947,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .bdg::before{content:'';width:4px;height:4px;border-radius:50%;background:currentColor;
   flex-shrink:0;animation:dot 2.2s ease-in-out infinite;}
 @keyframes dot{0%,100%{opacity:1;}50%{opacity:.4;}}
-.s-op{background:#F0FDF4;color:#15803D;}
+.s-op{background:#F0FDF4;color:var(--ok-tx);}
 .s-maint{background:#FFFBEB;color:#D97706;}
-.s-fault{background:#FFF1F2;color:#DC2626;}
+.s-fault{background:#FFF1F2;color:var(--bad);}
 .s-ret{background:var(--s2);color:var(--t3);}
-.c-ex{background:#F0FDF4;color:#15803D;}
+.c-ex{background:#F0FDF4;color:var(--ok-tx);}
 .c-good{background:#EFF6FF;color:#2563EB;}
 .c-fair{background:#FFFBEB;color:#D97706;}
-.c-poor{background:#FFF1F2;color:#DC2626;}
+.c-poor{background:#FFF1F2;color:var(--bad);}
 .dept-itso{display:inline-flex;align-items:center;gap:.2rem;padding:.17rem .5rem;border-radius:20px;
   font-size:.6rem;font-weight:800;background:#ECFEFF;color:#0891B2;border:1px solid #A5F3FC;}
 .dept-pmo{display:inline-flex;align-items:center;gap:.2rem;padding:.17rem .5rem;border-radius:20px;
@@ -975,9 +972,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
   transition:all .24s cubic-bezier(.4,0,.2,1);box-shadow:var(--sh0);}
 .ecard:hover{transform:none;box-shadow:var(--sh3);border-color:transparent;}
 .ec-stripe{height:5px;background:var(--stripe,var(--m3));}
-.ecard.st-op .ec-stripe{background:linear-gradient(to right,#15803D,#22C55E);}
+.ecard.st-op .ec-stripe{background:linear-gradient(to right,var(--ok-tx),var(--ok));}
 .ecard.st-maint .ec-stripe{background:linear-gradient(to right,#D97706,#FBBF24);}
-.ecard.st-fault .ec-stripe{background:linear-gradient(to right,#DC2626,#F87171);}
+.ecard.st-fault .ec-stripe{background:linear-gradient(to right,var(--bad),#F87171);}
 .ecard.st-ret .ec-stripe{background:linear-gradient(to right,#9CA3AF,#D1D5DB);}
 .ec-body{padding:1rem 1.1rem .875rem;}
 .ec-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.625rem;}
@@ -1047,10 +1044,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .def-item{background:var(--s2);border-radius:var(--r1);padding:.5rem .7rem;
   display:flex;align-items:center;justify-content:space-between;gap:.5rem;
   border-left:3px solid var(--bdr);font-size:.75rem;}
-.def-item.crit{border-left-color:#DC2626;}
+.def-item.crit{border-left-color:var(--bad);}
 .def-item.hi{border-left-color:#D97706;}
 .def-item.med{border-left-color:#2563EB;}
-.def-item.lo{border-left-color:#16A34A;}
+.def-item.lo{border-left-color:var(--ok);}
 
 /* Form elements */
 .fg{display:flex;flex-direction:column;gap:.28rem;margin-bottom:.7rem;}
@@ -1078,14 +1075,7 @@ textarea.fc{resize:vertical;min-height:72px;}
 .exp-opt+.exp-opt{border-top:1px solid var(--bdr);}
 
 /* -- TOAST / EMPTY ---------------------------------- */
-.ttray{position:fixed;top:1.25rem;left:50%;transform:translateX(-50%);align-items:center;display:flex;flex-direction:column;gap:.38rem;z-index:9999;}
-.tst{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r2);
-  padding:.68rem .88rem;display:flex;align-items:flex-start;gap:.5rem;
-  box-shadow:var(--sh3);min-width:240px;animation:tIn .22s cubic-bezier(.4,0,.2,1);border-left:3px solid var(--m3);}
-.tst.ok{border-left-color:#16A34A;}.tst.err{border-left-color:#DC2626;}
-@keyframes tIn{from{transform:translateX(60px);opacity:0}to{transform:translateX(0);opacity:1}}
-.tst-t{font-size:.77rem;font-weight:700;color:var(--t1);}
-.tst-m{font-size:.69rem;color:var(--t2);margin-top:1px;}
+/* .ttray / .tst live in assets/css/admin-shell.css — one toast for every admin page. */
 .empty{text-align:center;padding:2.5rem 1.5rem;color:var(--t3);}
 .empty i{font-size:2.2rem;display:block;margin-bottom:.65rem;opacity:.22;}
 
@@ -1118,9 +1108,9 @@ textarea.fc{resize:vertical;min-height:72px;}
           <i class="fas fa-download"></i> Export <i class="fas fa-chevron-down" style="font-size:.58rem;"></i>
         </button>
         <div id="expMenu">
-          <button onclick="exportCSV()" class="exp-opt"><i class="fas fa-file-csv" style="color:#16A34A;"></i> CSV</button>
-          <button onclick="exportExcel()" class="exp-opt"><i class="fas fa-file-excel" style="color:#16A34A;"></i> Excel</button>
-          <button onclick="exportPDF()" class="exp-opt"><i class="fas fa-file-pdf" style="color:#DC2626;"></i> PDF</button>
+          <button onclick="exportCSV()" class="exp-opt"><i class="fas fa-file-csv" style="color:var(--ok);"></i> CSV</button>
+          <button onclick="exportExcel()" class="exp-opt"><i class="fas fa-file-excel" style="color:var(--ok);"></i> Excel</button>
+          <button onclick="exportPDF()" class="exp-opt"><i class="fas fa-file-pdf" style="color:var(--bad);"></i> PDF</button>
         </div>
       </div>
       <button class="btn btn-maroon btn-sm" onclick="openAdd()"><i class="fas fa-plus"></i> Add Equipment</button>
@@ -1200,7 +1190,7 @@ textarea.fc{resize:vertical;min-height:72px;}
         </form>
       </div>
       <?php if (!empty($_SESSION['inv_flash'])): $fl = $_SESSION['inv_flash']; unset($_SESSION['inv_flash']); ?>
-      <div style="margin:.7rem 1rem 0;padding:.6rem .9rem;border-radius:9px;font-size:.78rem;<?php echo $fl['ok'] ? 'background:#ECFDF5;border:1px solid #A7F3D0;color:#065F46;' : 'background:#FEF2F2;border:1px solid #FECACA;color:#991B1B;'; ?>">
+      <div style="margin:.7rem 1rem 0;padding:.6rem .9rem;border-radius:9px;font-size:.78rem;<?php echo $fl['ok'] ? 'background:#ECFDF5;border:1px solid #A7F3D0;color:#065F46;' : 'background:#FEF2F2;border:1px solid #FECACA;color:var(--bad-tx);'; ?>">
         <i class="fas fa-<?php echo $fl['ok'] ? 'check-circle' : 'exclamation-circle'; ?>"></i> <?php echo esc($fl['msg']); ?>
       </div>
       <?php endif; ?>
@@ -1242,7 +1232,7 @@ textarea.fc{resize:vertical;min-height:72px;}
       <div class="fsw">
         <i class="fas fa-search"></i>
         <input type="text" class="fsi" id="fsq" placeholder="Search name, tag, brand, location"
-          value="<?php echo esc($sq); ?>" oninput="debounceGo()">
+          value="<?php echo esc($sq); ?>" onkeydown="if(event.key==='Enter'){event.preventDefault();go();}">
       </div>
       <select class="fsel" id="fss" onchange="go()">
         <option value="all" <?php echo $sf==='all'?'selected':'';?>>All Status</option>
@@ -1625,7 +1615,7 @@ textarea.fc{resize:vertical;min-height:72px;}
           </div>
         </div>
         <div style="background:#FFF1F2;border:1.5px solid #FECDD3;border-radius:var(--r2);padding:.875rem 1rem;display:flex;gap:.75rem;align-items:flex-start;">
-          <i class="fas fa-trash" style="color:#DC2626;font-size:1.1rem;flex-shrink:0;margin-top:.1rem;"></i>
+          <i class="fas fa-trash" style="color:var(--bad);font-size:1.1rem;flex-shrink:0;margin-top:.1rem;"></i>
           <div>
             <div style="font-weight:700;font-size:.83rem;margin-bottom:.18rem;">Delete Record</div>
             <div style="font-size:.75rem;color:var(--t2);line-height:1.5;">Permanently remove from inventory. Cannot be undone.</div>
@@ -1718,9 +1708,10 @@ function go(){
   u.searchParams.set('search',   document.getElementById('fsq').value);
   u.searchParams.set('per_page', document.getElementById('fper').value);
   u.searchParams.set('page',     '1');
-  location.href=u.toString();
+  // becListNav(): shared in includes/admin_ui.php. Guards against re-running
+  // the same URL and against a second click on an in-flight navigation.
+  becListNav(u.toString());
 }
-let dbt; function debounceGo(){clearTimeout(dbt);dbt=setTimeout(go,500);}
 function applyJsonQuickFilter(jsonCategory, dept){
   const u = new URL(location.href);
   u.searchParams.set('jc', jsonCategory || '');
@@ -1730,7 +1721,7 @@ function applyJsonQuickFilter(jsonCategory, dept){
   u.searchParams.set('dept', (dept && dept !== '') ? dept : 'all');
   u.searchParams.set('per_page', document.getElementById('fper').value);
   u.searchParams.set('page', '1');
-  location.href = u.toString();
+  becListNav(u.toString());
 }
 
 /* --- VIEW TOGGLE -------------------------------------- */
@@ -1935,7 +1926,7 @@ function openQR(id, name, tag, loc){
   var box = document.getElementById('qrBox'); box.innerHTML = '';
   // Higher error correction (H) so the label still scans after scuffs and tape.
   if (window.QRCode) { new QRCode(box, { text: url, width: 180, height: 180, colorDark: '#1C1008', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.H }); }
-  else { box.innerHTML = '<div style="font-size:.72rem;color:#b42318;max-width:160px;">QR library could not load. Link:<br>' + url + '</div>'; }
+  else { box.innerHTML = '<div style="font-size:.72rem;color:var(--bad-tx);max-width:160px;">QR library could not load. Link:<br>' + url + '</div>'; }
   document.getElementById('qrName').textContent = QR_CTX.name;
   document.getElementById('qrTag').textContent = (tag ? 'Asset Tag: ' + tag + ' · ' : '') + id;
   document.getElementById('qrModal').style.display = 'flex';

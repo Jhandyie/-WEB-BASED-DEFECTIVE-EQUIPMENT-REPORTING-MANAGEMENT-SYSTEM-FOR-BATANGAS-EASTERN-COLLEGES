@@ -300,7 +300,7 @@ $eqJson = json_encode($eqPayload, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_H
 <link rel="stylesheet" href="assets/css/admin-shell.css">
 <style>
 
-  :root{--m:#7B1D1D;--md:#4A0E0E;--g:#C9960C;--ink:#1A0808;--ink2:#5C3838;--ink3:#9C7A7A;--paper:#F4EFE6;--surface:#fff;--border:#E5D9C6;--sb:262px;--danger:#B42318;--success:#1A7A33;--m1:#2D0505;--g2:#D4A017;--g3:#F0C040;--r1:8px;--r2:12px;}
+  :root{--m:#7B1D1D;--md:#4A0E0E;--g:#C9960C;--ink:#1A0808;--ink2:#5C3838;--ink3:#9C7A7A;--paper:#F4EFE6;--surface:#fff;--border:#E5D9C6;--sb:262px;--danger:var(--bad-tx);--success:var(--ok-tx);--m1:#2D0505;--g2:#D4A017;--g3:#F0C040;--r1:8px;--r2:12px;}
   *{box-sizing:border-box}
   body{margin:0;font-family:'DM Sans',sans-serif;background:var(--paper);color:var(--ink);min-height:100vh;}
   /* sidebar styling lives in assets/css/admin-shell.css */
@@ -313,9 +313,7 @@ $eqJson = json_encode($eqPayload, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_H
   .unit-badge{display:inline-flex;align-items:center;gap:.35rem;vertical-align:middle;margin-left:.55rem;padding:.22rem .6rem;border-radius:999px;background:linear-gradient(135deg,var(--m),#a01a2b);color:#fff;font-family:'DM Sans',sans-serif;font-size:.62rem;font-weight:700;letter-spacing:.03em;text-transform:uppercase;box-shadow:0 2px 8px rgba(122,18,32,.25);}
   .unit-badge i{font-size:.6rem;}
   .head-acts{display:flex;gap:.5rem;flex-shrink:0;}
-  .flash{display:flex;align-items:center;gap:.55rem;padding:.85rem 1rem;border-radius:11px;margin-bottom:1.1rem;font-size:.86rem;font-weight:600;}
-  .flash.ok{background:#E9F9EF;border:1px solid #b6e6c6;color:var(--success);}
-  .flash.err{background:#FEF2F2;border:1px solid #FECACA;color:var(--danger);}
+/* .flash lives in assets/css/admin-shell.css — one definition for every admin page. */
   /* Stat cards — each one is the filter it describes */
   .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem;}
   .stat{position:relative;overflow:hidden;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.15rem 1.3rem;display:flex;align-items:center;gap:1rem;box-shadow:0 1px 2px rgba(44,10,10,.05);transition:transform .26s cubic-bezier(.4,0,.2,1),box-shadow .26s;text-decoration:none;color:inherit;}
@@ -416,15 +414,15 @@ $eqJson = json_encode($eqPayload, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_H
   tbody tr.paused td{opacity:.72;}
   .t-sub{color:#9E8070;font-size:.72rem;}
   .pill{display:inline-flex;align-items:center;gap:.3rem;font-size:.6rem;font-weight:800;padding:.22rem .6rem;border-radius:999px;text-transform:uppercase;letter-spacing:.3px;}
-  .pill.active{background:#E9F9EF;color:#166534;}.pill.active::before{content:'';width:6px;height:6px;border-radius:50%;background:#16A34A;}
+  .pill.active{background:#E9F9EF;color:var(--ok-tx);}.pill.active::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--ok);}
   .pill.paused{background:#F1F1F1;color:#777;}.pill.paused::before{content:'';width:6px;height:6px;border-radius:50%;background:#9ca3af;}
   .prio{display:inline-block;font-size:.6rem;font-weight:800;padding:.2rem .5rem;border-radius:6px;text-transform:uppercase;letter-spacing:.3px;}
-  .prio.critical{background:#FEF2F2;color:#991B1B;}.prio.high{background:#FFF7ED;color:#C2410C;}.prio.medium{background:#FFFBEB;color:#92600A;}.prio.low{background:#F0FDF4;color:#166534;}
+  .prio.critical{background:#FEF2F2;color:var(--bad-tx);}.prio.high{background:#FFF7ED;color:#C2410C;}.prio.medium{background:#FFFBEB;color:#92600A;}.prio.low{background:#F0FDF4;color:var(--ok-tx);}
   .due-soon{color:var(--danger);font-weight:800;}
   .due-badge{display:inline-block;margin-top:.28rem;font-size:.58rem;font-weight:800;padding:.15rem .48rem;border-radius:6px;letter-spacing:.2px;text-transform:uppercase;}
-  .due-badge.over{background:#FEF2F2;color:#991B1B;}
+  .due-badge.over{background:#FEF2F2;color:var(--bad-tx);}
   .due-badge.soon{background:#FFFBEB;color:#92600A;}
-  .due-badge.far{background:#F0FDF4;color:#166534;}
+  .due-badge.far{background:#F0FDF4;color:var(--ok-tx);}
   .due-badge.paused{background:#F1F1F1;color:#8A8A8A;}
   .gen{display:inline-flex;flex-direction:column;gap:.15rem;text-decoration:none;color:var(--m);font-weight:700;font-size:.8rem;}
   .gen:hover .gn{text-decoration:underline;}
@@ -624,7 +622,9 @@ $eqJson = json_encode($eqPayload, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_H
         <div class="fsw">
           <i class="fas fa-search"></i>
           <input type="text" class="fsi" id="fq" placeholder="Search task, equipment, room…" value="<?php echo pm_e($q); ?>"
-                 oninput="pmDebounce()" onkeydown="if(event.key==='Enter'){event.preventDefault();pmGo();}">
+                 <?php /* No oninput: it fired a whole page load 450ms after each
+                          keystroke. Enter commits the search. */ ?>
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();pmGo();}">
         </div>
         <select class="fsel" id="fs" aria-label="Filter by status" onchange="pmGo()">
           <option value="all"    <?php echo $sf === 'all'    ? 'selected' : ''; ?>>All statuses</option>
@@ -862,9 +862,10 @@ function pmGo() {
   set('due',    document.getElementById('fd').value, 'all');
   set('unit',   document.getElementById('fu').value, '');   // "all" is a real choice here: it overrides the admin's own unit
   u.searchParams.delete('new');
-  location.href = u.toString();
+  // becListNav(): shared in includes/admin_ui.php. Guards against re-running
+  // the same URL and against a second click on an in-flight navigation.
+  becListNav(u.toString());
 }
-var pmT; function pmDebounce() { clearTimeout(pmT); pmT = setTimeout(pmGo, 450); }
 
 /* ─── New-schedule panel ─── */
 var newPanel = document.getElementById('newPanel');

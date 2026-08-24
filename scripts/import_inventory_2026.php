@@ -75,7 +75,7 @@ foreach ($items as $it) {
     $bits = [];
     foreach ([
         'Size'           => $it['size'],
-        'Colour'         => $it['color'],
+        'Color'          => $it['color'],
         'Classification' => $it['classification'],
     ] as $label => $v) {
         if (trim((string)$v) !== '') $bits[] = $label . ': ' . trim((string)$v);

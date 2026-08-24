@@ -324,12 +324,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .pg{padding:var(--sp-5) 1.75rem;flex:1;}
 
 /* -- FLASH ----------------------------------------- */
-.flash{display:flex;align-items:center;gap:.6rem;padding:.7rem 1.1rem;
-  border-radius:var(--r2);margin-bottom:1.1rem;font-size:var(--fs-md);font-weight:600;
-  animation:fIn .25s ease;border-left:3px solid;}
+/* .flash lives in assets/css/admin-shell.css — one definition for every admin page. */
 @keyframes fIn{from{opacity:0;transform:translateY(-5px);}to{opacity:1;transform:translateY(0);}}
-.flash.ok{background:#F0FDF4;color:#15803D;border-color:#22C55E;}
-.flash.err{background:#FFF1F2;color:#DC2626;border-color:#EF4444;}
 
 /* -- PAGE HEADER ----------------------------------- */
 .ph{display:flex;align-items:flex-end;justify-content:space-between;
@@ -348,9 +344,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .btn:hover{transform:none;}.btn:active{transform:translateY(0);}
 .btn-maroon{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;box-shadow:none;}
 .btn-maroon:hover{box-shadow:none;}
-.btn-green{background:linear-gradient(135deg,#15803D,#22C55E);color:#fff;box-shadow:none;}
+.btn-green{background:linear-gradient(135deg,var(--ok-tx),var(--ok));color:#fff;box-shadow:none;}
 .btn-green:hover{box-shadow:none;}
-.btn-red{background:linear-gradient(135deg,#B91C1C,#EF4444);color:#fff;box-shadow:none;}
+.btn-red{background:linear-gradient(135deg,#B91C1C,var(--bad));color:#fff;box-shadow:none;}
 .btn-red:hover{box-shadow:none;}
 .btn-ghost{background:var(--s2);color:var(--t2);border:1px solid var(--bdr);}
 .btn-ghost:hover{background:var(--s3);}
@@ -377,7 +373,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .scard:hover::before{transform:none;opacity:.08;}
 .scard:hover::after{transform:scaleX(1);}
 .sc-a{--sk:var(--m3);--skl:rgba(123,29,29,.14);}
-.sc-b{--sk:#16A34A;--skl:rgba(22,163,74,.14);}
+.sc-b{--sk:var(--ok);--skl:rgba(22,163,74,.14);}
 .sc-c{--sk:#D97706;--skl:rgba(217,119,6,.14);}
 .sc-d{--sk:#7C3AED;--skl:rgba(124,58,237,.14);}
 .sico{width:40px;height:40px;border-radius:var(--r2);display:flex;align-items:center;
@@ -386,7 +382,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   box-shadow:none;transition:all .26s;position:relative;z-index:1;}
 .scard:hover .sico{transform:none;}
 .sc-a .sico{--sib:#FDECEA;--sic:var(--m3);}
-.sc-b .sico{--sib:#F0FDF4;--sic:#16A34A;}
+.sc-b .sico{--sib:#F0FDF4;--sic:var(--ok);}
 .sc-c .sico{--sib:#FFFBEB;--sic:#D97706;}
 .sc-d .sico{--sib:#F5F3FF;--sic:#7C3AED;}
 .snum{font-family:'Outfit',sans-serif;font-size:2.2rem;font-weight:800;
@@ -440,7 +436,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .ps-low     input:checked + span{background:#EFF6FF;border-color:#2563EB;color:#1D4ED8;}
 .ps-medium  input:checked + span{background:#FFFBEB;border-color:#D4A017;color:#92600A;}
 .ps-high    input:checked + span{background:#FFF7ED;border-color:#EA580C;color:#C2410C;}
-.ps-critical input:checked + span{background:#FEF2F2;border-color:#DC2626;color:#B91C1C;}
+.ps-critical input:checked + span{background:#FEF2F2;border-color:var(--bad);color:#B91C1C;}
 
 /* The chosen technician is stated on the card you clicked, not only in a select
    the card happens to drive. */
@@ -478,7 +474,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
   border:1.5px solid var(--bdr);background:var(--s1);
   font-size:var(--fs-xs);font-weight:800;color:var(--t4);}
 .asg-step.done{color:var(--t2);}
-.asg-step.done span{background:#16A34A;border-color:#16A34A;color:#fff;}
+.asg-step.done span{background:var(--ok);border-color:var(--ok);color:#fff;}
 .asg-step.now{color:var(--m3);}
 .asg-step.now span{background:var(--m3);border-color:var(--m2);color:#fff;
   box-shadow:0 0 0 3px rgba(123,29,29,.13);}
@@ -690,7 +686,7 @@ tr.pick-row .rid-lnk{cursor:alias;}
 .tprof-job-eq{flex:1;min-width:0;font-size:var(--fs-base);color:var(--t1);font-weight:600;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .tprof-job-when{font-size:var(--fs-sm);color:var(--t3);white-space:nowrap;}
-.tprof-free{display:flex;align-items:center;gap:.45rem;font-size:var(--fs-base);color:#15803D;
+.tprof-free{display:flex;align-items:center;gap:.45rem;font-size:var(--fs-base);color:var(--ok-tx);
   background:#F0FDF4;border:1px solid #BBE8CB;border-radius:var(--r1);padding:.6rem var(--sp-3);}
 
 /* -- BADGES ---------------------------------------- */
@@ -706,7 +702,7 @@ tr.pick-row .rid-lnk{cursor:alias;}
 .b-crit{background:#FFF7ED;color:#C2410C;}
 .b-hi{background:#FFFBEB;color:#B45309;}
 .b-med{background:#EFF6FF;color:#1D4ED8;}
-.b-lo{background:#F0FDF4;color:#15803D;}
+.b-lo{background:#F0FDF4;color:var(--ok-tx);}
 /* stCls() maps for_replacement to 'rej', and this rule was never written — so a
    For Replacement row rendered .bdg with no background and no colour, a pill
    shape holding dark body text while every other status was tinted. Rose, the
@@ -962,21 +958,12 @@ textarea.fc{resize:vertical;min-height:80px;}
 /* -- UNASSIGN CONFIRMATION ------------------------- */
 .conf-panel{background:#FFF1F2;border:1.5px solid #FECDD3;border-radius:var(--r2);
   padding:.875rem var(--sp-4);display:flex;gap:var(--sp-3);align-items:flex-start;margin-top:var(--sp-2);}
-.conf-icon{width:34px;height:34px;background:#FEE2E2;color:#DC2626;
+.conf-icon{width:34px;height:34px;background:#FEE2E2;color:var(--bad);
   border-radius:50%;display:flex;align-items:center;justify-content:center;
   flex-shrink:0;font-size:var(--fs-lg);}
 
 /* -- TOAST ----------------------------------------- */
-.ttray{position:fixed;top:1.25rem;left:50%;transform:translateX(-50%);align-items:center;display:flex;
-  flex-direction:column;gap:.35rem;z-index:9999;}
-.tst{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r2);
-  padding:.7rem .875rem;display:flex;align-items:flex-start;gap:var(--sp-2);
-  box-shadow:var(--sh3);min-width:240px;
-  animation:tIn .22s cubic-bezier(.4,0,.2,1);border-left:3px solid var(--m3);}
-.tst.ok{border-left-color:#16A34A;}.tst.err{border-left-color:#DC2626;}
-@keyframes tIn{from{transform:translateX(60px);opacity:0}to{transform:translateX(0);opacity:1}}
-.tst-t{font-size:var(--fs-base);font-weight:700;color:var(--t1);}
-.tst-m{font-size:var(--fs-sm);color:var(--t2);margin-top:1px;}
+/* .ttray / .tst live in assets/css/admin-shell.css — one toast for every admin page. */
 
 /* -- EMPTY ----------------------------------------- */
 .empty{text-align:center;padding:2.5rem var(--sp-5);color:var(--t3);}
@@ -1074,13 +1061,13 @@ textarea.fc{resize:vertical;min-height:80px;}
         <div class="sico"><i class="fas fa-user-check"></i></div>
         <div class="snum" id="sn1"><?php echo $availTechs; ?></div>
         <div class="slbl">Available Technicians</div>
-        <div class="smicro"><i class="fas fa-circle" style="color:#16A34A;font-size:var(--fs-xs);"></i> Light workload</div>
+        <div class="smicro"><i class="fas fa-circle" style="color:var(--ok);font-size:var(--fs-xs);"></i> Light workload</div>
       </div>
       <div class="scard sc-c">
         <div class="sico"><i class="fas fa-triangle-exclamation"></i></div>
         <div class="snum" id="sn2"><?php echo $overloadedTechs; ?></div>
         <div class="slbl">Overloaded Technicians</div>
-        <div class="smicro"><i class="fas fa-circle" style="color:#DC2626;font-size:var(--fs-xs);"></i> 4+ active tasks</div>
+        <div class="smicro"><i class="fas fa-circle" style="color:var(--bad);font-size:var(--fs-xs);"></i> 4+ active tasks</div>
       </div>
       <div class="scard sc-d">
         <div class="sico"><i class="fas fa-wrench"></i></div>
@@ -1168,7 +1155,7 @@ textarea.fc{resize:vertical;min-height:80px;}
             <tbody>
               <?php if(empty($unassigned)): ?>
               <tr><td colspan="6"><div class="empty">
-                <i class="fas fa-check-circle" style="color:#16A34A;"></i>
+                <i class="fas fa-check-circle" style="color:var(--ok);"></i>
                 All reports are assigned - great work!
               </div></td></tr>
               <?php else: foreach($unassignedShown as $r):
