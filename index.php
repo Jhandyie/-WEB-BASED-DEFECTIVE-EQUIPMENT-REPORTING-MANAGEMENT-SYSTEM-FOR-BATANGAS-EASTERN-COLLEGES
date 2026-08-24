@@ -834,7 +834,7 @@ a { text-decoration: none; color: inherit; }
     <div class="container">
       <div class="sec-head">
         <span class="sec-eyebrow"><span class="dot"></span> Venue reservation</span>
-        <h2 class="sec-title">Booking a venue? <em>Check it is free first</em></h2>
+        <h2 class="sec-title">Booking a Venue</h2>
         <p class="sec-sub">The same Venue Reservation Form the PMO keeps on paper — filed online, so you find out straight away whether the room is already taken for your time slot.</p>
       </div>
       <div class="cta-portal">
