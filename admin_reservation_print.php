@@ -18,6 +18,8 @@
  * even when the system has no value for them — a form is signed on paper, and
  * the empty line is where that happens.
  */
+require_once __DIR__ . '/config/features.php';
+if (!becVenueEnabled()) { header('Location: admin_dashboard.php'); exit; }
 require_once __DIR__ . '/includes/session_bootstrap.php';
 startRoleSession('admin');
 require_once __DIR__ . '/config/database.php';

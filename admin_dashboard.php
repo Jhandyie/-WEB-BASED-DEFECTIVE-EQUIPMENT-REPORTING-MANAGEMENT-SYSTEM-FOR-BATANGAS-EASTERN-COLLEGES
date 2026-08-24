@@ -264,6 +264,8 @@ foreach ($recentReports as $row) {
     $recentReportDetails[(string)$row['report_id']] = $detailed;
 }
 
+require_once __DIR__ . '/config/features.php';
+
 // -- CHART DATA --------------------------------
 $defectTrends      = getDefectsOverTime(7);
 $reservationTrends = getReservationsOverTime(7);
@@ -697,8 +699,10 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .nav-item:focus-visib
           <a onclick="openExport('defects','xlsx')"><i class="fas fa-file-excel"></i> Defect Reports — Excel</a>
           <a onclick="openExport('equipment','pdf')"><i class="fas fa-file-pdf"></i> Equipment Usage — PDF</a>
           <a onclick="openExport('equipment','xlsx')"><i class="fas fa-file-excel"></i> Equipment Usage — Excel</a>
+<?php if (becVenueEnabled()): ?>
           <a onclick="openExport('reservations','pdf')"><i class="fas fa-file-pdf"></i> Reservations — PDF</a>
           <a onclick="openExport('reservations','xlsx')"><i class="fas fa-file-excel"></i> Reservations — Excel</a>
+<?php endif; ?>
           <div class="exp-menu-sep"></div>
           <a onclick="exportReport()"><i class="fas fa-table"></i> Dashboard Summary — CSV</a>
         </div>
@@ -1115,7 +1119,9 @@ new Chart(document.getElementById('lineChart'),{
     labels:rT.map(i=>{const d=new Date(i.date);return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});}),
     datasets:[
       {label:'Defect Reports',data:dT.map(i=>i.count),borderColor:'#DC2626',backgroundColor:'rgba(220,38,38,.08)',tension:.4,fill:true,borderWidth:2,pointBackgroundColor:'#DC2626',pointBorderColor:'#fff',pointBorderWidth:2,pointRadius:3},
+<?php if (becVenueEnabled()): ?>
       {label:'Reservations',data:rT.map(i=>i.count),borderColor:'#2563EB',backgroundColor:'rgba(37,99,235,.06)',tension:.4,fill:true,borderWidth:2,pointBackgroundColor:'#2563EB',pointBorderColor:'#fff',pointBorderWidth:2,pointRadius:3},
+<?php endif; ?>
     ]
   },
   options:{
