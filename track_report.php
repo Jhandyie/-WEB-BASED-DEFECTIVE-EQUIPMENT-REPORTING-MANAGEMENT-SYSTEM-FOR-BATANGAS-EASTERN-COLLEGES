@@ -387,6 +387,14 @@ function tr_progress(array $timeline, string $status = ''): array {
 html{font-size:106.25%;scrollbar-gutter:stable;}
 
 :root{
+  /* Semantic status ramp — the same values as assets/css/admin-shell.css,
+     repeated because this page does not load the admin shell. One meaning,
+     one colour, across every surface. */
+  --ok:#16A34A;--ok-tx:#166534;--ok-bg:#F0FDF4;--ok-bdr:#BBF7D0;
+  --warn:#D97706;--warn-tx:#92600A;--warn-bg:#FFFBEB;--warn-bdr:#FDE68A;
+  --bad:#DC2626;--bad-tx:#991B1B;--bad-bg:#FEF2F2;--bad-bdr:#FECACA;
+  --info:#2563EB;--info-tx:#1D4ED8;--info-bg:#EFF6FF;--info-bdr:#BFDBFE;
+
   /* Shared six-step scales — same steps as the admin pages, so a size or a
      gap means the same thing across the system. Nothing between them. */
   --fs-xs:.6rem;--fs-sm:.68rem;--fs-base:.76rem;--fs-md:.82rem;--fs-lg:.88rem;--fs-xl:.95rem;--fs-2xl:1.05rem;
@@ -425,14 +433,14 @@ form{display:flex;gap:var(--sp-3);flex-wrap:wrap}
 .search-title{font-weight:700;overflow-wrap:anywhere}
 .search-meta{font-size:var(--fs-base);color:var(--k3);line-height:1.45;overflow-wrap:anywhere}
 .search-empty{padding:var(--sp-3) var(--sp-4);font-size:var(--fs-md);color:var(--k3);text-align:center}
-.alert{margin-top:var(--sp-4);padding:var(--sp-3) var(--sp-4);border-radius:12px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b}
+.alert{margin-top:var(--sp-4);padding:var(--sp-3) var(--sp-4);border-radius:12px;border:1px solid #fecaca;background:#fef2f2;color:var(--bad-tx)}
 .result{margin-top:var(--sp-4)}
 .ticket{font-family:'Fraunces',serif;font-size:1.4rem;color:var(--m);margin-bottom:var(--sp-3)}
 .badges{display:flex;gap:var(--sp-2);flex-wrap:wrap;margin-bottom:var(--sp-4)}
 .badge{display:inline-flex;align-items:center;gap:var(--sp-1);padding:var(--sp-1) var(--sp-3);border-radius:999px;font-size:var(--fs-base);font-weight:700}
-.sev-low{background:#F0FDF4;color:#166534}.sev-med{background:#FFFBEB;color:#92400E}.sev-high{background:#FFF7ED;color:#C2410C}.sev-crit{background:#FEF2F2;color:#991B1B}
-.st-open{background:#FEF2F2;color:#991B1B}.st-prog{background:#FFF7ED;color:#C2410C}.st-done{background:#F0FDF4;color:#166534}
-.eq-ok{background:#F0FDF4;color:#166534}.eq-maint{background:#FFF7ED;color:#C2410C}.eq-use{background:#EBF5FF;color:#1D4ED8}.eq-bad{background:#FEF2F2;color:#991B1B}.eq-unk{background:#F3F4F6;color:#4B5563}
+.sev-low{background:#F0FDF4;color:var(--ok-tx)}.sev-med{background:#FFFBEB;color:#92400E}.sev-high{background:#FFF7ED;color:#C2410C}.sev-crit{background:#FEF2F2;color:var(--bad-tx)}
+.st-open{background:#FEF2F2;color:var(--bad-tx)}.st-prog{background:#FFF7ED;color:#C2410C}.st-done{background:#F0FDF4;color:var(--ok-tx)}
+.eq-ok{background:#F0FDF4;color:var(--ok-tx)}.eq-maint{background:#FFF7ED;color:#C2410C}.eq-use{background:#EBF5FF;color:#1D4ED8}.eq-bad{background:#FEF2F2;color:var(--bad-tx)}.eq-unk{background:#F3F4F6;color:#4B5563}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3)}
 .item{background:#fffaf4;border:1px solid var(--b);border-radius:12px;padding:var(--sp-3)}
 .label{font-size:var(--fs-sm);text-transform:uppercase;letter-spacing:.8px;color:var(--k3);margin-bottom:var(--sp-1)}
@@ -442,7 +450,7 @@ form{display:flex;gap:var(--sp-3);flex-wrap:wrap}
 .timeline{margin-top:var(--sp-4);display:grid;gap:var(--sp-3)}
 .tl-item{display:flex;gap:var(--sp-3);align-items:flex-start}
 .tl-dot{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:var(--fs-sm);font-weight:700;flex-shrink:0}
-.tl-item.done .tl-dot{background:#F0FDF4;color:#166534}
+.tl-item.done .tl-dot{background:#F0FDF4;color:var(--ok-tx)}
 .tl-item.active .tl-dot{background:#FFF7ED;color:#C2410C}
 .tl-item.pending .tl-dot{background:#F3F4F6;color:#6B7280}
 .tl-title{font-weight:700;margin-bottom:var(--sp-0)}
@@ -475,7 +483,7 @@ form{display:flex;gap:var(--sp-3);flex-wrap:wrap}
 .rt-step:last-child::before{display:none}
 .rt-step.done::before{background:#86c79e}
 .rt-marker{position:absolute;left:0;top:0;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:var(--fs-sm);font-weight:700;background:#F3F4F6;color:#9aa}
-.rt-step.done .rt-marker{background:#166534;color:#fff}
+.rt-step.done .rt-marker{background:var(--ok-tx);color:#fff}
 .rt-step.active .rt-marker{background:var(--g);color:#3a2a02;box-shadow:0 0 0 0 rgba(201,150,12,.5);animation:rtp 1.8s infinite}
 @keyframes rtp{0%{box-shadow:0 0 0 0 rgba(201,150,12,.45)}70%{box-shadow:0 0 0 9px rgba(201,150,12,0)}100%{box-shadow:0 0 0 0 rgba(201,150,12,0)}}
 .rt-title{font-weight:700;font-size:var(--fs-xl);display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
@@ -483,7 +491,7 @@ form{display:flex;gap:var(--sp-3);flex-wrap:wrap}
 .rt-live{font-size:var(--fs-xs);font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#92400E;background:#FFF3D6;border:1px solid #f0d493;padding:var(--sp-0) var(--sp-2);border-radius:999px}
 .rt-desc{font-size:var(--fs-base);color:var(--k2);line-height:1.5;margin-top:var(--sp-1)}
 .rt-step.pending .rt-desc{color:var(--k3)}
-.rt-date{font-size:var(--fs-sm);color:#166534;font-weight:600;margin-top:var(--sp-1);display:flex;align-items:center;gap:var(--sp-1)}
+.rt-date{font-size:var(--fs-sm);color:var(--ok-tx);font-weight:600;margin-top:var(--sp-1);display:flex;align-items:center;gap:var(--sp-1)}
 .rt-next{font-size:var(--fs-sm);color:var(--k3);margin-top:var(--sp-1);font-style:italic}
 
 /* ── Follow-up / bump ── */
@@ -498,7 +506,7 @@ form{display:flex;gap:var(--sp-3);flex-wrap:wrap}
 .fu-btn.active:hover{filter:brightness(1.08)}
 .fu-btn[disabled]{background:#eee;color:#999;cursor:not-allowed}
 .fu-flash{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-3);border-radius:10px;font-size:var(--fs-md);font-weight:600;margin-bottom:var(--sp-3)}
-.fu-flash.ok{background:#F0FDF4;color:#166534;border:1px solid #bbf7d0}
+.fu-flash.ok{background:#F0FDF4;color:var(--ok-tx);border:1px solid #bbf7d0}
 .fu-flash.err{background:#FEF7ED;color:#9A3412;border:1px solid #fed7aa}
 /* The phone rules tightened `body` but left .page and .card at their desktop
    padding, so three gutters stacked: .9rem + 1.25rem + 1.2rem put the card's
@@ -675,8 +683,8 @@ html{scroll-behavior:smooth}
                   <input type="hidden" name="action" value="confirm_satisfaction">
                   <input type="hidden" name="report_id" value="<?php echo htmlspecialchars((string)$report['report_id']); ?>">
                   <input type="text" name="satisfaction_note" placeholder="Optional comment…" style="flex:1;min-width:150px;padding:.6rem .8rem;border:1.5px solid var(--b);border-radius:10px;font:inherit;">
-                  <button class="fu-btn active" type="submit" name="verdict" value="yes" style="background:linear-gradient(135deg,#15803d,#22c55e);"><i aria-hidden="true" class="fas fa-thumbs-up"></i> Yes, resolved</button>
-                  <button class="fu-btn active" type="submit" name="verdict" value="no" style="background:linear-gradient(135deg,#b91c1c,#ef4444);"><i aria-hidden="true" class="fas fa-thumbs-down"></i> Not fixed</button>
+                  <button class="fu-btn active" type="submit" name="verdict" value="yes" style="background:linear-gradient(135deg,var(--ok-tx),var(--ok));"><i aria-hidden="true" class="fas fa-thumbs-up"></i> Yes, resolved</button>
+                  <button class="fu-btn active" type="submit" name="verdict" value="no" style="background:linear-gradient(135deg,#b91c1c,var(--bad));"><i aria-hidden="true" class="fas fa-thumbs-down"></i> Not fixed</button>
                 </form>
               <?php endif; ?>
             </div>

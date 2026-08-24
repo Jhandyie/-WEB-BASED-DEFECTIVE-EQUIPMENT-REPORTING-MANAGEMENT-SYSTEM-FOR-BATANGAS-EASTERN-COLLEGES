@@ -21,6 +21,23 @@
 @media(max-width:640px){#iss-fab{padding:.6rem;border-radius:50%;right:14px;bottom:14px;}
   #iss-fab .iss-lbl{display:none;}}
 
+/* Share the bottom-right corner instead of fighting over it.
+   The back-to-top button (#toTop, defined in the host page's head) also sits at
+   bottom-right, and at z-index 9996 against this pill's 940 it landed squarely
+   on top of the label. Nothing was broken — you just could not read "Report an
+   issue" or reliably hit either one.
+   This rule stacks the button above the pill. It lives here, not in the host
+   page, because the pill is what creates the conflict: a page without this
+   widget keeps its own bottom offset untouched. No !important needed — this
+   <style> is emitted at the end of <body>, so it wins on source order against
+   an equally specific #toTop rule in the <head>.
+   The numbers are the pill's own box: 18px offset + ~40px tall + 12px gap. */
+#toTop{bottom:70px;}
+@media(max-width:640px){
+  /* the pill collapses to a ~38px circle at a 14px offset */
+  #toTop{bottom:62px;}
+}
+
 #iss-ov{position:fixed;inset:0;z-index:960;background:rgba(26,8,8,.55);backdrop-filter:blur(3px);
   display:none;align-items:center;justify-content:center;padding:1rem;}
 #iss-ov.on{display:flex;}
