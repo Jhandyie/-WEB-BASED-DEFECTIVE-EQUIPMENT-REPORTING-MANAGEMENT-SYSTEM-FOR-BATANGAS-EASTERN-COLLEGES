@@ -6,6 +6,21 @@
  * waiting on a signature, what the office approved, and whether it has been
  * paid. The decision boxes on the form (PMO approval, School Administrator
  * disapproval, Accounting assessment, Cashier's OR number) are the actions here.
+ *
+ * WHY THERE IS AN ASSESSMENT & PAYMENT PANEL IN A CAMPUS BOOKING SYSTEM
+ * ---------------------------------------------------------------------
+ * Reviewers keep asking, reasonably, why reserving a room the college already
+ * owns involves an amount due and an OR number. It is not invented, and it is
+ * not e-commerce: BEC's paper "VENUE RESERVATION FORM" (Rev. 00) is assessed by
+ * Accounting and closed out by the Cashier, and BEC does charge for some venue
+ * use. Every field here is a box on that form, so an approved reservation can
+ * be reprinted as the form (admin_reservation_print.php).
+ *
+ * Note the scoping, which is the part worth preserving if this is ever
+ * revisited: the panel is ADMIN-ONLY. reserve_venue.php never asks an applicant
+ * for a peso figure or an OR number — those are the office's boxes, filled by
+ * the office, exactly as on paper. No money moves through this system; it
+ * records what Accounting and the Cashier already did.
  */
 require_once __DIR__ . '/config/features.php';
 if (!becVenueEnabled()) { header('Location: admin_dashboard.php'); exit; }
@@ -144,9 +159,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!array_key_exists($new, vrStatuses())) {
             $flash = ['err', 'Unknown status.'];
         } else {
-            $pdo->prepare("UPDATE public.venue_reservations SET status = :s, updated_at = now() WHERE id = :id")
-                ->execute(['s' => $new, 'id' => $id]);
-            $done = ['ok', 'Marked as ' . vrStatusLabel($new) . '.'];
+            /* Setting a status by hand can re-acquire a hold on the room. A
+               request that was cancelled or disapproved has released its slot,
+               someone else may have taken it since, and moving it back to
+               submitted / endorsed / approved puts two holders on one window.
+               The EXCLUDE constraint refuses that — correctly — but this branch
+               used to have neither a pre-check nor a try/catch, so the refusal
+               arrived as an uncaught PDOException: a 500 page, on a click that
+               should have produced a sentence. Approve already does both; this
+               now matches it. */
+            $reacquires = in_array($new, vrHoldingStatuses(), true)
+                       && !in_array((string)$row['status'], vrHoldingStatuses(), true);
+            $clash = $reacquires
+                ? vrConflicts($pdo, (string)$row['venue'], (string)$row['starts_at'], (string)$row['ends_at'], $id)
+                : [];
+            if ($clash) {
+                $c = $clash[0];
+                $flash = ['err', 'Not changed — ' . $row['venue'] . ' is now held by '
+                               . ($c['vrf_no'] ?: '#' . $c['id']) . ' (' . $c['applicant_name'] . ') for '
+                               . vrRange($c['starts_at'], $c['ends_at']) . '. Release that one first.'];
+            } else {
+                try {
+                    $pdo->prepare("UPDATE public.venue_reservations SET status = :s, updated_at = now() WHERE id = :id")
+                        ->execute(['s' => $new, 'id' => $id]);
+                    if (function_exists('logActivity')) {
+                        try { logActivity($admin_id, 'admin', 'vrf.status', 'Set reservation #' . $id . ' to ' . $new); } catch (\Throwable $e) {}
+                    }
+                    $done = ['ok', 'Marked as ' . vrStatusLabel($new) . '.'];
+                } catch (\Throwable $e) {
+                    // Last word if another admin took the slot mid-request.
+                    error_log('vrf.status failed: ' . $e->getMessage());
+                    $flash = ['err', 'Not changed — the venue was taken for that window while this page was open. Reload to see the current holder.'];
+                }
+            }
         }
     }
 
@@ -158,35 +203,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 if (!$flash && !empty($_SESSION['vrf_flash'])) { $flash = $_SESSION['vrf_flash']; unset($_SESSION['vrf_flash']); }
 
-/* ─── Data ─── */
-$all = $pdo->query("SELECT * FROM public.venue_reservations ORDER BY starts_at DESC")->fetchAll(PDO::FETCH_ASSOC);
+/* ─── Data ───
+   Every row used to be fetched here, counted in a PHP loop, then narrowed by
+   three array_filter() passes and handed to a client-side paginator — so the
+   browser received the whole table and showed 15 of it. That is the shape
+   CLAUDE.md warns about: work proportional to the backlog on every page load,
+   invisible while there is one reservation and a wall at a few thousand.
+   Filtering, counting and paging now all happen in the database, the same way
+   Defect Reports and User Management do. */
 $now = time();
 
-$cAwaiting = 0; $cApproved = 0; $cUnpaid = 0; $cToday = 0;
-foreach ($all as $r) {
-    $s = strtotime((string)$r['starts_at']);
-    if (in_array($r['status'], ['submitted', 'endorsed'], true)) { $cAwaiting++; }
-    if ($r['status'] === 'approved' && $s >= $now) { $cApproved++; }
-    if ($r['status'] === 'approved' && $r['assessment_amount'] !== null && (float)$r['assessment_amount'] > 0
-        && ((float)($r['amount_paid'] ?? 0)) < (float)$r['assessment_amount']) { $cUnpaid++; }
-    if (date('Y-m-d', $s) === date('Y-m-d')) { $cToday++; }
-}
-
-$rows = $all;
-if ($sf === 'open')       { $rows = array_values(array_filter($rows, fn($r) => in_array($r['status'], ['submitted', 'endorsed'], true))); }
-elseif ($sf !== 'all')    { $rows = array_values(array_filter($rows, fn($r) => $r['status'] === $sf)); }
-if ($wf === 'upcoming')   { $rows = array_values(array_filter($rows, fn($r) => strtotime((string)$r['ends_at']) >= $now)); }
-elseif ($wf === 'past')   { $rows = array_values(array_filter($rows, fn($r) => strtotime((string)$r['ends_at']) < $now)); }
+// Shared by the count and the page query, so the number under the table and
+// the rows in it can never disagree.
+$where = []; $bind = [];
+if ($sf === 'open')     { $where[] = "status IN ('submitted','endorsed')"; }
+elseif ($sf !== 'all')  { $where[] = 'status = :st'; $bind['st'] = $sf; }
+if ($wf === 'upcoming') { $where[] = 'ends_at >= now()'; }
+elseif ($wf === 'past') { $where[] = 'ends_at <  now()'; }
 if ($q !== '') {
-    $needle = mb_strtolower($q);
-    $rows = array_values(array_filter($rows, function ($r) use ($needle) {
-        $hay = mb_strtolower(implode(' ', [
-            (string)$r['vrf_no'], (string)$r['applicant_name'], (string)$r['department_org'],
-            (string)$r['venue'], (string)$r['description'], (string)$r['or_no'],
-        ]));
-        return mb_strpos($hay, $needle) !== false;
-    }));
+    // COALESCE on every column: in Postgres a NULL anywhere in a concatenation
+    // makes the whole haystack NULL, so one empty OR number would hide the row.
+    $where[] = "(COALESCE(vrf_no,'') || ' ' || COALESCE(applicant_name,'') || ' '
+              || COALESCE(department_org,'') || ' ' || COALESCE(venue,'') || ' '
+              || COALESCE(description,'') || ' ' || COALESCE(or_no,'')) ILIKE :q";
+    $bind['q'] = '%' . $q . '%';
 }
+$sqlWhere = $where ? ' WHERE ' . implode(' AND ', $where) : '';
+
+// The four headline figures, counted in the database rather than by walking
+// every row. Deliberately NOT narrowed by the filters — they describe the whole
+// queue, which is what makes them worth glancing at while a filter is applied.
+$counts = $pdo->query(
+    "SELECT
+       COUNT(*) FILTER (WHERE status IN ('submitted','endorsed'))                          AS awaiting,
+       COUNT(*) FILTER (WHERE status = 'approved' AND starts_at >= now())                  AS approved,
+       COUNT(*) FILTER (WHERE status = 'approved' AND assessment_amount > 0
+                          AND COALESCE(amount_paid,0) < assessment_amount)                  AS unpaid,
+       COUNT(*) FILTER (WHERE starts_at::date = CURRENT_DATE)                              AS today,
+       COUNT(*)                                                                            AS total
+     FROM public.venue_reservations"
+)->fetch(PDO::FETCH_ASSOC) ?: [];
+$cAwaiting = (int)($counts['awaiting'] ?? 0);
+$cApproved = (int)($counts['approved'] ?? 0);
+$cUnpaid   = (int)($counts['unpaid']   ?? 0);
+$cToday    = (int)($counts['today']    ?? 0);
+$allTotal  = (int)($counts['total']    ?? 0);
+
+$perPage = 15;                                  // what the old client paginator showed
+$page    = max(1, (int)($_GET['page'] ?? 1));
+
+$cst = $pdo->prepare("SELECT COUNT(*) FROM public.venue_reservations{$sqlWhere}");
+$cst->execute($bind);
+$matchTotal = (int)$cst->fetchColumn();
+$totalPages = max(1, (int)ceil($matchTotal / $perPage));
+if ($page > $totalPages) { $page = $totalPages; }
+$offset = ($page - 1) * $perPage;
+
+// Interpolated, not bound: both are ints from (int) casts, and PDO will not
+// bind LIMIT placeholders on every driver.
+$rst = $pdo->prepare("SELECT * FROM public.venue_reservations{$sqlWhere}
+                       ORDER BY starts_at DESC LIMIT {$perPage} OFFSET {$offset}");
+$rst->execute($bind);
+$rows = $rst->fetchAll(PDO::FETCH_ASSOC);
+
+$rowFrom = $matchTotal === 0 ? 0 : $offset + 1;
+$rowTo   = $offset + count($rows);
+
+// Every filter has to survive a page change, or paging would silently reset the view.
+$pageQuery = static function (int $p) use ($q, $sf, $wf): string {
+    $args = array_filter(
+        ['q' => $q, 'status' => $sf === 'open' ? '' : $sf, 'when' => $wf, 'page' => $p > 1 ? $p : ''],
+        static fn($v) => $v !== '' && $v !== 'all'
+    );
+    return 'admin_reservations.php' . ($args ? '?' . http_build_query($args) : '');
+};
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -197,7 +287,7 @@ if ($q !== '') {
 <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <link rel="stylesheet" href="assets/css/admin-shell.css">
 <style>
-  :root{--m:#7B1D1D;--md:#4A0E0E;--g:#C9960C;--ink:#1A0808;--ink2:#5C3838;--ink3:#9C7A7A;--paper:#F4EFE6;--surface:#fff;--border:#E5D9C6;--sb:262px;--danger:#B42318;--success:#1A7A33;--g3:#F0C040;--r1:8px;--r2:12px;}
+  :root{--m:#7B1D1D;--md:#4A0E0E;--g:#C9960C;--ink:#1A0808;--ink2:#5C3838;--ink3:#9C7A7A;--paper:#F4EFE6;--surface:#fff;--border:#E5D9C6;--sb:262px;--danger:var(--bad-tx);--success:var(--ok-tx);--g3:#F0C040;--r1:8px;--r2:12px;}
   *{box-sizing:border-box}
   body{margin:0;font-family:'DM Sans',sans-serif;background:var(--paper);color:var(--ink);min-height:100vh;}
   .main{margin-left:var(--sb);transition:margin-left .26s ease;}
@@ -206,9 +296,7 @@ if ($q !== '') {
   .head-row{display:flex;align-items:flex-start;justify-content:space-between;gap:1.5rem;margin-bottom:18px;}
   .head{margin-bottom:0;}
   .head-acts{display:flex;gap:.5rem;flex-shrink:0;}
-  .flash{display:flex;align-items:center;gap:.55rem;padding:.85rem 1rem;border-radius:11px;margin-bottom:1.1rem;font-size:.86rem;font-weight:600;}
-  .flash.ok{background:#E9F9EF;border:1px solid #b6e6c6;color:var(--success);}
-  .flash.err{background:#FEF2F2;border:1px solid #FECACA;color:var(--danger);}
+/* .flash lives in assets/css/admin-shell.css — one definition for every admin page. */
   .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem;}
   .stat{position:relative;overflow:hidden;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.15rem 1.3rem;display:flex;align-items:center;gap:1rem;box-shadow:0 1px 2px rgba(44,10,10,.05);text-decoration:none;color:inherit;transition:box-shadow .26s;}
   .stat:hover{box-shadow:0 12px 30px rgba(44,10,10,.12);}
@@ -247,12 +335,12 @@ if ($q !== '') {
   .pill{display:inline-flex;align-items:center;gap:.3rem;font-size:.6rem;font-weight:800;padding:.22rem .6rem;border-radius:999px;text-transform:uppercase;letter-spacing:.3px;}
   .pill.submitted{background:#EFF6FF;color:#1D4ED8;}
   .pill.endorsed{background:#FFFBEB;color:#92600A;}
-  .pill.approved{background:#E9F9EF;color:#166534;}
-  .pill.disapproved{background:#FEF2F2;color:#991B1B;}
+  .pill.approved{background:#E9F9EF;color:var(--ok-tx);}
+  .pill.disapproved{background:#FEF2F2;color:var(--bad-tx);}
   .pill.cancelled{background:#F1F1F1;color:#777;}
   .pill.completed{background:#F5F3FF;color:#5B21B6;}
   .paid{font-size:.6rem;font-weight:800;padding:.15rem .48rem;border-radius:6px;text-transform:uppercase;}
-  .paid.yes{background:#E9F9EF;color:#166534;} .paid.part{background:#FFFBEB;color:#92600A;} .paid.no{background:#FEF2F2;color:#991B1B;}
+  .paid.yes{background:#E9F9EF;color:var(--ok-tx);} .paid.part{background:#FFFBEB;color:#92600A;} .paid.no{background:#FEF2F2;color:var(--bad-tx);}
   .empty{text-align:center;color:var(--ink3);padding:2.4rem 1rem;}
   .empty i.big{color:var(--g);opacity:.75;font-size:1.8rem;display:block;margin-bottom:.6rem;}
   .empty h3{margin:.2rem 0 .35rem;font-size:1rem;color:var(--ink);font-family:'Outfit',sans-serif;}
@@ -362,7 +450,7 @@ if ($q !== '') {
         <div class="fsw">
           <i class="fas fa-search"></i>
           <input type="text" class="fsi" id="fq" placeholder="Search VRF no., applicant, organization, venue, OR no.…"
-                 value="<?php echo rv_e($q); ?>" oninput="rvDebounce()" onkeydown="if(event.key==='Enter'){event.preventDefault();rvGo();}">
+                 value="<?php echo rv_e($q); ?>" onkeydown="if(event.key==='Enter'){event.preventDefault();rvGo();}">
         </div>
         <select class="fsel" id="fs" aria-label="Filter by status" onchange="rvGo()">
           <option value="open" <?php echo $sf === 'open' ? 'selected' : ''; ?>>Awaiting decision</option>
@@ -379,13 +467,16 @@ if ($q !== '') {
         <?php if ($filtersOn): ?>
           <a class="fclr" href="admin_reservations.php"><i class="fas fa-xmark"></i> Clear</a>
         <?php endif; ?>
-        <span class="fcount"><?php echo count($rows); ?> of <?php echo count($all); ?> request<?php echo count($all) !== 1 ? 's' : ''; ?></span>
+        <span class="fcount"><?php
+          echo $matchTotal > $perPage
+            ? number_format($rowFrom) . '&ndash;' . number_format($rowTo) . ' of ' . number_format($matchTotal)
+            : number_format($matchTotal) . ' request' . ($matchTotal !== 1 ? 's' : ''); ?></span>
       </div>
 
       <div class="panel">
-        <h2><i class="fas fa-file-signature"></i> Reservation Requests <span class="count"><?php echo count($rows); ?> shown</span></h2>
+        <h2><i class="fas fa-file-signature"></i> Reservation Requests <span class="count"><?php echo number_format($matchTotal); ?> matching</span></h2>
 
-        <?php if (!$all): ?>
+        <?php if ($allTotal === 0): ?>
           <div class="empty">
             <i class="fas fa-file-signature big"></i>
             <h3>No reservations yet</h3>
@@ -397,11 +488,14 @@ if ($q !== '') {
           <div class="empty">
             <i class="fas fa-filter big"></i>
             <h3>Nothing matches these filters</h3>
-            <p><a href="admin_reservations.php">Clear them</a> to see all <?php echo count($all); ?>.</p>
+            <p><a href="admin_reservations.php">Clear them</a> to see all <?php echo number_format($allTotal); ?>.</p>
           </div>
         <?php else: ?>
           <div class="tbl-wrap">
-          <table data-paginate="15" data-paginate-noun="requests">
+          <?php /* No data-paginate: the client paginator only hid rows the server
+                   had already sent. The page is now 15 rows because the query
+                   asked for 15. */ ?>
+          <table>
             <thead><tr>
               <th>VRF No.</th><th>Applicant</th><th>Venue</th><th>When</th>
               <th>Activity</th><th>Pax</th><th>Payment</th><th>Status</th>
@@ -458,6 +552,53 @@ if ($q !== '') {
             </tbody>
           </table>
           </div>
+
+          <?php if ($totalPages > 1): ?>
+          <?php /* The shared pager from assets/css/admin-shell.css — the same
+                   control, in the same place, as Defect Reports and User
+                   Management. */ ?>
+          <nav class="pager" aria-label="Reservation list pages">
+            <span class="pager-count">
+              <?php echo number_format($rowFrom); ?>&ndash;<?php echo number_format($rowTo); ?>
+              of <strong><?php echo number_format($matchTotal); ?></strong>
+            </span>
+            <span class="pager-btns">
+              <?php if ($page > 1): ?>
+                <a class="pgb" href="<?php echo rv_e($pageQuery($page - 1)); ?>" rel="prev"><i class="fas fa-chevron-left"></i> Previous</a>
+              <?php else: ?>
+                <span class="pgb off"><i class="fas fa-chevron-left"></i> Previous</span>
+              <?php endif; ?>
+
+              <?php
+              // A window around the current page, so 40 pages don't render 40 links.
+              $from = max(1, $page - 2);
+              $to   = min($totalPages, $page + 2);
+              if ($from > 1): ?>
+                <a class="pgb" href="<?php echo rv_e($pageQuery(1)); ?>">1</a>
+                <?php if ($from > 2): ?><span class="pg-gap">&hellip;</span><?php endif; ?>
+              <?php endif; ?>
+
+              <?php for ($i = $from; $i <= $to; $i++): ?>
+                <?php if ($i === $page): ?>
+                  <span class="pgb on" aria-current="page"><?php echo $i; ?></span>
+                <?php else: ?>
+                  <a class="pgb" href="<?php echo rv_e($pageQuery($i)); ?>"><?php echo $i; ?></a>
+                <?php endif; ?>
+              <?php endfor; ?>
+
+              <?php if ($to < $totalPages): ?>
+                <?php if ($to < $totalPages - 1): ?><span class="pg-gap">&hellip;</span><?php endif; ?>
+                <a class="pgb" href="<?php echo rv_e($pageQuery($totalPages)); ?>"><?php echo number_format($totalPages); ?></a>
+              <?php endif; ?>
+
+              <?php if ($page < $totalPages): ?>
+                <a class="pgb" href="<?php echo rv_e($pageQuery($page + 1)); ?>" rel="next">Next <i class="fas fa-chevron-right"></i></a>
+              <?php else: ?>
+                <span class="pgb off">Next <i class="fas fa-chevron-right"></i></span>
+              <?php endif; ?>
+            </span>
+          </nav>
+          <?php endif; ?>
         <?php endif; ?>
       </div>
     </div>
@@ -572,9 +713,25 @@ function rvGo() {
   set('q',      document.getElementById('fq').value.trim(), '');
   set('status', document.getElementById('fs').value, 'open');
   set('when',   document.getElementById('fw').value, 'all');
-  location.href = u.toString();
+  // Changing a filter starts a new search, so the old page position goes with it.
+  u.searchParams.delete('page');
+  var next = u.toString();
+  // Same two guards as User Management: this is a full page load against
+  // Supabase, so it runs when the admin asks for it and not twice for one ask.
+  // The search box used to call this on a 450ms input debounce, which reloaded
+  // the page two or three times while a name was being typed.
+  if (rvNav || next === location.href) { return; }
+  rvNav = true;
+  document.body.classList.add('is-nav');
+  location.href = next;
 }
-var rvT; function rvDebounce() { clearTimeout(rvT); rvT = setTimeout(rvGo, 450); }
+var rvNav = false;
+// A bfcache restore keeps the old JS state, which would otherwise leave the
+// page permanently refusing to navigate.
+window.addEventListener('pageshow', function () {
+  rvNav = false;
+  document.body.classList.remove('is-nav');
+});
 
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
@@ -661,7 +818,7 @@ function rvOpen(tr) {
 
   var warn = '';
   if (d.status === 'disapproved' || d.status === 'cancelled') {
-    warn = 'This request no longer holds the venue — the slot is free for other bookings.';
+    warn = 'This request no longer holds the venue — the slot is open for other bookings.';
   } else if (!d.adviser && d.status === 'submitted') {
     warn = 'Not yet endorsed by a department head or organization adviser. The paper form needs that signature before the PMO signs.';
   }
