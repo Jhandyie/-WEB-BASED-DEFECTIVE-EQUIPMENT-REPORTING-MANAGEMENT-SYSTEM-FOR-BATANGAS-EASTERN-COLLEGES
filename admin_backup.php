@@ -147,7 +147,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     logActivity($admin_id, 'backup.restore', 'Restored from ' . basename($path) . ' — ' . $res['message'] . ' (safety: ' . ($res['safety'] ?? 'n/a') . ')');
                     $detail = [];
                     foreach ($res['restored'] as $t => $n) { $detail[] = $t . ' (' . $n . ')'; }
-                    $flash = ['ok', $res['message'] . ' Safety snapshot: ' . ($res['safety'] ?? 'n/a') . '. Tables: ' . (implode(', ', $detail) ?: 'none') . '.'];
+                    // A restore that recovered every row but could not advance
+                    // the id sequences is not a green tick — the next insert into
+                    // those tables can still fail. Report it as what it is.
+                    $tone  = empty($res['sequences']) ? 'ok' : 'err';
+                    $flash = [$tone, $res['message'] . ' Safety snapshot: ' . ($res['safety'] ?? 'n/a') . '. Tables: ' . (implode(', ', $detail) ?: 'none') . '.'];
                 } else {
                     logActivity($admin_id, 'backup.restore_fail', 'Restore from ' . basename($path) . ' failed: ' . $res['message']);
                     $flash = ['err', $res['message']];
@@ -184,7 +188,7 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
 <link rel="stylesheet" href="assets/css/admin-shell.css">
 <style>
 
-  :root{ --maroon:#7B1D1D; --maroon-d:#4A0E0E; --gold:#C9960C; --ink:#1A0808; --ink2:#5C3838; --ink3:#9C7A7A; --paper:#F4EFE6; --surface:#fff; --border:#E5D9C6; --field:#FAF7F0; --danger:#B42318; --success:#1A7A33; }
+  :root{ --maroon:#7B1D1D; --maroon-d:#4A0E0E; --gold:#C9960C; --ink:#1A0808; --ink2:#5C3838; --ink3:#9C7A7A; --paper:#F4EFE6; --surface:#fff; --border:#E5D9C6; --field:#FAF7F0; --danger:var(--bad-tx); --success:var(--ok-tx); }
   *{margin:0;padding:0;box-sizing:border-box;font-family:'DM Sans',system-ui,sans-serif;}
   body{background:var(--paper);color:var(--ink);min-height:100vh;}
   .topbar a.back{color:var(--ink2);text-decoration:none;font-size:.78rem;font-weight:600;
@@ -192,10 +196,7 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
   .topbar a.back:hover{background:var(--maroon);border-color:var(--maroon);color:#fff;}
   .wrap{max-width:none;margin:0;padding:1.5rem 1.75rem 4rem;}
   .head h2 .h2-ic{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,rgba(123,29,29,.1),rgba(201,150,12,.14));color:var(--maroon);display:inline-flex;align-items:center;justify-content:center;font-size:.9rem;}
-  .flash{margin:16px 0;padding:12px 16px;border-radius:10px;font-size:.86rem;display:flex;gap:10px;align-items:flex-start;line-height:1.5;}
-  .flash.ok{background:#EEF7F0;border:1px solid #BFE3C8;color:#1A5A2A;}
-  .flash.err{background:#FDECEC;border:1px solid #F3C0C0;color:#8A1C1C;}
-  .flash i{margin-top:2px;}
+/* .flash lives in assets/css/admin-shell.css — one definition for every admin page. */
   .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin:18px 0;}
   .stat{position:relative;overflow:hidden;display:flex;gap:14px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px 18px;box-shadow:0 1px 2px rgba(28,16,8,.04);transition:transform .26s cubic-bezier(.4,0,.2,1),box-shadow .26s;}
   .stat::before{content:'';position:absolute;top:-24px;right:-24px;width:88px;height:88px;border-radius:50%;background:var(--sk,var(--maroon));opacity:.05;transition:transform .3s,opacity .3s;}
