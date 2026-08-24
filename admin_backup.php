@@ -235,7 +235,7 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
   .card .ch .ci{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,rgba(123,29,29,.1),rgba(201,150,12,.14));display:flex;align-items:center;justify-content:center;color:var(--maroon);font-size:.92rem;flex-shrink:0;}
   .card .cb{padding:16px 18px;}
   .card .cb p{font-size:.83rem;color:var(--ink2);line-height:1.55;margin-bottom:12px;}
-  .btn{display:inline-flex;align-items:center;gap:8px;padding:.6rem 1.15rem;border-radius:10px;border:1px solid var(--maroon);background:var(--maroon);color:#fff;font-size:.85rem;font-weight:600;cursor:pointer;text-decoration:none;font-family:'DM Sans',sans-serif;transition:transform .15s,background .15s,box-shadow .15s;}
+  .btn{padding:.6rem 1.15rem;border:1px solid var(--maroon);background:var(--maroon);color:#fff;font-size:.85rem;}
   .btn:hover{background:#611616;transform:none;box-shadow:0 6px 16px rgba(74,14,14,.22);}
   .btn:active{transform:translateY(0);}
   .btn.ghost{background:#fff;color:var(--ink2);border-color:var(--border);}
@@ -260,8 +260,7 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
     padding:8px 11px;font-size:.78rem;line-height:1.5;margin-bottom:10px;}
   .imp-pick.bad{background:#FDECEC;border-color:#F3C0C0;color:#8A1C1C;}
   .rowact{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;}
-  .empty{text-align:center;padding:44px 20px;color:var(--ink3);}
-  .empty i{font-size:2rem;color:var(--border);display:block;margin-bottom:10px;}
+  .empty{padding:44px 20px;}
   .note{background:var(--field);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:.78rem;color:var(--ink2);line-height:1.55;margin-top:14px;}
   .note code{background:#efe9e0;padding:1px 6px;border-radius:5px;font-size:.74rem;}
   select,input[type=text]{width:100%;padding:.55rem .7rem;border:1.5px solid var(--border);border-radius:9px;background:#fff;font-size:.84rem;font-family:'DM Sans',sans-serif;margin-bottom:10px;}

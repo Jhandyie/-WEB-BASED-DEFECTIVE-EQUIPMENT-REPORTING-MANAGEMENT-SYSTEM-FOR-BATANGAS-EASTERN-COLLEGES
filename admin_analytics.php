@@ -271,7 +271,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .pg{padding:1.5rem 1.75rem;flex:1;}
 
 /* ── BUTTONS ──────────────────────────────────────── */
-.btn{display:inline-flex;align-items:center;gap:.32rem;padding:.4rem .875rem;border-radius:var(--r1);font-family:'DM Sans',sans-serif;font-size:.77rem;font-weight:700;cursor:pointer;border:none;transition:all .17s;text-decoration:none;white-space:nowrap;}
+.btn{padding:.4rem .875rem;font-size:.77rem;border:none;}
 .btn:hover{transform:none;}.btn:active{transform:translateY(0);}
 .btn-maroon{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;box-shadow:none;}
 .btn-maroon:hover{box-shadow:none;}
@@ -399,7 +399,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 
 /* ── TOAST ────────────────────────────────────────── */
 /* .ttray / .tst live in assets/css/admin-shell.css — one toast for every admin page. */
-.empty{text-align:center;padding:1.5rem;color:var(--t3);font-size:.8rem;}
+.empty{padding:1.5rem;font-size:.8rem;}
 
 /* ── RESPONSIVE ───────────────────────────────────── */
 @media(max-width:1400px){.kpis{grid-template-columns:repeat(4,1fr);}.cgrid-3{grid-template-columns:1fr 1fr;}}
@@ -1014,7 +1014,6 @@ new Chart(document.getElementById('c7'), {
 });
 <?php endif;?>
 
-
 /* ─── ANIMATED KPI COUNTERS ──────────────────────────── */
 function animN(id, to, suffix='') {
   const el = document.getElementById(id);
@@ -1054,9 +1053,6 @@ function toast(type, msg, title) {
 <?php require __DIR__ . '/includes/admin_ui.php'; ?>
 </body>
 </html>
-
-
-
 
 
 

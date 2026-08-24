@@ -193,7 +193,7 @@ $statusMeta = [
   .unit-badge i{font-size:.6rem;}
   .head-acts{display:flex;gap:.5rem;flex-shrink:0;}
 
-  .btn{display:inline-flex;align-items:center;gap:.45rem;padding:.6rem 1rem;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--ink2);font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:700;cursor:pointer;text-decoration:none;transition:.2s;}
+  .btn{padding:.6rem 1rem;border:1px solid var(--border);background:var(--surface);color:var(--ink2);font-size:.82rem;}
   .btn:hover{background:#faf7f0;color:var(--ink);}
   .btn.m{background:linear-gradient(135deg,var(--m),var(--md));border-color:transparent;color:#fff;}
   .btn.m:hover{filter:brightness(1.08);color:#fff;}
@@ -233,10 +233,7 @@ $statusMeta = [
   .loc{display:block;font-size:.7rem;color:var(--ink3);margin-top:2px;max-width:26rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .bdg{display:inline-flex;align-items:center;gap:.32rem;padding:.24rem .6rem;border-radius:999px;font-size:.66rem;font-weight:800;white-space:nowrap;}
   .money{font-family:'Outfit',sans-serif;font-weight:800;}
-  .empty{padding:3.5rem 1.5rem;text-align:center;color:var(--ink3);}
-  .empty i{font-size:2.4rem;color:var(--border);margin-bottom:.8rem;display:block;}
-  .empty h3{margin:0 0 .35rem;font-family:'Outfit',sans-serif;font-size:1.05rem;color:var(--ink2);}
-  .empty p{margin:0;font-size:.85rem;}
+  .empty{padding:3.5rem 1.5rem;}
 
   /* ── Detail dialog: the finished job as a service record ─────────────── */
   .ovl{position:fixed;inset:0;background:rgba(26,8,8,.55);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:1.5rem;z-index:120;}

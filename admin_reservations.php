@@ -341,11 +341,8 @@ $pageQuery = static function (int $p) use ($q, $sf, $wf): string {
   .pill.completed{background:#F5F3FF;color:#5B21B6;}
   .paid{font-size:.6rem;font-weight:800;padding:.15rem .48rem;border-radius:6px;text-transform:uppercase;}
   .paid.yes{background:#E9F9EF;color:var(--ok-tx);} .paid.part{background:#FFFBEB;color:#92600A;} .paid.no{background:#FEF2F2;color:var(--bad-tx);}
-  .empty{text-align:center;color:var(--ink3);padding:2.4rem 1rem;}
-  .empty i.big{color:var(--g);opacity:.75;font-size:1.8rem;display:block;margin-bottom:.6rem;}
-  .empty h3{margin:.2rem 0 .35rem;font-size:1rem;color:var(--ink);font-family:'Outfit',sans-serif;}
-  .empty p{margin:0 auto 1rem;max-width:42rem;font-size:.82rem;line-height:1.6;}
-  .btn{display:inline-flex;align-items:center;gap:.5rem;padding:.68rem 1.2rem;border-radius:10px;border:none;font:inherit;font-weight:700;font-size:.84rem;cursor:pointer;text-decoration:none;transition:background .15s;}
+  .empty{padding:2.4rem 1rem;}
+  .btn{padding:.68rem 1.2rem;border:none;font-size:.84rem;}
   .btn.m{background:var(--m);color:#fff;} .btn.m:hover{background:var(--md);}
   .btn.ghost{background:#f1eadf;color:var(--ink2);} .btn.ghost:hover{background:#e7dac6;}
   .btn.ok{background:var(--success);color:#fff;} .btn.ok:hover{background:#15602a;}

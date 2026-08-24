@@ -834,9 +834,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 @keyframes fIn{from{opacity:0;transform:translateY(-5px);}to{opacity:1;transform:translateY(0);}}
 
 /* -- BTN -------------------------------------------- */
-.btn{display:inline-flex;align-items:center;gap:.32rem;padding:.4rem .875rem;border-radius:var(--r1);
-  font-family:'DM Sans',sans-serif;font-size:.77rem;font-weight:700;cursor:pointer;border:none;
-  transition:all .17s;text-decoration:none;white-space:nowrap;}
+.btn{padding:.4rem .875rem;font-size:.77rem;border:none;}
 .btn:hover{transform:none;}.btn:active{transform:translateY(0);}
 .btn-maroon{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;box-shadow:none;}
 .btn-maroon:hover{box-shadow:none;}
@@ -1076,8 +1074,7 @@ textarea.fc{resize:vertical;min-height:72px;}
 
 /* -- TOAST / EMPTY ---------------------------------- */
 /* .ttray / .tst live in assets/css/admin-shell.css — one toast for every admin page. */
-.empty{text-align:center;padding:2.5rem 1.5rem;color:var(--t3);}
-.empty i{font-size:2.2rem;display:block;margin-bottom:.65rem;opacity:.22;}
+.empty{padding:2.5rem 1.5rem;}
 
 /* -- RESPONSIVE ------------------------------------- */
 @media(max-width:1280px){.sums{grid-template-columns:repeat(3,1fr);}.fg3{grid-template-columns:1fr 1fr;}}

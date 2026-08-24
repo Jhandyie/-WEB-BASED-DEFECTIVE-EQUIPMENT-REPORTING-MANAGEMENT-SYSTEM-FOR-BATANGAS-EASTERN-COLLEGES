@@ -71,6 +71,46 @@ html{font-size:106.25%;scrollbar-gutter:stable;}
   --idle:#6B7280;  --idle-tx:#4B5563;  --idle-bg:#F9FAFB;  --idle-bdr:#E5E7EB;
 }
 
+/* ---- button ------------------------------------------------------------
+   .btn is defined on twenty-one pages. Most of that is real: a login form's
+   full-width submit and an admin toolbar's compact action chip are different
+   controls that happen to share a name, and flattening them into one would be
+   a redesign, not a cleanup.
+
+   What is NOT real is the drift between the admin pages themselves — the same
+   chip written with gaps of .3, .32, .35, .45 and .5rem, five border radii and
+   four transition durations, none of it deliberate. This base holds the parts
+   every admin .btn agreed on; each page keeps its own padding, font-size and
+   colours, which is where the intentional differences live.
+
+   Non-admin surfaces do not load this file, so their buttons are untouched. */
+.btn{display:inline-flex;align-items:center;gap:var(--sp-2,.4rem);
+  border-radius:var(--r1,10px);border:1.5px solid transparent;
+  font-family:'DM Sans',sans-serif;font-weight:700;line-height:1.2;
+  cursor:pointer;text-decoration:none;white-space:nowrap;
+  transition:background .17s,border-color .17s,color .17s,box-shadow .17s;}
+.btn:focus-visible{outline:2px solid var(--m3,#7B1D1D);outline-offset:2px;}
+.btn[disabled],.btn.is-disabled{opacity:.5;cursor:not-allowed;}
+
+/* ---- empty state -------------------------------------------------------
+   Thirteen pages drew "there is nothing here" and no two agreed: eleven
+   different paddings, two spellings of the muted colour (--t3 and --ink3), and
+   three names for the icon (.empty i, .empty-ico, .empty-icon) and the heading
+   (.empty h3, .empty-t, .empty-title).
+
+   The shared rule covers what every one of them was saying — centre it, mute
+   it, make the icon large and faint — and lists all three child spellings
+   rather than renaming anything, so no page's markup has to change. Padding
+   stays per page on purpose: an empty state inside a small analytics card is
+   not the same box as one filling a whole list panel. */
+.empty{text-align:center;color:var(--t3,#9C7A7A);}
+.empty i,.empty-ico,.empty-icon{display:block;font-size:2.2rem;opacity:.22;
+  margin-bottom:var(--sp-3,.65rem);line-height:1;}
+.empty h3,.empty-t,.empty-title{font-family:'Outfit',sans-serif;font-size:1rem;
+  font-weight:700;color:var(--t2,#5C3838);margin:.2rem 0 .35rem;}
+.empty p,.empty-s,.empty-sub{margin:0 auto;max-width:44rem;font-size:var(--fs-base,.82rem);
+  line-height:1.6;color:var(--t3,#9C7A7A);}
+
 /* ---- toast --------------------------------------------------------------
    The transient confirmation, defined in seven pages with only the font size
    varying between them — and with #16A34A / #DC2626 written in by hand each

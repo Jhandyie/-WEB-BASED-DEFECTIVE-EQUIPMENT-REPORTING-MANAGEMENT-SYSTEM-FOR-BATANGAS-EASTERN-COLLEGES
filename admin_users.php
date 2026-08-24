@@ -1292,9 +1292,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .fhint[hidden]{display:none;}
 
 /* ── BUTTONS ─────────────────────────────────────── */
-.btn{display:inline-flex;align-items:center;gap:var(--sp-1);padding:var(--sp-2) var(--sp-4);
-  border-radius:var(--r1);font-family:'DM Sans',sans-serif;font-size:var(--fs-base);font-weight:700;
-  cursor:pointer;border:none;transition:all .17s;text-decoration:none;white-space:nowrap;}
+.btn{padding:var(--sp-2) var(--sp-4);font-size:var(--fs-base);border:none;}
 .btn:hover{transform:none;}.btn:active{transform:translateY(0);}
 .btn-maroon{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;box-shadow:none;}
 .btn-maroon:hover{box-shadow:none;}
@@ -1595,8 +1593,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 
 /* ── TOAST / EMPTY ───────────────────────────────── */
 /* .ttray / .tst live in assets/css/admin-shell.css — one toast for every admin page. */
-.empty{text-align:center;padding:2.5rem var(--sp-5);color:var(--t3);}
-.empty i{font-size:2.2rem;display:block;margin-bottom:var(--sp-3);opacity:.22;}
+.empty{padding:2.5rem var(--sp-5);}
 
 /* ── RESPONSIVE ──────────────────────────────────── */
 @media(max-width:1280px){.sums{grid-template-columns:repeat(3,1fr);}}
@@ -2641,8 +2638,5 @@ function toast(type,msg,title){
 <?php require __DIR__ . '/includes/admin_ui.php'; ?>
 </body>
 </html>
-
-
-
 
 

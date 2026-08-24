@@ -34,7 +34,6 @@ function adminWorkflowNotifyRole($conn, string $role, string $message, string $r
     }
 }
 
-
 /* ─── POST ACTIONS ─────────────────────────────────────── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireCsrf();
@@ -403,7 +402,6 @@ if (isset($_GET['view_id'])) {
     }
 }
 
-
 /* ─── COUNTS ───────────────────────────────────────────── */
 /* One grouped count instead of fetching every report and bucketing the array six
    times over. Same numbers; the query returns one row per status/priority pair
@@ -546,10 +544,7 @@ body{
 .ph-acts{display:flex;gap:.45rem;flex-wrap:wrap;}
 
 /* ── BTN SYSTEM ─────────────────────────────────────── */
-.btn{display:inline-flex;align-items:center;gap:.32rem;
-  padding:.4rem .875rem;border-radius:var(--r1);
-  font-family:'DM Sans',sans-serif;font-size:.77rem;font-weight:700;
-  cursor:pointer;border:none;transition:all .17s;text-decoration:none;white-space:nowrap;}
+.btn{padding:.4rem .875rem;font-size:.77rem;border:none;}
 .btn:hover{transform:none;}.btn:active{transform:translateY(0);}
 .btn-maroon{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;box-shadow:none;}
 .btn-maroon:hover{box-shadow:none;}
@@ -978,7 +973,6 @@ textarea.fc{resize:vertical;min-height:70px;}
   display:flex;justify-content:flex-end;gap:.45rem;flex-wrap:wrap;background:var(--s2);
   border-radius:0 0 var(--r4) var(--r4);}
 
-
 /* ══════════════════════════════════════════════════════════════════════════
    DEFECT REPORT WORKSPACE  (.dr-*)
 
@@ -1221,8 +1215,7 @@ textarea.fc{resize:vertical;min-height:70px;}
 /* .ttray / .tst live in assets/css/admin-shell.css — one toast for every admin page. */
 
 /* ── EMPTY ───────────────────────────────────────────── */
-.empty{text-align:center;padding:3rem 1.5rem;color:var(--t3);}
-.empty i{font-size:2.5rem;display:block;margin-bottom:.75rem;opacity:.22;}
+.empty{padding:3rem 1.5rem;}
 .rpager{display:flex;align-items:center;justify-content:space-between;gap:.85rem;flex-wrap:wrap;padding:.9rem 1rem;border-top:1px solid var(--bdr);}
 .rpager[hidden]{display:none;}
 .rpager .rp-info{font-size:.78rem;color:var(--t3);font-weight:600;}

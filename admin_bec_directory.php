@@ -328,7 +328,7 @@ $hasFilter = ($search !== '' || $tf !== 'all' || $df !== 'all' || $yf !== 'all')
   .note-guide em{font-style:normal;font-weight:600;color:var(--ink);}
   .uprow{display:flex;gap:var(--sp-3);flex-wrap:wrap;align-items:center;}
   input[type=file]{font:inherit;}
-  .btn{display:inline-flex;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-4);border-radius:10px;border:none;font:inherit;font-weight:700;font-size:var(--fs-md);cursor:pointer;text-decoration:none;}
+  .btn{padding:var(--sp-2) var(--sp-4);border:none;font-size:var(--fs-md);}
   .btn.m{background:var(--m);color:#fff;}.btn.g{background:var(--g);color:#fff;}.btn.ghost{background:#f1eadf;color:var(--ink2);}.btn.red{background:var(--danger);color:#fff;}
   /* Table type and spacing come from .adm-table in assets/css/admin-shell.css,
      so this page matches User Management instead of drawing its own maroon
@@ -342,7 +342,7 @@ $hasFilter = ($search !== '' || $tf !== 'all' || $df !== 'all' || $yf !== 'all')
   .fsel{padding:var(--sp-2) var(--sp-3);border:1.5px solid var(--border);border-radius:9px;font:inherit;
         background:#fff;color:var(--ink);cursor:pointer;max-width:210px;}
   .fsel:focus{outline:2px solid var(--brand,#7B1E22);outline-offset:1px;}
-  .empty{text-align:center;color:var(--ink3);padding:2rem;}
+  .empty{padding:2rem;}
   @media(max-width:860px){.sb{transform:translateX(-100%);}.main{margin-left:0;}.cards{grid-template-columns:1fr 1fr;}}
   @media(max-width:640px){ input,select,textarea,.fi,.fc,.input{ font-size:16px; } } /* prevent iOS zoom */
 </style>

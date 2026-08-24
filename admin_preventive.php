@@ -357,7 +357,7 @@ $eqJson = json_encode($eqPayload, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_H
   .fhint b{color:var(--ink2);font-weight:700;}
   .form-actions{margin-top:1.25rem;display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;}
   .form-actions .hint{font-size:.72rem;color:var(--ink3);margin-left:auto;}
-  .btn{display:inline-flex;align-items:center;gap:.5rem;padding:.68rem 1.2rem;border-radius:10px;border:none;font:inherit;font-weight:700;font-size:.84rem;cursor:pointer;text-decoration:none;transition:background .15s,color .15s;}
+  .btn{padding:.68rem 1.2rem;border:none;font-size:.84rem;}
   .btn.m{background:var(--m);color:#fff;} .btn.m:hover{background:var(--md);}
   .btn.ghost{background:#f1eadf;color:var(--ink2);} .btn.ghost:hover{background:#e7dac6;}
   .btn.sm{padding:.42rem .8rem;font-size:.75rem;border-radius:9px;}
@@ -435,10 +435,7 @@ $eqJson = json_encode($eqPayload, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_H
   .iact:hover{background:#f1eadf;border-color:var(--m);color:var(--m);}
   .iact.del:hover{background:#FEF2F2;border-color:var(--danger);color:var(--danger);}
   /* Empty state */
-  .empty{text-align:center;color:var(--ink3);padding:2.2rem 1rem 1rem;}
-  .empty i.big{color:var(--g);opacity:.75;font-size:1.8rem;display:block;margin-bottom:.6rem;}
-  .empty h3{margin:.2rem 0 .35rem;font-size:1rem;color:var(--ink);font-family:'Outfit',sans-serif;}
-  .empty p{margin:0 auto 1.4rem;max-width:44rem;font-size:.82rem;line-height:1.6;}
+  .empty{padding:2.2rem 1rem 1rem;}
   .qs{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:.7rem;max-width:60rem;margin:0 auto;text-align:left;}
   .qs-card{display:flex;gap:.7rem;align-items:flex-start;padding:.85rem .9rem;background:#faf7f0;border:1px solid var(--border);border-radius:12px;cursor:pointer;font:inherit;text-align:left;transition:border-color .15s,background .15s,transform .15s;}
   .qs-card:hover{background:#fff;border-color:var(--m);transform:translateY(-2px);}

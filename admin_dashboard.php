@@ -599,7 +599,7 @@ body{
 .b-low {background:var(--low-bg); color:var(--low-c);}
 
 /* -- ACTION BUTTONS ----------------------------- */
-.btn{display:inline-flex;align-items:center;gap:.35rem;padding:.4rem .875rem;border-radius:var(--r1);font-family:'DM Sans',sans-serif;font-size:.78rem;font-weight:700;cursor:pointer;border:none;transition:all .18s;text-decoration:none;white-space:nowrap;}
+.btn{padding:.4rem .875rem;font-size:.78rem;border:none;}
 .btn:hover{transform:none;}
 .btn:active{transform:translateY(0);}
 .btn-maroon{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;box-shadow:none;}

@@ -304,7 +304,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 @keyframes fIn{from{opacity:0;transform:translateY(-5px);}to{opacity:1;transform:translateY(0);}}
 
 /* ── BUTTONS ──────────────────────────────────────── */
-.btn{display:inline-flex;align-items:center;gap:.32rem;padding:.4rem .875rem;border-radius:var(--r1);font-family:'DM Sans',sans-serif;font-size:.77rem;font-weight:700;cursor:pointer;border:none;transition:all .17s;text-decoration:none;white-space:nowrap;}
+.btn{padding:.4rem .875rem;font-size:.77rem;border:none;}
 .btn:hover{transform:none;}.btn:active{transform:translateY(0);}
 .btn-maroon{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;box-shadow:none;}
 .btn-maroon:hover{box-shadow:none;}
@@ -413,10 +413,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .pgn-btn.dis{opacity:.35;cursor:not-allowed;pointer-events:none;}
 
 /* ── EMPTY STATE ──────────────────────────────────── */
-.empty{text-align:center;padding:3.5rem 2rem;}
-.empty-ico{font-size:3rem;margin-bottom:.875rem;display:block;opacity:.15;}
-.empty-t{font-family:'Outfit',sans-serif;font-size:1rem;font-weight:700;color:var(--t2);margin-bottom:.38rem;}
-.empty-s{font-size:.8rem;color:var(--t3);line-height:1.6;}
+.empty{padding:3.5rem 2rem;}
 
 /* ── BROADCAST / MODAL ────────────────────────────── */
 .mo{position:fixed;inset:0;background:rgba(26,8,8,.6);backdrop-filter:blur(7px);z-index:500;display:none;align-items:flex-start;justify-content:center;padding:1.5rem 1rem;overflow-y:auto;}
@@ -1063,8 +1060,5 @@ function toast(type,msg,title){
 <?php require __DIR__ . '/includes/admin_ui.php'; ?>
 </body>
 </html>
-
-
-
 
 
