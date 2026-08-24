@@ -45,12 +45,24 @@ if ($severity !== '') {
     $types .= 's';
 }
 
-if ($status === 'Open') {
-    $where[] = "dr.status IN ('reported','assigned')";
-} elseif ($status === 'In Progress') {
-    $where[] = "dr.status = 'in_progress'";
-} elseif ($status === 'Resolved') {
-    $where[] = "dr.status IN ('completed','verified','closed')";
+/* Three public buckets, built from defectStatusCategory() — the same grouping
+ * the admin pages use — rather than a hand-picked list of five statuses.
+ *
+ * The old lists named 'reported','assigned' / 'in_progress' /
+ * 'completed','verified','closed' and nothing else, so a report sitting in
+ * pmo_review, ready_for_assignment, accepted, waiting_for_materials or
+ * for_replacement matched no filter at all: visible under "All Statuses",
+ * unreachable under any specific one, and labelled with a raw column value
+ * ("Pmo review") next to properly written ones. */
+$BEC_PUBLIC_BUCKETS = [
+    'Awaiting repair' => ['reported', 'pmo_review', 'ready_for_assignment'],
+    'Being repaired'  => ['assigned', 'accepted', 'in_progress', 'waiting_for_materials', 'for_replacement'],
+    'Repaired'        => ['completed', 'verified', 'closed'],
+];
+if (isset($BEC_PUBLIC_BUCKETS[$status])) {
+    $list = $BEC_PUBLIC_BUCKETS[$status];
+    $where[] = 'dr.status IN (' . implode(',', array_fill(0, count($list), '?')) . ')';
+    foreach ($list as $st) { $params[] = $st; $types .= 's'; }
 }
 
 $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
@@ -190,13 +202,19 @@ function status_class($s) {
         default       => ''
     };
 }
+/* What a member of the public is told about a report.
+ *
+ * "Open" was the old first label and said nothing useful — open as opposed to
+ * what? These three describe the equipment's state in the words someone
+ * standing next to a broken projector would use, and they read as a sequence:
+ * awaiting repair, being repaired, repaired. */
 function status_label($s) {
-    return match((string)$s) {
-        'reported',
-        'assigned' => 'Open',
-        'in_progress' => 'In Progress',
-        'completed', 'verified', 'closed' => 'Resolved',
-        default => ucfirst(str_replace('_', ' ', (string)$s))
+    return match (defectStatusCategory((string) $s)) {
+        'pending'     => 'Awaiting repair',
+        'in_progress' => 'Being repaired',
+        'completed'   => 'Repaired',
+        'rejected'    => 'Not approved',
+        default       => ucfirst(str_replace('_', ' ', (string) $s)),
     };
 }
 function priority_label($s) {
@@ -278,6 +296,14 @@ function build_url($extra=[]) {
 html{font-size:106.25%;scrollbar-gutter:stable;}
 
 :root{
+  /* Semantic status ramp — the same values as assets/css/admin-shell.css,
+     repeated because this page does not load the admin shell. One meaning,
+     one colour, across every surface. */
+  --ok:#16A34A;--ok-tx:#166534;--ok-bg:#F0FDF4;--ok-bdr:#BBF7D0;
+  --warn:#D97706;--warn-tx:#92600A;--warn-bg:#FFFBEB;--warn-bdr:#FDE68A;
+  --bad:#DC2626;--bad-tx:#991B1B;--bad-bg:#FEF2F2;--bad-bdr:#FECACA;
+  --info:#2563EB;--info-tx:#1D4ED8;--info-bg:#EFF6FF;--info-bdr:#BFDBFE;
+
   --m:#7B1D1D;--md:#4A0E0E;--mdd:#2D0505;--ms:rgba(123,29,29,.08);--ml:rgba(123,29,29,.04);
   --g:#C9960C;--gl:#F0C040;--gb:#FFFBEF;
   --k:#1C1008;--k2:#5C3838;--k3:#9E8070;
@@ -322,12 +348,12 @@ h1 em{font-style:italic;color:var(--m);}
 .stat.s-open::before{background:#F87171;}
 .stat.s-prog::before{background:#FB923C;}
 .stat.s-done::before{background:#4ADE80;}
-.stat.s-crit::before{background:#991B1B;}
+.stat.s-crit::before{background:var(--bad-tx);}
 .stat-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.7rem;margin-bottom:.6rem;}
 .stat.s-total .stat-icon{background:rgba(92,56,56,.08);color:var(--k2);}
-.stat.s-open  .stat-icon{background:#FEF2F2;color:#991B1B;}
+.stat.s-open  .stat-icon{background:#FEF2F2;color:var(--bad-tx);}
 .stat.s-prog  .stat-icon{background:#FFF7ED;color:#C2410C;}
-.stat.s-done  .stat-icon{background:#F0FDF4;color:#166534;}
+.stat.s-done  .stat-icon{background:#F0FDF4;color:var(--ok-tx);}
 .stat.s-crit  .stat-icon{background:#FEF2F2;color:#7F1D1D;}
 .stat-num{font-family:'Fraunces',serif;font-size:1.6rem;font-weight:700;color:var(--k);line-height:1;margin-bottom:.2rem;}
 .stat-label{font-size:.68rem;color:var(--k3);font-weight:500;text-transform:uppercase;letter-spacing:.8px;}
@@ -380,17 +406,17 @@ td:last-child{padding-right:1.25rem;}
 /* ── BADGES ── */
 .badge{display:inline-flex;align-items:center;gap:.3rem;padding:.22rem .6rem;border-radius:20px;font-size:.68rem;font-weight:600;white-space:nowrap;}
 .badge::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor;}
-.sev-low {background:#F0FDF4;color:#166534;}
+.sev-low {background:#F0FDF4;color:var(--ok-tx);}
 .sev-med {background:#FFFBEB;color:#92400E;}
 .sev-high{background:#FFF7ED;color:#C2410C;}
-.sev-crit{background:#FEF2F2;color:#991B1B;}
-.st-open {background:#FEF2F2;color:#991B1B;}
+.sev-crit{background:#FEF2F2;color:var(--bad-tx);}
+.st-open {background:#FEF2F2;color:var(--bad-tx);}
 .st-prog {background:#FFF7ED;color:#C2410C;}
-.st-done {background:#F0FDF4;color:#166534;}
-.eq-ok{background:#F0FDF4;color:#166534;}
+.st-done {background:#F0FDF4;color:var(--ok-tx);}
+.eq-ok{background:#F0FDF4;color:var(--ok-tx);}
 .eq-maint{background:#FFF7ED;color:#C2410C;}
 .eq-use{background:#EBF5FF;color:#1D4ED8;}
-.eq-bad{background:#FEF2F2;color:#991B1B;}
+.eq-bad{background:#FEF2F2;color:var(--bad-tx);}
 .eq-unk{background:#F3F4F6;color:#4B5563;}
 .photo-chip{display:inline-flex;align-items:center;gap:.25rem;font-size:.68rem;color:var(--m);background:var(--ms);border-radius:20px;padding:.18rem .5rem;}
 .no-photo{font-size:.68rem;color:var(--k3);}
@@ -430,7 +456,7 @@ td:last-child{padding-right:1.25rem;}
 .di-label{font-size:.63rem;font-weight:600;color:var(--k3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:.2rem;}
 .di-value{font-size:.84rem;color:var(--k);font-weight:500;line-height:1.5;}
 .di-value.desc{font-weight:400;line-height:1.65;}
-.us-yes {color:#166534;} .us-part{color:#92400E;} .us-no{color:#991B1B;}
+.us-yes {color:var(--ok-tx);} .us-part{color:#92400E;} .us-no{color:var(--bad-tx);}
 .modal-photo{margin-top:.5rem;}
 .modal-photo img{width:100%;border-radius:10px;max-height:220px;object-fit:cover;border:1px solid var(--b);}
 .modal-foot{padding:.85rem 1.5rem 1.25rem;border-top:1px solid var(--b);display:flex;gap:.6rem;justify-content:flex-end;}
@@ -504,22 +530,22 @@ td:last-child{padding-right:1.25rem;}
     <div class="stat s-total">
       <div class="stat-icon"><i aria-hidden="true" class="fas fa-clipboard-list"></i></div>
       <div class="stat-num"><?= $stats['total'] ?></div>
-      <div class="stat-label">Total Reports</div>
+      <div class="stat-label">Total reports</div>
     </div>
     <div class="stat s-open">
       <div class="stat-icon"><i aria-hidden="true" class="fas fa-exclamation-circle"></i></div>
       <div class="stat-num"><?= $stats['open'] ?></div>
-      <div class="stat-label">Open</div>
+      <div class="stat-label">Awaiting repair</div>
     </div>
     <div class="stat s-prog">
       <div class="stat-icon"><i aria-hidden="true" class="fas fa-tools"></i></div>
       <div class="stat-num"><?= $stats['in_progress'] ?></div>
-      <div class="stat-label">In Progress</div>
+      <div class="stat-label">Being repaired</div>
     </div>
     <div class="stat s-done">
       <div class="stat-icon"><i aria-hidden="true" class="fas fa-check-circle"></i></div>
       <div class="stat-num"><?= $stats['resolved'] ?></div>
-      <div class="stat-label">Resolved</div>
+      <div class="stat-label">Repaired</div>
     </div>
     <div class="stat s-crit">
       <div class="stat-icon"><i aria-hidden="true" class="fas fa-fire"></i></div>
@@ -539,13 +565,13 @@ td:last-child{padding-right:1.25rem;}
         <div class="search-dd" id="public-dropdown"></div>
       </div>
       <select name="status" class="filter-sel" onchange="this.form.submit()">
-        <option value="">All Statuses</option>
-        <option value="Open"        <?= $status==='Open'        ?'selected':'' ?>>Open</option>
-        <option value="In Progress" <?= $status==='In Progress' ?'selected':'' ?>>In Progress</option>
-        <option value="Resolved"    <?= $status==='Resolved'    ?'selected':'' ?>>Resolved</option>
+        <option value="">All statuses</option>
+        <?php foreach (array_keys($BEC_PUBLIC_BUCKETS) as $bLbl): ?>
+        <option value="<?= htmlspecialchars($bLbl, ENT_QUOTES, 'UTF-8') ?>"<?= $status === $bLbl ? ' selected' : '' ?>><?= htmlspecialchars($bLbl, ENT_QUOTES, 'UTF-8') ?></option>
+        <?php endforeach; ?>
       </select>
       <select name="sev" class="filter-sel" onchange="this.form.submit()">
-        <option value="">All Severities</option>
+        <option value="">All severities</option>
         <option value="Low"      <?= $severity==='Low'      ?'selected':'' ?>>Low</option>
         <option value="Medium"   <?= $severity==='Medium'   ?'selected':'' ?>>Medium</option>
         <option value="High"     <?= $severity==='High'     ?'selected':'' ?>>High</option>
@@ -701,12 +727,15 @@ function escapeHtml(value) {
   })[char]);
 }
 
+// Mirrors status_label() in PHP — the same three buckets, so a badge rendered
+// by the browser reads the same as one rendered by the server.
 function publicBadgeLabel(status) {
-  const normalized = String(status || '').toLowerCase();
-  if (normalized === 'reported' || normalized === 'assigned') return 'Open';
-  if (normalized === 'in_progress') return 'In Progress';
-  if (normalized === 'completed' || normalized === 'verified' || normalized === 'closed') return 'Resolved';
-  return normalized ? normalized.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Report';
+  const n = String(status || '').toLowerCase();
+  if (['reported', 'pmo_review', 'ready_for_assignment'].includes(n)) return 'Awaiting repair';
+  if (['assigned', 'accepted', 'in_progress', 'waiting_for_materials', 'for_replacement'].includes(n)) return 'Being repaired';
+  if (['completed', 'verified', 'closed'].includes(n)) return 'Repaired';
+  if (n === 'rejected') return 'Not approved';
+  return n ? n.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Report';
 }
 
 function renderPublicDropdown(query) {

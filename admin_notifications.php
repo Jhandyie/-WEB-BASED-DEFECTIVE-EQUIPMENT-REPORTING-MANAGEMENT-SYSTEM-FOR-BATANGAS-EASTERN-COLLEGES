@@ -300,21 +300,19 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .pg{padding:1.5rem 1.75rem;flex:1;}
 
 /* ── FLASH ────────────────────────────────────────── */
-.flash{display:flex;align-items:center;gap:.65rem;padding:.7rem 1.1rem;border-radius:var(--r2);margin-bottom:1.125rem;font-size:.81rem;font-weight:600;animation:fIn .25s ease;border-left:3px solid;}
+/* .flash lives in assets/css/admin-shell.css — one definition for every admin page. */
 @keyframes fIn{from{opacity:0;transform:translateY(-5px);}to{opacity:1;transform:translateY(0);}}
-.flash.ok{background:#F0FDF4;color:#15803D;border-color:#22C55E;}
-.flash.err{background:#FFF1F2;color:#DC2626;border-color:#EF4444;}
 
 /* ── BUTTONS ──────────────────────────────────────── */
-.btn{display:inline-flex;align-items:center;gap:.32rem;padding:.4rem .875rem;border-radius:var(--r1);font-family:'DM Sans',sans-serif;font-size:.77rem;font-weight:700;cursor:pointer;border:none;transition:all .17s;text-decoration:none;white-space:nowrap;}
+.btn{padding:.4rem .875rem;font-size:.77rem;border:none;}
 .btn:hover{transform:none;}.btn:active{transform:translateY(0);}
 .btn-maroon{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;box-shadow:none;}
 .btn-maroon:hover{box-shadow:none;}
 .btn-gold{background:linear-gradient(135deg,var(--g2),var(--g3));color:var(--m1);box-shadow:none;}
 .btn-gold:hover{box-shadow:none;}
-.btn-green{background:linear-gradient(135deg,#15803D,#22C55E);color:#fff;box-shadow:none;}
+.btn-green{background:linear-gradient(135deg,var(--ok-tx),var(--ok));color:#fff;box-shadow:none;}
 .btn-green:hover{box-shadow:none;}
-.btn-red{background:linear-gradient(135deg,#B91C1C,#EF4444);color:#fff;box-shadow:none;}
+.btn-red{background:linear-gradient(135deg,#B91C1C,var(--bad));color:#fff;box-shadow:none;}
 .btn-red:hover{box-shadow:none;}
 .btn-ghost{background:var(--s2);color:var(--t2);border:1px solid var(--bdr);}
 .btn-ghost:hover{background:var(--s3);}
@@ -385,7 +383,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .ni-item:hover .ni-actions{opacity:1;}
 .na-btn{width:26px;height:26px;border-radius:var(--r1);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.68rem;transition:all .16s;}
 .na-read{background:#EFF6FF;color:#2563EB;}.na-read:hover{background:#DBEAFE;}
-.na-del{background:#FFF1F2;color:#DC2626;}.na-del:hover{background:#FFE4E6;}
+.na-del{background:#FFF1F2;color:var(--bad);}.na-del:hover{background:#FFE4E6;}
 
 /* ── SUMMARY CARDS ────────────────────────────────── */
 .sum-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem;}
@@ -415,10 +413,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .pgn-btn.dis{opacity:.35;cursor:not-allowed;pointer-events:none;}
 
 /* ── EMPTY STATE ──────────────────────────────────── */
-.empty{text-align:center;padding:3.5rem 2rem;}
-.empty-ico{font-size:3rem;margin-bottom:.875rem;display:block;opacity:.15;}
-.empty-t{font-family:'Outfit',sans-serif;font-size:1rem;font-weight:700;color:var(--t2);margin-bottom:.38rem;}
-.empty-s{font-size:.8rem;color:var(--t3);line-height:1.6;}
+.empty{padding:3.5rem 2rem;}
 
 /* ── BROADCAST / MODAL ────────────────────────────── */
 .mo{position:fixed;inset:0;background:rgba(26,8,8,.6);backdrop-filter:blur(7px);z-index:500;display:none;align-items:flex-start;justify-content:center;padding:1.5rem 1rem;overflow-y:auto;}
@@ -446,7 +441,7 @@ textarea.fc{resize:vertical;min-height:88px;}
 
 /* char counter */
 .char-count{font-size:.62rem;color:var(--t3);text-align:right;margin-top:.15rem;}
-.char-count.warn{color:#D97706;}.char-count.over{color:#DC2626;}
+.char-count.warn{color:#D97706;}.char-count.over{color:var(--bad);}
 
 /* Detail modal specific */
 .det-notif-ico{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0;box-shadow:none;}
@@ -463,12 +458,7 @@ textarea.fc{resize:vertical;min-height:88px;}
 .tpill.sel{background:var(--m3);color:#fff;border-color:var(--m2);}
 
 /* ── TOAST ────────────────────────────────────────── */
-.ttray{position:fixed;top:1.25rem;left:50%;transform:translateX(-50%);align-items:center;display:flex;flex-direction:column;gap:.38rem;z-index:9999;}
-.tst{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r2);padding:.68rem .88rem;display:flex;align-items:flex-start;gap:.5rem;box-shadow:var(--sh3);min-width:240px;animation:tIn .22s cubic-bezier(.4,0,.2,1);border-left:3px solid var(--m3);}
-.tst.ok{border-left-color:#16A34A;}.tst.err{border-left-color:#DC2626;}
-@keyframes tIn{from{transform:translateX(60px);opacity:0}to{transform:translateX(0);opacity:1}}
-.tst-t{font-size:.77rem;font-weight:700;color:var(--t1);}
-.tst-m{font-size:.69rem;color:var(--t2);margin-top:1px;}
+/* .ttray / .tst live in assets/css/admin-shell.css — one toast for every admin page. */
 
 /* ── RESPONSIVE ───────────────────────────────────── */
 @media(max-width:1100px){.main-grid{grid-template-columns:1fr;}.side-panel{position:static;}}
@@ -543,12 +533,12 @@ textarea.fc{resize:vertical;min-height:88px;}
         <div class="snum" id="sn0"><?php echo $total_notifs;?></div>
         <div class="slbl">Total</div>
       </div>
-      <div class="scard" style="--sk:#DC2626;--sib:#FFF1F2;--sic:#DC2626;">
+      <div class="scard" style="--sk:var(--bad);--sib:#FFF1F2;--sic:var(--bad);">
         <div class="sico" style="<?php echo $unread_count>0?'animation:critGlow 2s ease-in-out infinite;':''?>"><i class="fas fa-envelope"></i></div>
         <div class="snum" id="sn1"><?php echo $unread_count;?></div>
         <div class="slbl">Unread</div>
       </div>
-      <div class="scard" style="--sk:#16A34A;--sib:#F0FDF4;--sic:#16A34A;">
+      <div class="scard" style="--sk:var(--ok);--sib:#F0FDF4;--sic:var(--ok);">
         <div class="sico"><i class="fas fa-envelope-open"></i></div>
         <div class="snum" id="sn2"><?php echo $total_notifs - $unread_count;?></div>
         <div class="slbl">Read</div>
@@ -646,7 +636,7 @@ textarea.fc{resize:vertical;min-height:88px;}
           <div class="fsw">
             <i class="fas fa-search"></i>
             <input type="text" class="fsi" id="fsq" placeholder="Search notifications…"
-              value="<?php echo esc($sq);?>" oninput="debounceGo()">
+              value="<?php echo esc($sq);?>" onkeydown="if(event.key==='Enter'){event.preventDefault();go();}">
           </div>
           <select class="fsel" id="fread" onchange="go()">
             <option value="all"    <?php echo $rf==='all'?'selected':'';?>>All</option>
@@ -708,7 +698,7 @@ textarea.fc{resize:vertical;min-height:88px;}
                 </a>
                 <?php endif;?>
                 <?php if(!$unread && !empty($n['read_at'])):?>
-                <span style="font-size:.62rem;color:var(--t4);"><i class="fas fa-check-double" style="color:#16A34A;font-size:.56rem;"></i> <?php echo date('M j g:i A',strtotime($n['read_at']));?></span>
+                <span style="font-size:.62rem;color:var(--t4);"><i class="fas fa-check-double" style="color:var(--ok);font-size:.56rem;"></i> <?php echo date('M j g:i A',strtotime($n['read_at']));?></span>
                 <?php endif;?>
               </div>
             </div>
@@ -885,9 +875,10 @@ function go(){
   u.searchParams.set('read',   document.getElementById('fread').value);
   u.searchParams.set('search', document.getElementById('fsq').value);
   u.searchParams.set('page',   '1');
-  location.href=u.toString();
+  // becListNav(): shared in includes/admin_ui.php. Guards against re-running
+  // the same URL and against a second click on an in-flight navigation.
+  becListNav(u.toString());
 }
-let dbt; function debounceGo(){clearTimeout(dbt);dbt=setTimeout(go,500);}
 
 /* ─── ANIMATED COUNTERS ──────────────────────────────── */
 function animN(id,to){
@@ -1012,7 +1003,7 @@ function openDetail(n) {
   else{lr.style.display='none';dl.style.display='none';}
 
   document.getElementById('detStatus').innerHTML=n.is_read=='1'||n.is_read===true?
-    '<span style="color:#16A34A;font-weight:700;"><i class="fas fa-check-double"></i> Read</span>':
+    '<span style="color:var(--ok);font-weight:700;"><i class="fas fa-check-double"></i> Read</span>':
     '<span style="color:var(--m3);font-weight:700;"><i class="fas fa-circle" style="font-size:.55rem;"></i> Unread</span>';
 
   document.getElementById('detMo').classList.add('open');
@@ -1069,8 +1060,5 @@ function toast(type,msg,title){
 <?php require __DIR__ . '/includes/admin_ui.php'; ?>
 </body>
 </html>
-
-
-
 
 

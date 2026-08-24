@@ -182,7 +182,7 @@ $statusMeta = [
 <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <link rel="stylesheet" href="assets/css/admin-shell.css">
 <style>
-  :root{--m:#7B1D1D;--md:#4A0E0E;--g:#C9960C;--ink:#1A0808;--ink2:#5C3838;--ink3:#9C7A7A;--paper:#F4EFE6;--surface:#fff;--border:#E5D9C6;--sb:262px;--danger:#B42318;--success:#1A7A33;--m1:#2D0505;--r1:8px;--r2:12px;}
+  :root{--m:#7B1D1D;--md:#4A0E0E;--g:#C9960C;--ink:#1A0808;--ink2:#5C3838;--ink3:#9C7A7A;--paper:#F4EFE6;--surface:#fff;--border:#E5D9C6;--sb:262px;--danger:var(--bad-tx);--success:var(--ok-tx);--m1:#2D0505;--r1:8px;--r2:12px;}
   *{box-sizing:border-box}
   body{margin:0;font-family:'DM Sans',sans-serif;background:var(--paper);color:var(--ink);min-height:100vh;}
   .main{margin-left:var(--sb);transition:margin-left .26s ease;}
@@ -193,7 +193,7 @@ $statusMeta = [
   .unit-badge i{font-size:.6rem;}
   .head-acts{display:flex;gap:.5rem;flex-shrink:0;}
 
-  .btn{display:inline-flex;align-items:center;gap:.45rem;padding:.6rem 1rem;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--ink2);font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:700;cursor:pointer;text-decoration:none;transition:.2s;}
+  .btn{padding:.6rem 1rem;border:1px solid var(--border);background:var(--surface);color:var(--ink2);font-size:.82rem;}
   .btn:hover{background:#faf7f0;color:var(--ink);}
   .btn.m{background:linear-gradient(135deg,var(--m),var(--md));border-color:transparent;color:#fff;}
   .btn.m:hover{filter:brightness(1.08);color:#fff;}
@@ -233,10 +233,7 @@ $statusMeta = [
   .loc{display:block;font-size:.7rem;color:var(--ink3);margin-top:2px;max-width:26rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .bdg{display:inline-flex;align-items:center;gap:.32rem;padding:.24rem .6rem;border-radius:999px;font-size:.66rem;font-weight:800;white-space:nowrap;}
   .money{font-family:'Outfit',sans-serif;font-weight:800;}
-  .empty{padding:3.5rem 1.5rem;text-align:center;color:var(--ink3);}
-  .empty i{font-size:2.4rem;color:var(--border);margin-bottom:.8rem;display:block;}
-  .empty h3{margin:0 0 .35rem;font-family:'Outfit',sans-serif;font-size:1.05rem;color:var(--ink2);}
-  .empty p{margin:0;font-size:.85rem;}
+  .empty{padding:3.5rem 1.5rem;}
 
   /* ── Detail dialog: the finished job as a service record ─────────────── */
   .ovl{position:fixed;inset:0;background:rgba(26,8,8,.55);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:1.5rem;z-index:120;}
@@ -297,8 +294,8 @@ $statusMeta = [
           <div class="ic" style="background:rgba(201,150,12,.12);color:#C9960C;"><i class="fas fa-hourglass-half"></i></div>
           <div><div class="n"><?php echo (int)$tot['completed']; ?></div><div class="l">Awaiting verification</div></div>
         </a>
-        <a class="stat <?php echo $sf === 'verified' ? 'on' : ''; ?>" style="--sk:#1A7A33;" href="<?php echo wo_e($keep(['status' => $sf === 'verified' ? 'all' : 'verified'])); ?>">
-          <div class="ic" style="background:rgba(26,122,51,.12);color:#1A7A33;"><i class="fas fa-clipboard-check"></i></div>
+        <a class="stat <?php echo $sf === 'verified' ? 'on' : ''; ?>" style="--sk:var(--ok-tx);" href="<?php echo wo_e($keep(['status' => $sf === 'verified' ? 'all' : 'verified'])); ?>">
+          <div class="ic" style="background:rgba(26,122,51,.12);color:var(--ok-tx);"><i class="fas fa-clipboard-check"></i></div>
           <div><div class="n"><?php echo (int)$tot['verified']; ?></div><div class="l">Verified</div></div>
         </a>
         <a class="stat <?php echo $sf === 'closed' ? 'on' : ''; ?>" style="--sk:#5C3838;" href="<?php echo wo_e($keep(['status' => $sf === 'closed' ? 'all' : 'closed'])); ?>">

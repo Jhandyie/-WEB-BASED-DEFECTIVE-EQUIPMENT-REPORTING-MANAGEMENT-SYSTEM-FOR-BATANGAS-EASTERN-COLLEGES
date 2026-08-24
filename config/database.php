@@ -1328,6 +1328,68 @@ function defectStatusCategory($status): string {
     };
 }
 
+/**
+ * SQL predicate: is this users row a technician?
+ *
+ * "Technician" is not simply users.role = 'technician'. A users row holds
+ * exactly one role (users_role_check) on one email (users_email_key), so an
+ * ITSO administrator who also carries out repairs records that second capacity
+ * as a row in maintenance_technicians — see findTechnicianPortalUser(), which
+ * lets exactly those people into the technician portal, and
+ * getAvailableTechnicians(), which makes exactly those people assignable.
+ *
+ * admin_users.php counted role = 'technician' alone, so it reported ONE
+ * technician (a seed account) while the office had four people doing the work
+ * and being assigned to reports. The count on the roster disagreed with the
+ * dispatch list on the next page over.
+ *
+ * @param string $alias The already-safe users alias (e.g. "u"). Never user input.
+ */
+function becIsTechnicianSql(string $alias = 'u'): string {
+    return "({$alias}.role = 'technician' OR EXISTS (
+                SELECT 1 FROM public.maintenance_technicians mt
+                 WHERE (mt.technician_id = {$alias}.user_id
+                        OR LOWER(mt.email) = LOWER({$alias}.email))
+                   AND COALESCE(mt.status,'active') = 'active'))";
+}
+
+/**
+ * The one priority colour scale.
+ *
+ * Two existed. admin_analytics.php ran critical=red, high=amber, medium=BLUE,
+ * low=GREEN; admin_defect_reports.php ran critical=red, high=orange,
+ * medium=GOLD, low=BLUE. So a medium report was blue on one page and gold on
+ * the next, and a low report was green on one and blue on the other — for an
+ * administrator who moves between those two screens constantly.
+ *
+ * This is the defect-reports scale, kept because it is an actual heat ramp:
+ * cool to hot as severity rises. The analytics one was not ordered (green for
+ * low, blue for medium, amber for high) so it could not be read as a scale at
+ * all.
+ *
+ * Returns a literal hex, not a CSS var(), because these values are also handed
+ * to Chart.js — a canvas cannot resolve a custom property.
+ */
+function becPriorityColor(?string $priority): string {
+    return match (strtolower(trim((string) $priority))) {
+        'critical' => '#DC2626',   // --bad
+        'high'     => '#EA580C',
+        'medium'   => '#C9960C',   // the brand gold
+        'low'      => '#2563EB',   // --info
+        default    => '#8A7466',   // no priority recorded
+    };
+}
+
+/** The same scale as an ordered map, for legends and chart series. */
+function becPriorityColorMap(): array {
+    return [
+        'critical' => becPriorityColor('critical'),
+        'high'     => becPriorityColor('high'),
+        'medium'   => becPriorityColor('medium'),
+        'low'      => becPriorityColor('low'),
+    ];
+}
+
 function defectTimelineSteps(array $report): array {
     $status = strtolower(trim((string)($report['status'] ?? 'reported')));
     $hasReached = static fn(array $statuses): bool => in_array($status, $statuses, true);

@@ -40,6 +40,42 @@ require __DIR__ . '/site_ui.php';
 </style>
 
 <script>
+/* ── One list navigation, shared ──────────────────────────────────────────
+ * Every admin list page filters by rebuilding the URL and doing a full page
+ * load. That is fine — the pages are server-rendered — but each of them wrote
+ * its own `location.href = url` with no guard, and hung it off a 450-500ms
+ * input debounce. Typing a six-letter name therefore fired two or three whole
+ * page loads mid-word, each one a dozen Supabase round trips, which is what
+ * "the admin pages are always loading" turned out to mean.
+ *
+ * becListNav() is that navigation with the two guards every page needed:
+ *   • the same URL is not a new question — re-running it is pure waste;
+ *   • once a navigation is committed a second click has nothing to add.
+ * It also raises the .is-nav progress bar (assets/css/admin-shell.css) so
+ * something visible happens while the request is in flight, and clears the
+ * flag on a bfcache restore — without that, going Back would land on a page
+ * that permanently refuses to navigate.
+ *
+ * Pages that can swap results in place (admin_users.php) do that instead and
+ * never call this; the rest call it in place of `location.href =`.
+ */
+(function () {
+  'use strict';
+  var navPending = false;
+  window.becListNav = function (next) {
+    next = String(next || '');
+    if (!next || navPending || next === location.href) { return false; }
+    navPending = true;
+    document.body.classList.add('is-nav');
+    location.href = next;
+    return true;
+  };
+  window.addEventListener('pageshow', function () {
+    navPending = false;
+    document.body.classList.remove('is-nav');
+  });
+})();
+
 (function () {
   'use strict';
   /* ---------------- stable sidebar ---------------- */

@@ -170,6 +170,14 @@ if ($stage === 'verify' && !empty($_SESSION['otp_email'])) {
 html{font-size:106.25%;scrollbar-gutter:stable;}
 
 :root {
+  /* Semantic status ramp — the same values as assets/css/admin-shell.css,
+     repeated because this page does not load the admin shell. One meaning,
+     one colour, across every surface. */
+  --ok:#16A34A;--ok-tx:#166534;--ok-bg:#F0FDF4;--ok-bdr:#BBF7D0;
+  --warn:#D97706;--warn-tx:#92600A;--warn-bg:#FFFBEB;--warn-bdr:#FDE68A;
+  --bad:#DC2626;--bad-tx:#991B1B;--bad-bg:#FEF2F2;--bad-bdr:#FECACA;
+  --info:#2563EB;--info-tx:#1D4ED8;--info-bg:#EFF6FF;--info-bdr:#BFDBFE;
+
   /* Shared six-step scales — same steps as the admin pages, so a size or a
      gap means the same thing across the system. Nothing between them. */
   --fs-xs:.6rem;--fs-sm:.68rem;--fs-base:.76rem;--fs-md:.82rem;--fs-lg:.88rem;--fs-xl:.95rem;--fs-2xl:1.05rem;
@@ -328,8 +336,8 @@ body::after {
 /* form eyebrow + trust strip */
 .panel-eyebrow { display: inline-flex; align-items: center; gap:var(--sp-2); margin-bottom:var(--sp-3); font-size:var(--fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 1.6px; color: var(--maroon); }
 .panel-eyebrow .pe-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 3px var(--maroon-soft); }
-.safety-note { display: flex; align-items: flex-start; gap:var(--sp-2); background: #FFF6F5; border: 1px solid #F3D2CD; border-left: 3px solid #C0392B; border-radius: 10px; padding:var(--sp-3) var(--sp-4); margin-bottom:var(--sp-4); font-size:var(--fs-base); color: var(--ink2); line-height: 1.55; }
-.safety-note i { color: #C0392B; font-size:var(--fs-md); margin-top:var(--sp-0); flex-shrink: 0; }
+.safety-note { display: flex; align-items: flex-start; gap:var(--sp-2); background: #FFF6F5; border: 1px solid #F3D2CD; border-left: 3px solid var(--bad-tx); border-radius: 10px; padding:var(--sp-3) var(--sp-4); margin-bottom:var(--sp-4); font-size:var(--fs-base); color: var(--ink2); line-height: 1.55; }
+.safety-note i { color: var(--bad-tx); font-size:var(--fs-md); margin-top:var(--sp-0); flex-shrink: 0; }
 .safety-note strong { color: #96271B; }
 .trust-strip { display: flex; flex-wrap: wrap; justify-content: center; gap:var(--sp-2) var(--sp-4); margin-bottom:var(--sp-4); }
 .trust-strip span { display: inline-flex; align-items: center; gap:var(--sp-1); font-size:var(--fs-sm); color: var(--ink3); font-weight: 500; }
@@ -406,7 +414,7 @@ body::after {
   padding:var(--sp-3) var(--sp-4); border-radius: 10px; font-size:var(--fs-base); line-height: 1.5;
   margin-bottom:var(--sp-4); display: flex; align-items: flex-start; gap:var(--sp-2);
 }
-.alert-err { background: #FEF2F2; border: 1px solid #FECACA; color: #991B1B; }
+.alert-err { background: #FEF2F2; border: 1px solid #FECACA; color: var(--bad-tx); }
 .alert-note { background: #FFFBEF; border: 1px solid rgba(201,150,12,.35); color: #7A5A00; }
 .alert-ok { background: #F1F9F3; border: 1px solid #C6E6CF; color: #1A6A33; }
 /* ── one-time code ─────────────────────────────────────────────────────
@@ -416,11 +424,11 @@ body::after {
 .otp-steps { display:flex; align-items:center; gap:var(--sp-2); margin-bottom:var(--sp-5);
   font-size:var(--fs-sm); font-weight:700; letter-spacing:.03em; text-transform:uppercase; }
 .otp-step { display:inline-flex; align-items:center; gap:var(--sp-1); white-space:nowrap; }
-.otp-step.done { color:#1A7A33; }
+.otp-step.done { color:var(--ok-tx); }
 .otp-step.done i { font-size:var(--fs-xs); }
 .otp-step.now { color:var(--maroon); }
 .otp-step-line { flex:1; height:2px; border-radius:2px;
-  background:linear-gradient(90deg,#1A7A33,var(--maroon)); opacity:.35; }
+  background:linear-gradient(90deg,var(--ok-tx),var(--maroon)); opacity:.35; }
 .otp-head { text-align:center; margin-bottom:var(--sp-5); }
 /* A drawn mascot, not an icon font. This used to be fa-envelope-open-text,
    which is one of the glyphs missing from the subsetted fa-solid-900.woff2 —
@@ -474,7 +482,7 @@ body::after {
   background:#fff; outline:none; transition:border-color .18s, box-shadow .18s; }
 .otp-input::placeholder { color:#D9C6C0; letter-spacing:.5em; }
 .otp-input:focus { border-color:var(--maroon); box-shadow:0 0 0 3.5px rgba(123,29,29,.09); }
-.otp-input.is-bad { border-color:#C0392B; box-shadow:0 0 0 3.5px rgba(192,57,43,.10); }
+.otp-input.is-bad { border-color:var(--bad-tx); box-shadow:0 0 0 3.5px rgba(192,57,43,.10); }
 .otp-actions { display:grid; grid-template-columns:1fr 1fr; gap:var(--sp-2); margin-top:var(--sp-4); }
 .otp-actions form { margin:0; }
 .otp-btn { width:100%; min-height:44px; display:inline-flex; align-items:center;
@@ -504,7 +512,7 @@ body::after {
 }
 /* ── remembered device ── */
 .trust { display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-4) var(--sp-4);margin-bottom:var(--sp-5);
-  background:#F4FAF5;border:1px solid #CFE6D4;border-left:3px solid #1A7A33;border-radius:14px; }
+  background:#F4FAF5;border:1px solid #CFE6D4;border-left:3px solid var(--ok-tx);border-radius:14px; }
 .trust-av { width:42px;height:42px;border-radius:50%;flex-shrink:0;background:var(--maroon-d);color:#fff;
   display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs-xl); }
 .trust-txt { flex:1;min-width:0;line-height:1.5; }

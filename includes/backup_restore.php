@@ -61,16 +61,45 @@ if (!function_exists('becCreateDatabaseBackup')) {
         $manifest = ['created_at' => date('c'), 'prefix' => $prefix, 'tables' => []];
         $totalRows = 0;
 
+        $failed = [];   // table => why it could not be read
+
         foreach (becPublicTableNames($pdo) as $t) {
             try {
                 $rows = $pdo->query('SELECT * FROM public."' . $t . '"')->fetchAll(PDO::FETCH_ASSOC);
             } catch (Throwable $e) {
                 $manifest['tables'][$t] = 'ERROR: ' . $e->getMessage();
+                $failed[$t] = $e->getMessage();
                 continue;
             }
-            $files["tables/{$t}.json"] = json_encode($rows, JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE);
+            $json = json_encode($rows, JSON_PRETTY_PRINT | JSON_INVALID_UTF8_SUBSTITUTE);
+            // A table whose rows will not encode is a table this archive does
+            // not contain. Writing "false" into the ZIP and calling the backup
+            // done is how a snapshot silently loses a table.
+            if ($json === false) {
+                $manifest['tables'][$t] = 'ERROR: ' . json_last_error_msg();
+                $failed[$t] = 'could not be encoded (' . json_last_error_msg() . ')';
+                continue;
+            }
+            $files["tables/{$t}.json"] = $json;
             $manifest['tables'][$t] = count($rows);
             $totalRows += count($rows);
+        }
+
+        // The whole point of this feature is that the file on disk can bring the
+        // system back. A partial archive that reports success is worse than no
+        // archive at all: nobody goes looking for a second copy of a backup they
+        // were told had worked. Fail here, loudly, with the table named.
+        if ($failed) {
+            throw new RuntimeException(
+                'Backup aborted — ' . count($failed) . ' table(s) could not be read: '
+                . implode('; ', array_map(
+                    static fn($t, $why) => $t . ' (' . $why . ')',
+                    array_keys($failed), $failed
+                  ))
+            );
+        }
+        if (!$files) {
+            throw new RuntimeException('Backup aborted — the database reported no tables to dump.');
         }
 
         $files['manifest.json'] = json_encode($manifest, JSON_PRETTY_PRINT);
@@ -78,7 +107,27 @@ if (!function_exists('becCreateDatabaseBackup')) {
         $zipBytes = becXlsxZip($files);
         $file = $prefix . '_' . date('Ymd_His') . '.zip';
         $out  = $dir . '/' . $file;
-        file_put_contents($out, $zipBytes);
+
+        // file_put_contents() returns false on a full disk or an unwritable
+        // backups/ and a short count on a truncated write. Unchecked, both
+        // produced "Backup created: … 12 tables, 48,102 records" with nothing
+        // (or half a ZIP) actually on disk.
+        $written = @file_put_contents($out, $zipBytes);
+        if ($written === false || $written !== strlen($zipBytes)) {
+            @unlink($out);
+            throw new RuntimeException(
+                'Backup aborted — the archive could not be written to ' . $dir
+                . ' (wrote ' . var_export($written, true) . ' of ' . strlen($zipBytes)
+                . ' bytes). Check free disk space and that the folder is writable.'
+            );
+        }
+        // Read the header back: a ZIP that cannot be reopened is not a backup,
+        // and the moment to discover that is now, not during a recovery.
+        $check = becInspectBackupArchive($out);
+        if (!$check['ok']) {
+            @unlink($out);
+            throw new RuntimeException('Backup aborted — the archive did not verify after writing (' . $check['message'] . ').');
+        }
 
         // Rotate: keep only the newest $keep archives that share this prefix.
         $archives = glob($dir . '/' . $prefix . '_*.zip') ?: [];
@@ -351,6 +400,70 @@ if (!function_exists('becTableDependencyOrder')) {
     }
 }
 
+if (!function_exists('becResyncSequences')) {
+    /**
+     * Move every identity/serial sequence past the largest id now in its table.
+     *
+     * Restoring re-inserts rows with their original ids. Postgres sequences are
+     * not consulted when a value is supplied, so they stay exactly where they
+     * were — and on a rebuilt or re-provisioned database that is 1. The restore
+     * itself reports success, the data is all there, and then the next INSERT
+     * that lets the sequence pick an id collides:
+     *
+     *   duplicate key value violates unique constraint "activity_log_pkey"
+     *
+     * logActivity() runs on every lifecycle action, so in practice this shows up
+     * as the whole system failing the first time anyone does anything after a
+     * recovery — the one moment it has to work. Seven tables are affected:
+     * categories, password_resets, email_otp, activity_log, maintenance_history,
+     * preventive_schedules and push_subscriptions. (The core business tables —
+     * users, equipment, defect_reports, work_orders, reservations — carry
+     * varchar ids generated in PHP and are unaffected.)
+     *
+     * Runs after the restore transaction commits: it reads committed maxima, and
+     * a sequence that failed to advance must not roll back recovered rows.
+     *
+     * @return array<string,string> column path => note, for anything that failed.
+     */
+    function becResyncSequences(PDO $pdo, array $tables): array {
+        $problems = [];
+        foreach ($tables as $t) {
+            if (!preg_match('/^[A-Za-z0-9_]+$/', (string) $t)) { continue; }
+            try {
+                // pg_get_serial_sequence() returns NULL for a plain column, so
+                // this asks the database which columns are sequence-backed
+                // rather than guessing from the column name.
+                $cols = $pdo->query(
+                    "SELECT column_name
+                       FROM information_schema.columns
+                      WHERE table_schema = 'public' AND table_name = " . $pdo->quote($t) . "
+                        AND pg_get_serial_sequence('public.\"' || " . $pdo->quote($t) . " || '\"', column_name) IS NOT NULL"
+                )->fetchAll(PDO::FETCH_COLUMN);
+            } catch (Throwable $e) {
+                $problems[$t] = 'could not be inspected: ' . $e->getMessage();
+                continue;
+            }
+
+            foreach ($cols as $c) {
+                if (!preg_match('/^[A-Za-z0-9_]+$/', (string) $c)) { continue; }
+                try {
+                    // is_called = false on an empty table so the next value is 1
+                    // rather than 2; COALESCE keeps that case from being NULL.
+                    $pdo->exec(
+                        "SELECT setval(
+                                  pg_get_serial_sequence('public.\"{$t}\"', '{$c}'),
+                                  COALESCE((SELECT MAX(\"{$c}\") FROM public.\"{$t}\"), 0) + 1,
+                                  false)"
+                    );
+                } catch (Throwable $e) {
+                    $problems["{$t}.{$c}"] = $e->getMessage();
+                }
+            }
+        }
+        return $problems;
+    }
+}
+
 if (!function_exists('becRestoreFromBackup')) {
     /**
      * Recover records from a backup archive via UPSERT, inside one transaction.
@@ -360,10 +473,12 @@ if (!function_exists('becRestoreFromBackup')) {
      *
      * @param string $zipPath Absolute path to a backup ZIP (validate via becResolveBackupPath first).
      * @param string[]|null $onlyTables Restrict restore to these tables, or null for all in the archive.
-     * @return array{ok:bool,message:string,restored:array<string,int>,skipped:array<string,string>,safety:?string}
+     * @return array{ok:bool,message:string,restored:array<string,int>,skipped:array<string,string>,
+     *               safety:?string,sequences:array<string,string>}
      */
     function becRestoreFromBackup(PDO $pdo, string $zipPath, ?array $onlyTables = null): array {
-        $result = ['ok' => false, 'message' => '', 'restored' => [], 'skipped' => [], 'safety' => null];
+        $result = ['ok' => false, 'message' => '', 'restored' => [], 'skipped' => [],
+                   'safety' => null, 'sequences' => []];
 
         $entries = becXlsxUnzip($zipPath);
         if (!$entries) {
@@ -457,10 +572,23 @@ if (!function_exists('becRestoreFromBackup')) {
             return $result;
         }
 
+        // Outside the transaction on purpose — see becResyncSequences().
+        $seqProblems = becResyncSequences($pdo, array_keys($result['restored']));
+
         $rowsRestored = array_sum($result['restored']);
         $result['ok'] = true;
+        $result['sequences'] = $seqProblems;
         $result['message'] = 'Recovered ' . number_format($rowsRestored) . ' record(s) across '
                            . count($result['restored']) . ' table(s).';
+        if ($seqProblems) {
+            // The data is in and the restore stands, but the next insert into
+            // these tables may collide on its id. Say so — the alternative is a
+            // green banner followed by the system breaking on the next click.
+            $result['message'] .= ' WARNING: id sequences for '
+                                . implode(', ', array_keys($seqProblems))
+                                . ' could not be advanced past the recovered rows; new records in those'
+                                . ' tables may fail until that is corrected.';
+        }
         return $result;
     }
 }

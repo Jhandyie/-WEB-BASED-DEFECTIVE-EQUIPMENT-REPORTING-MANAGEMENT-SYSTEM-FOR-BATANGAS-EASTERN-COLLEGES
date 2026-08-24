@@ -138,6 +138,14 @@ html { font-size: 106.25%; scrollbar-gutter: stable; -webkit-text-size-adjust: 1
 @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 
 :root {
+  /* Semantic status ramp — the same values as assets/css/admin-shell.css,
+     repeated because this page does not load the admin shell. One meaning,
+     one colour, across every surface. */
+  --ok:#16A34A;--ok-tx:#166534;--ok-bg:#F0FDF4;--ok-bdr:#BBF7D0;
+  --warn:#D97706;--warn-tx:#92600A;--warn-bg:#FFFBEB;--warn-bdr:#FDE68A;
+  --bad:#DC2626;--bad-tx:#991B1B;--bad-bg:#FEF2F2;--bad-bdr:#FECACA;
+  --info:#2563EB;--info-tx:#1D4ED8;--info-bg:#EFF6FF;--info-bdr:#BFDBFE;
+
   /* Shared six-step scales — same steps as the admin pages, so a size or a
      gap means the same thing across the system. Nothing between them. */
   --fs-xs:.6rem;--fs-sm:.68rem;--fs-base:.76rem;--fs-md:.82rem;--fs-lg:.88rem;--fs-xl:.95rem;--fs-2xl:1.05rem;
@@ -353,7 +361,9 @@ a { text-decoration: none; color: inherit; }
 /* ══════════════════════════════════════════════════════════════════════════
    9. CAPABILITIES — the module card grid
    ══════════════════════════════════════════════════════════════════════════ */
-.mod-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap:var(--sp-4); }
+/* Three columns, not four: the grid holds five cards and the featured one
+   spans two, so 3 gives exactly two full rows with no orphan gap. */
+.mod-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap:var(--sp-4); }
 .mod-card { position: relative; overflow: hidden; display: flex; gap:var(--sp-4); align-items: flex-start; background: var(--surface); border: 1px solid var(--border);
   border-radius: 16px; padding:var(--sp-5) var(--sp-5); box-shadow: 0 2px 8px rgba(44,10,10,.05);
   transition: transform .26s cubic-bezier(.22,1,.36,1), box-shadow .26s, border-color .26s; }
@@ -386,29 +396,16 @@ a { text-decoration: none; color: inherit; }
   background-image: radial-gradient(circle, rgba(255,255,255,.06) 1px, transparent 1px); background-size: 22px 22px;
   -webkit-mask-image: radial-gradient(ellipse 80% 70% at 80% 15%, #000 0%, transparent 75%);
   mask-image: radial-gradient(ellipse 80% 70% at 80% 15%, #000 0%, transparent 75%); }
-.about-grid { position: relative; z-index: 1; display: grid; grid-template-columns: 1.1fr .9fr; gap:2.4rem; align-items: center; }
+/* One column since the duplicated points column was removed. The paragraph is
+   held to a readable measure rather than being stretched the full band width. */
+.about-grid { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0,1fr); gap:2.4rem; align-items: center; }
+.about-grid > div { max-width: 68ch; }
 /* The brand gold reads at 2.42:1 on a cream panel — fine as a dark-background
    accent (it clears 6:1 in the footer), too pale for text on light. This is the
    same gold taken down to a shade that passes AA. */
 .about-eyebrow { font-size:var(--fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 1.6px; color: #8A6400; margin-bottom:var(--sp-3); }
 .about h2 { font-family: 'Fraunces', serif; font-weight: 700; font-size: 1.9rem; line-height: 1.2; letter-spacing: -.02em; margin-bottom:var(--sp-4); }
 .about p { font-size:var(--fs-xl); line-height: 1.75; color: rgba(255,255,255,.78); }
-.about-points { display: flex; flex-direction: column; gap:var(--sp-3); }
-.about-point { display: flex; gap:var(--sp-3); align-items: flex-start; padding:var(--sp-4) var(--sp-4); border-radius: 14px;
-  background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.08);
-  transition: transform .24s cubic-bezier(.22,1,.36,1), background .24s, border-color .24s; }
-.about-point:hover { transform:none; background: rgba(255,255,255,.08); border-color: rgba(201,150,12,.38); }
-.ap-ic { width: 48px; height: 48px; border-radius: 13px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-  font-size: 1.15rem; color: #2D0505;
-  background: linear-gradient(140deg, #F0C040, var(--gold));
-  border: 1px solid rgba(255,255,255,.25); box-shadow: 0 4px 16px rgba(201,150,12,.3);
-  transition: transform .24s, filter .24s; }
-.about-point:hover .ap-ic { transform:none; filter: brightness(1.08); }
-.ap-ic i { display: block; line-height: 1; }
-/* scope to the text column only — a bare `.about-point span` also hits the
-   .ap-ic icon tile (it's a span) and breaks its flex centering */
-.about-point > div b { display: block; font-size:var(--fs-lg); font-weight: 700; color: #fff; }
-.about-point > div span { display: block; font-size:var(--fs-base); line-height: 1.5; color: rgba(255,255,255,.66); margin-top:var(--sp-0); }
 
 /* ══════════════════════════════════════════════════════════════════════════
    11. PUBLIC REPORTS PREVIEW
@@ -486,8 +483,8 @@ a { text-decoration: none; color: inherit; }
   border: 1px solid var(--border); border-radius: 16px; padding:var(--sp-4) var(--sp-5); box-shadow: 0 4px 16px rgba(44,10,10,.06); }
 .sw-main { display: flex; align-items: center; gap:var(--sp-3); }
 .sw-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
-.sw-dot.ok { background: #22c55e; box-shadow: 0 0 0 0 rgba(34,197,94,.6); animation: swPulse 2s infinite; }
-.sw-dot.bad { background: #ef4444; }
+.sw-dot.ok { background: var(--ok); box-shadow: 0 0 0 0 rgba(34,197,94,.6); animation: swPulse 2s infinite; }
+.sw-dot.bad { background: var(--bad); }
 .sw-main b { display: block; font-size:var(--fs-xl); font-weight: 700; color: var(--ink); }
 .sw-main > div span { display: block; font-size:var(--fs-base); color: var(--ink3); }
 .sw-items { display: flex; flex-wrap: wrap; gap:var(--sp-2) var(--sp-5); }
@@ -741,9 +738,10 @@ a { text-decoration: none; color: inherit; }
         <a class="btn btn-ghost" href="reserve_venue.php"><i class="fas fa-calendar-check" aria-hidden="true"></i> Reserve a venue</a>
 <?php endif; ?>
       </div>
+      <?php /* "Property Management Office" was a third pill here, repeating the
+               eyebrow directly above it word for word. Two pills, two facts. */ ?>
       <div class="hero-pills">
         <span class="hpill"><i class="fas fa-certificate" aria-hidden="true"></i> Official institutional system</span>
-        <span class="hpill"><i class="fas fa-building-columns" aria-hidden="true"></i> Property Management Office</span>
         <span class="hpill"><i class="fas fa-shield-halved" aria-hidden="true"></i> Verified BEC email sign-in</span>
       </div>
       </div>
@@ -769,10 +767,11 @@ a { text-decoration: none; color: inherit; }
         <span class="sec-eyebrow"><span class="dot"></span> The platform</span>
         <h2 class="sec-title">One dashboard for the <em>entire equipment lifecycle</em></h2>
         <p class="sec-sub">Report, review, assign, repair, and resolve — the PMO tracks every case from submission to sign-off, with real-time status and email updates at each step.</p>
+        <?php /* "Verified BEC email sign-in" was a third bullet here and is
+                 already a hero pill, verbatim, one screen up. */ ?>
         <div class="showcase-feats">
           <span><i class="fas fa-bolt" aria-hidden="true"></i> Real-time status tracking</span>
           <span><i class="fas fa-envelope-circle-check" aria-hidden="true"></i> Automated email confirmations</span>
-          <span><i class="fas fa-shield-halved" aria-hidden="true"></i> Verified BEC email sign-in</span>
         </div>
       </div>
       <!-- Decorative mockup: a screen reader was announcing the fake dashboard's
@@ -862,16 +861,18 @@ a { text-decoration: none; color: inherit; }
         <h2 class="sec-title">Everything the PMO needs, <em>in one system</em></h2>
         <p class="sec-sub">From the moment a defect is reported to its final resolution — the platform covers the full equipment-management workflow.</p>
       </div>
+      <?php /* Five cards, not nine. Inventory, Preventive Maintenance, Backup &
+               Recovery and Analytics & Reports were listed here and are all
+               admin-only: nobody who lands on this page can open any of them,
+               and "automated snapshots with one-click data recovery" answers a
+               question a student with a broken projector was never asking.
+               What is left is the part of the system a visitor actually meets. */ ?>
       <div class="mod-grid">
         <div class="mod-card feat"><div class="mod-ic"><i class="fas fa-clipboard-list" aria-hidden="true"></i></div><div class="mod-tx"><b>Defect Reporting</b><span>Reporters log equipment issues with photo or video evidence, location, and priority.</span></div></div>
         <div class="mod-card"><div class="mod-ic"><i class="fas fa-clipboard-check" aria-hidden="true"></i></div><div class="mod-tx"><b>Review &amp; Approval</b><span>The PMO verifies every report before any work begins.</span></div></div>
         <div class="mod-card"><div class="mod-ic"><i class="fas fa-people-carry-box" aria-hidden="true"></i></div><div class="mod-tx"><b>Technician Assignment</b><span>Cases route to the right unit — PMO or ITSO — with balanced technician workloads.</span></div></div>
         <div class="mod-card"><div class="mod-ic"><i class="fas fa-screwdriver-wrench" aria-hidden="true"></i></div><div class="mod-tx"><b>Repair Tracking</b><span>Technicians accept a case, log progress, and file a service report.</span></div></div>
-        <div class="mod-card feat"><div class="mod-ic"><i class="fas fa-boxes-stacked" aria-hidden="true"></i></div><div class="mod-tx"><b>Inventory</b><span>Maintain equipment records, asset tags, and locations.</span></div></div>
-        <div class="mod-card"><div class="mod-ic"><i class="fas fa-calendar-check" aria-hidden="true"></i></div><div class="mod-tx"><b>Preventive Maintenance</b><span>Schedule recurring upkeep before equipment fails.</span></div></div>
-        <div class="mod-card"><div class="mod-ic"><i class="fas fa-database" aria-hidden="true"></i></div><div class="mod-tx"><b>Backup &amp; Recovery</b><span>Automated snapshots with one-click data recovery.</span></div></div>
-        <div class="mod-card"><div class="mod-ic"><i class="fas fa-chart-line" aria-hidden="true"></i></div><div class="mod-tx"><b>Analytics &amp; Reports</b><span>Dashboards and exports for data-driven decisions.</span></div></div>
-        <div class="mod-card feat"><div class="mod-ic"><i class="fas fa-robot" aria-hidden="true"></i></div><div class="mod-tx"><b>AI Assistant (Becca)</b><span>Built-in guidance and troubleshooting, anytime.</span></div></div>
+        <div class="mod-card"><div class="mod-ic"><i class="fas fa-robot" aria-hidden="true"></i></div><div class="mod-tx"><b>AI Assistant (Becca)</b><span>Built-in guidance and troubleshooting, anytime.</span></div></div>
       </div>
     </div>
   </section>
@@ -886,20 +887,15 @@ a { text-decoration: none; color: inherit; }
             <h2>Safeguarding the institution's equipment and facilities</h2>
             <p>The Property Management Office (PMO) of Batangas Eastern Colleges is responsible for the custody, maintenance, and accountability of institutional equipment and facilities. This system gives the campus community a single, transparent channel to report defective equipment — and gives the PMO the tools to verify, assign, and resolve each case efficiently.</p>
           </div>
-          <div class="about-points">
-            <div class="about-point">
-              <span class="ap-ic"><i class="fas fa-shield-halved" aria-hidden="true"></i></span>
-              <div><b>Verification &amp; approval</b><span>Every report is reviewed by the PMO before work begins.</span></div>
-            </div>
-            <div class="about-point">
-              <span class="ap-ic"><i class="fas fa-user-gear" aria-hidden="true"></i></span>
-              <div><b>Technician assignment</b><span>Cases are routed to the right personnel with balanced workloads.</span></div>
-            </div>
-            <div class="about-point">
-              <span class="ap-ic"><i class="fas fa-timeline" aria-hidden="true"></i></span>
-              <div><b>Accountability &amp; tracking</b><span>Status, history, and resolution are recorded end-to-end.</span></div>
-            </div>
-          </div>
+          <?php /* Three "about points" used to sit here — Verification &
+                   approval, Technician assignment, Accountability & tracking.
+                   Every one of them restated a card in the modules grid a
+                   screen above, close to word for word ("The PMO verifies every
+                   report before any work begins" against "Every report is
+                   reviewed by the PMO before work begins"). Saying the same
+                   thing a third time in a third shape is what made this page
+                   feel long. What is left here is the part that appears
+                   nowhere else: who the PMO is and what it is accountable for. */ ?>
         </div>
       </div>
     </div>

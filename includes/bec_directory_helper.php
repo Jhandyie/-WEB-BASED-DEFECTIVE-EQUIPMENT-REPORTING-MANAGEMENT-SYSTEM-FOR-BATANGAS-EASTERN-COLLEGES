@@ -177,6 +177,75 @@ function becdir_sort_year_levels(array $levels): array {
     return array_values($levels);
 }
 
+/*
+ * ─── Operational year levels ─────────────────────────────────────────────
+ *
+ * The PMO's system serves Senior High School upward. Nursery, Kindergarten and
+ * Grades 1-10 are enrolled at BEC and sit in the imported roster, but they are
+ * not who this system is for: they do not file reports and they do not hold
+ * accounts, so listing 3,000 of them buries the people the office actually
+ * works with.
+ *
+ * They are HIDDEN, never deleted. The rows stay, every historical report keeps
+ * its reporter, and anything already linked to one of these people still
+ * resolves — a report opened from the Defect Reports page shows its Grade 7
+ * reporter exactly as before, because that page reads the report, not the
+ * roster. What changes is only which people the roster pages *list* by
+ * default.
+ *
+ * Filtering here rather than in CSS is the point: a display:none row has still
+ * been fetched, counted, paginated and written into the page. The rule belongs
+ * in the query so a page of 50 is 50 people the office can act on.
+ */
+
+/** Rank at or above this and the person belongs to an operational year level. */
+const BECDIR_MIN_OPERATIONAL_RANK = 211;   // Grade 11 — see becdir_year_level_rank()
+
+/**
+ * Is this year level one the PMO system operates on?
+ *
+ * True for Senior High (Grade 11-12), college (1st-4th Year), anything the
+ * ranker does not recognise, and — importantly — for an empty value: faculty,
+ * staff, administrators and technicians carry no year level at all, and must
+ * never be caught by a rule about pupils.
+ */
+function becdir_is_operational_year_level(?string $level): bool {
+    $level = trim((string) $level);
+    if ($level === '') { return true; }            // not a pupil — not this rule's business
+    $rank = becdir_year_level_rank($level);
+    if ($rank >= 900) { return true; }             // unrecognised, or blank — leave visible
+    return $rank >= BECDIR_MIN_OPERATIONAL_RANK;
+}
+
+/** Drop Nursery-through-Grade-10 from a list of year levels (for filter dropdowns). */
+function becdir_operational_year_levels(array $levels): array {
+    return array_values(array_filter(
+        $levels,
+        static fn($l) => becdir_is_operational_year_level((string) $l)
+    ));
+}
+
+/**
+ * The same rule as SQL, so the database does the filtering.
+ *
+ * @param string $col A already-safe, fully-qualified column reference (e.g. "u.year_level").
+ *                    Never pass user input — this is interpolated into SQL.
+ */
+function becdir_operational_year_sql(string $col): string {
+    // Written positively (true = show) so it can be AND-ed into a WHERE clause
+    // as-is. Every branch returns a definite boolean: a NULL leaking out of the
+    // numeric comparison would drop the row, which is how "hide the Grade 7s"
+    // turns into "hide the faculty too".
+    return "(CASE
+               WHEN COALESCE(TRIM($col), '') = '' THEN TRUE
+               WHEN $col ~* '(nursery|kinder|prep)' THEN FALSE
+               ELSE COALESCE(
+                      (substring($col from '(?i)grade[[:space:]]*([0-9]{1,2})'))::int >= "
+                      . BECDIR_MIN_OPERATIONAL_RANK - 200 . ",
+                      TRUE)
+             END)";
+}
+
 /**
  * Work out the BEC department from the year level and programme.
  *
@@ -251,10 +320,22 @@ function becdir_parse_file(string $tmpPath, string $origName): array {
     } elseif (in_array($ext, ['csv', 'txt'], true)) {
         $fh = fopen($tmpPath, 'r');
         if (!$fh) return ['rows' => [], 'error' => 'Could not open the uploaded file.'];
+        /* Skip a UTF-8 BOM before anything reads a field.
+         *
+         * Excel's "CSV UTF-8" writes one, and becdir_canon_header() already
+         * stripped it off the first label — which is enough only while that
+         * label is unquoted. The moment the first header needs quoting (a
+         * space, a comma) the file starts BOM + '"', fgetcsv() sees a byte
+         * before the opening quote, decides the field is not quoted, and hands
+         * back '"Full Name"' with the quote marks still on it. That matches no
+         * header, so every name imports blank and the import still reports
+         * success. Getting past the BOM here fixes it for every reader below. */
+        if (fread($fh, 3) !== chr(0xEF) . chr(0xBB) . chr(0xBF)) { rewind($fh); }
+        $bomOffset = ftell($fh);
         // Detect delimiter from first line
         $first = fgets($fh);
         $delim = (substr_count($first, ';') > substr_count($first, ',')) ? ';' : ((substr_count($first, "\t") > substr_count($first, ',')) ? "\t" : ',');
-        rewind($fh);
+        fseek($fh, $bomOffset);   // back to the first field, not to the BOM
         while (($row = fgetcsv($fh, 0, $delim)) !== false) { $records[] = $row; }
         fclose($fh);
     } else {

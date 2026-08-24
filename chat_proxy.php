@@ -254,7 +254,7 @@ function chatBuildInsightReply(string $text, string $lang, array $analytics): ?a
         preg_match('/\b(most|pinaka|top|frequent|paulit|laging|commonly)\b.*\b(defect|broken|report|sira|equipment|kagamitan|device|unit|fail)s?\b/u', $q)
         || preg_match('/\b(which|what|alin|ano).*\b(equipment|device|unit|kagamitan)s?\b/u', $q))) {
         $body = chatFormatTop($analytics['top_equipment'],
-            $lang === 'fil' ? 'Wala pang sapat na report data para masuri.' : 'There isn\'t enough report data yet to analyse.');
+            $lang === 'fil' ? 'Wala pang sapat na report data para masuri.' : 'There isn\'t enough report data yet to analyze.');
         $reply = ($lang === 'fil' ? "Batay sa live data, ito ang pinakamadalas na-report na equipment:\n" : "Based on live data, these are the most-reported equipment:\n") . $body;
         return ['reply' => $reply, 'suggest' => false, 'chips' => chatChipSet($lang, ['track', 'submit', 'timeline'])];
     }

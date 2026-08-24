@@ -34,7 +34,6 @@ function adminWorkflowNotifyRole($conn, string $role, string $message, string $r
     }
 }
 
-
 /* ─── POST ACTIONS ─────────────────────────────────────── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireCsrf();
@@ -107,7 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'Your report has been approved by the Property Management Office. A technician will be assigned to handle the repair shortly.'
         );
 
-        $_SESSION['flash'] = ['ok', 'Report approved and categorised.'];
+        $_SESSION['flash'] = ['ok', 'Report approved and categorized.'];
     }
     elseif ($act === 'reject') {
         $rejReason = trim((string)($_POST['rejection_reason'] ?? ''));
@@ -403,7 +402,6 @@ if (isset($_GET['view_id'])) {
     }
 }
 
-
 /* ─── COUNTS ───────────────────────────────────────────── */
 /* One grouped count instead of fetching every report and bucketing the array six
    times over. Same numbers; the query returns one row per status/priority pair
@@ -525,19 +523,14 @@ body{
 .ic-btn:hover{background:var(--m3);color:#fff;transform:none;box-shadow:none;}
 .pip{position:absolute;top:5px;right:5px;width:7px;height:7px;
   background:var(--g2);border-radius:50%;border:2px solid var(--s1);
-  animation:pp 2.2s ease-in-out infinite;}
-@keyframes pp{0%,100%{transform:scale(1);}50%{transform:scale(1.4);}}
+  }
 
 /* ── PAGE CONTENT ───────────────────────────────────── */
 .pg{padding:1.5rem 1.75rem;flex:1;}
 
 /* ── FLASH ──────────────────────────────────────────── */
-.flash{display:flex;align-items:center;gap:.65rem;padding:.7rem 1.1rem;
-  border-radius:var(--r2);margin-bottom:1.125rem;font-size:.81rem;font-weight:600;
-  animation:fIn .25s ease;border-left:3px solid;}
+/* .flash lives in assets/css/admin-shell.css — one definition for every admin page. */
 @keyframes fIn{from{opacity:0;transform:translateY(-5px);}to{opacity:1;transform:translateY(0);}}
-.flash.ok{background:#F0FDF4;color:#15803D;border-color:#22C55E;}
-.flash.err{background:#FFF1F2;color:#DC2626;border-color:#EF4444;}
 
 /* ── PAGE HEADER ────────────────────────────────────── */
 .ph{display:flex;align-items:flex-end;justify-content:space-between;
@@ -551,18 +544,15 @@ body{
 .ph-acts{display:flex;gap:.45rem;flex-wrap:wrap;}
 
 /* ── BTN SYSTEM ─────────────────────────────────────── */
-.btn{display:inline-flex;align-items:center;gap:.32rem;
-  padding:.4rem .875rem;border-radius:var(--r1);
-  font-family:'DM Sans',sans-serif;font-size:.77rem;font-weight:700;
-  cursor:pointer;border:none;transition:all .17s;text-decoration:none;white-space:nowrap;}
+.btn{padding:.4rem .875rem;font-size:.77rem;border:none;}
 .btn:hover{transform:none;}.btn:active{transform:translateY(0);}
 .btn-maroon{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;box-shadow:none;}
 .btn-maroon:hover{box-shadow:none;}
 .btn-gold{background:linear-gradient(135deg,var(--g2),var(--g3));color:var(--m1);box-shadow:none;}
 .btn-gold:hover{box-shadow:none;}
-.btn-green{background:linear-gradient(135deg,#15803D,#22C55E);color:#fff;box-shadow:none;}
+.btn-green{background:linear-gradient(135deg,var(--ok-tx),var(--ok));color:#fff;box-shadow:none;}
 .btn-green:hover{box-shadow:none;}
-.btn-red{background:linear-gradient(135deg,#B91C1C,#EF4444);color:#fff;box-shadow:none;}
+.btn-red{background:linear-gradient(135deg,#B91C1C,var(--bad));color:#fff;box-shadow:none;}
 .btn-red:hover{box-shadow:none;}
 .btn-ghost{background:var(--s2);color:var(--t2);border:1px solid var(--bdr);}
 .btn-ghost:hover{background:var(--s3);}
@@ -572,7 +562,7 @@ body{
 .btn-xs{padding:.22rem .5rem;font-size:.66rem;}
 .bico{width:26px;height:26px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:var(--r1);font-size:.7rem;}
 .bi-v{background:#EFF6FF;color:#1D4ED8;}.bi-v:hover{background:#DBEAFE;}
-.bi-a{background:#F0FDF4;color:#15803D;}.bi-a:hover{background:#DCFCE7;}
+.bi-a{background:#F0FDF4;color:var(--ok-tx);}.bi-a:hover{background:#DCFCE7;}
 .bi-d{background:#FFF1F2;color:#BE123C;}.bi-d:hover{background:#FFE4E6;}
 
 /* ── SUMMARY CARDS ──────────────────────────────────── */
@@ -595,8 +585,8 @@ body{
 .sc-p{--sk:#D97706;--skl:rgba(217,119,6,.14);}
 .sc-q{--sk:#2563EB;--skl:rgba(37,99,235,.14);}
 .sc-r{--sk:#7C3AED;--skl:rgba(124,58,237,.14);}
-.sc-s{--sk:#16A34A;--skl:rgba(22,163,74,.14);}
-.sc-t{--sk:#DC2626;--skl:rgba(220,38,38,.14);}
+.sc-s{--sk:var(--ok);--skl:rgba(22,163,74,.14);}
+.sc-t{--sk:var(--bad);--skl:rgba(220,38,38,.14);}
 .sc-u{--sk:#C2410C;--skl:rgba(194,65,12,.14);}
 .sico{width:34px;height:34px;border-radius:var(--r1);display:flex;align-items:center;
   justify-content:center;font-size:.8rem;margin-bottom:.5rem;
@@ -607,10 +597,9 @@ body{
 .sc-p .sico{--sb-ic:#FFFBEB;--sc-ic:#D97706;}
 .sc-q .sico{--sb-ic:#EFF6FF;--sc-ic:#2563EB;}
 .sc-r .sico{--sb-ic:#F5F3FF;--sc-ic:#7C3AED;}
-.sc-s .sico{--sb-ic:#F0FDF4;--sc-ic:#16A34A;}
-.sc-t .sico{--sb-ic:#FFF1F2;--sc-ic:#DC2626;}
-.sc-u .sico{--sb-ic:#FFF7ED;--sc-ic:#C2410C;
-  animation:critGlow 2.2s ease-in-out infinite;}
+.sc-s .sico{--sb-ic:#F0FDF4;--sc-ic:var(--ok);}
+.sc-t .sico{--sb-ic:#FFF1F2;--sc-ic:var(--bad);}
+.sc-u .sico{--sb-ic:#FFF7ED;--sc-ic:#C2410C;}
 @keyframes critGlow{0%,100%{box-shadow:none;}
   50%{box-shadow:0 0 14px rgba(194,65,12,.4);}}
 .snum{font-family:'Outfit',sans-serif;font-size:1.8rem;font-weight:800;
@@ -648,7 +637,7 @@ body{
 .fcount{font-size:.7rem;color:var(--t3);white-space:nowrap;margin-left:.2rem;}
 /* Tickets a preventive schedule raised on its own, not a person */
 .pm-tag{display:inline-flex;align-items:center;gap:.25rem;margin-left:.35rem;padding:.1rem .4rem;border-radius:5px;
-  background:#E9F9EF;color:#166534;font-size:.55rem;font-weight:800;letter-spacing:.4px;vertical-align:middle;}
+  background:#E9F9EF;color:var(--ok-tx);font-size:.55rem;font-weight:800;letter-spacing:.4px;vertical-align:middle;}
 .pm-tag i{font-size:.55rem;}
 
 /* ── PANEL / TABLE ──────────────────────────────────── */
@@ -680,18 +669,25 @@ body{
 .bdg{display:inline-flex;align-items:center;gap:.22rem;padding:.2rem .58rem;
   border-radius:20px;font-size:.6rem;font-weight:800;
   text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;}
+/* The status dot no longer pulses.
+   It is ::before on .bdg, and a report list renders a badge on every row — so
+   this was dozens of elements repainting on a 2.2s loop, all at once, for as
+   long as the page was open. That is the "everything is moving and it feels
+   laggy" this page was reported for, and it is the same call
+   includes/admin_ui.php already made for the sidebar seal and the modal
+   ornament: permanently moving chrome reads as unstable on a data-dense admin
+   page. The dot still marks the badge; it just holds still. */
 .bdg::before{content:'';width:4px;height:4px;border-radius:50%;
-  background:currentColor;flex-shrink:0;animation:dot 2.2s ease-in-out infinite;}
-@keyframes dot{0%,100%{opacity:1;}50%{opacity:.4;}}
+  background:currentColor;flex-shrink:0;}
 .b-pend{background:#FEF9E7;color:#92600A;}
 .b-prog{background:#EFF6FF;color:#1D4ED8;}
 .b-prog2{background:#F5F3FF;color:#7C3AED;}
-.b-done{background:#F0FDF4;color:#15803D;}
+.b-done{background:#F0FDF4;color:var(--ok-tx);}
 .b-rej{background:#FFF1F2;color:#BE123C;}
 .b-crit{background:#FFF7ED;color:#C2410C;}
 .b-hi{background:#FFFBEB;color:#B45309;}
 .b-med{background:#EFF6FF;color:#1D4ED8;}
-.b-lo{background:#F0FDF4;color:#15803D;}
+.b-lo{background:#F0FDF4;color:var(--ok-tx);}
 .dept-itso{display:inline-flex;align-items:center;gap:.25rem;
   padding:.2rem .6rem;border-radius:20px;font-size:.62rem;font-weight:800;
   background:#ECFEFF;color:#0891B2;border:1px solid #A5F3FC;}
@@ -878,12 +874,12 @@ body:has(.mo.open){overflow:hidden;}
 .tlb{width:30px;height:30px;border-radius:50%;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;
   box-shadow:none;}
-.tlb.done{background:linear-gradient(135deg,#14532D,#22C55E);color:#fff;}
+.tlb.done{background:linear-gradient(135deg,#14532D,var(--ok));color:#fff;}
+/* The current workflow step. It used to pulse its glow on a 2s loop, inside
+   the report detail the admin is trying to read — the maroon fill and the
+   static glow already say which step is current, without the movement. */
 .tlb.act{background:linear-gradient(135deg,var(--m3),var(--m4));color:#fff;
-  box-shadow:0 0 12px rgba(123,29,29,.28);
-  animation:actPulse 2s ease-in-out infinite;}
-@keyframes actPulse{0%,100%{box-shadow:0 0 8px rgba(123,29,29,.2);}
-  50%{box-shadow:0 0 18px rgba(123,29,29,.45);}}
+  box-shadow:0 0 12px rgba(123,29,29,.28);}
 .tlb.idle{background:var(--s2);color:var(--t3);border:1.5px solid var(--bdr);}
 .tlt strong{display:block;font-size:.78rem;font-weight:700;color:var(--t1);}
 .tlt span{font-size:.68rem;color:var(--t3);}
@@ -893,8 +889,8 @@ body:has(.mo.open){overflow:hidden;}
   padding:1rem 1.1rem;margin-top:.875rem;}
 .af-title{font-family:'Outfit',sans-serif;font-size:.85rem;font-weight:700;
   margin-bottom:.75rem;display:flex;align-items:center;gap:.35rem;}
-.af-approve .af-title{color:#15803D;}
-.af-reject  .af-title{color:#DC2626;}
+.af-approve .af-title{color:var(--ok-tx);}
+.af-reject  .af-title{color:var(--bad);}
 .af-verify  .af-title{color:#1D4ED8;}
 .fg{display:flex;flex-direction:column;gap:.28rem;margin-bottom:.68rem;}
 .fl{font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.65px;color:var(--t2);}
@@ -914,7 +910,7 @@ textarea.fc{resize:vertical;min-height:70px;}
   padding:1.15rem 1.2rem;margin-top:.875rem;}
 .rv-head{display:flex;gap:.75rem;align-items:flex-start;margin-bottom:1rem;}
 .rv-ic{flex-shrink:0;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;
-  background:linear-gradient(135deg,#166534,#22C55E);color:#fff;font-size:1.02rem;
+  background:linear-gradient(135deg,var(--ok-tx),var(--ok));color:#fff;font-size:1.02rem;
   box-shadow:0 5px 12px rgba(22,101,52,.24);}
 .rv-hx{min-width:0;}
 .rv-title{font-family:'Outfit',sans-serif;font-size:.98rem;font-weight:800;color:var(--t1);line-height:1.2;}
@@ -954,7 +950,7 @@ textarea.fc{resize:vertical;min-height:70px;}
   font-weight:800;color:#1C1008;margin-bottom:.1rem;}
 .dr-next span{font-size:.74rem;color:#6B5344;line-height:1.5;}
 .dr-next.is-done{background:#F0FDF4;border-color:#BBE8CB;}
-.dr-next.is-done i{color:#16A34A;}
+.dr-next.is-done i{color:var(--ok);}
 
 .prio-seg{display:grid;grid-template-columns:repeat(4,1fr);gap:.32rem;}
 .prio-opt{padding:.46rem .2rem;border:1.5px solid var(--bdr);background:var(--s2);border-radius:var(--r1);
@@ -962,21 +958,20 @@ textarea.fc{resize:vertical;min-height:70px;}
   transition:transform .12s,border-color .16s,background .16s,color .16s;text-align:center;line-height:1;}
 .prio-opt:hover{border-color:var(--t3);}
 .prio-opt.on{color:#fff;border-color:transparent;transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.14);}
-.prio-opt[data-v=low].on{background:#16A34A;}
+.prio-opt[data-v=low].on{background:var(--ok);}
 .prio-opt[data-v=medium].on{background:#D97706;}
 .prio-opt[data-v=high].on{background:#EA580C;}
-.prio-opt[data-v=critical].on{background:#DC2626;}
+.prio-opt[data-v=critical].on{background:var(--bad);}
 .rv-actions{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.35rem;}
 .rv-actions .btn{white-space:nowrap;}
 .rv-amber{background:#C9960C;color:#fff;border:none;}
 .rv-amber:hover{background:#b3860a;}
-.rv-rejbtn{margin-left:auto;color:#DC2626;}
+.rv-rejbtn{margin-left:auto;color:var(--bad);}
 .rv-rejbtn:hover{background:#FEF2F2;border-color:#FCA5A5;}
 @media(max-width:520px){.rv-rejbtn{margin-left:0;}}
 .mfoot{padding:.8rem 1.55rem 1.25rem;border-top:1px solid var(--bdr);
   display:flex;justify-content:flex-end;gap:.45rem;flex-wrap:wrap;background:var(--s2);
   border-radius:0 0 var(--r4) var(--r4);}
-
 
 /* ══════════════════════════════════════════════════════════════════════════
    DEFECT REPORT WORKSPACE  (.dr-*)
@@ -1083,7 +1078,7 @@ textarea.fc{resize:vertical;min-height:70px;}
 .dr-cond .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
 .dr-cond.sev-broken{background:#FEF2F2;border-color:#F4C7C7;color:#B91C1C;}
 .dr-cond.sev-partial{background:#FFF7ED;border-color:#F6D9B8;color:#C2410C;}
-.dr-cond.sev-usable{background:#F0FDF4;border-color:#BBE8CB;color:#15803D;}
+.dr-cond.sev-usable{background:#F0FDF4;border-color:#BBE8CB;color:var(--ok-tx);}
 .dr-cond.sev-unknown{background:#F8F3EA;border-color:#EDE4D6;color:#6B5344;}
 
 .dr-desc{background:#F8F3EA;border-left:3px solid #C9960C;border-radius:0 10px 10px 0;
@@ -1118,11 +1113,11 @@ textarea.fc{resize:vertical;min-height:70px;}
 .dr-tl-step::before{content:'';position:absolute;left:12px;top:26px;bottom:0;width:2px;
   background:#EDE4D6;}
 .dr-tl-step:last-child::before{display:none;}
-.dr-tl-step.done::before{background:#16A34A;}
+.dr-tl-step.done::before{background:var(--ok);}
 .dr-tl-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;
   justify-content:center;font-size:var(--fs-sm);flex-shrink:0;position:relative;z-index:1;
   border:2px solid #EDE4D6;background:#fff;color:#C0AC9C;}
-.dr-tl-step.done .dr-tl-dot{background:#16A34A;border-color:#16A34A;color:#fff;}
+.dr-tl-step.done .dr-tl-dot{background:var(--ok);border-color:var(--ok);color:#fff;}
 .dr-tl-step.now .dr-tl-dot{background:#7B1D1D;border-color:#7B1D1D;color:#fff;
   box-shadow:0 0 0 4px rgba(123,29,29,.14);}
 .dr-tl-b{padding-top:var(--sp-0);min-width:0;}
@@ -1217,20 +1212,10 @@ textarea.fc{resize:vertical;min-height:70px;}
 .lb-close:hover{background:rgba(255,255,255,.3);}
 
 /* ── TOAST ───────────────────────────────────────────── */
-.ttray{position:fixed;top:1.25rem;left:50%;transform:translateX(-50%);align-items:center;display:flex;
-  flex-direction:column;gap:.38rem;z-index:9999;}
-.tst{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r2);
-  padding:.68rem .88rem;display:flex;align-items:flex-start;gap:.5rem;
-  box-shadow:var(--sh3);min-width:240px;
-  animation:tIn .22s cubic-bezier(.4,0,.2,1);border-left:3px solid var(--m3);}
-.tst.ok{border-left-color:#16A34A;}.tst.err{border-left-color:#DC2626;}
-@keyframes tIn{from{transform:translateX(60px);opacity:0}to{transform:translateX(0);opacity:1}}
-.tst-t{font-size:.77rem;font-weight:700;color:var(--t1);}
-.tst-m{font-size:.69rem;color:var(--t2);margin-top:1px;}
+/* .ttray / .tst live in assets/css/admin-shell.css — one toast for every admin page. */
 
 /* ── EMPTY ───────────────────────────────────────────── */
-.empty{text-align:center;padding:3rem 1.5rem;color:var(--t3);}
-.empty i{font-size:2.5rem;display:block;margin-bottom:.75rem;opacity:.22;}
+.empty{padding:3rem 1.5rem;}
 .rpager{display:flex;align-items:center;justify-content:space-between;gap:.85rem;flex-wrap:wrap;padding:.9rem 1rem;border-top:1px solid var(--bdr);}
 .rpager[hidden]{display:none;}
 .rpager .rp-info{font-size:.78rem;color:var(--t3);font-weight:600;}
@@ -1300,13 +1285,13 @@ textarea.fc{resize:vertical;min-height:70px;}
         </button>
         <div id="exportMenu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--s1);border:1.5px solid var(--bdr);border-radius:var(--r2);box-shadow:var(--sh3);z-index:300;min-width:150px;overflow:hidden;">
           <button onclick="exportCSV()" style="width:100%;padding:.6rem 1rem;background:none;border:none;text-align:left;font-size:.78rem;font-family:'DM Sans',sans-serif;cursor:pointer;display:flex;align-items:center;gap:.5rem;color:var(--t1);" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background='none'">
-            <i class="fas fa-file-csv" style="color:#16A34A;"></i> Export CSV
+            <i class="fas fa-file-csv" style="color:var(--ok);"></i> Export CSV
           </button>
           <button onclick="exportExcel()" style="width:100%;padding:.6rem 1rem;background:none;border:none;text-align:left;font-size:.78rem;font-family:'DM Sans',sans-serif;cursor:pointer;display:flex;align-items:center;gap:.5rem;color:var(--t1);border-top:1px solid var(--bdr);" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background='none'">
-            <i class="fas fa-file-excel" style="color:#16A34A;"></i> Export Excel
+            <i class="fas fa-file-excel" style="color:var(--ok);"></i> Export Excel
           </button>
           <button onclick="exportPDF()" style="width:100%;padding:.6rem 1rem;background:none;border:none;text-align:left;font-size:.78rem;font-family:'DM Sans',sans-serif;cursor:pointer;display:flex;align-items:center;gap:.5rem;color:var(--t1);border-top:1px solid var(--bdr);" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background='none'">
-            <i class="fas fa-file-pdf" style="color:#DC2626;"></i> Export PDF
+            <i class="fas fa-file-pdf" style="color:var(--bad);"></i> Export PDF
           </button>
           <button onclick="openExportModal()" style="width:100%;padding:.6rem 1rem;background:none;border:none;text-align:left;font-size:.78rem;font-family:'DM Sans',sans-serif;cursor:pointer;display:flex;align-items:center;gap:.5rem;color:var(--t1);border-top:1px solid var(--bdr);font-weight:600;" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background='none'">
             <i class="fas fa-filter" style="color:#92600A;"></i> Advanced Export…
@@ -1333,7 +1318,7 @@ textarea.fc{resize:vertical;min-height:70px;}
         <h1><i class="fas fa-exclamation-triangle"></i> Defect Reports
           <?php if ($adminUnit !== ''): ?><span class="unit-badge"><i class="fas fa-<?php echo $adminUnit==='ITSO'?'laptop-code':'building-shield'; ?>"></i> <?php echo esc($adminUnit); ?> Admin</span><?php endif; ?>
         </h1>
-        <p class="ph-sub"><?php if ($adminUnit !== '' && !$dfExplicit): ?>Showing <strong><?php echo esc($adminUnit); ?></strong> reports by default (plus any not yet triaged) — use the <em>Department</em> filter to view All or the other unit. <?php endif; ?>Review, approve, categorise and monitor equipment defect reports. Click any card to open details.</p>
+        <p class="ph-sub"><?php if ($adminUnit !== '' && !$dfExplicit): ?>Showing <strong><?php echo esc($adminUnit); ?></strong> reports by default (plus any not yet triaged) — use the <em>Department</em> filter to view All or the other unit. <?php endif; ?>Review, approve, categorize and monitor equipment defect reports. Click any card to open details.</p>
       </div>
       <div class="ph-acts">
         <!-- View toggle -->
@@ -1395,7 +1380,9 @@ textarea.fc{resize:vertical;min-height:70px;}
       <div class="fsw">
         <i class="fas fa-search"></i>
         <input type="text" class="fsi" id="fsq" placeholder="Search ID, equipment, description…"
-          value="<?php echo esc($sq); ?>" oninput="debounceGo()">
+          <?php /* No oninput: this fired a whole page load 500ms after each
+                   keystroke. Enter or the search button — an intentional act. */ ?>
+          value="<?php echo esc($sq); ?>" onkeydown="if(event.key==='Enter'){event.preventDefault();go();}">
       </div>
       <select class="fsel" id="fss" onchange="go()">
         <option value="all" <?php echo $sf==='all'?'selected':''; ?>>All Status</option>
@@ -1673,7 +1660,7 @@ textarea.fc{resize:vertical;min-height:70px;}
           <div class="dr-key-l">Priority</div>
           <div class="dr-key-v">
             <span class="dot" style="background:<?php
-              echo ['low'=>'#2563EB','medium'=>'#C9960C','high'=>'#EA580C','critical'=>'#DC2626'][strtolower((string)$vr['priority'])] ?? '#8A7466'; ?>;"></span>
+              echo becPriorityColor((string)$vr['priority']); ?>;"></span>
             <?php echo esc(prLbl($vr['priority'])); ?>
           </div>
         </div>
@@ -1781,7 +1768,13 @@ textarea.fc{resize:vertical;min-height:70px;}
             <?php foreach ($drPhotos as $drP): ?>
             <button type="button" class="dr-ev-item" onclick="openLb('<?php echo esc($drP); ?>')"
                     aria-label="View photo evidence">
-              <img src="<?php echo esc($drP); ?>" alt="Reported defect" loading="lazy">
+              <?php /* Not loading="lazy": this is the Evidence panel of a single
+                       report the admin has deliberately opened, and the photo is
+                       the thing they opened it to see. Deferring it left an empty
+                       frame until the panel happened to be scrolled into view.
+                       decoding="async" keeps the decode off the main thread; the
+                       frame is aspect-ratio:1 so nothing reflows as it arrives. */ ?>
+              <img src="<?php echo esc($drP); ?>" alt="Reported defect" decoding="async" fetchpriority="high">
             </button>
             <?php endforeach; ?>
             <?php foreach ($drVideos as $drV): ?>
@@ -2081,7 +2074,7 @@ textarea.fc{resize:vertical;min-height:70px;}
 function switchView(v) {
   const url = new URL(location.href);
   url.searchParams.set('view', v);
-  location.href = url.toString();
+  becListNav(url.toString());   // no-op if this view is already the one shown
 }
 /* ── FILTER / SEARCH ──────────────────────────────── */
 function go() {
@@ -2092,9 +2085,13 @@ function go() {
   url.searchParams.set('kind',     document.getElementById('fsk').value);
   url.searchParams.set('search',   document.getElementById('fsq').value);
   url.searchParams.set('view',     '<?php echo $vw; ?>');
-  location.href = url.toString();
+  // A new search starts at page 1; staying on page 5 of the old result set
+  // usually lands past the end and reads as "no matches".
+  url.searchParams.delete('page');
+  // becListNav(): shared in includes/admin_ui.php. Guards against re-running
+  // the same URL and against a second click on an in-flight navigation.
+  becListNav(url.toString());
 }
-let dbt; function debounceGo() { clearTimeout(dbt); dbt = setTimeout(go, 500); }
 
 /* ── DETAIL MODAL ─────────────────────────────────── */
 /* Opening a report and closing it are both real navigations, so the browser put
@@ -2141,7 +2138,7 @@ function closeDet() {
   setTimeout(() => {
     const url = new URL(location.href);
     url.searchParams.delete('view_id');
-    location.href = url.toString();
+    becListNav(url.toString());   // a second click on Close has nothing to add
   }, 150);
 }
 function toggleReject() {

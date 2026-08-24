@@ -178,7 +178,15 @@ $venues = vrVenueSuggestions($pdo);
 <link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
 <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <style>
-  :root{--m:#7B1D1D;--md:#4A0E0E;--g:#C9960C;--ink:#1A0808;--ink2:#5C3838;--ink3:#9C7A7A;--paper:#F4EFE6;--surface:#fff;--border:#E5D9C6;--danger:#B42318;--success:#1A7A33;}
+  /* Brand ramp, then the same semantic ramp the admin pages read from
+     assets/css/admin-shell.css. This page cannot load that file (it is public
+     and does not want the admin shell), so the values are repeated here rather
+     than re-invented — the applicant's form and the PMO's queue show the same
+     green for the same meaning. */
+  :root{--m:#7B1D1D;--md:#4A0E0E;--g:#C9960C;--ink:#1A0808;--ink2:#5C3838;--ink3:#9C7A7A;--paper:#F4EFE6;--surface:#fff;--border:#E5D9C6;
+        --ok:#16A34A;--ok-tx:#166534;--ok-bg:#F0FDF4;--ok-bdr:#BBF7D0;
+        --bad:#DC2626;--bad-tx:#991B1B;--bad-bg:#FEF2F2;--bad-bdr:#FECACA;
+        --danger:var(--bad-tx);--success:var(--ok-tx);}
   *{box-sizing:border-box}
   body{margin:0;font-family:'DM Sans',system-ui,sans-serif;background:var(--paper);color:var(--ink);font-size:.9rem;}
   .top{background:linear-gradient(135deg,var(--md),var(--m));color:#fff;padding:1.1rem 1.25rem;display:flex;align-items:center;gap:.85rem;}
@@ -189,9 +197,11 @@ $venues = vrVenueSuggestions($pdo);
   .wrap{max-width:860px;margin:0 auto;padding:1.4rem 1.1rem 4rem;}
   .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.3rem;box-shadow:0 1px 3px rgba(44,10,10,.06);}
   .lede{font-size:.82rem;color:var(--ink3);line-height:1.6;margin:0 0 1.2rem;}
-  .flash{display:flex;gap:.55rem;padding:.85rem 1rem;border-radius:11px;margin-bottom:1.1rem;font-size:.85rem;font-weight:600;line-height:1.5;}
-  .flash.ok{background:#E9F9EF;border:1px solid #b6e6c6;color:var(--success);}
-  .flash.err{background:#FEF2F2;border:1px solid #FECACA;color:var(--danger);}
+  .flash{display:flex;align-items:flex-start;gap:.65rem;padding:.85rem 1.1rem;border-radius:12px;margin-bottom:1.1rem;
+    font-size:.85rem;font-weight:600;line-height:1.5;border:1px solid transparent;border-left-width:3px;}
+  .flash i{margin-top:.12em;flex-shrink:0;}
+  .flash.ok {background:var(--ok-bg); color:var(--ok-tx); border-color:var(--ok-bdr); border-left-color:var(--ok);}
+  .flash.err{background:var(--bad-bg);color:var(--bad-tx);border-color:var(--bad-bdr);border-left-color:var(--bad);}
   fieldset{border:none;padding:0;margin:0 0 1.3rem;}
   legend{font-size:.68rem;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--g);margin-bottom:.6rem;padding:0;}
   .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.9rem;}
@@ -259,7 +269,7 @@ $venues = vrVenueSuggestions($pdo);
   <?php else: ?>
     <div class="card">
       <p class="lede">The same form the PMO keeps on paper. Fill it here and the office can see straight away
-         whether the venue is free — a room already reserved for your time window will be refused before you submit.</p>
+         whether the venue is available — a room already reserved for your time window will be refused before you submit.</p>
 
       <?php if ($flash): ?>
         <div class="flash <?php echo $flash[0] === 'ok' ? 'ok' : 'err'; ?>">

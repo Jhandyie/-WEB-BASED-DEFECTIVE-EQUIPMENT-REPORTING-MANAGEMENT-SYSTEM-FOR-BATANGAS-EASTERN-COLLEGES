@@ -106,7 +106,15 @@ function vh($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 <link rel="stylesheet" href="../assets/vendor/fonts/fonts.css">
 <link rel="stylesheet" href="../assets/vendor/fontawesome/css/all.min.css">
 <style>
-  :root{--m:#7B1D1D;--md:#4A0E0E;--mdd:#2D0505;--g:#C9960C;--gold-soft:#F0C040;--ink:#1C1008;--ink2:#5C3838;--ink3:#755B4E;--paper:#F8F3EA;--surface:#fff;--border:#E8DDD0;}
+  :root{
+  /* Semantic status ramp — the same values as assets/css/admin-shell.css,
+     repeated because this page does not load the admin shell. One meaning,
+     one colour, across every surface. */
+  --ok:#16A34A;--ok-tx:#166534;--ok-bg:#F0FDF4;--ok-bdr:#BBF7D0;
+  --warn:#D97706;--warn-tx:#92600A;--warn-bg:#FFFBEB;--warn-bdr:#FDE68A;
+  --bad:#DC2626;--bad-tx:#991B1B;--bad-bg:#FEF2F2;--bad-bdr:#FECACA;
+  --info:#2563EB;--info-tx:#1D4ED8;--info-bg:#EFF6FF;--info-bdr:#BFDBFE;
+--m:#7B1D1D;--md:#4A0E0E;--mdd:#2D0505;--g:#C9960C;--gold-soft:#F0C040;--ink:#1C1008;--ink2:#5C3838;--ink3:#755B4E;--paper:#F8F3EA;--surface:#fff;--border:#E8DDD0;}
   *{box-sizing:border-box}
   body{margin:0;font-family:'DM Sans',system-ui,Arial,sans-serif;color:var(--ink);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.4rem;
     background:radial-gradient(120% 90% at 100% 0%,rgba(201,150,12,.08),transparent 50%),var(--paper);}
@@ -163,7 +171,7 @@ function vh($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
   .toggle{position:absolute;right:.5rem;background:none;border:none;color:var(--ink3);cursor:pointer;padding:.4rem;font-size:.85rem;}
   .toggle:hover{color:var(--m)}
   .hint{font-size:.72rem;color:var(--ink3);margin-top:.5rem;display:flex;align-items:center;gap:.4rem;}
-  .hint.ok{color:#16A34A}.hint.bad{color:#B4232A}
+  .hint.ok{color:var(--ok)}.hint.bad{color:#B4232A}
   .btn{margin-top:1.3rem;width:100%;padding:.9rem;border:none;border-radius:12px;background:linear-gradient(135deg,var(--md),var(--m));color:#fff;font-family:inherit;font-weight:700;font-size:.95rem;cursor:pointer;
     box-shadow:0 10px 24px rgba(74,14,14,.24);transition:transform .18s,box-shadow .18s,filter .18s;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;}
   .btn:hover{filter:brightness(1.06);transform:none;box-shadow:0 14px 30px rgba(74,14,14,.3);}
@@ -171,13 +179,13 @@ function vh($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
   .privacy{margin-top:.9rem;font-size:.72rem;color:var(--ink3);line-height:1.5;display:flex;gap:.45rem;align-items:flex-start;}
   .privacy i{color:var(--g);margin-top:.1rem;}
   .alert{padding:.8rem 1rem;border-radius:11px;font-size:.84rem;margin-bottom:1.1rem;display:flex;gap:.55rem;align-items:flex-start;line-height:1.5;}
-  .alert.err{background:#FEF2F2;border:1px solid #FECACA;color:#991B1B;}
+  .alert.err{background:#FEF2F2;border:1px solid #FECACA;color:var(--bad-tx);}
   .alert i{margin-top:.1rem;}
 
   /* ── Result states ── */
   .state{text-align:center;margin:auto 0;padding:1rem 0;}
   .state .ic{width:74px;height:74px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 1.1rem;}
-  .state.ok .ic{background:#F0FDF4;color:#16A34A;box-shadow:0 0 0 6px rgba(22,163,74,.08);}
+  .state.ok .ic{background:#F0FDF4;color:var(--ok);box-shadow:0 0 0 6px rgba(22,163,74,.08);}
   .state.warn .ic{background:#FEF6EC;color:#B77400;box-shadow:0 0 0 6px rgba(201,150,12,.1);}
   .state h2{font-family:'Fraunces',serif;color:var(--m);margin:.2rem 0 .5rem;font-size:1.5rem;}
   .state p{color:var(--ink2);font-size:.9rem;line-height:1.65;margin:0 auto;max-width:34ch;}

@@ -87,7 +87,15 @@ $today = date('F j, Y');
 <link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
 <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
 <style>
-  :root{--maroon:#7B1D1D;--maroon-d:#4A0E0E;--gold:#C9960C;--ink:#1C1008;--ink2:#5C3838;--ink3:#755B4E;--paper:#F1EEE8;--surface:#fff;--border:#E2D9CC;--line:#D8CCBD;}
+  :root{
+  /* Semantic status ramp — the same values as assets/css/admin-shell.css,
+     repeated because this page does not load the admin shell. One meaning,
+     one colour, across every surface. */
+  --ok:#16A34A;--ok-tx:#166534;--ok-bg:#F0FDF4;--ok-bdr:#BBF7D0;
+  --warn:#D97706;--warn-tx:#92600A;--warn-bg:#FFFBEB;--warn-bdr:#FDE68A;
+  --bad:#DC2626;--bad-tx:#991B1B;--bad-bg:#FEF2F2;--bad-bdr:#FECACA;
+  --info:#2563EB;--info-tx:#1D4ED8;--info-bg:#EFF6FF;--info-bdr:#BFDBFE;
+--maroon:#7B1D1D;--maroon-d:#4A0E0E;--gold:#C9960C;--ink:#1C1008;--ink2:#5C3838;--ink3:#755B4E;--paper:#F1EEE8;--surface:#fff;--border:#E2D9CC;--line:#D8CCBD;}
   *{margin:0;padding:0;box-sizing:border-box;font-family:'DM Sans',system-ui,sans-serif;}
   body{background:var(--paper);color:var(--ink);padding:1.4rem 1rem 3rem;}
   .toolbar{max-width:820px;margin:0 auto 1rem;display:flex;gap:.6rem;flex-wrap:wrap;align-items:center;}
@@ -116,7 +124,7 @@ $today = date('F j, Y');
   .kv .v{color:var(--ink);font-weight:600;word-break:break-word;}
   .kv .v.muted{color:var(--ink3);font-weight:500;}
   .prio{display:inline-block;padding:.12rem .55rem;border-radius:6px;font-size:.74rem;font-weight:800;text-transform:uppercase;letter-spacing:.3px;}
-  .prio.critical{background:#FEF2F2;color:#991B1B;} .prio.high{background:#FFF7ED;color:#C2410C;} .prio.medium{background:#FFFBEB;color:#92600A;} .prio.low{background:#F0FDF4;color:#166534;}
+  .prio.critical{background:#FEF2F2;color:var(--bad-tx);} .prio.high{background:#FFF7ED;color:#C2410C;} .prio.medium{background:#FFFBEB;color:#92600A;} .prio.low{background:#F0FDF4;color:var(--ok-tx);}
   .issue-box{font-size:.9rem;line-height:1.65;color:var(--ink);white-space:pre-line;background:#FBF9F6;border:1px solid var(--line);border-left:3px solid var(--maroon);border-radius:8px;padding:.75rem .9rem;}
   .thumbs{display:flex;flex-wrap:wrap;gap:8px;}
   .thumbs img{width:120px;height:96px;object-fit:cover;border-radius:8px;border:1px solid var(--line);}
