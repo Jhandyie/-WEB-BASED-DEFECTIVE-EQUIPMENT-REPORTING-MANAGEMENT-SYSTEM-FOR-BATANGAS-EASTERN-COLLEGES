@@ -52,6 +52,15 @@ $hasUserTypeCol = isset($userCols['user_type']);
 // Arrives with scripts/2026_08_directory_year_level.sql; the page must still work without it.
 $hasYearLevelCol = isset($userCols['year_level']);
 
+// Nursery through Grade 10 are enrolled at BEC but are not who this system is
+// for. They stay in the database untouched — every historical report keeps its
+// reporter — and are simply not listed on the roster pages. The rule is a WHERE
+// clause on both halves of the list, both counts and every facet, so a page of
+// 50 is 50 people the office can act on. becdir_operational_year_sql() is the
+// single definition; see includes/bec_directory_helper.php for why it is not CSS.
+$yrOpU = $hasYearLevelCol ? becdir_operational_year_sql('u.year_level') : '';
+$yrOpD = becdir_operational_year_sql('bd.year_level');
+
 /**
  * Server-side field checks for the account forms.
  *
@@ -110,7 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $errors = becAccountFieldErrors($fname, $email, $phone, $dept);
         if (!$fname) $errors[] = 'Full name is required.';
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Valid email is required.';
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'A valid email address is required.';
         if ($needsPassword) {
             if (strlen($pass) < 8) $errors[] = 'Password must be at least 8 characters.';
             if ($pass !== $pass2) $errors[] = 'Passwords do not match.';
@@ -130,7 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Check duplicate email
-        if (userExistsByEmail($email)) $errors[] = 'Email address is already registered.';
+        if (userExistsByEmail($email)) $errors[] = 'That email address is already registered.';
 
         if ($errors) {
             $_SESSION['flash'] = ['err', implode(' ', $errors)];
@@ -205,7 +214,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors = [];
         if (!$fname) $errors[] = 'Technician name is required.';
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $errors[] = 'A valid email is required.';
+            $errors[] = 'A valid email address is required.';
         } elseif (!str_ends_with(strtolower($email), '@bec.edu.ph')) {
             // The reporter portal already refuses anything outside the institution;
             // staff invitations were the one door that accepted any domain.
@@ -314,7 +323,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $errors = becAccountFieldErrors($fname, $email, $phone, $dept);
         if (!$fname) $errors[] = 'Full name is required.';
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Valid email is required.';
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'A valid email address is required.';
         if ($newpass !== '' && strlen($newpass) < 8) $errors[] = 'The new password must be at least 8 characters.';
         if ($uid === $admin_id && $role !== 'admin') $errors[] = 'You cannot change your own admin role.';
         if (!in_array($role, $assignableRoles, true)) $errors[] = 'Selected role is not supported by the current database setup.';
@@ -329,7 +338,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Check email duplicate (excluding self)
-        if (userExistsByEmail($email, $uid)) $errors[] = 'Email already used by another user.';
+        if (userExistsByEmail($email, $uid)) $errors[] = 'That email address is already used by another account.';
 
         if ($errors) {
             $_SESSION['flash'] = ['err', implode(' ', $errors)];
@@ -504,6 +513,10 @@ if (!in_array($uf, ['all', 'pmo', 'itso'], true)) { $uf = 'all'; }
 // the printed standing itself, in both tables, so the value travels as text.
 $yl = trim((string)($_GET['year'] ?? 'all'));
 if ($yl === '') { $yl = 'all'; }
+// Nursery through Grade 10 are out of scope for this roster, so a bookmarked
+// ?year=Grade+7 falls back to "all" rather than showing that level selected
+// above a table the query can only return empty.
+if ($yl !== 'all' && !becdir_is_operational_year_level($yl)) { $yl = 'all'; }
 // ITSO is tested first so a department naming both lands where adminUnitForUser() puts it.
 $unitSql = static function (string $unit): string {
     return $unit === 'itso'
@@ -606,6 +619,7 @@ try {
                           WHERE NOT EXISTS (SELECT 1 FROM {$usersTable} u
                                              WHERE LOWER(u.email) = LOWER(bd.email)
                                                AND COALESCE(u.status,'') <> 'deleted')
+                            AND {$yrOpD}
                           GROUP BY 1", PDO::FETCH_ASSOC) as $r) {
         $ut = (string)$r['ut'];
         if (!isset($dirByType[$ut])) { $ut = 'student'; }
@@ -625,10 +639,14 @@ try {
     // Both halves of the union are filtered, because the list on screen is a
     // concatenation of account holders and the imported roster.
     $optFacet = static function (string $col, bool $useYear, bool $useDept, bool $useType = true)
-        use ($pdoC, $usersTable, $dirTypeSql, $tf, $df, $yl): array {
+        use ($pdoC, $usersTable, $dirTypeSql, $tf, $df, $yl, $yrOpU, $yrOpD): array {
 
-        $dW = ["COALESCE(TRIM(bd.{$col}),'') <> ''"];
+        // Carried into the facets too, or the year dropdown would keep offering
+        // Nursery 1 and Grade 7 — levels the list can no longer return, which is
+        // a filter that leads straight to an empty table.
+        $dW = ["COALESCE(TRIM(bd.{$col}),'') <> ''", $yrOpD];
         $uW = ["COALESCE(TRIM(u.{$col}),'') <> ''", "COALESCE(u.status,'') <> 'deleted'"];
+        if ($yrOpU !== '') { $uW[] = $yrOpU; }
         $p  = [];
         if ($useType && $tf !== 'all') {
             $dW[] = '(' . $dirTypeSql('bd.') . ') = :ut';
@@ -724,7 +742,15 @@ $q = "SELECT u.*,
       FROM {$usersTable} u
       WHERE u.status != 'deleted'";
 $params = []; $types = '';
-if ($rf !== 'all')   { $q .= " AND u.role = ?";   $params[] = $rf;   $types .= 's'; }
+if ($rf === 'technician') {
+    // Not u.role = 'technician'. Four of the five people who do repairs here are
+    // ITSO/PMO administrators carrying a second capacity in
+    // maintenance_technicians — the same rule getAvailableTechnicians() uses to
+    // decide who can be assigned a report. See becIsTechnicianSql().
+    $q .= ' AND ' . becIsTechnicianSql('u');
+} elseif ($rf !== 'all') {
+    $q .= " AND u.role = ?";   $params[] = $rf;   $types .= 's';
+}
 // Staff hold no user_type — an administrator or technician is a member of
 // staff by virtue of the job, so the Staff filter has to reach them too or it
 // returns nobody at all.
@@ -741,6 +767,9 @@ if ($yl !== 'all') {
     if ($hasYearLevelCol) { $q .= " AND TRIM(COALESCE(u.year_level,'')) = ?"; $params[] = $yl; $types .= 's'; }
     else                  { $q .= " AND 1 = 2"; }
 }
+// Applied last and unconditionally: a hand-typed ?year=Grade+7 must not be a way
+// back in, so this AND sits outside the filter above rather than replacing it.
+if ($yrOpU !== '') { $q .= " AND {$yrOpU}"; }
 if ($sq !== '') {
     $ql = '%'.$sq.'%';
     $searchConds = ["u.fullname LIKE ?", "u.email LIKE ?", "u.user_id LIKE ?"];
@@ -825,7 +854,8 @@ try {
         // handful of test records and is not for a full college roster.
         $dWhere = ["NOT EXISTS (SELECT 1 FROM {$usersTable} u
                                  WHERE LOWER(u.email) = LOWER(bd.email)
-                                   AND COALESCE(u.status,'') <> 'deleted')"];
+                                   AND COALESCE(u.status,'') <> 'deleted')",
+                   $yrOpD];
         $dParams = [];
         if ($tf !== 'all') { $dWhere[] = "(" . $dirTypeSql('bd.') . ") = :ut"; $dParams['ut'] = $tf; }
         if ($df !== 'all') { $dWhere[] = "COALESCE(bd.department,'') = :dep"; $dParams['dep'] = $df; }
@@ -1000,10 +1030,15 @@ if ($isExport) {
 // chips can count account holders too, not only imported directory people.
 $countCols = 'role, status' . ($hasUserTypeCol ? ', user_type' : '') . ($hasDeptCol ? ', department' : '');
 if (isPgSqlDriver()) {
-    $all_users_stmt = $pdo->query("SELECT {$countCols} FROM {$usersTable} WHERE status IS NULL OR status != 'deleted'");
+    // Aliased "u" because the year-level fragment is written against that alias.
+    // is_tech rides along so the Technicians count means the same thing as the
+    // Technicians filter and as the dispatch list — see becIsTechnicianSql().
+    $all_users_stmt = $pdo->query("SELECT {$countCols}, " . becIsTechnicianSql('u') . " AS is_tech
+                                     FROM {$usersTable} u
+                                    WHERE (u.status IS NULL OR u.status != 'deleted')" . ($yrOpU !== '' ? " AND {$yrOpU}" : ''));
     $all_users_raw = $all_users_stmt ? $all_users_stmt->fetchAll() : [];
 } else {
-    $all_users_res = $conn->query("SELECT {$countCols} FROM {$usersTable} WHERE status IS NULL OR status != 'deleted'");
+    $all_users_res = $conn->query("SELECT {$countCols} FROM {$usersTable} WHERE status IS NULL OR status != 'deleted'");   // MySQL fallback: no directory year levels to exclude
     $all_users_raw = $all_users_res ? $all_users_res->fetch_all(MYSQLI_ASSOC) : [];
 }
 
@@ -1036,7 +1071,9 @@ foreach ($all_users_raw as $u) {
 }
 
 $c_admin  = cntU($all_users_raw, fn($u)=>$u['role']==='admin');
-$c_tech   = cntU($all_users_raw, fn($u)=>$u['role']==='technician');
+// Counted from the same rule the filter and the dispatch list use, so the roster
+// cannot say "1 technician" while four people are being assigned work.
+$c_tech   = cntU($all_users_raw, fn($u)=>!empty($u['is_tech']) && $u['is_tech'] !== 'f');
 $c_rep    = cntU($all_users_raw, fn($u)=>$u['role']==='reporter') + $dirTotal;
 $c_total  = count($all_users_raw) + $dirTotal;
 
@@ -1121,6 +1158,34 @@ function cardPayload(array $u): string {
     }
     return htmlspecialchars(json_encode($out, JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
 }
+
+/* ─── PARTIAL RENDER ─────────────────────────────────
+ * Searching or filtering re-runs the same queries and re-renders the same
+ * markup either way; the only question is whether the browser throws the whole
+ * page away to get it. Asked for ?partial=1 we return just the results block,
+ * and the page's JS swaps it in — so the filter bar keeps focus, the scroll
+ * position stays, and the sidebar and modals are not rebuilt.
+ *
+ * This sits AFTER every helper the partial calls (esc, initials, avatarColor,
+ * deptCls, userPayload) and after the export branch, which exits earlier.
+ * The count that rides in the filter bar travels with it, since the bar itself
+ * is not replaced.
+ */
+if (isset($_GET['partial']) && $_GET['partial'] === '1') {
+    header('Content-Type: text/html; charset=UTF-8');
+    header('Cache-Control: no-store');
+    echo '<span id="uCountNew" hidden>';
+    if ($matchTotal > $perPage) {
+        echo '<strong>' . (count($users) > 0
+                ? number_format($rowFrom) . '&ndash;' . number_format($rowTo)
+                : '0') . '</strong> of ' . number_format($matchTotal);
+    } else {
+        echo number_format(count($users)) . ' user' . (count($users) != 1 ? 's' : '');
+    }
+    echo '</span>';
+    require __DIR__ . '/includes/admin_users_results.php';
+    exit;
+}
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1189,11 +1254,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .pg{padding:var(--sp-5) 1.75rem;flex:1;}
 
 /* ── FLASH ───────────────────────────────────────── */
-.flash{display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3) var(--sp-4);border-radius:var(--r2);
-  margin-bottom:var(--sp-4);font-size:var(--fs-md);font-weight:600;animation:fIn .25s ease;border-left:3px solid;}
+/* .flash lives in assets/css/admin-shell.css — one definition for every admin page. */
 @keyframes fIn{from{opacity:0;transform:translateY(-5px);}to{opacity:1;transform:translateY(0);}}
-.flash.ok{background:#F0FDF4;color:#15803D;border-color:#22C55E;}
-.flash.err{background:#FFF1F2;color:#DC2626;border-color:#EF4444;}
 
 /* ── PAGE HEADER ─────────────────────────────────── */
 .ph{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:var(--sp-5);gap:var(--sp-4);flex-wrap:wrap;}
@@ -1220,6 +1282,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 
 .mh-ic{margin-right:var(--sp-1);opacity:.8;}
 .fhint{font-size:var(--fs-sm);color:var(--t3,#9A7A7A);margin:var(--sp-2) 0 0;line-height:1.5;}
+/* A field the form is refusing to submit, and the reason, next to each other.
+   The reason used to be an alert() with nothing marked on the form. */
+.fc-bad{border-color:var(--bad) !important;background:var(--bad-bg) !important;}
+.fc-bad:focus{box-shadow:0 0 0 3px rgba(220,38,38,.14) !important;}
+.ferr{display:flex;align-items:flex-start;gap:var(--sp-2);font-size:var(--fs-sm);
+  color:var(--bad-tx);margin:var(--sp-2) 0 0;line-height:1.5;}
+.ferr i{margin-top:.15em;flex-shrink:0;}
 .fhint[hidden]{display:none;}
 
 /* ── BUTTONS ─────────────────────────────────────── */
@@ -1231,9 +1300,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .btn-maroon:hover{box-shadow:none;}
 .btn-gold{background:linear-gradient(135deg,var(--g2),var(--g3));color:var(--m1);box-shadow:none;}
 .btn-gold:hover{box-shadow:none;}
-.btn-green{background:linear-gradient(135deg,#15803D,#22C55E);color:#fff;box-shadow:none;}
+.btn-green{background:linear-gradient(135deg,var(--ok-tx),var(--ok));color:#fff;box-shadow:none;}
 .btn-green:hover{box-shadow:none;}
-.btn-red{background:linear-gradient(135deg,#B91C1C,#EF4444);color:#fff;box-shadow:none;}
+.btn-red{background:linear-gradient(135deg,#B91C1C,var(--bad));color:#fff;box-shadow:none;}
 .btn-red:hover{box-shadow:none;}
 .btn-amber{background:linear-gradient(135deg,#D97706,#FBBF24);color:#fff;box-shadow:none;}
 .btn-amber:hover{box-shadow:none;}
@@ -1243,7 +1312,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .bico{width:26px;height:26px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:var(--r1);font-size:var(--fs-sm);}
 .bi-v{background:#EFF6FF;color:#1D4ED8;}.bi-v:hover{background:#DBEAFE;}
 .bi-e{background:#FFFBEB;color:#D97706;}.bi-e:hover{background:#FEF3C7;}
-.bi-k{background:#F0FDF4;color:#15803D;}.bi-k:hover{background:#DCFCE7;}
+.bi-k{background:#F0FDF4;color:var(--ok-tx);}.bi-k:hover{background:#DCFCE7;}
 .bi-d{background:#FFF1F2;color:#BE123C;}.bi-d:hover{background:#FFE4E6;}
 
 /* ── SUMMARY CARDS ───────────────────────────────── */
@@ -1262,8 +1331,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .sc-b{--sk:#C2410C;--skl:rgba(194,65,12,.14);}
 .sc-c{--sk:#2563EB;--skl:rgba(37,99,235,.14);}
 .sc-d{--sk:#7C3AED;--skl:rgba(124,58,237,.14);}
-.sc-e{--sk:#16A34A;--skl:rgba(22,163,74,.14);}
-.sc-f{--sk:#DC2626;--skl:rgba(220,38,38,.14);}
+.sc-e{--sk:var(--ok);--skl:rgba(22,163,74,.14);}
+.sc-f{--sk:var(--bad);--skl:rgba(220,38,38,.14);}
 .sico{width:36px;height:36px;border-radius:var(--r2);display:flex;align-items:center;justify-content:center;
   font-size:var(--fs-md);margin-bottom:var(--sp-2);background:var(--sib);color:var(--sic);
   box-shadow:none;transition:all .26s;position:relative;z-index:1;}
@@ -1272,8 +1341,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .sc-b .sico{--sib:#FFF7ED;--sic:#C2410C;}
 .sc-c .sico{--sib:#EFF6FF;--sic:#2563EB;}
 .sc-d .sico{--sib:#F5F3FF;--sic:#7C3AED;}
-.sc-e .sico{--sib:#F0FDF4;--sic:#16A34A;}
-.sc-f .sico{--sib:#FFF1F2;--sic:#DC2626;}
+.sc-e .sico{--sib:#F0FDF4;--sic:var(--ok);}
+.sc-f .sico{--sib:#FFF1F2;--sic:var(--bad);}
 .snum{font-family:'Outfit',sans-serif;font-size:1.9rem;font-weight:800;color:var(--t1);line-height:1;
   margin-bottom:var(--sp-0);position:relative;z-index:1;transition:color .26s;}
 .scard:hover .snum{color:var(--sk);}
@@ -1284,50 +1353,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .scard:nth-child(5){animation-delay:.21s;}.scard:nth-child(6){animation-delay:.25s;}
 @keyframes scIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
 
-/* ── FILTER / ROLE TABS ──────────────────────────── */
-.rtabs{display:flex;gap:var(--sp-1);flex-wrap:wrap;margin-bottom:var(--sp-4);}
-.rtab-n{margin-left:var(--sp-2);padding:var(--sp-0) var(--sp-1);border-radius:20px;font-size:var(--fs-xs);
-  font-weight:800;background:rgba(0,0,0,.07);color:inherit;}
-.rtab.on .rtab-n{background:rgba(255,255,255,.24);}
-/* the two admin units, set apart from the role tabs beside them */
-.tab-div{width:1px;align-self:stretch;background:var(--bdr);margin:var(--sp-0) var(--sp-1);}
-.rtab.u-pmo.on{background:#C2410C;border-color:#9A3412;color:#fff;}
-.rtab.u-itso.on{background:#2563EB;border-color:#1D4ED8;color:#fff;}
-.rtab{min-height:1.95rem;}
-/* ── PAGER ───────────────────────────────────────── */
-.pager{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-4);
-  flex-wrap:wrap;margin-top:var(--sp-4);padding:var(--sp-3) var(--sp-4);background:var(--s1);
-  border:1px solid var(--bdr);border-radius:var(--r2);box-shadow:var(--sh0);}
-.pager-count{font-size:var(--fs-sm);color:var(--t3);white-space:nowrap;}
-.pager-count strong{color:var(--t2);}
-.pager-btns{display:inline-flex;align-items:center;gap:var(--sp-1);flex-wrap:wrap;}
-.pgb{display:inline-flex;align-items:center;gap:var(--sp-1);min-width:2rem;justify-content:center;
-  padding:var(--sp-1) var(--sp-3);border-radius:var(--r1);border:1.5px solid var(--bdr);
-  background:var(--s1);color:var(--t2);font-family:'DM Sans',sans-serif;
-  font-size:var(--fs-sm);font-weight:700;text-decoration:none;transition:all .17s;}
-.pgb:hover{border-color:var(--m3);color:var(--m3);transform:none;}
-.pgb.on{background:var(--m3);border-color:var(--m2);color:#fff;cursor:default;}
-.pgb.on:hover{transform:none;color:#fff;}
-.pgb.off{opacity:.4;cursor:not-allowed;}
-.pgb.off:hover{border-color:var(--bdr);color:var(--t2);transform:none;}
-.pgb i{font-size:var(--fs-xs);}
-.pg-gap{color:var(--t4);font-size:var(--fs-sm);padding:0 var(--sp-0);}
+/* The pager lives in assets/css/admin-shell.css — shared by every list page. */
 .capnote{display:flex;align-items:flex-start;gap:var(--sp-2);margin-bottom:var(--sp-4);
   padding:var(--sp-2) var(--sp-3);border-radius:var(--r1);font-size:var(--fs-base);line-height:1.55;
   background:#FFFBEF;border:1px solid rgba(201,150,12,.32);border-left:3px solid var(--g1,#C9960C);color:var(--t2);}
 .capnote i{color:#C9960C;margin-top:var(--sp-0);flex-shrink:0;}
-.rtab{display:inline-flex;align-items:center;gap:var(--sp-1);padding:var(--sp-1) var(--sp-3);border-radius:20px;
-  font-size:var(--fs-sm);font-weight:700;cursor:pointer;text-decoration:none;border:1.5px solid transparent;
-  transition:all .17s;background:var(--s1);color:var(--t2);border-color:var(--bdr);}
-.rtab:hover{transform:none;}
-.rtab.on{background:var(--m3);color:#fff;border-color:var(--m2);}
-.rtab-admin.on{background:linear-gradient(135deg,var(--m3),var(--m4));border-color:var(--m2);}
-.rtab-tech.on{background:linear-gradient(135deg,#1D4ED8,#60A5FA);border-color:#1E40AF;}
-.rtab-rep.on{background:linear-gradient(135deg,#7C3AED,#A78BFA);border-color:#6D28D9;}
-.rtab-stud.on{background:linear-gradient(135deg,#0891B2,#22D3EE);border-color:#0E7490;}
 /* One control strip. Every child is --fh tall so the search field, the three
    dropdowns and the buttons share a single baseline instead of each being
    sized by its own text — that was what made the old bar look ragged. */
+/* The .is-nav navigation indicator lives in assets/css/admin-shell.css. */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;}
 .fbar{--fh:2.2rem;background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r3);
   padding:var(--sp-3) var(--sp-3);margin-bottom:var(--sp-4);display:flex;gap:var(--sp-2);align-items:center;
   flex-wrap:wrap;row-gap:var(--sp-2);box-shadow:var(--sh0);}
@@ -1423,12 +1458,12 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .r-admin{background:#FDECEA;color:var(--m3);}
 .r-pmo{background:#FFF7ED;color:#C2410C;}
 .r-dean{background:#ECFEFF;color:#0F766E;}
-.r-fin{background:#F0FDF4;color:#166534;}
+.r-fin{background:#F0FDF4;color:var(--ok-tx);}
 .r-tech{background:#EFF6FF;color:#1D4ED8;}
 .r-rep{background:#F5F3FF;color:#7C3AED;}
 .r-stud{background:#ECFEFF;color:#0891B2;}
-.s-act{background:#F0FDF4;color:#15803D;}
-.s-inact{background:#FFF1F2;color:#DC2626;}
+.s-act{background:#F0FDF4;color:var(--ok-tx);}
+.s-inact{background:#FFF1F2;color:var(--bad);}
 .dept-itso{display:inline-flex;align-items:center;gap:var(--sp-1);padding:var(--sp-0) var(--sp-2);border-radius:20px;
   font-size:var(--fs-xs);font-weight:800;background:#ECFEFF;color:#0891B2;border:1px solid #A5F3FC;}
 .dept-pmo{display:inline-flex;align-items:center;gap:var(--sp-1);padding:var(--sp-0) var(--sp-2);border-radius:20px;
@@ -1452,7 +1487,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .ucard.role-admin{--ucol:var(--m3);--ucol-s:rgba(123,29,29,.12);}
 .ucard.role-pmo{--ucol:#C2410C;--ucol-s:rgba(194,65,12,.12);}
 .ucard.role-dean{--ucol:#0F766E;--ucol-s:rgba(15,118,110,.12);}
-.ucard.role-finance{--ucol:#166534;--ucol-s:rgba(22,101,52,.12);}
+.ucard.role-finance{--ucol:var(--ok-tx);--ucol-s:rgba(22,101,52,.12);}
 .ucard.role-technician{--ucol:#2563EB;--ucol-s:rgba(37,99,235,.12);}
 .ucard.role-reporter{--ucol:#7C3AED;--ucol-s:rgba(124,58,237,.12);}
 .ucard.role-student{--ucol:#0891B2;--ucol-s:rgba(8,145,178,.12);}
@@ -1540,7 +1575,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .danger-zone{background:#FFF1F2;border:1.5px solid #FECDD3;border-radius:var(--r2);
   padding:var(--sp-4) var(--sp-4);margin-top:var(--sp-4);}
 .dz-title{font-size:var(--fs-sm);font-weight:800;text-transform:uppercase;letter-spacing:.7px;
-  color:#DC2626;margin-bottom:var(--sp-3);display:flex;align-items:center;gap:var(--sp-1);}
+  color:var(--bad);margin-bottom:var(--sp-3);display:flex;align-items:center;gap:var(--sp-1);}
 .dz-row{display:flex;align-items:center;justify-content:space-between;gap:var(--sp-3);
   padding:var(--sp-2) 0;border-bottom:1px solid #FECDD3;}
 .dz-row:last-child{border:none;padding-bottom:0;}
@@ -1559,14 +1594,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
 .exp-opt+.exp-opt{border-top:1px solid var(--bdr);}
 
 /* ── TOAST / EMPTY ───────────────────────────────── */
-.ttray{position:fixed;top:1.25rem;left:50%;transform:translateX(-50%);align-items:center;display:flex;flex-direction:column;gap:var(--sp-2);z-index:9999;}
-.tst{background:var(--s1);border:1px solid var(--bdr);border-radius:var(--r2);
-  padding:var(--sp-3) var(--sp-4);display:flex;align-items:flex-start;gap:var(--sp-2);
-  box-shadow:var(--sh3);min-width:240px;animation:tIn .22s cubic-bezier(.4,0,.2,1);border-left:3px solid var(--m3);}
-.tst.ok{border-left-color:#16A34A;}.tst.err{border-left-color:#DC2626;}
-@keyframes tIn{from{transform:translateX(60px);opacity:0}to{transform:translateX(0);opacity:1}}
-.tst-t{font-size:var(--fs-base);font-weight:700;color:var(--t1);}
-.tst-m{font-size:var(--fs-sm);color:var(--t2);margin-top:1px;}
+/* .ttray / .tst live in assets/css/admin-shell.css — one toast for every admin page. */
 .empty{text-align:center;padding:2.5rem var(--sp-5);color:var(--t3);}
 .empty i{font-size:2.2rem;display:block;margin-bottom:var(--sp-3);opacity:.22;}
 
@@ -1600,9 +1628,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
           <i class="fas fa-download"></i> Export <i class="fas fa-chevron-down" style="font-size:.58rem;"></i>
         </button>
         <div id="expMenu">
-          <button onclick="exportCSV()" class="exp-opt"><i class="fas fa-file-csv" style="color:#16A34A;"></i> CSV</button>
-          <button onclick="exportExcel()" class="exp-opt"><i class="fas fa-file-excel" style="color:#16A34A;"></i> Excel</button>
-          <button onclick="exportPDF()" class="exp-opt"><i class="fas fa-file-pdf" style="color:#DC2626;"></i> PDF</button>
+          <button onclick="exportCSV()" class="exp-opt"><i class="fas fa-file-csv" style="color:var(--ok);"></i> CSV</button>
+          <button onclick="exportExcel()" class="exp-opt"><i class="fas fa-file-excel" style="color:var(--ok);"></i> Excel</button>
+          <button onclick="exportPDF()" class="exp-opt"><i class="fas fa-file-pdf" style="color:var(--bad);"></i> PDF</button>
         </div>
       </div>
       <button class="btn btn-maroon btn-sm" onclick="openCreate()"><i class="fas fa-user-plus"></i> Add User</button>
@@ -1636,43 +1664,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
          same six numbers. One row does both jobs: the counts now ride on the
          tabs, which is where you click anyway. -->
 
-    <!-- Role Tabs -->
-    <div class="rtabs">
-      <?php
-      // "PMO" was here as a role and matched nobody. The administrators are
-      // the PMO and the ITSO, so those two are unit filters instead.
-      $tabs=[
-        ['all',   'All Users',      'fas fa-users',          'on',        $c_total],
-        ['admin', 'Administrators', 'fas fa-crown',          'rtab-admin',$c_admin],
-        ['technician','Technicians','fas fa-hard-hat',       'rtab-tech', $c_tech],
-        ['reporter','Reporters',    'fas fa-bullhorn',       'rtab-rep',  $c_rep],
-      ];
-      // Every filter link keeps the other filters, so choosing a role does not
-      // silently throw away the department the admin already picked.
-      $keep = static function(array $over) use ($rf,$tf,$df,$yl,$sq,$uf) {
-        $qs = array_merge(['role'=>$rf,'type'=>$tf,'dept'=>$df,'unit'=>$uf,'year'=>$yl,'search'=>$sq], $over);
-        return '?' . http_build_query(array_filter($qs, static fn($v) => $v !== '' && $v !== 'all'));
-      };
-      foreach($tabs as [$rval,$rlbl,$rico,$rcls,$rnum]):
-        $act = $rf===$rval?'on':'';
-      ?>
-      <a href="<?php echo esc($keep(['role'=>$rval])); ?>"
-         class="rtab <?php echo $rcls; ?> <?php echo $act; ?>">
-        <i class="<?php echo $rico;?>"></i><?php echo $rlbl;?>
-        <span class="rtab-n"><?php echo number_format((int)$rnum); ?></span>
-      </a>
-      <?php endforeach; ?>
-
-      <span class="tab-div" aria-hidden="true"></span>
-      <?php foreach([['pmo','PMO','fas fa-building',$c_pmoUnit],['itso','ITSO','fas fa-laptop-code',$c_itsoUnit]] as [$uval,$ulbl,$uico,$unum]): ?>
-      <a href="<?php echo esc($keep(['unit'=>$uf===$uval?'all':$uval])); ?>"
-         class="rtab u-<?php echo $uval; ?> <?php echo $uf===$uval?'on':''; ?>"
-         data-tip="<?php echo $ulbl; ?> administrators and technicians">
-        <i class="<?php echo $uico; ?>"></i><?php echo $ulbl; ?>
-        <span class="rtab-n"><?php echo (int)$unum; ?></span>
-      </a>
-      <?php endforeach; ?>
-    </div>
+    <!-- The role and unit tabs that used to sit here are now the first two
+         dropdowns in the filter bar below. They were a second row of filter
+         controls above a filter bar, in a different shape (chips, six accent
+         colours) doing the same job — pick a subset of the roster. One bar,
+         one shape, one place to look. Nothing was dropped: ?role= and ?unit=
+         still drive the query and every existing link or bookmark still
+         resolves, they are just chosen from a list now. -->
 
     <!-- Filter bar — the same three questions the BEC Directory page asks of
          the roster, on one line: who is this person at the college, which
@@ -1686,29 +1684,46 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
       <div class="fsw">
         <i class="fas fa-search"></i>
         <input type="text" class="fsi" id="fsq" placeholder="Search name, email, ID, department…"
-          value="<?php echo esc($sq); ?>" oninput="debounceGo()" onkeydown="if(event.key==='Enter'){event.preventDefault();go();}">
+          value="<?php echo esc($sq); ?>" onkeydown="if(event.key==='Enter'){event.preventDefault();go();}">
       </div>
 
-      <select class="fsel" aria-label="Filter by affiliation" onchange="go({type:this.value})">
-        <?php
-        // Counts ride in the labels: the chips they replace carried them, and
-        // "Students (3,587)" is the fastest way to see the roster is loaded.
-        // An affiliation nobody holds is not a filter, it is a dead end. The
-        // registrar's export types every person in it as a student, so Faculty
-        // stood at 0 and could only ever return an empty table. Options with no
-        // rows are dropped unless one is currently selected, in which case it
-        // has to stay so the <select> still reflects the applied filter.
-        foreach ([
-          ['all',     'All affiliations', $c_total],
-          ['student', 'Students',         $c_student],
-          ['faculty', 'Faculty',          $c_faculty],
-          ['staff',   'Staff',            $c_staff],
-        ] as [$tval,$tlbl,$tnum]):
-          if ($tval !== 'all' && (int)$tnum === 0 && $tf !== $tval) { continue; } ?>
-        <option value="<?php echo esc($tval); ?>"<?php echo $tf===$tval?' selected':''; ?>><?php
-          echo esc($tlbl) . ' (' . number_format((int)$tnum) . ')'; ?></option>
+      <?php // Role and unit, moved down from the tab row. The counts that rode
+            // on the chips ride in the labels here, the same way affiliation
+            // already did it, so nothing that was readable at a glance stopped
+            // being readable. ?>
+      <select class="fsel" aria-label="Filter by role" onchange="go({role:this.value})">
+        <?php foreach ([
+          ['all',        'All roles',      $c_total],
+          ['admin',      'Administrators', $c_admin],
+          ['technician', 'Technicians',    $c_tech],
+          ['reporter',   'Reporters',      $c_rep],
+        ] as [$rval,$rlbl,$rnum]): ?>
+        <option value="<?php echo esc($rval); ?>"<?php echo $rf===$rval?' selected':''; ?>><?php
+          echo esc($rlbl) . ' (' . number_format((int)$rnum) . ')'; ?></option>
         <?php endforeach; ?>
       </select>
+
+      <?php // PMO and ITSO are not roles — they are the two units the
+            // administrators and technicians belong to, told apart by
+            // users.department exactly as adminUnitForUser() does it. ?>
+      <select class="fsel" aria-label="Filter by unit" onchange="go({unit:this.value})">
+        <?php foreach ([
+          ['all',  'PMO and ITSO', $c_pmoUnit + $c_itsoUnit],
+          ['pmo',  'PMO only',     $c_pmoUnit],
+          ['itso', 'ITSO only',    $c_itsoUnit],
+        ] as [$uval,$ulbl,$unum]): ?>
+        <option value="<?php echo esc($uval); ?>"<?php echo $uf===$uval?' selected':''; ?>><?php
+          echo esc($ulbl) . ' (' . number_format((int)$unum) . ')'; ?></option>
+        <?php endforeach; ?>
+      </select>
+
+      <?php /* The affiliation dropdown (All affiliations / Students / Faculty /
+               Staff) used to sit here. Department already answers the same
+               question in the terms the office actually uses — "College of
+               Computer Studies", "PMO" — and every reporter in the roster is
+               typed as a student by the registrar's export anyway, so Faculty
+               and Staff were near-empty options. The ?type= parameter still
+               works for an existing link; it just no longer has a control. */ ?>
 
       <?php if ($deptOptions): ?>
       <?php // The lists narrow each other, but the narrowing happens on reload and
@@ -1743,7 +1758,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
           <button class="vt-b<?php echo $view==='table'?' on':''; ?>" id="vt-tbl" onclick="setView('table')"><i class="fas fa-list"></i> Table</button>
           <button class="vt-b<?php echo $view==='grid'?' on':''; ?>" id="vt-grid" onclick="setView('grid')"><i class="fas fa-th-large"></i> Grid</button>
         </div>
-        <span class="fcount">
+        <span class="fcount" id="uCount">
           <?php if ($matchTotal > $perPage): ?>
             <?php if (count($users) > 0): ?>
               <strong><?php echo number_format($rowFrom); ?>&ndash;<?php echo number_format($rowTo); ?></strong>
@@ -1758,273 +1773,15 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
       </div>
     </div>
 
-    <?php if ($pageOverrun): ?>
-    <div class="capnote">
-      <i class="fas fa-circle-exclamation"></i>
-      <span>Page <strong><?php echo number_format($page); ?></strong> is past the end of this list
-      &mdash; there <?php echo $totalPages === 1 ? 'is' : 'are'; ?>
-      <strong><?php echo number_format($totalPages); ?></strong>
-      page<?php echo $totalPages !== 1 ? 's' : ''; ?>.
-      <a href="<?php echo esc($pageQuery(1)); ?>">Back to the first page</a>.</span>
+    <?php /* The swap target: everything inside is replaced by the ?partial=1
+             response when a filter changes. Kept as a plain wrapper so the
+             first render and a later swap produce identical markup. */ ?>
+    <?php /* Swapping the table changes the page without moving focus, so a
+             screen reader would otherwise get no word of it. */ ?>
+    <span id="uLive" class="sr-only" role="status" aria-live="polite"></span>
+    <div id="uResults">
+      <?php require __DIR__ . '/includes/admin_users_results.php'; ?>
     </div>
-    <?php endif; ?>
-
-    <!-- ════ TABLE VIEW ════ -->
-    <?php if ($view === 'table'): ?>
-    <div class="panel" id="tableView">
-      <div class="ph3">
-        <h3><i class="fas fa-list-alt"></i> User Records</h3>
-        <!-- Export, Add User and Invite Technician were repeated here from the
-             page header a few hundred pixels above, so the same three actions
-             appeared twice on one screen. They live in the header only. -->
-      </div>
-      <!-- No data-paginate here: this list is paged in SQL (see $perPage). The
-           client-side paginator would slice the 50 rows the server already
-           chose, leaving two stacked pagers disagreeing about "page 1". -->
-      <!-- Nine columns of real content do not fit every desktop. The panel
-           clips (overflow:hidden, for its rounded corners), so without this the
-           Joined date and the whole Actions column are simply not reachable. -->
-      <div class="tblwrap">
-      <table class="tbl u-fixed" id="uTbl">
-        <?php /* Nine columns sized by their content needed 1,608px inside a
-                 1,102px panel, so Actions — the Edit and Delete buttons — sat
-                 506px off the right edge, reachable only by scrolling a table
-                 that gives no sign it scrolls. Percentages rather than rem: they
-                 are relative to the table, so the row fits whatever width the
-                 panel has instead of fitting one screen and clipping on the
-                 next. Text that no longer fits ellipses, which the columns
-                 already did. */ ?>
-        <?php /* Reports and Tasks hold single digits, so their width is set
-                 entirely by the header word above them, not by the data. They
-                 need more than the numbers suggest; Email needs less than it
-                 wants, and the full address is one click away in the row. */ ?>
-        <colgroup>
-          <col style="width:18%"><col style="width:17%"><col style="width:11%">
-          <col style="width:14%"><col style="width:6%"><col style="width:8%">
-          <col style="width:7%"><col style="width:9%"><col style="width:10%">
-        </colgroup>
-        <thead>
-          <?php /* "Year" and "Tasks" rather than "Year Level" and "Active
-                   Tasks": the headers are nowrap, so at these widths the long
-                   pair ran into the column beside it. The short words say the
-                   same thing over a column of numbers. */ ?>
-          <tr>
-            <th>User</th><th>Email</th><th class="nw">Standing</th><th>Department</th>
-            <th class="c nw">Year</th>
-            <th class="c">Reports</th><th class="c">Tasks</th><th class="c nw">Joined</th>
-            <th class="c">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php if(empty($users)): ?>
-          <tr><td colspan="9"><div class="empty"><i class="fas fa-users-slash"></i>No users match the current filters.</div></td></tr>
-          <?php else: foreach($users as $u):
-            $init = initials($u['fullname']??'??');
-            $avcol = avatarColor($u['role']??'');
-            $dc = deptCls($u['department']??'');
-          ?>
-          <tr class="urow" data-user="<?php echo cardPayload($u);?>" tabindex="0" aria-label="Open user details">
-            <td>
-              <div class="tuser">
-                <div class="tav" style="background:<?php echo $avcol;?>;"><?php echo $init;?></div>
-                <div>
-                  <div class="tname"><?php echo esc($u['fullname']??'—'); ?></div>
-                  <div class="tuid"><?php echo esc($u['user_id']); ?></div>
-                </div>
-              </div>
-            </td>
-            <td class="temail"><?php echo esc($u['email']??'—'); ?></td>
-            <td class="nw">
-              <span class="bdg <?php echo roleCls($u['role']); ?>">
-                <i class="<?php echo roleIco($u['role']); ?>" style="font-size:.6rem;margin-right:.18rem;"></i>
-                <?php echo roleLbl($u['role']); ?>
-              </span><?php echo typeBadge($u); ?>
-            </td>
-            <td>
-              <?php if(!empty($u['department'])):?>
-              <span class="dept-<?php echo $dc;?>">
-                <?php if($dc==='itso') echo '<i class="fas fa-laptop-code"></i>';
-                      elseif($dc==='pmo') echo '<i class="fas fa-building"></i>';
-                      else echo '<i class="fas fa-building"></i>'; ?>
-                <?php echo esc($u['department']); ?>
-              </span>
-              <?php else: ?><span style="color:var(--t4);font-size:.72rem;">—</span><?php endif; ?>
-            </td>
-            <td class="c nw" style="font-size:.74rem;color:var(--t2,#5B4636);">
-              <?php echo !empty($u['year_level']) ? esc($u['year_level']) : '<span style="color:var(--t4);font-size:.72rem;">—</span>'; ?>
-            </td>
-            <td class="c num" style="color:var(--m3);">
-              <?php echo (int)($u['report_count']??0); ?>
-            </td>
-            <td class="c num">
-              <?php $at=(int)($u['active_tasks']??0); ?>
-              <span style="color:<?php echo $at>3?'#DC2626':($at>1?'#D97706':'#16A34A');?>;"><?php echo $at; ?></span>
-            </td>
-            <td class="c nw" style="font-size:.72rem;color:var(--t3);">
-              <?php echo !empty($u['created_at'])?date('M j, Y',strtotime($u['created_at'])):'—'; ?>
-            </td>
-            <td class="c">
-              <div class="no-row-open" style="display:flex;gap:.25rem;justify-content:center;">
-                <button type="button" class="btn bico bi-v" title="View Profile"
-                  onclick="openProfile(rowData(this))">
-                  <i class="fas fa-eye"></i>
-                </button>
-                <?php if(empty($u['is_directory'])): ?>
-                <button type="button" class="btn bico bi-e" title="Edit User"
-                  onclick="openEdit(rowData(this))">
-                  <i class="fas fa-pen"></i>
-                </button>
-                <?php if($roleNeedsPassword($u['role'] ?? '')): ?>
-                <button type="button" class="btn bico bi-k" title="Reset Password"
-                  onclick="openReset('<?php echo esc($u['user_id']);?>','<?php echo esc($u['fullname']??'');?>')">
-                  <i class="fas fa-key"></i>
-                </button>
-                <?php endif; ?>
-                <?php if($u['user_id']!==$admin_id): ?>
-                <button type="button" class="btn bico bi-d" title="Delete"
-                  onclick="delUser('<?php echo esc($u['user_id']);?>','<?php echo esc($u['fullname']??'');?>')">
-                  <i class="fas fa-trash"></i>
-                </button>
-                <?php endif; ?>
-                <?php else: ?>
-                <span class="bdg" style="background:rgba(8,145,178,.12);color:#0891B2;font-size:.6rem;" title="Imported from the BEC directory — reporter, no login account"><i class="fas fa-address-book" style="font-size:.6rem;margin-right:.18rem;"></i>Directory</span>
-                <?php endif; ?>
-              </div>
-            </td>
-          </tr>
-          <?php endforeach; endif; ?>
-        </tbody>
-      </table>
-      </div>
-    </div>
-
-    <?php endif; ?>
-
-    <!-- ════ GRID VIEW ════ -->
-    <?php if ($view === 'grid'): ?>
-    <div id="gridView">
-      <div class="ugrid"><!-- paged in SQL, same as the table view -->
-        <?php if(empty($users)): ?>
-        <div style="grid-column:1/-1;"><div class="empty"><i class="fas fa-users-slash"></i>No users match the current filters.</div></div>
-        <?php else: foreach($users as $i=>$u):
-          $init = initials($u['fullname']??'??');
-          $avcol = avatarColor($u['role']??'');
-          $dc = deptCls($u['department']??'');
-          $isDir = !empty($u['is_directory']);
-        ?>
-        <div class="ucard role-<?php echo esc($u['role']??'reporter');?>"
-          data-user="<?php echo cardPayload($u);?>"
-          style="animation-delay:<?php echo min($i,25)*.04;?>s;">
-          <div class="uc-top">
-            <div class="uc-av" style="background:<?php echo $avcol;?>;"><?php echo $init;?></div>
-            <?php if($isDir): ?><span class="uc-status"><span class="bdg" style="background:rgba(8,145,178,.12);color:#0891B2;font-size:.6rem;"><i class="fas fa-address-book" style="font-size:.55rem;margin-right:.15rem;"></i>Directory</span></span><?php endif; ?>
-          </div>
-          <div class="uc-name"><?php echo esc($u['fullname']??'—');?></div>
-          <div class="uc-id"><?php echo esc($u['user_id']);?></div>
-          <div class="uc-email"><i class="fas fa-envelope" style="font-size:.62rem;color:var(--t3);flex-shrink:0;"></i><?php echo esc($u['email']??'—');?></div>
-          <div class="uc-meta">
-            <span class="bdg <?php echo roleCls($u['role']);?>">
-              <i class="<?php echo roleIco($u['role']);?>" style="font-size:.6rem;margin-right:.15rem;"></i>
-              <?php echo roleLbl($u['role']);?>
-            </span><?php echo typeBadge($u); ?>
-            <?php if(!empty($u['department'])):?>
-            <span class="dept-<?php echo $dc;?>" style="font-size:.6rem;padding:.15rem .48rem;">
-              <?php echo esc($u['department']);?>
-            </span>
-            <?php endif;?>
-          </div>
-          <div class="uc-stats">
-            <div class="uc-stat">
-              <div class="uc-stat-n" style="color:var(--m3);"><?php echo (int)($u['report_count']??0);?></div>
-              <div class="uc-stat-l">Reports</div>
-            </div>
-            <div class="uc-stat">
-              <?php $at=(int)($u['active_tasks']??0);?>
-              <div class="uc-stat-n" style="color:<?php echo $at>3?'#DC2626':($at>1?'#D97706':'#16A34A');?>;"><?php echo $at;?></div>
-              <div class="uc-stat-l">Active Tasks</div>
-            </div>
-          </div>
-          <div class="uc-acts">
-            <button type="button" class="btn btn-ghost btn-sm" style="flex:1;justify-content:center;"
-              onclick="openProfile(rowData(this))">
-              <i class="fas fa-eye"></i> View
-            </button>
-            <?php if(empty($u['is_directory'])): ?>
-            <button type="button" class="btn btn-gold btn-sm" title="Edit User"
-              onclick="openEdit(rowData(this))">
-              <i class="fas fa-pen"></i>
-            </button>
-            <?php if($roleNeedsPassword($u['role'] ?? '')): ?>
-            <button type="button" class="btn btn-ghost btn-sm" title="Reset Password"
-              onclick="openReset('<?php echo esc($u['user_id']);?>','<?php echo esc($u['fullname']??'');?>')">
-              <i class="fas fa-key"></i>
-            </button>
-            <?php endif; ?>
-            <?php if($u['user_id']!==$admin_id):?>
-            <button type="button" class="btn btn-red btn-sm" title="Delete"
-              onclick="delUser('<?php echo esc($u['user_id']);?>','<?php echo esc($u['fullname']??'');?>')">
-              <i class="fas fa-trash"></i>
-            </button>
-            <?php endif;?>
-            <?php else: ?>
-            <span class="bdg" style="flex:1;justify-content:center;background:rgba(8,145,178,.1);color:#0891B2;font-size:.62rem;" title="Imported from the BEC directory — reporter, no login account to edit"><i class="fas fa-address-book" style="font-size:.6rem;margin-right:.2rem;"></i>Directory record</span>
-            <?php endif; ?>
-          </div>
-        </div>
-        <?php endforeach; endif;?>
-      </div>
-    </div>
-    <?php endif; ?>
-
-    <?php if ($totalPages > 1): ?>
-    <!-- Paging is done in SQL: each page is its own LIMIT/OFFSET query, so the
-         browser never receives the rows it isn't showing. -->
-    <nav class="pager" id="userPager" aria-label="User list pages">
-      <span class="pager-count">
-        <?php if (count($users) > 0): ?>
-          <?php echo number_format($rowFrom); ?>&ndash;<?php echo number_format($rowTo); ?>
-        <?php else: ?>
-          No rows on this page &mdash;
-        <?php endif; ?>
-        of <strong><?php echo number_format($matchTotal); ?></strong>
-      </span>
-      <span class="pager-btns">
-        <?php if ($page > 1): ?>
-          <a class="pgb" href="<?php echo esc($pageQuery($page - 1)); ?>" rel="prev"><i class="fas fa-chevron-left"></i> Previous</a>
-        <?php else: ?>
-          <span class="pgb off"><i class="fas fa-chevron-left"></i> Previous</span>
-        <?php endif; ?>
-
-        <?php
-        // A window around the current page, so 36 pages don't render 36 links.
-        $from = max(1, $page - 2);
-        $to   = min($totalPages, $page + 2);
-        if ($from > 1): ?>
-          <a class="pgb" href="<?php echo esc($pageQuery(1)); ?>">1</a>
-          <?php if ($from > 2): ?><span class="pg-gap">&hellip;</span><?php endif; ?>
-        <?php endif; ?>
-
-        <?php for ($i = $from; $i <= $to; $i++): ?>
-          <?php if ($i === $page): ?>
-            <span class="pgb on" aria-current="page"><?php echo $i; ?></span>
-          <?php else: ?>
-            <a class="pgb" href="<?php echo esc($pageQuery($i)); ?>"><?php echo $i; ?></a>
-          <?php endif; ?>
-        <?php endfor; ?>
-
-        <?php if ($to < $totalPages): ?>
-          <?php if ($to < $totalPages - 1): ?><span class="pg-gap">&hellip;</span><?php endif; ?>
-          <a class="pgb" href="<?php echo esc($pageQuery($totalPages)); ?>"><?php echo number_format($totalPages); ?></a>
-        <?php endif; ?>
-
-        <?php if ($page < $totalPages): ?>
-          <a class="pgb" href="<?php echo esc($pageQuery($page + 1)); ?>" rel="next">Next <i class="fas fa-chevron-right"></i></a>
-        <?php else: ?>
-          <span class="pgb off">Next <i class="fas fa-chevron-right"></i></span>
-        <?php endif; ?>
-      </span>
-    </nav>
-    <?php endif; ?>
 
   </div><!-- /pg -->
 </div><!-- /wrap -->
@@ -2040,7 +1797,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
       <button class="mx" onclick="document.getElementById('createMo').classList.remove('open')"><i class="fas fa-times"></i></button>
     </div>
     <div class="mb">
-      <form method="POST" action="admin_users.php" id="createForm" onsubmit="return deptGuard('cuRole','cuDeptTxt');">
+      <form method="POST" action="admin_users.php" id="createForm" onsubmit="return deptGuard('cuRole','cuDeptTxt','cuDeptSel');">
         <input type="hidden" name="action" value="create">
         <p id="cuRoleNote" style="display:none;font-size:.76rem;line-height:1.6;color:var(--t2);background:rgba(8,145,178,.08);
           border:1px solid rgba(8,145,178,.25);border-left:3px solid #0891B2;border-radius:.5rem;padding:.6rem .75rem;margin:0 0 1rem;"></p>
@@ -2203,7 +1960,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
       <button class="mx" onclick="document.getElementById('editMo').classList.remove('open')"><i class="fas fa-times"></i></button>
     </div>
     <div class="mb">
-      <form method="POST" action="admin_users.php" id="editForm" onsubmit="return deptGuard('eRole','eDept');">
+      <form method="POST" action="admin_users.php" id="editForm" onsubmit="return deptGuard('eRole','eDept','eDeptSel');">
         <input type="hidden" name="action" value="edit">
         <input type="hidden" name="user_id" id="eUid">
         <div class="fg2">
@@ -2397,9 +2154,94 @@ function go(over){
   // usually past the end, and reading as "no matches".
   u.searchParams.delete('page');
   if (over) { Object.entries(over).forEach(([k,v])=>set(k,v)); }
-  location.href=u.toString();
+  load(u.toString());
 }
-let dbt; function debounceGo(){clearTimeout(dbt);dbt=setTimeout(()=>go(),500);}
+
+/* ─── IN-PLACE RESULTS ───────────────────────────────
+ * The list used to be fetched by throwing the page away and building it again:
+ * sidebar, filter bar, every modal, on each keystroke-triggered search. Now
+ * only #uResults is replaced. Same server queries, same markup — the page just
+ * stays where it is, keeps the caret in the search box, and holds its scroll.
+ *
+ * Falls back to a normal navigation if fetch fails or the server answers with
+ * anything but HTML, so a network blip cannot leave a stale table on screen.
+ */
+let navPending = false;
+let navToken = 0;
+
+function load(next, push = true) {
+  // An identical URL is not a new question. Re-running it is exactly the "why
+  // is it always loading" this page was reported for.
+  if (navPending || next === location.href) { return; }
+  navPending = true;
+  const token = ++navToken;
+  document.body.classList.add('is-nav');
+
+  const url = new URL(next, location.origin);
+  url.searchParams.set('partial', '1');
+
+  fetch(url.toString(), { credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } })
+    .then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const ct = r.headers.get('content-type') || '';
+      // A redirect to the sign-in page answers 200 with a full document: treat
+      // anything that is not our fragment as "go there properly".
+      if (!ct.includes('text/html')) throw new Error('unexpected content-type');
+      return r.text();
+    })
+    .then(html => {
+      // A slower earlier request must not overwrite a newer one.
+      if (token !== navToken) { return; }
+      if (html.includes('<!DOCTYPE') || html.includes('<html')) { throw new Error('full page returned'); }
+
+      const box = document.getElementById('uResults');
+      if (!box) throw new Error('no results container');
+      box.innerHTML = html;
+
+      // The count rides in the filter bar, which is not part of the swap.
+      const fresh = box.querySelector('#uCountNew');
+      const target = document.getElementById('uCount');
+      if (fresh && target) { target.innerHTML = fresh.innerHTML; fresh.remove(); }
+
+      if (push) { history.pushState({ becList: true }, '', next); }
+      // Fresh <tr> elements need their handlers again. Safe to re-run: the old
+      // rows (and their listeners) went with the innerHTML replacement.
+      if (typeof initUserRowClicks === 'function') { initUserRowClicks(); }
+      navPending = false;
+      document.body.classList.remove('is-nav');
+      // Tell a screen reader the table changed — nothing moved focus, so
+      // without this the swap is silent.
+      const live = document.getElementById('uLive');
+      if (live && target) { live.textContent = target.textContent.trim() + ' shown'; }
+    })
+    .catch(() => {
+      // Whatever went wrong, the reliable thing is the plain page load.
+      location.href = next;
+    });
+}
+
+// Back/forward has to move through the list, not out of the page.
+window.addEventListener('popstate', () => {
+  navPending = false;
+  load(location.href, false);
+});
+
+// Paging links and the "back to the first page" link live inside the swapped
+// region, so they are handled by delegation rather than bound per render.
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('#uResults a.pgb, #uResults .capnote a');
+  if (!a || a.classList.contains('off') || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) { return; }
+  e.preventDefault();
+  load(a.href);
+  // A new page starts at the top of the list, not wherever the pager was.
+  const box = document.getElementById('uResults');
+  if (box) { window.scrollTo({ top: box.offsetTop - 90, behavior: 'smooth' }); }
+});
+
+window.addEventListener('pageshow', () => {
+  navPending = false;
+  document.body.classList.remove('is-nav');
+});
 
 /* ─── VIEW TOGGLE ────────────────────────────────────── */
 const _view = '<?php echo $view; ?>';
@@ -2583,6 +2425,9 @@ function deptPick(selId, txtId, val){
   var txt=document.getElementById(txtId);
   if(val==='__other'){ txt.style.display=''; txt.value=''; txt.focus(); }
   else { txt.style.display='none'; txt.value=val; }
+  // Answering the question clears the complaint about it — leaving a red field
+  // outlined after it has been fixed is its own kind of wrong.
+  deptGuardClear(txtId, selId);
 }
 // Reverse-sync: put an existing value into the select, or fall to "Other…".
 function deptLoad(selId, txtId, val){
@@ -2605,14 +2450,57 @@ function deptRoleSync(roleId, selId, starId, hintId){
      still applying and the hint would never appear. */
   if(hint) hint.hidden=!isAdmin;
 }
-// Block submit if an Administrator has no PMO/ITSO unit set.
-function deptGuard(roleId, txtId){
+/* Block submit if an Administrator has no PMO/ITSO unit set.
+ *
+ * This used to be a bare alert(). The message asked the admin to "choose the
+ * unit", the alert was dismissed, and nothing on the form was marked — so the
+ * reasonable reading was that the field did not exist. It does: it is the
+ * "Unit / Department" dropdown, which is already filled in with something like
+ * "College of Computer Studies", so nothing looks missing either.
+ *
+ * The error now attaches to that dropdown: scrolled to, focused, outlined, with
+ * the reason underneath it. selId is the <select> the admin actually picks from;
+ * txtId is the hidden text input that carries the value to the server. */
+function deptGuard(roleId, txtId, selId){
   var role=(document.getElementById(roleId)||{}).value||'';
+  var txt=document.getElementById(txtId);
+  var sel=selId?document.getElementById(selId):null;
+  deptGuardClear(txtId, selId);
   if(role!=='admin') return true;
-  var dept=((document.getElementById(txtId)||{}).value||'').toUpperCase();
+  var dept=((txt||{}).value||'').toUpperCase();
   if(dept.indexOf('PMO')!==-1 || dept.indexOf('ITSO')!==-1) return true;
-  alert('Please choose the unit this Administrator will oversee — PMO or ITSO.');
+
+  // Point at the control the admin has to change, and say why.
+  var field=(sel&&sel.offsetParent!==null)?sel:txt;
+  var anchor=field||txt;
+  if(anchor){
+    anchor.classList.add('fc-bad');
+    anchor.setAttribute('aria-invalid','true');
+    var msg=document.createElement('p');
+    msg.className='ferr';
+    msg.id=txtId+'-err';
+    msg.innerHTML='<i class="fas fa-circle-exclamation"></i> An Administrator has to oversee one of the two '
+                + 'offices. Set <strong>Unit / Department</strong> to <strong>PMO</strong> or '
+                + '<strong>ITSO</strong> &mdash; it is currently '
+                + ((txt&&txt.value)?('&ldquo;'+escH(txt.value)+'&rdquo;'):'empty')+'.';
+    anchor.setAttribute('aria-describedby', msg.id);
+    (anchor.parentNode||document.body).appendChild(msg);
+    anchor.scrollIntoView({block:'center', behavior:'smooth'});
+    try { anchor.focus({preventScroll:true}); } catch(e) { anchor.focus(); }
+  }
   return false;
+}
+function deptGuardClear(txtId, selId){
+  [txtId, selId].forEach(function(id){
+    if(!id) return;
+    var el=document.getElementById(id);
+    if(!el) return;
+    el.classList.remove('fc-bad');
+    el.removeAttribute('aria-invalid');
+    el.removeAttribute('aria-describedby');
+  });
+  var old=document.getElementById(txtId+'-err');
+  if(old) old.remove();
 }
 
 /* ─── PROFILE MODAL ─────────────────────────────────── */
@@ -2726,7 +2614,7 @@ function togglePw(id,btn){
    counts are rendered server-side and do not need to be animated into place. */
 
 /* ─── HELPERS ─────────────────────────────────────────── */
-function avColor(role){return{admin:'linear-gradient(135deg,#7B1D1D,#C53030)',pmo:'linear-gradient(135deg,#92400E,#F59E0B)',dean:'linear-gradient(135deg,#0F766E,#2DD4BF)',finance:'linear-gradient(135deg,#166534,#4ADE80)',technician:'linear-gradient(135deg,#1D4ED8,#60A5FA)',reporter:'linear-gradient(135deg,#7C3AED,#A78BFA)',student:'linear-gradient(135deg,#0891B2,#22D3EE)'}[role]||'linear-gradient(135deg,#6B7280,#9CA3AF)';}
+function avColor(role){return{admin:'linear-gradient(135deg,#7B1D1D,#C53030)',pmo:'linear-gradient(135deg,#92400E,#F59E0B)',dean:'linear-gradient(135deg,#0F766E,#2DD4BF)',finance:'linear-gradient(135deg,var(--ok-tx),#4ADE80)',technician:'linear-gradient(135deg,#1D4ED8,#60A5FA)',reporter:'linear-gradient(135deg,#7C3AED,#A78BFA)',student:'linear-gradient(135deg,#0891B2,#22D3EE)'}[role]||'linear-gradient(135deg,#6B7280,#9CA3AF)';}
 function initials(n){const p=n.trim().split(/\s+/);return(p[0][0]+(p[1]?p[1][0]:'')).toUpperCase();}
 function roleBadge(r){const m={admin:'r-admin',pmo:'r-pmo',dean:'r-dean',finance:'r-fin',technician:'r-tech',reporter:'r-rep',student:'r-stud'};return`<span class="bdg ${m[r]||'r-rep'}">${r||'—'}</span>`;}
 function deptBadge(d){if(!d)return'<span style="color:var(--t4)">—</span>';

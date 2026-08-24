@@ -11,26 +11,76 @@ $admin_id   = $_SESSION['user_id'] ?? '';
 $admin_name = $_SESSION['fullname'] ?? 'Administrator';
 function bd_e($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 
-// CSV template download
+/* ─── IMPORT TEMPLATE ───────────────────────────────
+ * Two formats, because they are for two different moments.
+ *
+ * XLSX is the default and what the Download Template button hands over: it
+ * opens in Excel already laid out — header row styled and frozen, columns sized
+ * to their content, filter dropdowns on — so the person filling it in can see
+ * the columns instead of a wall of commas. The raw CSV that used to be the only
+ * option opened as one unaligned column of text and had to be widened by hand
+ * before it could be read, which is what made it awkward to use.
+ *
+ * The letterhead above the header row is not decoration: becdir_import() scans
+ * the first 40 rows for the one containing an Email column, so a filled-in copy
+ * of this file re-imports exactly as it is, and the sheet is recognisable as a
+ * BEC document when it is passed around.
+ *
+ * ?template=csv still returns the plain CSV for anyone working in a plain text
+ * editor or a tool that will not open XLSX.
+ */
+$TEMPLATE_HEADERS = ['Full Name', 'Email', 'Employee Number', 'Student Number',
+                     'Department', 'Program', 'Year Level', 'Position', 'User Type'];
+/* Six rows covering every shape the importer accepts, so the format is shown
+   rather than described: a college student and a Senior High student (no
+   department — it is derived from the year level and programme, the way the
+   registrar's export supplies them), two faculty, and two staff. */
+$TEMPLATE_ROWS = [
+    ['Juan Dela Cruz', 'juan.delacruz@bec.edu.ph', '', '2023-00123', '', 'Bachelor of Science in Information Systems', '2nd Year', '', 'Student'],
+    ['Ana Ramos',      'ana.ramos@bec.edu.ph',     '', '2026-00456', '', 'Science, Technology, Engineering, and Mathematics', 'Grade 11 - STEM', '', 'Student'],
+    ['Pedro Reyes',    'pedro.reyes@bec.edu.ph',   'EMP-0123', '', 'College of Computer Studies', '', '', 'Instructor I',   'Faculty'],
+    ['Elena Cruz',     'elena.cruz@bec.edu.ph',    'EMP-0150', '', 'Senior High School',          '', '', 'Teacher II',     'Faculty'],
+    ['Maria Santos',   'maria.santos@bec.edu.ph',  'EMP-0099', '', 'Registrar',                   '', '', 'Records Officer','Staff'],
+    ['Rosa Lim',       'rosa.lim@bec.edu.ph',      'EMP-0210', '', 'Maintenance Department',      '', '', 'Utility Worker', 'Staff'],
+];
+
 if (isset($_GET['template'])) {
-    header('Content-Type: text/csv; charset=UTF-8');
-    header('Content-Disposition: attachment; filename="bec_directory_template.csv"');
-    header('Cache-Control: max-age=0, must-revalidate');
-    // Without the BOM, Excel opens this as ANSI and the sample names come back
-    // mangled — and a file saved from that state re-imports mangled too.
-    echo "\xEF\xBB\xBF";
-    // Department may be left blank for students: it is worked out from the year
-    // level and programme, exactly as the registrar's enrolment export supplies
-    // them. The header names below are only one accepted spelling — the
-    // importer also reads the export's own "Year Level" and
-    // "Program/Qualifications" headings.
-    echo "Full Name,Email,Employee Number,Student Number,Department,Program,Year Level,Position,User Type\r\n";
-    echo "Juan Dela Cruz,juan.delacruz@bec.edu.ph,,2023-00123,,Bachelor of Science in Information Systems,2nd Year,,Student\r\n";
-    echo "Ana Ramos,ana.ramos@bec.edu.ph,,2026-00456,,\"Science, Technology, Engineering, and Mathematics\",Grade 11 - STEM,,Student\r\n";
-    echo "Pedro Reyes,pedro.reyes@bec.edu.ph,EMP-0123,,College of Computer Studies,,,Instructor I,Faculty\r\n";
-    echo "Elena Cruz,elena.cruz@bec.edu.ph,EMP-0150,,Senior High School,,,Teacher II,Faculty\r\n";
-    echo "Maria Santos,maria.santos@bec.edu.ph,EMP-0099,,Registrar,,,Records Officer,Staff\r\n";
-    echo "Rosa Lim,rosa.lim@bec.edu.ph,EMP-0210,,Maintenance Department,,,Utility Worker,Staff\r\n";
+    $fmt = strtolower(trim((string) $_GET['template']));
+
+    if ($fmt === 'csv') {
+        header('Content-Type: text/csv; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="bec_directory_template.csv"');
+        header('Cache-Control: max-age=0, must-revalidate');
+        // Without the BOM, Excel opens this as ANSI and the sample names come
+        // back mangled — and a file saved from that state re-imports mangled too.
+        echo "\xEF\xBB\xBF";
+        $out = fopen('php://output', 'w');
+        // fputcsv, not hand-built lines: a department containing a comma has to
+        // be quoted, and quoting it by hand is how a template teaches a broken
+        // habit ("Science, Technology, ..." was already a special case here).
+        fputcsv($out, $TEMPLATE_HEADERS);
+        foreach ($TEMPLATE_ROWS as $row) { fputcsv($out, $row); }
+        fclose($out);
+        exit;
+    }
+
+    require_once __DIR__ . '/includes/xlsx_writer.php';
+    require_once __DIR__ . '/includes/export_branding.php';
+    becRenderBrandedXlsx(
+        'Directory Import Template',
+        $TEMPLATE_HEADERS,
+        $TEMPLATE_ROWS,
+        [
+            'How to use this'   => 'Replace the six sample rows with your own. Keep the header row exactly as it is.',
+            'Required'          => 'Full Name and Email. Everything else is optional.',
+            'Students'          => 'Leave Department blank — it is worked out from Year Level and Program.',
+            'Staff and faculty' => 'Fill Department and Position. Leave Year Level and Program blank.',
+            'User Type'         => 'Student, Faculty, or Staff.',
+            'Existing people'   => 'A row whose Email already exists updates that record instead of adding a second one.',
+        ],
+        ['Accepted formats' => '.xlsx, .csv'],
+        'BEC_Directory_Import_Template'
+    );
     exit;
 }
 
@@ -74,6 +124,10 @@ $search = trim((string)($_GET['q'] ?? ''));
 $tf     = trim((string)($_GET['type'] ?? 'all'));   // student / faculty / staff
 $df     = trim((string)($_GET['dept'] ?? 'all'));   // academic unit
 $yf     = trim((string)($_GET['year'] ?? 'all'));   // year level
+// A hand-typed or bookmarked ?year=Grade+7 is a level this page no longer
+// covers. Falling back to "all" keeps the dropdown honest — the alternative is
+// a <select> reading "Grade 7" above a table that can only ever be empty.
+if ($yf !== 'all' && !becdir_is_operational_year_level($yf)) { $yf = 'all'; }
 
 /* The roster runs to thousands. This list was capped at 200 rows with no way to
    reach row 201, so most of the directory could only be found by guessing a
@@ -113,6 +167,11 @@ try {
     // (85%) can only ever return nothing. A dropdown should not be able to
     // choose an empty result.
     $cond = [];
+    // Never skipped by $compose() below — it is not a facet the admin chose, it
+    // is the scope of the page. Nursery through Grade 10 stay imported and
+    // stay linked to anything they already reported; they are simply not the
+    // roster this office works from. See becdir_operational_year_sql().
+    $cond['_operational'] = [becdir_operational_year_sql('year_level'), []];
     if ($search !== '') {
         $cond['search'] = ["(full_name ILIKE :q OR email ILIKE :q OR student_number ILIKE :q OR employee_number ILIKE :q OR program ILIKE :q)",
                            ['q' => '%' . $search . '%']];
@@ -133,7 +192,9 @@ try {
     };
 
     [$sqlWhere, $bind] = $compose();
-    $where = $cond;   // kept for the ORDER BY choice below
+    // Kept for the ORDER BY choice below — the page-scope condition is not a
+    // filter the admin applied, so it must not flip the default ordering.
+    $where = array_diff_key($cond, ['_operational' => true]);
 
     $cnt = $pdo->prepare("SELECT COUNT(*) FROM public.bec_directory{$sqlWhere}");
     $cnt->execute($bind);
@@ -152,7 +213,9 @@ try {
     $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 
     $byType = [];
-    foreach ($pdo->query("SELECT user_type, COUNT(*) c FROM public.bec_directory GROUP BY user_type") as $r) {
+    foreach ($pdo->query("SELECT user_type, COUNT(*) c FROM public.bec_directory
+                           WHERE " . becdir_operational_year_sql('year_level') . "
+                           GROUP BY user_type") as $r) {
         $byType[(string)$r['user_type']] = (int)$r['c'];
     }
 
@@ -204,7 +267,7 @@ $hasFilter = ($search !== '' || $tf !== 'all' || $df !== 'all' || $yf !== 'all')
      dialect. Steps only — nothing lives between them. */
   :root{--fs-xs:.6rem;--fs-sm:.68rem;--fs-base:.76rem;--fs-md:.82rem;--fs-lg:.88rem;
     --sp-0:.125rem;--sp-1:.25rem;--sp-2:.5rem;--sp-3:.75rem;--sp-4:1rem;--sp-5:1.5rem;}
-  :root{--m:#7B1D1D;--md:#4A0E0E;--g:#C9960C;--ink:#1A0808;--ink2:#5C3838;--ink3:#9C7A7A;--paper:#F4EFE6;--surface:#fff;--border:#E5D9C6;--sb:262px;--danger:#B42318;--success:#1A7A33;--m1:#2D0505;--g2:#D4A017;--g3:#F0C040;--r1:8px;--r2:12px;}
+  :root{--m:#7B1D1D;--md:#4A0E0E;--g:#C9960C;--ink:#1A0808;--ink2:#5C3838;--ink3:#9C7A7A;--paper:#F4EFE6;--surface:#fff;--border:#E5D9C6;--sb:262px;--danger:var(--bad-tx);--success:var(--ok-tx);--m1:#2D0505;--g2:#D4A017;--g3:#F0C040;--r1:8px;--r2:12px;}
   *{box-sizing:border-box}
   body{margin:0;font-family:'DM Sans',sans-serif;background:var(--paper);color:var(--ink);min-height:100vh;}
   /* Sidebar — exact match to canonical admin sidebar */
@@ -212,9 +275,7 @@ $hasFilter = ($search !== '' || $tf !== 'all' || $df !== 'all' || $yf !== 'all')
   .main{margin-left:var(--sb);transition:margin-left .26s ease;}
   body.becSbHide .main{margin-left:0 !important;}
   .wrap{max-width:none;margin:0;padding:1.5rem 1.75rem 4rem;} /* full-width desktop view */
-  .flash{padding:var(--sp-3) var(--sp-4);border-radius:10px;margin-bottom:var(--sp-4);font-size:var(--fs-lg);}
-  .flash.ok{background:#E9F9EF;border:1px solid #b6e6c6;color:var(--success);}
-  .flash.err{background:#FEF2F2;border:1px solid #FECACA;color:var(--danger);}
+/* .flash lives in assets/css/admin-shell.css — one definition for every admin page. */
   /* post-import report */
   .imp{padding:var(--sp-3) var(--sp-4);border-radius:10px;margin-bottom:var(--sp-4);font-size:var(--fs-md);line-height:1.6;border:1px solid var(--border);background:var(--surface);}
   .imp b{display:block;font-size:var(--fs-lg);margin-bottom:var(--sp-1);}
@@ -229,6 +290,8 @@ $hasFilter = ($search !== '' || $tf !== 'all' || $df !== 'all' || $yf !== 'all')
   .imp-err b{color:var(--danger);}
   .imp-ok{background:#F3F8F4;border-color:#CFE6D6;border-left:3px solid var(--success);}
   .imp-ok b{color:var(--success);}
+  .tmpl-alt{font-size:var(--fs-sm);color:var(--ink3);text-decoration:underline;text-underline-offset:2px;align-self:center;}
+  .tmpl-alt:hover{color:var(--m);}
   .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--sp-3);margin-bottom:var(--sp-3);}
   /* Sits directly under the cards it explains, quiet enough to read as a
      footnote to them rather than as an error the page is reporting. */
@@ -272,7 +335,7 @@ $hasFilter = ($search !== '' || $tf !== 'all' || $df !== 'all' || $yf !== 'all')
      header bar at its own font size. Zebra striping is gone with it — the row
      separators already do that job, and the stripe fought the hover state. */
   .tt{display:inline-block;font-size:var(--fs-xs);font-weight:700;padding:var(--sp-0) var(--sp-2);border-radius:999px;text-transform:uppercase;}
-  .tt.student{background:#E8EFFF;color:#1D4ED8;}.tt.faculty{background:#FBF3DF;color:#92600A;}.tt.staff{background:#E9F9EF;color:#166534;}.tt.x{background:#eee;color:#666;}
+  .tt.student{background:#E8EFFF;color:#1D4ED8;}.tt.faculty{background:#FBF3DF;color:#92600A;}.tt.staff{background:#E9F9EF;color:var(--ok-tx);}.tt.x{background:#eee;color:#666;}
   .search{display:flex;gap:var(--sp-2);margin-bottom:var(--sp-3);}
   .search{flex-wrap:wrap;}
   .search input{flex:1 1 220px;padding:var(--sp-2) var(--sp-3);border:1.5px solid var(--border);border-radius:9px;font:inherit;}
@@ -420,7 +483,10 @@ $hasFilter = ($search !== '' || $tf !== 'all' || $df !== 'all' || $yf !== 'all')
           <input type="hidden" name="action" value="import">
           <input type="file" name="directory_file" accept=".csv,.txt,.xlsx" required data-premium-upload data-hint="CSV, TXT or XLSX">
           <button class="btn m" type="submit"><i class="fas fa-upload"></i> Import</button>
-          <a class="btn ghost" href="?template=1"><i class="fas fa-download"></i> Download Template</a>
+          <?php /* Excel by default — it opens laid out and ready to type into.
+                   The plain CSV stays one click away for anyone who wants it. */ ?>
+          <a class="btn ghost" href="?template=xlsx"><i class="fas fa-file-excel"></i> Download Template</a>
+          <a class="tmpl-alt" href="?template=csv" title="Plain CSV, no formatting">or CSV</a>
           <?php if ($total > 0): ?>
           <button class="btn red" type="submit" form="clearForm" onclick="return confirm('Remove all <?php echo (int)$total; ?> directory records? This cannot be undone.');"><i class="fas fa-trash"></i> Clear All</button>
           <?php endif; ?>
