@@ -9,6 +9,25 @@ $error = '';
 // Equipment deep-link from a scanned QR code (carried through the BEC gate).
 $eq = trim((string)($_GET['eq'] ?? $_POST['eq'] ?? ''));
 
+/**
+ * Where to go after signing in, when something sent the reporter here.
+ *
+ * The tracker's "sign in to follow up" link used to carry nothing, so signing
+ * in dropped the reporter on the new-report form and the ticket they were
+ * looking at was gone — they were being invited to file the same fault twice.
+ *
+ * Deliberately narrow: one page in this folder, with an optional query string.
+ * Anything with a scheme, a host, or a path separator is discarded, so this
+ * cannot be turned into an open redirect off the site.
+ */
+function reporterSafeNext($raw): string {
+    $raw = trim((string)$raw);
+    if ($raw === '' || strlen($raw) > 300) { return ''; }
+    if (!preg_match('#^[A-Za-z0-9_\-]+\.php(\?[A-Za-z0-9_\-=&%.+~]*)?$#', $raw)) { return ''; }
+    return $raw;
+}
+$next = reporterSafeNext($_GET['next'] ?? $_POST['next'] ?? '');
+
 require_once __DIR__ . '/includes/rate_limiter.php';
 require_once __DIR__ . '/includes/reporter_otp.php';
 
@@ -37,7 +56,7 @@ $trustedFirst = $trustedName !== '' ? becdir_first_name($trustedName) : '';
 $otpSecondsLeft = 0;
 $otpAskedAt     = (int)($_SESSION['otp_sent_at'] ?? 0);
 
-$signIn = static function (string $email, string $typedName, string $eq): void {
+$signIn = static function (string $email, string $typedName, string $eq, string $next = ''): void {
     // The typed name is not evidence of anything. Where BEC holds a name on
     // file that is the one used, so the field cannot be used to claim to be
     // someone else; it survives only for people with no name on record.
@@ -47,12 +66,24 @@ $signIn = static function (string $email, string $typedName, string $eq): void {
     $_SESSION['guest_name_source'] = $onFile !== '' ? 'directory' : 'self-declared';
     $_SESSION['guest_since']       = time();
     $_SESSION['guest_last']        = time();
-    unset($_SESSION['otp_email'], $_SESSION['otp_name'], $_SESSION['otp_eq'], $_SESSION['otp_sent_at']);
+    unset($_SESSION['otp_email'], $_SESSION['otp_name'], $_SESSION['otp_eq'], $_SESSION['otp_next'], $_SESSION['otp_sent_at']);
     // An id issued before sign-in must not survive it.
     session_regenerate_id(true);
-    header('Location: student_dashboard.php' . ($eq !== '' ? '?eq=' . urlencode($eq) : ''));
+    // Back to whatever sent them here — a ticket they were tracking — before
+    // falling back to the report form.
+    $dest = $next !== '' ? $next : 'student_dashboard.php' . ($eq !== '' ? '?eq=' . urlencode($eq) : '');
+    header('Location: ' . $dest);
     exit();
 };
+
+// Already signed in and sent here by a link that wants them somewhere specific:
+// send them straight on. Without this, a reporter with a live session who taps
+// "sign in to follow up" is shown a sign-in form they do not need.
+if ($next !== '' && $_SERVER['REQUEST_METHOD'] !== 'POST'
+    && !empty($_SESSION['guest_email']) && becGuestSessionActive()) {
+    header('Location: ' . $next);
+    exit();
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Without this, another site could sign a visitor into the portal under an
@@ -65,12 +96,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // The name is deliberately kept: someone correcting a typo in their
         // address should not have to type their name again as well.
         reporterForgetDevice();
-        unset($_SESSION['otp_email'], $_SESSION['otp_eq'], $_SESSION['otp_sent_at']);
-        header('Location: student_index.php' . ($eq !== '' ? '?eq=' . urlencode($eq) : ''));
+        unset($_SESSION['otp_email'], $_SESSION['otp_eq'], $_SESSION['otp_next'], $_SESSION['otp_sent_at']);
+        $carry = array_filter(['eq' => $eq, 'next' => $next], static fn($v) => $v !== '');
+        header('Location: student_index.php' . ($carry ? '?' . http_build_query($carry) : ''));
         exit();
     } elseif ($step === 'trusted') {
         // This browser has already proved it can read that mailbox.
-        if ($trustedEmail !== '') { $signIn($trustedEmail, $trustedName, $eq); }
+        if ($trustedEmail !== '') { $signIn($trustedEmail, $trustedName, $eq, $next); }
         $error = 'That sign-in has expired. Please enter your BEC email to continue.';
     } elseif ($step === 'verify') {
         $stage   = 'verify';
@@ -95,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $res = reporterOtpVerify($pending, (string)($_POST['otp_code'] ?? ''));
             if ($res['ok']) {
                 reporterTrustDevice($pending);                     // a month of one-tap
-                $signIn($pending, (string)($_SESSION['otp_name'] ?? ''), (string)($_SESSION['otp_eq'] ?? $eq));
+                $signIn($pending, (string)($_SESSION['otp_name'] ?? ''), (string)($_SESSION['otp_eq'] ?? $eq), (string)($_SESSION['otp_next'] ?? $next));
             }
             $error = $res['message'];
         }
@@ -132,6 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['otp_email']   = $email;
                 $_SESSION['otp_name']    = $name;
                 $_SESSION['otp_eq']      = $eq;
+                $_SESSION['otp_next']    = $next;
                 $_SESSION['otp_sent_at'] = time();
                 $stage   = 'verify';
                 $devCode = (string)($res['dev_code'] ?? '');
@@ -827,6 +860,7 @@ body::after {
     <form method="POST" action="">
       <?php echo csrf_field(); ?>
       <input type="hidden" name="step" value="trusted">
+      <input type="hidden" name="next" value="<?php echo htmlspecialchars($next, ENT_QUOTES); ?>">
       <input type="hidden" name="eq" value="<?php echo htmlspecialchars($eq, ENT_QUOTES); ?>">
       <button type="submit" class="btn-submit trust-go">
         Continue as <?php echo htmlspecialchars($trustedFirst !== '' ? $trustedFirst : $trustedName); ?>
@@ -940,7 +974,9 @@ body::after {
                expired with no way through. Sign-in must not depend on a script. */ ?>
       <?php echo csrf_field(); ?>
       <input type="hidden" name="eq" value="<?php echo htmlspecialchars($eq, ENT_QUOTES); ?>">
+      <input type="hidden" name="next" value="<?php echo htmlspecialchars($next, ENT_QUOTES); ?>">
       <?php if ($eq !== ''): ?><div class="notice" style="margin-bottom:.6rem;"><i aria-hidden="true" class="fas fa-qrcode"></i> <span>You scanned an equipment QR — it will be pre-selected after you sign in.</span></div><?php endif; ?>
+      <?php if ($next !== ''): ?><div class="notice" style="margin-bottom:.6rem;"><i aria-hidden="true" class="fas fa-arrow-rotate-left"></i> <span>Sign in and we will take you straight back to the report you were looking at.</span></div><?php endif; ?>
       <div class="fg">
         <label class="fl" for="signinName">Full Name <span class="req">*</span></label>
         <div class="fi-wrap">

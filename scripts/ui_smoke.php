@@ -210,6 +210,7 @@ $checks = [
     ]],
     ['Defect reports', 'admin', 'admin_defect_reports.php', [
         ['origin filter',            '/id="fsk"/',                  true],
+        ['follow-up filter',         '/id="fsn"/',                  true],
         ['filter bar',               '/id="fsq"/',                  true],
     ]],
     /* The list pages in the database now, so a second page has to render on its
@@ -225,10 +226,22 @@ $checks = [
         ['pager rendered',           '/id="repPager"/',             true],
         ['no PHP error leaked',      '/Fatal error|Undefined variable/',  false],
     ]],
+    /* The notification bell assertions are here rather than on the dashboard on
+       purpose: this is a page with no header bell of its own, and the placement
+       script used to delete the floating one outright, so Work Orders, Backup
+       and Preventive showed no unread indicator at all. */
     ['Work Orders', 'admin', 'admin_work_orders.php', [
         ['renders',                  '/<\/html>/i',               true],
         ['ledger rows carry data',   '/data-wo=/',                  true],
         ['service record dialog',    '/id="woOvl"/',               true],
+        ['notification bell survives','/aia-bell/',                 true],
+        // Four columns nothing in the system writes were rendered in the service
+        // record, so they could only ever show an em dash. They must not return.
+        ['no dead Findings field',   "/field\('Findings'/",         false],
+        ['no dead Recommendations',  "/field\('Recommendations'/",  false],
+        ['what the technician records is shown', "/field\('Diagnosis'/", true],
+        ['state legend present',     '/class="legend"/',            true],
+        ['ledger can be exported',   '/export=csv/',                true],
     ]],
     ['Assign technicians', 'admin', 'admin_assign_technicians.php', [
         ['queue row is clickable',   '/class="pick-row"/',          true],
@@ -274,8 +287,25 @@ $checks = [
     ['BEC directory', 'admin', 'admin_bec_directory.php', [
         ['renders',                  '/<\/html>/i',                 true],
     ]],
+    /* Recovery is the feature nobody exercises until the worst possible day.
+       The one-step "type RESTORE and hope" form is gone: the page must offer a
+       preview first, and it must keep a notification bell (it has no header
+       bell of its own, so the placement script used to delete it). */
+    ['Recovery flow', 'admin', 'admin_backup.php', [
+        ['renders',                  '/<\/html>/i',                 true],
+        ['preview comes before restore', '/value="restore_preview"/', true],
+        ['import form present',      '/name="archive"/',             true],
+        ['notification bell survives','/aia-bell/',                   true],
+    ]],
     ['Notifications', 'admin', 'admin_notifications.php', [
         ['renders',                  '/<\/html>/i',                 true],
+    ]],
+    /* The dashboard's bell used to carry .npip — a dot that pulsed whether or
+       not anything was unread. The real count replaces it in the DOM, so if the
+       dot is still there after scripts run, the count did not land. */
+    ['Dashboard bell shows a real count', 'admin', 'admin_dashboard.php', [
+        ['decorative dot replaced',  '/class="npip"/',              false],
+        ['bell present',             '/fa-bell/',                   true],
     ]],
     /* No reservation exists in a clean database, so the useful assertion is the
        one that would otherwise be found by a panellist: that asking for a
@@ -296,6 +326,10 @@ $checks = [
     ['Admin sign-in (signed out)', 'none', 'admin/admin_login_otp.html', [
         ['renders',                  '/<\/html>/i',                 true],
         ['no dead remember-me box',  '/rememberMe/',                false],
+        // The working one, on the code step. Unlike the dead box above it is
+        // posted with the verification and remembers the browser for a day.
+        ['keep-me-signed-in offered','/id="rememberDevice"/',       true],
+        ['and actually submitted',   '/remember_device/',           true],
         ['forgot-password offered',  '/forgotPassword\(\)/',        true],
     ]],
     ['Technician sign-in (signed out)', 'none', 'technician/login.html', [

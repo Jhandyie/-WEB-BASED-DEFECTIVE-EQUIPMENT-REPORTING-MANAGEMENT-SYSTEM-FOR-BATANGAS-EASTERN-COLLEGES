@@ -33,6 +33,7 @@ require_once __DIR__ . '/../includes/otp_helper.php';
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/rate_limiter.php';
 require_once __DIR__ . '/../includes/csrf.php';
+require_once __DIR__ . '/../includes/admin_trust.php';
 
 // Get the action from POST or GET
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
@@ -75,10 +76,36 @@ switch ($action) {
 }
 
 /**
+ * Turn a verified account into an admin session.
+ *
+ * Three routes reach this point — the emailed code, a browser this admin has
+ * already trusted, and the demo bypass — and each had its own copy of the
+ * session setup. $how is written to the audit log so the trail says which one
+ * was used.
+ */
+function adminEstablishSession(array $user, string $how): void {
+    // New session id the moment the visitor becomes an administrator, so a
+    // session id planted before sign-in (fixation) can never carry admin rights.
+    session_regenerate_id(true);
+
+    $_SESSION['user_id']    = $user['user_id'];
+    $_SESSION['user_email'] = $user['email'];
+    $_SESSION['fullname']   = $user['fullname'];
+    $_SESSION['role']       = $user['role'] ?? 'admin';
+    $_SESSION['username']   = $user['username'] ?? '';
+    $_SESSION['logged_in']  = true;
+    $_SESSION['login_time'] = time();
+    unset($_SESSION['temp_user_id'], $_SESSION['temp_user_email'], $_SESSION['temp_user_name']);
+
+    updateUserLastLogin((string)$user['user_id']);
+    logActivity((string)$user['user_id'], 'auth.login', $how . ' for ' . ($user['email'] ?? ''));
+}
+
+/**
  * Verify login credentials and send OTP
  */
 function verifyLogin() {
-    $email = trim($_POST['email'] ?? '');
+    $email = strtolower(trim($_POST['email'] ?? ''));
     $password = trim($_POST['password'] ?? '');
     $role = 'admin';
 
@@ -136,23 +163,29 @@ function verifyLogin() {
         // still verified in full and the rate limits still applied: only the second factor is
         // skipped, and the sign-in is logged as a bypass so the trail stays honest.
         if (adminOtpBypassAllowed($email)) {
-            session_regenerate_id(true);
-            $_SESSION['user_id']    = $user['user_id'];
-            $_SESSION['user_email'] = $user['email'];
-            $_SESSION['fullname']   = $user['fullname'];
-            $_SESSION['role']       = $user['role'] ?? 'admin';
-            $_SESSION['username']   = $user['username'] ?? '';
-            $_SESSION['logged_in']  = true;
-            $_SESSION['login_time'] = time();
-            unset($_SESSION['temp_user_id'], $_SESSION['temp_user_email'], $_SESSION['temp_user_name']);
-
-            updateUserLastLogin((string)$user['user_id']);
-            logActivity((string)$user['user_id'], 'auth.login',
-                'Admin login WITHOUT OTP (demo bypass via config/demo_access.php) for ' . ($user['email'] ?? ''));
+            adminEstablishSession($user, 'Admin login WITHOUT OTP (demo bypass via config/demo_access.php)');
 
             echo json_encode([
                 'success' => true,
                 'message' => 'Login successful!',
+                'data'    => [
+                    'email'       => $email,
+                    'require_otp' => false,
+                    'redirect'    => '../admin_dashboard.php',
+                ],
+            ]);
+            exit();
+        }
+
+        // This browser verified a code for this address within the last day and
+        // asked to be remembered. The password above was still checked in full
+        // and every rate limit still applied — only the second factor is
+        // skipped, and only here, on the browser that earned it.
+        if (adminTrustedFor($email)) {
+            adminEstablishSession($user, 'Admin login (trusted device, no OTP within ' . ADMIN_TRUST_HOURS . 'h)');
+            echo json_encode([
+                'success' => true,
+                'message' => 'Welcome back — this device is remembered, so no code was needed.',
                 'data'    => [
                     'email'       => $email,
                     'require_otp' => false,
@@ -200,7 +233,7 @@ function verifyLogin() {
  * Verify OTP and create session
  */
 function verifyOTPHandler() {
-    $email = trim($_POST['email'] ?? '');
+    $email = strtolower(trim($_POST['email'] ?? ''));
     $otp_code = trim($_POST['otp_code'] ?? '');
     $role = 'admin';
 
@@ -241,26 +274,12 @@ function verifyOTPHandler() {
     RateLimiter::clear('admin_otp:' . RateLimiter::clientIp() . ':' . strtolower($email));
     $user = $result['user'];
 
-    // New session id the moment the visitor becomes an administrator, so a
-    // session id planted before sign-in (fixation) can never carry admin rights.
-    session_regenerate_id(true);
+    // "Keep me signed in on this device" — set before the session, because
+    // setcookie() needs to run before anything is echoed.
+    $remember = !empty($_POST['remember_device']) && $_POST['remember_device'] !== 'false';
+    if ($remember) { adminTrustDevice($email); }
 
-    $_SESSION['user_id'] = $user['user_id'];
-    $_SESSION['user_email'] = $user['email'];
-    $_SESSION['fullname'] = $user['fullname'];
-    $_SESSION['role'] = $user['role'];
-    $_SESSION['username'] = $user['username'] ?? '';
-    $_SESSION['logged_in'] = true;
-    $_SESSION['login_time'] = time();
-
-    // Clear temporary session data
-    unset($_SESSION['temp_user_id']);
-    unset($_SESSION['temp_user_email']);
-    unset($_SESSION['temp_user_name']);
-
-    // Update last login
-    updateUserLastLogin((string)$user['user_id']);
-    logActivity((string)$user['user_id'], 'auth.login', 'Admin login (2FA) for ' . ($user['email'] ?? ''));
+    adminEstablishSession($user, 'Admin login (2FA)' . ($remember ? ', device remembered for ' . ADMIN_TRUST_HOURS . 'h' : ''));
 
     echo json_encode([
         'success' => true,
@@ -279,7 +298,7 @@ function verifyOTPHandler() {
  * Resend OTP
  */
 function resendOTP() {
-    $email = trim($_POST['email'] ?? '');
+    $email = strtolower(trim($_POST['email'] ?? ''));
     $role = 'admin';
 
     if (empty($email)) {
@@ -341,7 +360,9 @@ function resendOTP() {
  * Handle forgot password
  */
 function forgotPassword() {
-    $email = trim($_POST['email'] ?? '');
+    // Stored and matched in one case, so the emailed link resolves whatever the
+    // admin typed. See findUserByEmailAndRole().
+    $email = strtolower(trim($_POST['email'] ?? ''));
     $role = 'admin';
 
     if (empty($email)) {
@@ -379,8 +400,16 @@ function forgotPassword() {
     $token = bin2hex(random_bytes(32));
     $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
 
-    // Store token in database
-    createPasswordResetRecord($email, $token, $expires);
+    // Replace, do not append: asking for a second link used to leave the first
+    // one working for its full hour, so a link that reached the wrong inbox
+    // stayed usable after the admin had already asked for a new one.
+    if (function_exists('replacePasswordResetRecord')) {
+        replacePasswordResetRecord($email, $token, $expires);
+    } else {
+        createPasswordResetRecord($email, $token, $expires);
+    }
+    logActivity((string)$user['user_id'], 'auth.password_reset_requested',
+        'Password reset link issued for ' . $email);
 
     // Build an absolute reset link from the actual request (works on any host/path).
     $__scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
@@ -438,6 +467,11 @@ function resetPassword() {
 
     // Delete token
     deletePasswordResetToken($token);
+
+    // A password change on an admin account is exactly the kind of thing the
+    // audit trail exists for, and it was the one auth event not being written.
+    logActivity((string)$user_id, 'auth.password_reset',
+        'Admin password reset completed for ' . ($row['email'] ?? $user_id));
 
     echo json_encode([
         'success' => true,

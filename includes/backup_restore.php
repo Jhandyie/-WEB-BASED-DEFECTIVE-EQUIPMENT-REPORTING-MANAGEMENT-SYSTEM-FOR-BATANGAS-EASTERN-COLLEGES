@@ -102,6 +102,11 @@ if (!function_exists('becCreateDatabaseBackup')) {
             throw new RuntimeException('Backup aborted — the database reported no tables to dump.');
         }
 
+        // Recorded before the manifest is added, so it fingerprints the data and
+        // not itself. becInspectBackupArchive() checks it on the way back in, which
+        // is what turns "the file looks like a snapshot" into "this is the same
+        // data that was backed up".
+        $manifest['content_sha256'] = becArchiveContentHash($files);
         $files['manifest.json'] = json_encode($manifest, JSON_PRETTY_PRINT);
 
         $zipBytes = becXlsxZip($files);
@@ -155,17 +160,18 @@ if (!function_exists('becListBackups')) {
         $out = [];
         foreach (glob($dir . '/*.zip') ?: [] as $path) {
             $file = basename($path);
-            $meta = ['created_at' => null, 'tables' => null, 'rows' => null];
+            $meta = ['created_at' => null, 'tables' => null, 'rows' => null, 'sha' => ''];
             try {
-                $entries = becXlsxUnzip($path);
-                if (isset($entries['manifest.json'])) {
-                    $m = json_decode((string) $entries['manifest.json'], true);
-                    if (is_array($m)) {
-                        $meta['created_at'] = $m['created_at'] ?? null;
-                        $counts = array_filter(($m['tables'] ?? []), 'is_int');
-                        $meta['tables'] = count($m['tables'] ?? []);
-                        $meta['rows']   = array_sum($counts);
-                    }
+                $m = becArchiveManifest($path);
+                if (is_array($m)) {
+                    $meta['created_at'] = $m['created_at'] ?? null;
+                    $counts = array_filter(($m['tables'] ?? []), 'is_int');
+                    $meta['tables'] = count($m['tables'] ?? []);
+                    $meta['rows']   = array_sum($counts);
+                    // Recorded when the archive was written. Shown so a snapshot
+                    // that has been off the server and back can be matched to the
+                    // one that left; verified in full on import.
+                    $meta['sha']    = substr((string)($m['content_sha256'] ?? ''), 0, 12);
                 }
             } catch (Throwable $e) { /* unreadable / not one of ours — still list it */ }
 
@@ -177,6 +183,7 @@ if (!function_exists('becListBackups')) {
                 'created_at' => $meta['created_at'],
                 'tables'     => $meta['tables'],
                 'rows'       => $meta['rows'],
+                'sha'        => $meta['sha'],
                 'kind'       => str_starts_with($file, 'bec_pre_restore') ? 'pre-restore'
                               : (str_starts_with($file, 'bec_imported') ? 'imported' : 'backup'),
             ];
@@ -203,6 +210,136 @@ if (!function_exists('becResolveBackupPath')) {
     }
 }
 
+if (!function_exists('becArchiveEntries')) {
+    /**
+     * The files inside a snapshot, with a wrapping folder stripped off.
+     *
+     * Every archive this system writes has manifest.json and tables/*.json at
+     * the very top. The importer demanded exactly that, and so an archive that
+     * had been through Windows Explorer — extracted to look inside, then
+     * "Send to → Compressed (zipped) folder" — came back as
+     *
+     *     bec_db_backup_20260825_174142/manifest.json
+     *     bec_db_backup_20260825_174142/tables/users.json
+     *
+     * and was refused with "this is not a BEC database snapshot", which is both
+     * wrong and impossible to act on. Looking inside a backup before restoring
+     * from it is a reasonable thing for an administrator to do; it should not
+     * make the file unusable.
+     *
+     * Only a single common top-level folder is stripped, and only when the
+     * manifest is actually found beneath it — so this cannot be used to smuggle
+     * an unrelated archive past the checks below.
+     *
+     * @return array{entries:array<string,string>,wrapped:string} wrapped = the folder removed, or ''.
+     */
+    function becArchiveEntries(string $path): array {
+        $raw = becXlsxUnzip($path);
+        $clean = [];
+        foreach ($raw as $name => $bytes) {
+            $name = str_replace('\\', '/', (string) $name);
+            // Directory records carry no content, and macOS adds a metadata
+            // tree that would otherwise look like a second top-level folder.
+            if ($name === '' || str_ends_with($name, '/')) { continue; }
+            if (str_starts_with($name, '__MACOSX/') || basename($name) === '.DS_Store') { continue; }
+            $clean[$name] = $bytes;
+        }
+        if (isset($clean['manifest.json'])) { return ['entries' => $clean, 'wrapped' => '']; }
+
+        // Where is the manifest, if it is in here at all?
+        $prefix = null;
+        foreach (array_keys($clean) as $name) {
+            if (preg_match('#^([^/]+)/manifest\.json$#', $name, $m)) { $prefix = $m[1]; break; }
+        }
+        if ($prefix === null) { return ['entries' => $clean, 'wrapped' => '']; }
+
+        // Everything must live under that one folder, or this is not simply a
+        // re-zip and we should not quietly reshape it.
+        $shifted = [];
+        foreach ($clean as $name => $bytes) {
+            if (!str_starts_with($name, $prefix . '/')) { return ['entries' => $clean, 'wrapped' => '']; }
+            $shifted[substr($name, strlen($prefix) + 1)] = $bytes;
+        }
+        return ['entries' => $shifted, 'wrapped' => $prefix];
+    }
+}
+
+if (!function_exists('becArchiveManifest')) {
+    /**
+     * Just the manifest out of an archive, without inflating anything else.
+     *
+     * becListBackups() renders one row per archive and needs only the manifest,
+     * but read them through becArchiveEntries(), which inflates every table of
+     * every snapshot. With fourteen archives of four megabytes that is sixty
+     * megabytes decompressed to print a date and a row count, on every load of
+     * the page — and it grows with the backup history, which is the shape this
+     * codebase is careful to avoid. This walks the central directory and
+     * inflates the single entry it wants.
+     *
+     * @return array|null The decoded manifest, or null if there isn't a usable one.
+     */
+    function becArchiveManifest(string $path): ?array {
+        $data = @file_get_contents($path);
+        if ($data === false || strlen($data) < 22) { return null; }
+        $eocd = strrpos($data, "PK");
+        if ($eocd === false) { return null; }
+        $count  = unpack('v', substr($data, $eocd + 10, 2))[1];
+        $offset = unpack('V', substr($data, $eocd + 16, 4))[1];
+
+        $p = $offset;
+        for ($i = 0; $i < $count; $i++) {
+            if (substr($data, $p, 4) !== "PK") { break; }
+            $method   = unpack('v', substr($data, $p + 10, 2))[1];
+            $compSize = unpack('V', substr($data, $p + 20, 4))[1];
+            $nameLen  = unpack('v', substr($data, $p + 28, 2))[1];
+            $extraLen = unpack('v', substr($data, $p + 30, 2))[1];
+            $commLen  = unpack('v', substr($data, $p + 32, 2))[1];
+            $lho      = unpack('V', substr($data, $p + 42, 4))[1];
+            $name     = str_replace(chr(92), '/', substr($data, $p + 46, $nameLen));
+            $p += 46 + $nameLen + $extraLen + $commLen;
+
+            // The archive's own manifest, at the root or under one wrapping
+            // folder — the same two shapes becArchiveEntries() accepts.
+            if ($name !== 'manifest.json' && !preg_match('#^[^/]+/manifest\.json$#', $name)) { continue; }
+
+            $lNameLen  = unpack('v', substr($data, $lho + 26, 2))[1];
+            $lExtraLen = unpack('v', substr($data, $lho + 28, 2))[1];
+            $raw = substr($data, $lho + 30 + $lNameLen + $lExtraLen, $compSize);
+            if ($method === 8) { $raw = @gzinflate($raw); }
+            elseif ($method !== 0) { return null; }
+            if ($raw === false) { return null; }
+            $m = json_decode((string) $raw, true);
+            return is_array($m) ? $m : null;
+        }
+        return null;
+    }
+}
+
+if (!function_exists('becArchiveContentHash')) {
+    /**
+     * A fingerprint of what an archive holds, independent of how it was zipped.
+     *
+     * Hashing the .zip bytes would not survive a re-zip, and a re-zip is exactly
+     * the case we now accept. Hashing the table payloads instead means the check
+     * answers the question that matters: is this the same data that was backed
+     * up, or has something been edited or lost on the way?
+     */
+    function becArchiveContentHash(array $entries): string {
+        $names = [];
+        foreach (array_keys($entries) as $n) {
+            if (preg_match('#^tables/[A-Za-z0-9_]+\.json$#', (string) $n)) { $names[] = (string) $n; }
+        }
+        sort($names);
+        $ctx = hash_init('sha256');
+        foreach ($names as $n) {
+            hash_update($ctx, $n . "\0");
+            hash_update($ctx, (string) $entries[$n]);
+            hash_update($ctx, "\0");
+        }
+        return hash_final($ctx);
+    }
+}
+
 if (!function_exists('becInspectBackupArchive')) {
     /**
      * Read an archive and report exactly what it is, without changing anything.
@@ -216,12 +353,15 @@ if (!function_exists('becInspectBackupArchive')) {
      * list as if it were a real snapshot.
      *
      * @param string $path Absolute path to a candidate .zip (may be an upload tmp file).
-     * @return array{ok:bool,message:string,tables:array<string,int>,rows:int,
-     *               created_at:?string,known:int,unknown:array<int,string>,restorable:int}
+     * @return array{ok:bool,message:string,tables:array<string,int>,rows:int,created_at:?string,
+     *               known:int,unknown:array<int,string>,restorable:int,empty:array<int,string>,
+     *               no_pk:array<int,string>,wrapped:string,integrity:string,coverage:string}
      */
     function becInspectBackupArchive(string $path, ?PDO $pdo = null): array {
         $out = ['ok' => false, 'message' => '', 'tables' => [], 'rows' => 0,
-                'created_at' => null, 'known' => 0, 'unknown' => [], 'restorable' => 0];
+                'created_at' => null, 'known' => 0, 'unknown' => [], 'restorable' => 0,
+                'empty' => [], 'no_pk' => [], 'wrapped' => '', 'integrity' => 'not recorded',
+                'coverage' => ''];
 
         if (!is_file($path) || !is_readable($path)) {
             $out['message'] = 'The file could not be read from disk.';
@@ -242,18 +382,35 @@ if (!function_exists('becInspectBackupArchive')) {
         }
 
         try {
-            $entries = becXlsxUnzip($path);
+            $read     = becArchiveEntries($path);
+            $entries  = $read['entries'];
+            $out['wrapped'] = $read['wrapped'];
         } catch (Throwable $e) {
             $out['message'] = 'The ZIP could not be opened — it is corrupt or only partly downloaded.';
             return $out;
         }
         if (!$entries) {
-            $out['message'] = 'The ZIP is readable but contains no files.';
+            // A readable ZIP with no usable entries is almost always a download
+            // that stopped early, not an empty archive somebody made on purpose.
+            $out['message'] = 'The ZIP could not be read to the end — most likely an incomplete download. Download the snapshot again and upload the new copy.';
             return $out;
         }
 
         if (!isset($entries['manifest.json'])) {
-            $out['message'] = 'This ZIP has no manifest.json, so it is not a BEC database snapshot. Only archives produced by this system (or by scripts\\backup_db.php) can be imported.';
+            // Say what IS in there. A flat refusal left the administrator with
+            // nothing to check, and the commonest cause — a snapshot unpacked and
+            // re-zipped, so the tables sit one folder down — is now handled by
+            // becArchiveEntries(), so reaching here means something else again.
+            $tableFiles = 0;
+            foreach (array_keys($entries) as $n) {
+                if (preg_match('#(^|/)tables/[A-Za-z0-9_]+[.]json$#', (string) $n)) { $tableFiles++; }
+            }
+            $sample = array_slice(array_keys($entries), 0, 4);
+            $out['message'] = $tableFiles > 0
+                ? 'This ZIP holds ' . $tableFiles . ' table file(s) but no manifest.json, so it cannot be trusted as a complete snapshot. It looks like a BEC backup that was unpacked and rebuilt by hand — import the original .zip instead.'
+                : 'This is not a BEC database snapshot: it has no manifest.json. It contains ' . count($entries) . ' file(s), starting with '
+                  . implode(', ', array_map(static fn($n) => '"' . $n . '"', $sample))
+                  . '. Only archives produced by this system can be imported.';
             return $out;
         }
         $manifest = json_decode((string) $entries['manifest.json'], true);
@@ -279,9 +436,25 @@ if (!function_exists('becInspectBackupArchive')) {
             return $out;
         }
 
-        // How much of it this database could actually take. Reported, not
-        // enforced: an archive from an older schema is still worth keeping, it
-        // just recovers fewer tables.
+        // Does the data still match what was backed up? Newer archives carry a
+        // fingerprint of their table payloads; older ones do not, and that is
+        // reported as "not recorded" rather than pretended to be a pass.
+        $claimed = (string) ($manifest['content_sha256'] ?? '');
+        if ($claimed !== '') {
+            $out['integrity'] = hash_equals($claimed, becArchiveContentHash($entries)) ? 'verified' : 'MISMATCH';
+            if ($out['integrity'] === 'MISMATCH') {
+                $out['message'] = 'The data inside this archive does not match the fingerprint its own manifest records, so it has been altered or damaged since it was created. It has not been imported.';
+                return $out;
+            }
+        }
+
+        // How much of it this database could actually take, and — the part that
+        // was missing — WHY the rest cannot be taken.
+        //
+        // This reported a bare "13 of 21 table(s) can be recovered", which reads
+        // as eight broken tables. In every case seen so far the other eight were
+        // simply empty when the snapshot was taken: nothing is wrong, and the
+        // message said otherwise to an administrator checking a recovery works.
         if ($pdo !== null) {
             try {
                 $present = array_fill_keys(becPublicTableNames($pdo), true);
@@ -289,8 +462,21 @@ if (!function_exists('becInspectBackupArchive')) {
                 foreach ($out['tables'] as $t => $n) {
                     if (!isset($present[$t])) { $out['unknown'][] = $t; continue; }
                     $out['known']++;
-                    if (!empty($pks[$t]) && $n > 0) { $out['restorable']++; }
+                    if (empty($pks[$t]))  { $out['no_pk'][] = $t; continue; }
+                    if ($n === 0)         { $out['empty'][] = $t; continue; }
+                    $out['restorable']++;
                 }
+
+                $total = count($out['tables']);
+                $bits  = [];
+                $bits[] = $out['known'] === $total
+                    ? 'All ' . $total . ' tables match this database.'
+                    : $out['known'] . ' of ' . $total . ' tables match this database.';
+                if ($out['empty'])   { $bits[] = count($out['empty']) . ' held no rows when the snapshot was taken (' . implode(', ', array_slice($out['empty'], 0, 8)) . (count($out['empty']) > 8 ? ', …' : '') . ').'; }
+                if ($out['no_pk'])   { $bits[] = count($out['no_pk']) . ' have no primary key, so they cannot be recovered safely (' . implode(', ', $out['no_pk']) . ').'; }
+                if ($out['unknown']) { $bits[] = count($out['unknown']) . ' are not in this schema (' . implode(', ', array_slice($out['unknown'], 0, 6)) . (count($out['unknown']) > 6 ? ', …' : '') . ').'; }
+                $bits[] = $out['restorable'] . ' hold data that can be recovered.';
+                $out['coverage'] = implode(' ', $bits);
             } catch (Throwable $e) { /* schema comparison is advisory only */ }
         }
 
@@ -473,14 +659,17 @@ if (!function_exists('becRestoreFromBackup')) {
      *
      * @param string $zipPath Absolute path to a backup ZIP (validate via becResolveBackupPath first).
      * @param string[]|null $onlyTables Restrict restore to these tables, or null for all in the archive.
+     * @param bool $dryRun  Report what would change and write nothing. No safety
+     *                      snapshot is taken and no transaction is opened.
      * @return array{ok:bool,message:string,restored:array<string,int>,skipped:array<string,string>,
-     *               safety:?string,sequences:array<string,string>}
+     *               safety:?string,sequences:array<string,string>,
+     *               preview:array<string,array{rows:int,insert:?int,update:?int}>}
      */
-    function becRestoreFromBackup(PDO $pdo, string $zipPath, ?array $onlyTables = null): array {
+    function becRestoreFromBackup(PDO $pdo, string $zipPath, ?array $onlyTables = null, bool $dryRun = false): array {
         $result = ['ok' => false, 'message' => '', 'restored' => [], 'skipped' => [],
-                   'safety' => null, 'sequences' => []];
+                   'safety' => null, 'sequences' => [], 'preview' => []];
 
-        $entries = becXlsxUnzip($zipPath);
+        $entries = becArchiveEntries($zipPath)['entries'];
         if (!$entries) {
             $result['message'] = 'The backup archive could not be read or is empty.';
             return $result;
@@ -512,6 +701,48 @@ if (!function_exists('becRestoreFromBackup')) {
         }
         if (!$targets) {
             $result['message'] = 'Nothing restorable in this archive for the selected scope.';
+            return $result;
+        }
+
+        // A dry run answers the question the confirmation box was asking blind:
+        // what is this actually going to change? Typing RESTORE used to be the
+        // first moment anything was known about the outcome.
+        if ($dryRun) {
+            foreach ($targets as $t => $rows) {
+                $pk = array_values(array_intersect($pks[$t], array_keys($rows[0])));
+                if (count($pk) !== 1) {
+                    // Composite (or absent) keys would need a compound comparison;
+                    // report the total rather than guess at the split.
+                    $result['preview'][$t] = ['rows' => count($rows), 'insert' => null, 'update' => null];
+                    continue;
+                }
+                $col = $pk[0];
+                // One query per table, not one per row: activity_log alone holds
+                // a thousand rows, and this page must not become O(backlog).
+                $existing = [];
+                try {
+                    foreach ($pdo->query('SELECT "' . $col . '" FROM public."' . $t . '"')->fetchAll(PDO::FETCH_COLUMN) as $v) {
+                        $existing[(string) $v] = true;
+                    }
+                } catch (Throwable $e) {
+                    $result['preview'][$t] = ['rows' => count($rows), 'insert' => null, 'update' => null];
+                    continue;
+                }
+                $update = 0;
+                foreach ($rows as $row) {
+                    if (isset($existing[(string) ($row[$col] ?? '')])) { $update++; }
+                }
+                $result['preview'][$t] = [
+                    'rows'   => count($rows),
+                    'insert' => count($rows) - $update,
+                    'update' => $update,
+                ];
+            }
+            $result['ok'] = true;
+            $ins = array_sum(array_map(static fn($p) => (int) $p['insert'], $result['preview']));
+            $upd = array_sum(array_map(static fn($p) => (int) $p['update'], $result['preview']));
+            $result['message'] = 'Would recover ' . number_format($ins) . ' missing record(s) and revert '
+                               . number_format($upd) . ' existing one(s) across ' . count($result['preview']) . ' table(s). Nothing has been changed.';
             return $result;
         }
 

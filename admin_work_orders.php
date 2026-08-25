@@ -102,9 +102,17 @@ $sql = "SELECT r.report_id, r.work_order_id, r.status, r.priority, r.category,
                r.report_date, r.completion_date, r.started_at,
                r.repair_cost, r.repair_duration,
                r.issue_description, r.defect_description,
-               r.work_performed, r.actions_performed, r.findings, r.parts_replaced, r.materials_used,
-               r.recommendations, r.completion_notes, r.resolution_notes,
+               /* What technician_complete_task.php writes. findings,
+                  recommendations, completion_notes and resolution_notes were
+                  selected and rendered here, and no code path in the system has
+                  ever written any of them — four fields that could only ever
+                  show an em dash, in the drawer an administrator opens to find
+                  out what was done. */
+               r.diagnosis, r.work_performed, r.actions_performed, r.repair_procedures,
+               r.parts_replaced, r.materials_used, r.tools_used,
                r.technician_notes, r.verification_notes,
+               r.estimated_cost,
+               r.before_photos, r.during_photos, r.after_photos, r.work_photos,
                r.satisfaction, r.satisfaction_note,
                r.reporter_name, r.reporter_department
           FROM public.defect_reports r
@@ -167,11 +175,119 @@ function wo_span($start, $end) {
     return intdiv($mins, 1440) . 'd ' . intdiv($mins % 1440, 60) . 'h';
 }
 
+/** Two columns that mean the same thing, shown once. */
+function wo_join(array $parts): string {
+    $seen = [];
+    foreach ($parts as $p) {
+        $p = trim((string)$p);
+        if ($p === '') { continue; }
+        foreach ($seen as $already) { if (strcasecmp($already, $p) === 0) { continue 2; } }
+        $seen[] = $p;
+    }
+    return implode(' — ', $seen);
+}
+
+/** The reporter's verdict in words, not a database value. */
+function wo_sat($v): string {
+    return match (strtolower(trim((string)$v))) {
+        'satisfied'   => 'Confirmed resolved by the reporter',
+        'unsatisfied' => 'Reporter says it is NOT resolved',
+        default       => '',
+    };
+}
+
+/**
+ * The before / during / after photographs of the job.
+ *
+ * The technician's completion form has taken these since it was written, and no
+ * admin screen has ever shown them — so the one page the office is asked to
+ * produce afterwards had no evidence attached to it.
+ *
+ * @return array<int,array{stage:string,src:string}>
+ */
+function wo_shots(array $r): array {
+    $out = [];
+    foreach (['before_photos' => 'Before', 'during_photos' => 'During', 'after_photos' => 'After', 'work_photos' => 'Work'] as $col => $stage) {
+        $raw = trim((string)($r[$col] ?? ''));
+        if ($raw === '' || $raw === '[]') { continue; }
+        $list = json_decode($raw, true);
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($list)) { $list = [$raw]; }
+        foreach ($list as $path) {
+            $path = str_replace('\\', '/', trim((string)$path));
+            if ($path === '') { continue; }
+            // Stored absolute on some rows and relative on others; the web root
+            // starts at uploads/ either way.
+            $pos = strpos($path, 'uploads/');
+            $out[] = ['stage' => $stage, 'src' => $pos !== false ? substr($path, $pos) : $path];
+        }
+    }
+    return $out;
+}
+
 $statusMeta = [
     'completed' => ['Awaiting verification', '#C9960C', 'fa-hourglass-half'],
     'verified'  => ['Verified',              '#1A7A33', 'fa-clipboard-check'],
     'closed'    => ['Closed',                '#5C3838', 'fa-lock'],
 ];
+
+/**
+ * The ledger as a file.
+ *
+ * "What was repaired, by whom, on what date, at what cost" is what the office is
+ * asked for after the fact — the reason this page exists — and until now the
+ * only way to hand it over was a screenshot. Built here rather than in the
+ * browser so the export carries the same filters, the same vocabulary and the
+ * institutional letterhead every other BEC document has.
+ *
+ * Runs before any HTML, and takes the rows already fetched under the active
+ * filters — no second query.
+ */
+if (strtolower(trim((string)($_GET['export'] ?? ''))) === 'csv') {
+    require_once __DIR__ . '/includes/csv_export.php';
+    $out = becCsvOpen('bec_work_orders');
+    becCsvLetterhead($out, 'Completed Work Orders', [
+        'Unit'   => $uf === 'ALL' ? 'All units' : $uf,
+        'State'  => $sf === 'all' ? 'All finished work' : ($statusMeta[$sf][0] ?? $sf),
+        'Period' => ['all' => 'All time', 'week' => 'Last 7 days', 'month' => 'Last month', 'year' => 'Last year'][$df] ?? 'All time',
+        'Search' => $q,
+    ]);
+    $csvRows = [];
+    foreach ($rows as $r) {
+        $csvRows[] = [
+            $r['work_order_id'] ?: $r['report_id'],
+            $r['equipment_name'] ?: '',
+            $r['asset_tag'] ?: '',
+            $r['location'] ?: '',
+            $r['unit'] ?: '',
+            $r['technician'] ?: '',
+            wo_date($r['report_date'], false),
+            wo_date($r['completion_date'], false),
+            wo_span($r['started_at'], $r['completion_date']) ?: ($r['repair_duration'] ?: ''),
+            $r['repair_cost'] !== null ? number_format((float)$r['repair_cost'], 2, '.', '') : '',
+            $statusMeta[$r['status']][0] ?? $r['status'],
+            $r['diagnosis'] ?: '',
+            $r['work_performed'] ?: ($r['actions_performed'] ?: ''),
+            wo_join([$r['parts_replaced'], $r['materials_used']]),
+        ];
+    }
+    becCsvSection($out, 'Completed work orders', [
+        'Reference', 'Equipment', 'Asset tag', 'Location', 'Unit', 'Technician',
+        'Reported', 'Completed', 'Time on job', 'Repair cost', 'State',
+        'Diagnosis', 'Work performed', 'Parts & materials',
+    ], $csvRows);
+    becCsvSection($out, 'Summary', ['Measure', 'Value'], [
+        ['Jobs in this export',   count($csvRows)],
+        ['Awaiting verification', $tot['completed']],
+        ['Verified',              $tot['verified']],
+        ['Closed',                $tot['closed']],
+        ['Total repair cost',     number_format($tot['cost'], 2, '.', '')],
+    ]);
+    becCsvFooter($out);
+    fclose($out);
+    logActivity($admin_id, 'workorders.export', 'Exported ' . count($csvRows) . ' completed work order(s) to CSV');
+    exit();
+}
+
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -256,6 +372,28 @@ $statusMeta = [
   .wf .v.empty2{color:var(--ink3);font-weight:500;}
   .wf .v.para{white-space:pre-wrap;border-bottom:none;padding-bottom:0;}
   @media(max-width:640px){.wf{display:block;}.wf .l{text-align:left;margin-bottom:2px;}}
+  /* A label that needs a sentence to be unambiguous gets one, rather than a
+     manual nobody opens. Responsible Unit, Time on Job and the two costs were
+     the three an admin could not read off the page with confidence. */
+  .wf .l em.hint{display:block;font-style:normal;font-size:.58rem;font-weight:600;letter-spacing:0;
+    text-transform:none;color:var(--ink3);line-height:1.45;margin-top:2px;}
+  .wempty{margin:0;padding:.8rem .95rem;font-size:.8rem;color:var(--ink3);font-style:italic;}
+  /* The before / during / after photographs. Small enough to scan, click to open. */
+  .wshots{display:flex;gap:.6rem;flex-wrap:wrap;padding:.85rem .95rem;}
+  .wshot{margin:0;width:118px;}
+  .wshot a{display:block;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:#faf7f0;}
+  .wshot a:hover{border-color:var(--m);}
+  .wshot img{display:block;width:100%;height:88px;object-fit:cover;}
+  .wshot figcaption{margin-top:.3rem;font-size:.6rem;font-weight:800;letter-spacing:.6px;
+    text-transform:uppercase;color:var(--ink3);text-align:center;}
+  .wacts{display:flex;gap:.5rem;flex-wrap:wrap;padding:.85rem .95rem;border-top:1px solid var(--border);background:#faf7f0;}
+  .wacts .btn{text-decoration:none;display:inline-flex;align-items:center;gap:.35rem;}
+  /* One legend for the three states, so "Completed" and "Awaiting verification"
+     stop looking like two different things on the same screen. */
+  .legend{display:flex;gap:1.1rem;flex-wrap:wrap;margin:0 0 14px;padding:.6rem .85rem;
+    background:var(--surface);border:1px solid var(--border);border-radius:10px;font-size:.74rem;color:var(--ink2);}
+  .legend span{display:inline-flex;align-items:center;gap:.35rem;}
+  .legend b{font-weight:700;color:var(--ink);}
 </style>
 </head>
 <body>
@@ -279,7 +417,8 @@ $statusMeta = [
           <p><?php if ($adminUnit !== '' && !$unitExplicit): ?>Showing <strong><?php echo wo_e($adminUnit); ?></strong> equipment by default — use the <em>Unit</em> filter to view All or the other office. <?php endif; ?>Every job a technician has finished, with what was done and what it cost. Rows marked <strong>Awaiting verification</strong> are finished but still need an admin to sign them off in Defect Reports.</p>
         </div>
         <div class="head-acts">
-          <a class="btn" href="admin_defect_reports.php"><i class="fas fa-list-check"></i> Open Queue</a>
+          <a class="btn" href="<?php echo wo_e($keep(['export' => 'csv'])); ?>"><i class="fas fa-file-csv"></i> Export</a>
+          <a class="btn m" href="admin_defect_reports.php"><i class="fas fa-list-check"></i> Open Queue</a>
         </div>
       </div>
 
@@ -339,6 +478,12 @@ $statusMeta = [
           <span class="cnt"><?php echo count($rows); ?> of <?php echo (int)$totalDone; ?> finished</span>
         </form>
 
+        <div class="legend">
+          <span><i class="fas fa-hourglass-half" style="color:#C9960C;"></i> <b>Awaiting verification</b> — the technician is done; an admin has not signed it off yet.</span>
+          <span><i class="fas fa-clipboard-check" style="color:#1A7A33;"></i> <b>Verified</b> — an admin checked the work and accepted it.</span>
+          <span><i class="fas fa-lock" style="color:#5C3838;"></i> <b>Closed</b> — verified, and the reporter has confirmed it is fixed.</span>
+        </div>
+
         <?php if (!$rows): ?>
           <div class="empty">
             <i class="fas fa-clipboard-check"></i>
@@ -359,7 +504,11 @@ $statusMeta = [
                     echo '<th><a href="' . wo_e($keep(['sort' => $key, 'dir' => $nd])) . '">'
                        . wo_e($label) . ' <i class="fas ' . $ic . '"></i></a></th>';
                 };
-                $th('wo', 'Work Order');
+                /* Called "Work Order", and it has never once shown one:
+                   work_order_id is empty on every finished report in the
+                   database, so this column falls back to the report number every
+                   time. Name the column after what is actually in it. */
+                $th('wo', 'Reference');
                 $th('equip', 'Equipment');
                 $th('tech', 'Technician');
                 $th('done', 'Completed');
@@ -389,25 +538,33 @@ $statusMeta = [
                     'span'  => $span ?: ($r['repair_duration'] ?: ''),
                     'cost'  => wo_peso($r['repair_cost']),
                     'issue' => $r['issue_description'] ?: $r['defect_description'] ?: '',
+                    'diag'  => $r['diagnosis'] ?: '',
+                    // One label for one thing. The technician form posts
+                    // work_performed; actions_performed is the older name for the
+                    // same box, so it is a fallback, not a second field.
                     'work'  => $r['work_performed'] ?: ($r['actions_performed'] ?: ''),
-                    'find'  => $r['findings'] ?: '',
-                    'parts' => $r['parts_replaced'] ?: '',
-                    'mats'  => $r['materials_used'] ?: '',
-                    'recs'  => $r['recommendations'] ?: '',
-                    'cnote' => $r['completion_notes'] ?: $r['resolution_notes'] ?: $r['technician_notes'] ?: '',
+                    'proc'  => $r['repair_procedures'] ?: '',
+                    // Parts and materials were two labels for one answer, and a
+                    // technician filled whichever they happened to see.
+                    'parts' => wo_join([$r['parts_replaced'], $r['materials_used']]),
+                    'tools' => $r['tools_used'] ?: '',
+                    'tnote' => $r['technician_notes'] ?: '',
                     'vnote' => $r['verification_notes'] ?: '',
-                    'sat'   => $r['satisfaction'] ?: '',
+                    'est'   => wo_peso($r['estimated_cost']),
+                    'sat'   => wo_sat($r['satisfaction']),
                     'satn'  => $r['satisfaction_note'] ?: '',
                     'rby'   => $r['reporter_name'] ?: '',
                     'rdept' => $r['reporter_department'] ?: '',
+                    'shots' => wo_shots($r),
                 ];
             ?>
               <tr tabindex="0" data-wo='<?php echo wo_e(json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)); ?>'>
                 <td>
-                  <span class="wo-id"><?php echo wo_e($r['work_order_id'] ?: $r['report_id']); ?></span>
-                  <?php if ($r['work_order_id'] && $r['work_order_id'] !== $r['report_id']): ?>
-                    <span class="wo-sub"><?php echo wo_e($r['report_id']); ?></span>
-                  <?php endif; ?>
+                  <?php $woNo = trim((string)($r['work_order_id'] ?? '')); ?>
+                  <span class="wo-id"><?php echo wo_e($woNo !== '' ? $woNo : $r['report_id']); ?></span>
+                  <span class="wo-sub"><?php echo $woNo !== '' && $woNo !== $r['report_id']
+                        ? 'Work order &middot; report ' . wo_e($r['report_id'])
+                        : 'Report number'; ?></span>
                 </td>
                 <td>
                   <span class="eq"><?php echo wo_e($r['equipment_name'] ?: '—'); ?></span>
@@ -457,16 +614,45 @@ $statusMeta = [
     });
   }
 
-  function field(label, value, isPara) {
+  /* A field is rendered when it holds something. The drawer used to print a
+     row for every column whether or not anything had ever been written to it,
+     and four of them — Findings, Recommendations, Completion notes,
+     Resolution notes — are written by no code path in the system, so they
+     were guaranteed em dashes forever. A screen that is mostly dashes teaches
+     an administrator that the record is empty when it is not.
+     `always` keeps the handful of anchors that must appear even when blank,
+     because their absence is itself the answer (no technician, no cost). */
+  function field(label, value, opts) {
+    opts = opts || {};
     var blank = (value === null || value === undefined || String(value).trim() === '' || value === DASH);
-    var cls = 'v' + (blank ? ' empty2' : '') + (isPara && !blank ? ' para' : '');
-    return '<div class="wf"><span class="l">' + esc(label) + '</span>'
+    if (blank && !opts.always) { return ''; }
+    var cls = 'v' + (blank ? ' empty2' : '') + (opts.para && !blank ? ' para' : '');
+    return '<div class="wf"><span class="l">' + esc(label)
+         + (opts.hint ? '<em class="hint">' + esc(opts.hint) + '</em>' : '')
+         + '</span>'
          + '<span class="' + cls + '">' + (blank ? DASH : esc(value)) + '</span></div>';
   }
 
-  function section(title, fields) {
+  function section(title, fields, emptyNote) {
     var body = fields.join('');
-    return body ? '<div class="wsec"><h5>' + esc(title) + '</h5><div class="wflds">' + body + '</div></div>' : '';
+    if (!body) {
+      return emptyNote
+        ? '<div class="wsec"><h5>' + esc(title) + '</h5><p class="wempty">' + esc(emptyNote) + '</p></div>'
+        : '';
+    }
+    return '<div class="wsec"><h5>' + esc(title) + '</h5><div class="wflds">' + body + '</div></div>';
+  }
+
+  /* The before / during / after photographs, which no admin screen has shown. */
+  function shots(list) {
+    if (!list || !list.length) { return ''; }
+    var cells = list.map(function (s) {
+      return '<figure class="wshot">'
+           + '<a href="' + esc(s.src) + '" target="_blank" rel="noopener">'
+           + '<img src="' + esc(s.src) + '" alt="' + esc(s.stage) + ' photograph" loading="lazy">'
+           + '</a><figcaption>' + esc(s.stage) + '</figcaption></figure>';
+    }).join('');
+    return '<div class="wsec"><h5>Photographs</h5><div class="wshots">' + cells + '</div></div>';
   }
 
   function open(tr) {
@@ -479,38 +665,48 @@ $statusMeta = [
 
     var html = '<div class="wform">'
       + section('Equipment', [
-          field('Equipment', d.eq),
+          field('Equipment', d.eq, {always: true}),
           field('Asset Tag', d.tag),
           field('Location', d.loc),
-          field('Responsible Unit', d.unit)
+          field('Responsible Unit', d.unit, {hint: 'The office that owns this equipment'})
         ])
       + section('The Request', [
-          field('Report No.', d.rid),
+          field('Report No.', d.rid, {always: true}),
           field('Reported By', d.rby + (d.rdept ? ' · ' + d.rdept : '')),
           field('Date Reported', d.rep),
           field('Category', d.cat),
           field('Priority', d.prio),
-          field('Reported Problem', d.issue, true)
+          field('Reported Problem', d.issue, {para: true})
         ])
       + section('The Work', [
-          field('Technician', d.tech),
+          field('Technician', d.tech, {always: true}),
           field('Started', d.start),
-          field('Completed', d.done),
-          field('Time On Job', d.span),
-          field('Work Performed', d.work, true),
-          field('Findings', d.find, true),
-          field('Parts Replaced', d.parts, true),
-          field('Materials Used', d.mats, true),
-          field('Recommendations', d.recs, true),
-          field('Technician Notes', d.cnote, true)
+          field('Completed', d.done, {always: true}),
+          field('Time On Job', d.span, {hint: 'From the technician pressing Start to marking it complete'}),
+          field('Diagnosis', d.diag, {para: true}),
+          field('Work Performed', d.work, {para: true}),
+          field('Repair Procedure', d.proc, {para: true}),
+          field('Parts & Materials', d.parts, {para: true}),
+          field('Tools Used', d.tools, {para: true}),
+          field('Technician Notes', d.tnote, {para: true})
+        ], 'The technician recorded no details for this job.')
+      + shots(d.shots)
+      + section('Cost', [
+          field('Estimated', d.est, {hint: 'Quoted by the technician before the work'}),
+          field('Actual', d.cost, {always: true, hint: 'Parts and labour recorded on completion'})
         ])
       + section('Closing', [
-          field('State', d.stat),
-          field('Repair Cost', d.cost),
-          field('Verification Notes', d.vnote, true),
+          field('State', d.stat, {always: true}),
+          field('Verification Notes', d.vnote, {para: true}),
           field('Reporter Satisfaction', d.sat),
-          field('Reporter Comment', d.satn, true)
+          field('Reporter Comment', d.satn, {para: true})
         ])
+      + '<div class="wacts">'
+      + '<a class="btn sm" href="defect_report_ticket.php?report=' + encodeURIComponent(d.rid) + '" target="_blank" rel="noopener">'
+      + '<i class="fas fa-file-lines"></i> Print the defect report</a>'
+      + '<a class="btn sm m" href="technician_service_report.php?report=' + encodeURIComponent(d.rid) + '" target="_blank" rel="noopener">'
+      + '<i class="fas fa-file-invoice"></i> Print the service report</a>'
+      + '</div>'
       + '</div>';
 
     document.getElementById('woBody').innerHTML = html;

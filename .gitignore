@@ -102,6 +102,11 @@ data/apache_watchdog.pid
 # at the cost of every remembered device verifying once more.
 data/.reporter_signing_key
 
+# Same hazard, higher stakes: this one signs "keep me signed in" for the ADMIN
+# portal, so anyone holding it could skip the emailed code on any admin address.
+# The password is still required, but the second factor would be gone.
+data/.admin_signing_key
+
 # Encrypted credential bundle produced by scripts/carry_secrets.ps1 - never commit
 bec-secrets.enc
 *.replaced_*

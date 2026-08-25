@@ -368,6 +368,17 @@ if (!function_exists('tableExists')) {
 }
 
 if (!function_exists('findUserByEmailAndRole')) {
+    /**
+     * Look up an account by address and role.
+     *
+     * Matched case-sensitively until now, which mattered more than it sounds:
+     * phone and Windows keyboards capitalise the first letter of an email field
+     * by default, so "Mark.Matibag@bec.edu.ph" was simply not this admin — sign-in
+     * answered "Invalid email or password" with the correct password typed, and
+     * Forgot Password answered "if this email is registered, a link has been
+     * sent" and sent nothing at all. Addresses are not case-sensitive; neither is
+     * this any more.
+     */
     function findUserByEmailAndRole(string $email, string $role, array $fields = ['user_id', 'email', 'fullname', 'username', 'password', 'status', 'role']): ?array {
         $safeFields = array_values(array_filter($fields, static fn($f) => preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', (string)$f)));
         if (empty($safeFields)) {
@@ -377,14 +388,14 @@ if (!function_exists('findUserByEmailAndRole')) {
 
         if (isPgSqlDriver()) {
             $pdo = getPgsqlPdoConnection();
-            $stmt = $pdo->prepare("SELECT {$fieldList} FROM public.users WHERE email = :email AND role = :role ORDER BY created_at DESC LIMIT 1");
+            $stmt = $pdo->prepare("SELECT {$fieldList} FROM public.users WHERE lower(email) = lower(:email) AND role = :role ORDER BY created_at DESC LIMIT 1");
             $stmt->execute(['email' => $email, 'role' => $role]);
             $row = $stmt->fetch();
             return is_array($row) ? $row : null;
         }
 
         $conn = getDBConnection();
-        $stmt = $conn->prepare("SELECT {$fieldList} FROM users WHERE email = ? AND role = ? ORDER BY created_at DESC LIMIT 1");
+        $stmt = $conn->prepare("SELECT {$fieldList} FROM users WHERE LOWER(email) = LOWER(?) AND role = ? ORDER BY created_at DESC LIMIT 1");
         $stmt->bind_param('ss', $email, $role);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -795,9 +806,11 @@ if (!function_exists('findActivePasswordResetUserByToken')) {
     function findActivePasswordResetUserByToken(string $token, ?string $role = null): ?array {
         if (isPgSqlDriver()) {
             $pdo = getPgsqlPdoConnection();
+            // lower() on both sides: a record written from a typed address must
+            // still resolve to the account, or the emailed link dies on arrival.
             $sql = "SELECT u.user_id, u.email
                     FROM public.password_resets pr
-                    JOIN public.users u ON pr.email = u.email
+                    JOIN public.users u ON lower(pr.email) = lower(u.email)
                     WHERE pr.token = :token AND pr.expires_at > now()";
             $params = ['token' => $token];
             if ($role !== null && $role !== '') {
@@ -814,7 +827,7 @@ if (!function_exists('findActivePasswordResetUserByToken')) {
         $conn = getDBConnection();
         $sql = "SELECT u.user_id, u.email
                 FROM password_resets pr
-                JOIN users u ON pr.email = u.email
+                JOIN users u ON LOWER(pr.email) = LOWER(u.email)
                 WHERE pr.token = ? AND pr.expires_at > NOW()";
         $types = 's';
         $args = [$token];
@@ -1149,6 +1162,59 @@ function equipmentUnit(string $equipmentId): string {
         if ($u === 'ITSO' || $u === 'PMO') return $u;
     } catch (\Throwable $e) {}
     return classifyDepartmentByEquipment($equipmentId); // fall back to live classification
+}
+
+/**
+ * The active admins who should be told about something happening to this report.
+ *
+ * Every notification in the system used to go to every admin: `role = 'admin'
+ * AND status = 'active'`, ten people, whatever the report was. Nine of them
+ * cannot open a report belonging to the other office, so nine of them learn to
+ * ignore the list — and then the one who needed to act misses it too.
+ *
+ * Scoping is best-effort on purpose. An admin with no PMO/ITSO department on
+ * file is included in everything (they see everything anyway), and a report on
+ * equipment with no unit goes to all of them rather than to nobody.
+ *
+ * @return array<int,array{user_id:string,email:string,fullname:string}>
+ */
+function adminRecipientsForReportUnit(string $unit): array {
+    $unit = strtoupper(trim($unit));
+    $all = [];
+    $scoped = [];
+    try {
+        $conn = getDBConnection();
+        $res = $conn->query("SELECT user_id, COALESCE(email,'') AS email,
+                                    COALESCE(fullname,'') AS fullname,
+                                    COALESCE(department,'') AS department
+                               FROM users
+                              WHERE role = 'admin' AND status = 'active'
+                                AND user_id IS NOT NULL AND user_id != ''");
+        while ($res && ($row = $res->fetch_assoc())) {
+            $id = trim((string)($row['user_id'] ?? ''));
+            if ($id === '') { continue; }
+            $rec = [
+                'user_id'  => $id,
+                'email'    => trim((string)($row['email'] ?? '')),
+                'fullname' => trim((string)($row['fullname'] ?? '')),
+            ];
+            $all[] = $rec;
+            $dept = strtoupper((string)($row['department'] ?? ''));
+            $theirs = strpos($dept, 'ITSO') !== false ? 'ITSO' : (strpos($dept, 'PMO') !== false ? 'PMO' : '');
+            // No unit on file → they are not scoped to one office, so they get everything.
+            if ($theirs === '' || $unit === '' || $theirs === $unit) { $scoped[] = $rec; }
+        }
+    } catch (\Throwable $e) {
+        error_log('adminRecipientsForReportUnit failed: ' . $e->getMessage());
+        return $all;
+    }
+    // Never silence a report entirely because its unit matched nobody.
+    return $scoped ?: $all;
+}
+
+/** Just the ids, for callers that only write notifications. */
+function adminIdsForReportUnit(string $unit): array {
+    return array_column(adminRecipientsForReportUnit($unit), 'user_id');
 }
 
 /**
@@ -1860,6 +1926,13 @@ function becDefectFilterClauses(array $opts, bool $named): array {
         $sql .= $named ? ' AND dr.is_preventive IS TRUE' : ' AND dr.is_preventive = 1';
     } elseif ($kind === 'reported') {
         $sql .= $named ? ' AND COALESCE(dr.is_preventive, FALSE) IS NOT TRUE' : ' AND COALESCE(dr.is_preventive, 0) = 0';
+    }
+
+    // Reports the reporter has come back to chase. follow_up_count was written
+    // on every nudge and read by nothing, so a report chased three times looked
+    // exactly like one nobody had asked about.
+    if (!empty($opts['followed_up'])) {
+        $sql .= ' AND COALESCE(dr.follow_up_count, 0) > 0';
     }
 
     return ['sql' => $sql, 'params' => $params, 'types' => $types];

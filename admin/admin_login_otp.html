@@ -250,6 +250,13 @@
       .resend-link { color: var(--maroon); }
       .resend-link:hover { text-decoration: none; }
       .resend-link.disabled { color: var(--ink3); cursor: not-allowed; }
+      .trust-row { display: flex; gap: 10px; align-items: flex-start; text-align: left;
+        margin: 4px 0 14px; padding: 11px 13px; border: 1.5px solid var(--border);
+        border-radius: 9px; background: var(--field); cursor: pointer; }
+      .trust-row:hover { border-color: var(--maroon); }
+      .trust-row input { margin-top: 2px; width: 15px; height: 15px; accent-color: var(--maroon); flex-shrink: 0; cursor: pointer; }
+      .trust-row b { display: block; font-size: .8rem; font-weight: 600; color: var(--ink); }
+      .trust-row small { display: block; margin-top: 3px; font-size: .7rem; line-height: 1.5; color: var(--ink3); }
 
       /* Footer */
       .auth-foot {
@@ -437,6 +444,14 @@
                 <i class="fas fa-clock"></i> Code expires in <span id="timerDisplay">3:00</span>
               </div>
 
+              <label class="trust-row" for="rememberDevice">
+                <input type="checkbox" id="rememberDevice" checked>
+                <span>
+                  <b>Keep me signed in on this device</b>
+                  <small>For the next 24 hours this browser will not be asked for a code. Your password is still required every time. Leave this off on a shared computer.</small>
+                </span>
+              </label>
+
               <button type="submit" class="otp-verify-btn" id="otpVerifyBtn">
                 <i class="fas fa-check-circle" style="margin-right:8px;"></i> Verify &amp; Continue
               </button>
@@ -573,8 +588,10 @@
                 hideLoading();
 
                 if (data.success) {
-                    // An account listed in config/demo_access.php skips the emailed code:
-                    // the server has already signed it in, so go straight to the dashboard.
+                    // No code needed — either this browser is remembered (see
+                    // includes/admin_trust.php) or the account is listed in
+                    // config/demo_access.php. Either way the server has already
+                    // signed it in, so go straight to the dashboard.
                     if (data.data && data.data.require_otp === false) {
                         AuthLoader.show('Access granted', 'Loading your dashboard...');
                         setTimeout(function () {
@@ -609,6 +626,10 @@
                 formData.append('email', email);
                 formData.append('otp_code', code);
                 formData.append('action', 'verify_otp');
+                // "Keep me signed in on this device" — the server remembers this
+                // browser for 24 hours so the next sign-in needs no code. The
+                // password is still checked every time; only the code is skipped.
+                formData.append('remember_device', document.getElementById('rememberDevice').checked ? '1' : '');
                 formData.append('role', 'admin');
                 formData.append('csrf_token', await ensureCsrf());
 

@@ -183,6 +183,11 @@ $vw = $_GET['view']     ?? 'table'; // 'table' | 'kanban'
 // on every generated row and read by nothing.
 $kf = strtolower(trim((string)($_GET['kind'] ?? 'all')));
 if (!in_array($kf, ['all', 'preventive', 'reported'], true)) { $kf = 'all'; }
+// Reports whose reporter has come back to chase them. The count was recorded on
+// every nudge and shown nowhere, so the one queue signal that says "a person is
+// actually waiting on this" never reached the admin working the queue.
+$nf = strtolower(trim((string)($_GET['nudged'] ?? 'all')));
+if (!in_array($nf, ['all', 'yes'], true)) { $nf = 'all'; }
 $kindFilter = function ($r) use ($kf) {
     if ($kf === 'all') return true;
     $isPm = !empty($r['is_preventive']) && $r['is_preventive'] !== 'f';
@@ -210,6 +215,7 @@ $listOpts = ['exclude_statuses' => ['deleted']];
 if ($sf !== 'all') { $listOpts['statuses'] = $stages[$sf] ?? [$sf]; }
 if ($df !== 'all') { $listOpts['dept'] = $df; $listOpts['dept_untriaged'] = !$dfExplicit; }
 if ($kf !== 'all') { $listOpts['kind'] = $kf; }
+if ($nf === 'yes')  { $listOpts['followed_up'] = true; }
 
 /* The cards count the same unit and kind scope but ignore the status stage,
    priority and search — so every stage keeps showing its own total while one of
@@ -217,6 +223,7 @@ if ($kf !== 'all') { $listOpts['kind'] = $kf; }
 $cardOpts = ['exclude_statuses' => ['deleted']];
 if ($df !== 'all') { $cardOpts['dept'] = $df; $cardOpts['dept_untriaged'] = !$dfExplicit; }
 if ($kf !== 'all') { $cardOpts['kind'] = $kf; }
+if ($nf === 'yes')  { $cardOpts['followed_up'] = true; }
 
 // The pager's total, and the empty-state test, without fetching a single row.
 $totalReports = countDefectReportsWithFilters('all', $pf, $sq, $listOpts);
@@ -639,6 +646,12 @@ body{
 .pm-tag{display:inline-flex;align-items:center;gap:.25rem;margin-left:.35rem;padding:.1rem .4rem;border-radius:5px;
   background:#E9F9EF;color:var(--ok-tx);font-size:.55rem;font-weight:800;letter-spacing:.4px;vertical-align:middle;}
 .pm-tag i{font-size:.55rem;}
+/* A reporter has come back to ask about this one. Warm, not alarming — it is a
+   person waiting, not an SLA breach, and the two must not look alike. */
+.fu-tag{display:inline-flex;align-items:center;gap:.25rem;margin-left:.35rem;padding:.1rem .4rem;border-radius:5px;
+  background:var(--warn-bg,#FFFBEB);color:var(--warn-tx,#92600A);border:1px solid var(--warn-bdr,#FDE68A);
+  font-size:.55rem;font-weight:800;letter-spacing:.4px;vertical-align:middle;white-space:nowrap;}
+.fu-tag i{font-size:.55rem;}
 
 /* ── PANEL / TABLE ──────────────────────────────────── */
 .panel{background:#FFFFFF;border-radius:var(--r3);border:1px solid #E5D9C6;box-shadow:var(--sh1);overflow:hidden;transition:box-shadow .22s;}
@@ -1409,6 +1422,10 @@ textarea.fc{resize:vertical;min-height:70px;}
         <option value="reported"   <?php echo $kf==='reported'?'selected':''; ?>>Reported by a person</option>
         <option value="preventive" <?php echo $kf==='preventive'?'selected':''; ?>>Preventive (scheduled)</option>
       </select>
+      <select class="fsel" id="fsn" aria-label="Filter by reporter follow-ups" onchange="go()">
+        <option value="all" <?php echo $nf==='all'?'selected':''; ?>>Any follow-up</option>
+        <option value="yes" <?php echo $nf==='yes'?'selected':''; ?>>Chased by the reporter</option>
+      </select>
       <span class="fcount"><?php echo $totalReports; ?> result<?php echo $totalReports != 1 ? 's' : ''; ?></span>
     </div>
 
@@ -1437,10 +1454,13 @@ textarea.fc{resize:vertical;min-height:70px;}
               <i class="fas fa-folder-open"></i>No reports match your current filters.
             </div></td></tr>
             <?php else: foreach($reportsPage as $r): ?>
-            <tr class="rep-row" tabindex="0" role="button" aria-label="Open report details" data-rid="<?php echo esc($r['report_id']); ?>" data-view-url="?view_id=<?php echo $r['report_id']; ?>&status=<?php echo $sf; ?>&priority=<?php echo $pf; ?>&dept=<?php echo $df; ?>&kind=<?php echo $kf; ?>&search=<?php echo urlencode($sq); ?>&view=<?php echo $vw; ?>">
+            <tr class="rep-row" tabindex="0" role="button" aria-label="Open report details" data-rid="<?php echo esc($r['report_id']); ?>" data-view-url="?view_id=<?php echo $r['report_id']; ?>&status=<?php echo $sf; ?>&priority=<?php echo $pf; ?>&dept=<?php echo $df; ?>&kind=<?php echo $kf; ?>&nudged=<?php echo $nf; ?>&search=<?php echo urlencode($sq); ?>&view=<?php echo $vw; ?>">
               <td><span class="rid"><?php echo esc($r['report_id']); ?></span>
                 <?php if(!empty($r['is_preventive']) && $r['is_preventive'] !== 'f'): ?>
                 <span class="pm-tag" title="Raised automatically by a preventive maintenance schedule"><i class="fas fa-calendar-check"></i> PM</span>
+                <?php endif; ?>
+                <?php $fuN = (int)($r['follow_up_count'] ?? 0); if ($fuN > 0): ?>
+                <span class="fu-tag" title="The reporter has chased this report <?php echo $fuN; ?> time<?php echo $fuN === 1 ? '' : 's'; ?><?php echo trim((string)($r['follow_up_note'] ?? '')) !== '' ? ' — &quot;' . esc($r['follow_up_note']) . '&quot;' : ''; ?>"><i class="fas fa-bell"></i> Nudged <?php echo $fuN; ?>&times;</span>
                 <?php endif; ?>
               </td>
               <td>
@@ -1462,7 +1482,7 @@ textarea.fc{resize:vertical;min-height:70px;}
               <td style="font-size:.73rem;"><?php echo esc($r['technician_name']??'Unassigned'); ?></td>
               <td style="text-align:center;">
                 <div style="display:flex;gap:.25rem;justify-content:center;">
-                  <a href="?view_id=<?php echo $r['report_id']; ?>&status=<?php echo $sf; ?>&priority=<?php echo $pf; ?>&dept=<?php echo $df; ?>&kind=<?php echo $kf; ?>&search=<?php echo urlencode($sq); ?>&view=<?php echo $vw; ?>"
+                  <a href="?view_id=<?php echo $r['report_id']; ?>&status=<?php echo $sf; ?>&priority=<?php echo $pf; ?>&dept=<?php echo $df; ?>&kind=<?php echo $kf; ?>&nudged=<?php echo $nf; ?>&search=<?php echo urlencode($sq); ?>&view=<?php echo $vw; ?>"
                     class="btn bico bi-v" title="View Details"><i class="fas fa-eye"></i></a>
                   <?php if (($r['status'] ?? '') === 'reported'): ?>
                   <form method="POST" style="display:inline;margin:0;" onsubmit="return confirm('Mark report <?php echo esc($r['report_id']); ?> as officially Received by the PMO?\n\nThe reporter will be notified by email and in-app, and this will be recorded in the audit log and tracking timeline.');">
@@ -1748,6 +1768,24 @@ textarea.fc{resize:vertical;min-height:70px;}
               ? nl2br(esc($vr['issue_description']))
               : 'No description was given.'; ?>
           </div>
+          <?php $vrFu = (int)($vr['follow_up_count'] ?? 0); if ($vrFu > 0): ?>
+          <?php /* The reporter came back. Placed directly under the description
+                   because it is the same person continuing the same sentence,
+                   and it is the part of this drawer that wants an answer. */ ?>
+          <div class="dr-card-h" style="margin:1rem 0 .5rem;">
+            <i class="fas fa-bell" aria-hidden="true"></i><h3>Reporter follow-up</h3>
+          </div>
+          <div class="dr-desc" style="border-left:3px solid var(--warn-bdr,#FDE68A);background:var(--warn-bg,#FFFBEB);">
+            <strong>Chased <?php echo $vrFu; ?> time<?php echo $vrFu === 1 ? '' : 's'; ?></strong><?php
+              if (!empty($vr['follow_up_at'])) { echo ' · last on ' . esc(date('M j, Y · g:i A', strtotime((string)$vr['follow_up_at']))); }
+            ?>
+            <?php if (trim((string)($vr['follow_up_note'] ?? '')) !== ''): ?>
+            <div style="margin-top:.4rem;">“<?php echo nl2br(esc($vr['follow_up_note'])); ?>”</div>
+            <?php else: ?>
+            <div style="margin-top:.4rem;" class="muted">No message was left with the follow-up.</div>
+            <?php endif; ?>
+          </div>
+          <?php endif; ?>
           <?php if (!empty($vr['admin_notes'])): ?>
           <div class="dr-card-h" style="margin:1rem 0 .5rem;">
             <i class="fas fa-note-sticky" aria-hidden="true"></i><h3>PMO Notes</h3>
@@ -2083,6 +2121,7 @@ function go() {
   url.searchParams.set('priority', document.getElementById('fsp').value);
   url.searchParams.set('dept',     document.getElementById('fsd').value);
   url.searchParams.set('kind',     document.getElementById('fsk').value);
+  url.searchParams.set('nudged',   document.getElementById('fsn').value);
   url.searchParams.set('search',   document.getElementById('fsq').value);
   url.searchParams.set('view',     '<?php echo $vw; ?>');
   // A new search starts at page 1; staying on page 5 of the old result set

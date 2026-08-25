@@ -117,24 +117,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $flash = ['err', $res['message']];
                 } else {
                     $note = 'Imported ' . basename((string)$f['name']) . ' as ' . $res['file'] . ' — ' . $chk['message'];
-                    // Say plainly how much of it this database can actually take.
-                    $scope = $chk['known'] > 0
-                        ? ' ' . $chk['restorable'] . ' of ' . count($chk['tables']) . ' table(s) can be recovered into the current database.'
-                        : ' None of its tables match the current database schema.';
-                    if ($chk['unknown']) {
-                        $scope .= ' Not in this schema: ' . implode(', ', array_slice($chk['unknown'], 0, 6))
-                                . (count($chk['unknown']) > 6 ? ' …' : '') . '.';
+                    // Say plainly what this database can take, and WHY the rest
+                    // cannot. The old line said "13 of 21 table(s) can be
+                    // recovered", which reads as eight broken tables when they
+                    // were simply empty when the snapshot was taken.
+                    $scope = $chk['coverage'] !== '' ? ' ' . $chk['coverage'] : '';
+                    // An archive that had been unpacked and re-zipped used to be
+                    // refused outright. Now it is accepted, and says so.
+                    if (!empty($chk['wrapped'])) {
+                        $scope .= ' (It had been re-zipped inside a folder named "' . $chk['wrapped'] . '" — unwrapped on import.)';
+                    }
+                    if ($chk['integrity'] === 'verified') {
+                        $scope .= ' Its contents match the fingerprint recorded when it was created.';
                     }
                     logActivity($admin_id, 'backup.import', $note);
                     $flash = ['ok', 'Imported as ' . $res['file'] . ' — ' . $chk['message']
                                   . ($chk['created_at'] ? ', taken ' . bdt($chk['created_at']) : '') . '.' . $scope
-                                  . ' It is now on the snapshot list and can be recovered from.'];
+                                  . ' It is now on the snapshot list and can be recovered from. Nothing in the database has changed.'];
                 }
+            }
+        }
+    } elseif ($action === 'restore_preview') {
+        /* Nothing is written. Typing RESTORE used to be the first moment anyone
+           knew what a recovery would do to the database; now the answer comes
+           first, per table, and the confirmation is asked afterwards. */
+        $path = becResolveBackupPath((string)($_POST['file'] ?? ''));
+        if ($path === null) {
+            $flash = ['err', 'That backup could not be found.'];
+        } else {
+            try {
+                $pdo = getPgsqlPdoConnection();
+                $res = becRestoreFromBackup($pdo, $path, null, true);
+                if (!$res['ok']) {
+                    $flash = ['err', $res['message']];
+                } else {
+                    $_SESSION['backup_preview'] = [
+                        'file'    => basename($path),
+                        'preview' => $res['preview'],
+                        'skipped' => $res['skipped'],
+                        'message' => $res['message'],
+                    ];
+                }
+            } catch (Throwable $e) {
+                error_log('backup.preview failed: ' . $e->getMessage());
+                $flash = ['err', 'The snapshot could not be examined. The details were written to the server log.'];
             }
         }
     } elseif ($action === 'restore') {
         $path = becResolveBackupPath((string)($_POST['file'] ?? ''));
         $confirm = strtoupper(trim((string)($_POST['confirm'] ?? '')));
+        // Which tables the admin ticked. Absent means everything in the archive,
+        // so a caller that never offers the choice behaves exactly as before.
+        $only = $_POST['tables'] ?? null;
+        if (is_array($only)) {
+            $only = array_values(array_filter(array_map(
+                static fn($t) => preg_match('/^[A-Za-z0-9_]+$/', (string)$t) ? (string)$t : '',
+                $only
+            )));
+            if (!$only) { $only = null; }
+        } else {
+            $only = null;
+        }
+        unset($_SESSION['backup_preview']);
         if ($path === null) {
             $flash = ['err', 'That backup could not be found.'];
         } elseif ($confirm !== 'RESTORE') {
@@ -142,9 +186,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             try {
                 $pdo = getPgsqlPdoConnection();
-                $res = becRestoreFromBackup($pdo, $path);
+                $res = becRestoreFromBackup($pdo, $path, $only);
                 if ($res['ok']) {
-                    logActivity($admin_id, 'backup.restore', 'Restored from ' . basename($path) . ' — ' . $res['message'] . ' (safety: ' . ($res['safety'] ?? 'n/a') . ')');
+                    logActivity($admin_id, 'backup.restore', 'Restored from ' . basename($path)
+                        . ($only ? ' [tables: ' . implode(', ', $only) . ']' : ' [all tables]')
+                        . ' — ' . $res['message'] . ' (safety: ' . ($res['safety'] ?? 'n/a') . ')');
                     $detail = [];
                     foreach ($res['restored'] as $t => $n) { $detail[] = $t . ' (' . $n . ')'; }
                     // A restore that recovered every row but could not advance
@@ -165,11 +211,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $_SESSION['backup_flash'] = $flash;
-    header('Location: admin_backup.php');
+    header('Location: admin_backup.php' . (!empty($_SESSION['backup_preview']) ? '#recover' : ''));
     exit();
 }
 
 /* ── Page data ── */
+$preview = $_SESSION['backup_preview'] ?? null;
+unset($_SESSION['backup_preview']);
 $backups = becListBackups();
 $totalBytes = array_sum(array_column($backups, 'size'));
 $lastRun = $backups[0]['mtime'] ?? 0;
@@ -252,6 +300,8 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
   .tag.backup{background:rgba(123,29,29,.08);color:var(--maroon);}
   .tag.pre-restore{background:#FFF7E6;color:#9A6A00;}
   .tag.imported{background:#EAF3FF;color:#1D4E89;}
+  .sha{display:inline-block;margin-top:3px;font-family:'Outfit',monospace;font-size:.64rem;letter-spacing:.4px;
+    color:var(--ink3);background:var(--field);border:1px solid var(--border);border-radius:5px;padding:1px 5px;cursor:help;}
   /* Import picker */
   input[type=file]{width:100%;padding:.5rem .6rem;border:1.5px dashed var(--border);border-radius:9px;background:#fff;
     font-size:.8rem;font-family:'DM Sans',sans-serif;margin-bottom:10px;cursor:pointer;}
@@ -344,31 +394,93 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
           </div>
         </div>
 
-        <div class="card act">
+        <div class="card act" id="recover">
           <div class="ch"><div class="ci"><i class="fas fa-clock-rotate-left"></i></div><h3>Recover Data</h3></div>
           <div class="cb">
             <?php if (!$backups): ?>
               <p>No snapshot is available to recover from yet.</p>
             <?php else: ?>
             <p>Restore records from a chosen snapshot. Missing records are recovered and changed records are reverted to the backed-up version; <strong>records newer than the snapshot are kept</strong> and nothing is deleted.</p>
-            <div class="warn"><i class="fas fa-shield-halved"></i> A safety snapshot of the current database is taken automatically <em>before</em> the restore, so this action is reversible. The whole restore runs in one transaction — if anything fails, no changes are applied.</div>
-            <form method="post" onsubmit="return this.confirm.value.trim().toUpperCase()==='RESTORE' || (alert('Type RESTORE to confirm.'),false);">
+            <div class="warn"><i class="fas fa-shield-halved"></i> A safety snapshot of the current database is taken automatically <em>before</em> the restore. The whole restore runs in one transaction — if anything fails, no changes are applied.</div>
+            <?php /* Step one asks the database what a recovery would actually do
+                     and writes nothing. Typing RESTORE used to be the first point
+                     at which anyone learned the answer. */ ?>
+            <form method="post">
               <?php echo csrf_field(); ?>
-              <input type="hidden" name="action" value="restore">
+              <input type="hidden" name="action" value="restore_preview">
               <label class="fl">Snapshot to recover from</label>
               <select name="file" required>
                 <?php foreach ($backups as $b): ?>
-                <option value="<?php echo be($b['file']); ?>"><?php echo be($b['file']); ?> — <?php echo bdt($b['created_at'] ?: $b['mtime']); ?><?php echo $b['rows'] !== null ? ' (' . number_format((int)$b['rows']) . ' rows)' : ''; ?></option>
+                <option value="<?php echo be($b['file']); ?>" <?php echo ($preview && $preview['file'] === $b['file']) ? 'selected' : ''; ?>><?php echo be($b['file']); ?> — <?php echo bdt($b['created_at'] ?: $b['mtime']); ?><?php echo $b['rows'] !== null ? ' (' . number_format((int)$b['rows']) . ' rows)' : ''; ?></option>
                 <?php endforeach; ?>
               </select>
-              <label class="fl">Type <code style="font-family:inherit;">RESTORE</code> to confirm</label>
-              <input type="text" name="confirm" placeholder="RESTORE" autocomplete="off" required>
-              <button class="btn danger" type="submit"><i class="fas fa-clock-rotate-left"></i> Recover Records</button>
+              <button class="btn" type="submit"><i class="fas fa-magnifying-glass-chart"></i> Preview Recovery</button>
             </form>
             <?php endif; ?>
           </div>
         </div>
     </div>
+
+    <?php if ($preview): ?>
+    <!-- Step two: what this recovery would do, table by table, before it is
+         confirmed. Every table is ticked by default because recovering the
+         whole snapshot is the common case; untick to recover only what was
+         actually lost, instead of rewriting twenty-one tables to fix one. -->
+    <div class="card" id="preview">
+      <div class="ch"><div class="ci"><i class="fas fa-magnifying-glass-chart"></i></div>
+        <h3>Recovery preview — <?php echo be($preview['file']); ?></h3></div>
+      <div class="cb">
+        <div class="warn" style="background:var(--info-bg,#EFF6FF);border-color:var(--info-bdr,#BFDBFE);color:var(--info-tx,#1D4ED8);">
+          <i class="fas fa-circle-info"></i> <?php echo be($preview['message']); ?>
+        </div>
+        <div style="overflow-x:auto;">
+        <table>
+          <thead><tr>
+            <th style="width:36px;"></th><th>Table</th>
+            <th style="text-align:right;">In snapshot</th>
+            <th style="text-align:right;">Recovered</th>
+            <th style="text-align:right;">Reverted</th>
+          </tr></thead>
+          <tbody>
+            <?php foreach ($preview['preview'] as $t => $q): ?>
+            <tr>
+              <td><input type="checkbox" form="restoreForm" name="tables[]" value="<?php echo be($t); ?>" checked
+                         aria-label="Recover <?php echo be($t); ?>" style="width:16px;height:16px;accent-color:var(--maroon);cursor:pointer;"></td>
+              <td><span class="fname"><?php echo be($t); ?></span></td>
+              <td style="text-align:right;"><?php echo number_format((int)$q['rows']); ?></td>
+              <td style="text-align:right;<?php echo (int)$q['insert'] > 0 ? 'font-weight:700;color:var(--success);' : 'color:var(--ink3);'; ?>">
+                <?php echo $q['insert'] === null ? '?' : number_format((int)$q['insert']); ?></td>
+              <td style="text-align:right;<?php echo (int)$q['update'] > 0 ? 'font-weight:700;color:#9A6A00;' : 'color:var(--ink3);'; ?>">
+                <?php echo $q['update'] === null ? '?' : number_format((int)$q['update']); ?></td>
+            </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+        </div>
+        <div class="note" style="margin-top:12px;">
+          <strong>Recovered</strong> means the record is missing from the database now and would be put back.
+          <strong>Reverted</strong> means it still exists and would be set back to how it looked in the snapshot —
+          any edit made since would be lost. Records created after the snapshot are never touched, and nothing is deleted.
+          <?php if (!empty($preview['skipped'])): ?>
+          <br><br><strong>Not offered:</strong>
+          <?php $sk = []; foreach ($preview['skipped'] as $t => $why) { $sk[] = $t . ' (' . $why . ')'; } echo be(implode('; ', $sk)); ?>.
+          <?php endif; ?>
+        </div>
+        <form method="post" id="restoreForm" style="margin-top:14px;"
+              onsubmit="return this.confirm.value.trim().toUpperCase()==='RESTORE' || (alert('Type RESTORE to confirm.'),false);">
+          <?php echo csrf_field(); ?>
+          <input type="hidden" name="action" value="restore">
+          <input type="hidden" name="file" value="<?php echo be($preview['file']); ?>">
+          <label class="fl">Type <code style="font-family:inherit;">RESTORE</code> to confirm</label>
+          <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;">
+            <input type="text" name="confirm" placeholder="RESTORE" autocomplete="off" required style="max-width:220px;margin:0;">
+            <button class="btn danger" type="submit"><i class="fas fa-clock-rotate-left"></i> Recover the ticked tables</button>
+            <a class="btn ghost" href="admin_backup.php">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+    <?php endif; ?>
 
     <!-- Snapshots list -->
     <div class="card">
@@ -386,7 +498,8 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
                 echo $b['kind'] === 'pre-restore' ? 'pre-restore safety' : ($b['kind'] === 'imported' ? 'imported' : 'backup');
               ?></span></td>
               <td style="white-space:nowrap;"><?php echo bdt($b['created_at'] ?: $b['mtime']); ?></td>
-              <td style="white-space:nowrap;"><?php echo $b['tables'] !== null ? (int)$b['tables'] . ' tables · ' . number_format((int)$b['rows']) . ' rows' : '—'; ?></td>
+              <td style="white-space:nowrap;"><?php echo $b['tables'] !== null ? (int)$b['tables'] . ' tables · ' . number_format((int)$b['rows']) . ' rows' : '—'; ?>
+                <?php if (!empty($b['sha'])): ?><br><span class="sha" title="Fingerprint of this snapshot's data, recorded when it was written. Checked in full if the archive is ever imported back."><?php echo be($b['sha']); ?></span><?php endif; ?></td>
               <td style="white-space:nowrap;"><?php echo bsize($b['size']); ?></td>
               <td>
                 <div class="rowact">
@@ -406,6 +519,10 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
         </div>
         <?php endif; ?>
       </div>
+
+    <div class="note">
+      <strong>Taking a snapshot off the server and back.</strong> Download an archive and it can be re-imported later — from a USB stick, from another machine, from wherever it was kept. Import it as the <code>.zip</code> that was downloaded; if it has been unpacked and re-zipped along the way that is fine too, and the page will say so. Every import is checked against the fingerprint the snapshot recorded when it was created, so an archive that has been edited or damaged is refused rather than quietly restored.
+    </div>
 
     <div class="note">
       <strong>How the automated backup runs.</strong> A Windows Task Scheduler job runs <code>php scripts\backup_db.php</code> nightly, producing rotating compressed archives of every database table (the same snapshots listed above), then rotating logs and flushing the mail outbox. To (re)create the scheduled task, run in an elevated PowerShell:

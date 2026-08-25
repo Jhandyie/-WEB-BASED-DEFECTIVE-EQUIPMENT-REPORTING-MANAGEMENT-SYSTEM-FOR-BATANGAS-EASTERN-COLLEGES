@@ -22,6 +22,7 @@
 error_reporting(E_ALL & ~E_DEPRECATED);
 $BASE  = rtrim($argv[1] ?? 'http://localhost/bec-pmo', '/');
 $ROOT  = realpath(__DIR__ . '/..');
+$smokeArchives = [];   // test snapshots to remove in cleanup, whatever happens
 $SMOKE_MAIL = 'jhanmarkdecastro128@gmail.com';   // where smoke emails land
 $JAR_R = tempnam(sys_get_temp_dir(), 'smk_r');
 $JAR_A = tempnam(sys_get_temp_dir(), 'smk_a');
@@ -112,6 +113,50 @@ try {
     step('Reporter submit', ($j['success'] ?? false) && $rid !== '', $rid ?: substr($b, 0, 120));
     if ($rid === '') throw new Exception('no report id');
 
+    // ── 1b) follow-up, and whose report a tag search resolves to ─────
+    // Track used to match report_id OR equipment_id OR asset_tag and then take
+    // the newest row, ignoring who was asking. A reporter searching the tag
+    // printed on the equipment got a stranger's report and was told to sign in
+    // with the address they were already signed in with. The decoy below is
+    // deliberately NEWER than the smoke report, so a page that still sorts by
+    // date alone fails this.
+    $decoy = 'BEC-SMOKE-DECOY';
+    $pdo->exec("DELETE FROM defect_reports WHERE report_id=" . $pdo->quote($decoy));
+    $ins = $pdo->prepare("INSERT INTO defect_reports (report_id, equipment_id, reporter_email, reporter_name,
+                            issue_description, status, priority, report_date)
+                          VALUES (:r, :e, 'someone.else@bec.edu.ph', 'Smoke Decoy',
+                            'SMOKE TEST: decoy on the same equipment.', 'reported', 'low', now() + interval '1 minute')");
+    $ins->execute([':r' => $decoy, ':e' => $eq]);
+
+    [, $tagPage] = http($JAR_R, 'GET', "$BASE/track_report.php?q=" . urlencode($eq));
+    step('Tag search resolves to the right reporter',
+        str_contains($tagPage, $rid) && !str_contains($tagPage, 'Sign in with your BEC email'),
+        str_contains($tagPage, $rid) ? 'own ticket shown' : 'showed the decoy');
+
+    $tokFu = csrfFrom($tagPage);
+    http($JAR_R, 'POST', "$BASE/track_report.php", [
+        'action' => 'follow_up', 'report_id' => $rid,
+        'follow_up_note' => 'SMOKE TEST: still broken.',
+    ], ["X-CSRF-Token: $tokFu"]);
+    $fu = $pdo->query("SELECT COALESCE(follow_up_count,0) || '|' || COALESCE(follow_up_note,'')
+                         FROM defect_reports WHERE report_id=" . $pdo->quote($rid))->fetchColumn();
+    step('Reporter follow-up recorded with its message',
+        str_starts_with((string)$fu, '1|SMOKE TEST: still broken.'), (string)$fu);
+
+    $notified = (int)$pdo->query("SELECT COUNT(*) FROM notifications
+                                   WHERE type='follow_up' AND related_id=" . $pdo->quote($rid))->fetchColumn();
+    step('Follow-up reaches the admins', $notified > 0, "$notified admin(s) notified");
+
+    // A follow-up queues branded mail to every admin of the owning unit — real
+    // people, real inboxes. Drop it here, before the next workflow step calls
+    // sendEmail() and drains the outbox: a smoke run must never put a test
+    // ticket in front of the office. Safe to do now because a deferred send only
+    // writes the file, it does not flush.
+    foreach (glob($ROOT . '/data/mail_outbox/*.json') ?: [] as $queued) {
+        $payload = json_decode((string)@file_get_contents($queued), true);
+        if (is_array($payload) && str_contains((string)($payload['subject'] ?? ''), $rid)) { @unlink($queued); }
+    }
+
     // ── 2) admin receive + approve ───────────────────────────────────
     [, $page] = http($JAR_A, 'GET', "$BASE/admin_defect_reports.php");
     $tok = csrfFrom($page);
@@ -169,12 +214,68 @@ try {
     step('Stranger cannot record satisfaction', $satAnon === '', $satAnon === '' ? 'refused' : "WROTE '$satAnon'");
     @unlink($jarOther);
 
+    // ── 6) backup round trip ─────────────────────────────────
+    // An administrator created a snapshot, downloaded it, uploaded it straight
+    // back, and was told it was "not a BEC database snapshot". Recovery is the
+    // feature you find out about at the worst possible moment, so the whole
+    // loop is walked here: write it, fetch it over real HTTP, and read the
+    // fetched bytes back in — including after the natural detour of unpacking
+    // it to look inside and zipping it up again.
+    require_once $ROOT . '/includes/backup_restore.php';
+    $bk = becCreateDatabaseBackup($pdo, 'bec_smoke_backup', 1);
+    $smokeArchives[] = $bk['path'];
+
+    [$dlCode, $dlBytes] = http($JAR_A, 'GET', "$BASE/admin_backup.php?dl=" . urlencode($bk['file']));
+    $dlPath = sys_get_temp_dir() . '/bec_smoke_downloaded.zip';
+    $smokeArchives[] = $dlPath;
+    file_put_contents($dlPath, $dlBytes);
+    step('Snapshot survives the download byte for byte',
+        $dlCode === 200 && md5_file($bk['path']) === md5($dlBytes),
+        $dlCode === 200 ? strlen($dlBytes) . ' bytes, hashes match' : "HTTP $dlCode");
+
+    $chk = becInspectBackupArchive($dlPath, $pdo);
+    step('The downloaded snapshot imports again',
+        $chk['ok'] && $chk['integrity'] === 'verified',
+        $chk['ok'] ? 'accepted, fingerprint ' . $chk['integrity'] : $chk['message']);
+
+    // Unpacked and re-zipped by hand — what Windows Explorer produces, and the
+    // shape that was being refused.
+    $wrapPath = sys_get_temp_dir() . '/bec_smoke_rezipped.zip';
+    $smokeArchives[] = $wrapPath;
+    $wrapped = [];
+    foreach (becXlsxUnzip($bk['path']) as $n => $b) { $wrapped['some_folder/' . $n] = $b; }
+    file_put_contents($wrapPath, becXlsxZip($wrapped));
+    $rez = becInspectBackupArchive($wrapPath, $pdo);
+    step('A re-zipped snapshot is still accepted',
+        $rez['ok'] && $rez['wrapped'] === 'some_folder',
+        $rez['ok'] ? "unwrapped '{$rez['wrapped']}'" : $rez['message']);
+
+    // And a recovery says what it would do before it is asked to do it.
+    $dry = becRestoreFromBackup($pdo, $bk['path'], ['maintenance_technicians'], true);
+    step('Recovery can be previewed without writing',
+        $dry['ok'] && isset($dry['preview']['maintenance_technicians']),
+        $dry['ok'] ? $dry['message'] : $dry['message']);
+
 } catch (\Throwable $e) {
     step('UNEXPECTED ERROR', false, $e->getMessage());
 }
 
 // ── cleanup (always) ─────────────────────────────────────────────────
 echo "-- cleanup --\n";
+/* Test snapshots are not backups anyone wants kept, and one of them is a full
+   copy of the live database sitting in the folder the admin page offers for
+   download. The retry is not superstition: on Windows a file this size is
+   still being scanned when the run reaches here, unlink() fails, and the
+   archive survived until the *next* run swept it up. */
+$smokeArchives = array_merge($smokeArchives, glob($ROOT . '/backups/bec_smoke_backup_*.zip') ?: []);
+foreach (array_unique($smokeArchives) as $__a) {
+    for ($__try = 0; $__try < 5; $__try++) {
+        clearstatcache(true, $__a);
+        if (!file_exists($__a) || @unlink($__a)) { break; }
+        usleep(300000);
+    }
+    if (file_exists($__a)) { echo "  WARNING: could not remove test archive " . basename($__a) . "\n"; }
+}
 try {
     if ($pdo) {
         // Each statement stands on its own. They used to share one try, so a
@@ -189,6 +290,7 @@ try {
             $wipe($pdo, "DELETE FROM maintenance_history WHERE report_id={$q}");
             $wipe($pdo, "DELETE FROM work_orders WHERE report_id={$q}");
             $wipe($pdo, "DELETE FROM defect_reports WHERE report_id={$q}");
+            $wipe($pdo, "DELETE FROM defect_reports WHERE report_id='BEC-SMOKE-DECOY'");
         }
         // Belt and braces: the delete above only runs when $rid was captured, so
         // a crash between submitting and reading the ticket number left a report

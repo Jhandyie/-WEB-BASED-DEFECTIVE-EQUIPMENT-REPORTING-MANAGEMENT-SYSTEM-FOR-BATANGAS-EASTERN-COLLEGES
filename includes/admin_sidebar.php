@@ -11,7 +11,6 @@
  */
 $__active     = $activeNav ?? '';
 $__adminName  = $_SESSION['fullname'] ?? 'Administrator';
-$__navUnread  = isset($navUnread) ? (int) $navUnread : 0;
 
 $__sections = [
     'Overview' => [
@@ -64,7 +63,6 @@ if (function_exists('becVenueEnabled') && becVenueEnabled()) {
       <?php foreach ($__items as [$__key, $__href, $__icon, $__label]): ?>
         <a href="<?php echo $__href; ?>" class="ni<?php echo $__active === $__key ? ' on' : ''; ?>">
           <span class="ni-ic"><i class="fas <?php echo $__icon; ?>"></i></span><?php echo $__label; ?>
-          <?php if ($__key === 'notifications' && $__navUnread > 0): ?><span class="nbadge"><?php echo $__navUnread; ?></span><?php endif; ?>
         </a>
       <?php endforeach; ?>
     <?php endforeach; ?>

@@ -8,6 +8,8 @@ $query = trim($_GET['ticket'] ?? ($_GET['q'] ?? ''));
 $report = null;
 $relatedReports = [];
 $trackSuggestions = [];
+$equipmentMatches = [];   // every report on this equipment, when the search was ambiguous
+$ownedMatches = 0;        // how many of those belong to the signed-in reporter
 $error = '';
 $conn = getDBConnection();
 
@@ -40,9 +42,19 @@ function trackViewerOwnsReport(string $viewerEmail, ?array $report): bool {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'follow_up') {
     requireCsrf();
     $fid = trim((string)($_POST['report_id'] ?? ''));
+    // What the reporter actually wants to say. A bump with no words tells the
+    // office that somebody is unhappy but not why, which is not enough to act
+    // on — this is the part that makes a follow-up worth reading.
+    $fnote = trim((string)($_POST['follow_up_note'] ?? ''));
+    if (mb_strlen($fnote) > 300) { $fnote = mb_substr($fnote, 0, 300); }
     $rep = null;
     if ($fid !== '') {
-        $fst = $conn->prepare("SELECT report_id, status, COALESCE(follow_up_count,0) AS follow_up_count, equipment_name, COALESCE(reporter_email,'') AS reporter_email FROM defect_reports WHERE report_id = ? LIMIT 1");
+        $fst = $conn->prepare("SELECT report_id, status, COALESCE(follow_up_count,0) AS follow_up_count,
+                                      COALESCE(equipment_name,'') AS equipment_name,
+                                      COALESCE(equipment_id,'') AS equipment_id,
+                                      COALESCE(location,'') AS location,
+                                      COALESCE(reporter_email,'') AS reporter_email
+                                 FROM defect_reports WHERE report_id = ? LIMIT 1");
         if ($fst) { $fst->bind_param('s', $fid); $fst->execute(); $rep = $fst->get_result()->fetch_assoc(); $fst->close(); }
     }
     $redirect = 'track_report.php?q=' . urlencode($fid);
@@ -56,18 +68,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'follo
         $redirect .= '&fu=max';
     } else {
         $newCount = (int)$rep['follow_up_count'] + 1;
-        $up = $conn->prepare("UPDATE defect_reports SET follow_up_count = ? WHERE report_id = ?");
-        if ($up) { $up->bind_param('is', $newCount, $fid); $up->execute(); $up->close(); }
-        // Notify all active admins
-        $adminRes = $conn->query("SELECT user_id FROM users WHERE role = 'admin' AND status = 'active' AND user_id IS NOT NULL AND user_id != ''");
-        if ($adminRes) {
-            $msg = 'Reporter has requested a follow-up (#' . $newCount . ') regarding Ticket ' . $fid . '.';
-            while ($a = $adminRes->fetch_assoc()) {
-                $aid = trim((string)($a['user_id'] ?? ''));
-                if ($aid !== '' && function_exists('addNotification')) { try { addNotification($aid, $msg, 'follow_up', $fid); } catch (\Throwable $e) {} }
+        $drCols = function_exists('getDefectReportColumns') ? getDefectReportColumns() : [];
+        // The note columns arrived with this change; a checkout that has not run
+        // the migration keeps working, it just stores the count as before.
+        if (isset($drCols['follow_up_note'], $drCols['follow_up_at'])) {
+            $up = $conn->prepare("UPDATE defect_reports SET follow_up_count = ?, follow_up_note = ?, follow_up_at = NOW() WHERE report_id = ?");
+            if ($up) { $up->bind_param('iss', $newCount, $fnote, $fid); $up->execute(); $up->close(); }
+        } else {
+            $up = $conn->prepare("UPDATE defect_reports SET follow_up_count = ? WHERE report_id = ?");
+            if ($up) { $up->bind_param('is', $newCount, $fid); $up->execute(); $up->close(); }
+        }
+
+        // Only the office that owns this equipment. Sending every nudge to all
+        // ten admins is how the notification list became something nobody reads.
+        $unit = function_exists('equipmentUnit') ? equipmentUnit((string)$rep['equipment_id']) : '';
+        $recipients = function_exists('adminRecipientsForReportUnit') ? adminRecipientsForReportUnit($unit) : [];
+        $who = $viewerName !== '' ? $viewerName : $viewerEmail;
+        $eqName = (string)$rep['equipment_name'];
+        $msg = 'Follow-up #' . $newCount . ' from ' . $who . ' on Ticket ' . $fid
+             . ($eqName !== '' ? ' (' . $eqName . ')' : '')
+             . ($fnote !== '' ? ' — "' . $fnote . '"' : '.');
+        foreach ($recipients as $rcpt) {
+            if (function_exists('addNotification')) {
+                try { addNotification($rcpt['user_id'], $msg, 'follow_up', $fid); } catch (\Throwable $e) {}
             }
         }
-        if (function_exists('logActivity')) { try { logActivity($viewerEmail, 'reporter', 'report.follow_up', 'Follow-up #' . $newCount . ' on ' . $fid . ' by ' . ($viewerName !== '' ? $viewerName : $viewerEmail)); } catch (\Throwable $e) {} }
+
+        // Every other transition in the workflow sends branded mail; a reporter
+        // chasing an unanswered report is at least as worth an email as the
+        // status change that never came.
+        //
+        // Queued, not sent inline. There can be ten recipients and sendEmail()
+        // retries SMTP twice per account before giving up, so sending here
+        // would leave the reporter watching a spinner for twenty seconds to
+        // find out their nudge was recorded. The outbox drains on the next mail
+        // the system sends.
+        try {
+            require_once __DIR__ . '/includes/mail_helper.php';
+            $subject = 'Follow-up #' . $newCount . ' on ' . $fid . ' — BEC PMO';
+            $body = buildReporterStatusEmail(
+                $fid,
+                'A reporter is waiting on this report',
+                $who . ' has sent follow-up #' . $newCount . ' of ' . $FOLLOW_UP_MAX . ' on this report.'
+                    . ($fnote !== '' ? "\n\nWhat they said:\n" . $fnote : '')
+                    . "\n\nOpen Defect Reports to review it.",
+                ['equipment_name' => $eqName, 'location' => (string)$rep['location']]
+            );
+            foreach ($recipients as $rcpt) {
+                if ($rcpt['email'] !== '') { @sendEmail($rcpt['email'], $subject, $body, null, 'admin', ['defer' => true]); }
+            }
+        } catch (\Throwable $e) { error_log('follow-up email failed: ' . $e->getMessage()); }
+
+        if (function_exists('logActivity')) { try { logActivity($viewerEmail, 'reporter', 'report.follow_up', 'Follow-up #' . $newCount . ' on ' . $fid . ' by ' . $who . ($fnote !== '' ? ' — ' . $fnote : '')); } catch (\Throwable $e) {} }
         $redirect .= '&fu=ok&fn=' . $newCount;
     }
     header('Location: ' . $redirect);
@@ -168,6 +220,22 @@ if ($suggestionResult) {
 }
 
 if ($query !== '') {
+    /*
+     * Owner-first resolution.
+     *
+     * This matched report_id OR equipment_id OR asset_tag and then took
+     * `ORDER BY report_date DESC LIMIT 1`, which ignored who was asking. One
+     * air-conditioning unit here carries sixteen reports from thirteen people,
+     * so a reporter searching the tag printed on the equipment — the number on
+     * the QR sticker, the obvious thing to type — was handed a stranger's
+     * newest report. The follow-up button then correctly refused, and told
+     * them to sign in with the address they had filed from, which is the
+     * address they were already signed in with.
+     *
+     * So: the signed-in reporter's own reports sort first, and every match is
+     * kept so the page can offer the choice instead of guessing.
+     */
+    $ownerKey = $viewerEmail !== '' ? $viewerEmail : "\x00-nobody-";
     $stmt = $conn->prepare("
         SELECT
             dr.report_id,
@@ -198,13 +266,25 @@ if ($query !== '') {
         WHERE dr.report_id = ?
            OR e.equipment_id = ?
            OR e.asset_tag = ?
-        ORDER BY dr.report_date DESC
-        LIMIT 1
+        ORDER BY
+            CASE WHEN LOWER(COALESCE(dr.reporter_email,'')) = ? THEN 0 ELSE 1 END,
+            dr.report_date DESC
+        LIMIT 25
     ");
-    $stmt->bind_param('sss', $query, $query, $query);
+    $stmt->bind_param('ssss', $query, $query, $query, $ownerKey);
     $stmt->execute();
-    $report = $stmt->get_result()->fetch_assoc();
+    $matches = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     $stmt->close();
+
+    $report = $matches[0] ?? null;
+    // A ticket number identifies one report; an equipment reference does not.
+    // Only the ambiguous case gets a chooser.
+    if (count($matches) > 1 && strcasecmp((string)($report['report_id'] ?? ''), $query) !== 0) {
+        $equipmentMatches = $matches;
+        foreach ($matches as $m) {
+            if (trackViewerOwnsReport($viewerEmail, $m)) { $ownedMatches++; }
+        }
+    }
 
     if (!$report) {
         $error = 'No report matched that ticket number or equipment reference.';
@@ -505,6 +585,27 @@ form{display:flex;gap:var(--sp-3);flex-wrap:wrap}
 .fu-btn.active{background:linear-gradient(135deg,var(--md),var(--m));color:#fff;box-shadow:0 4px 14px rgba(123,29,29,.25)}
 .fu-btn.active:hover{filter:brightness(1.08)}
 .fu-btn[disabled]{background:#eee;color:#999;cursor:not-allowed}
+/* ── The signed-in reporter's own tickets, and the equipment chooser ── */
+.mine{margin-top:var(--sp-4);border:1px solid var(--b);border-radius:12px;background:#fffaf4;overflow:hidden}
+.mine>summary{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-3) var(--sp-4);cursor:pointer;font-weight:700;font-size:var(--fs-lg);color:var(--m);list-style:none}
+.mine>summary::-webkit-details-marker{display:none}
+.mine>summary::after{content:'\f078';font-family:'Font Awesome 6 Free';font-weight:900;font-size:var(--fs-sm);margin-left:auto;color:var(--k3);transition:transform .18s}
+.mine[open]>summary::after{transform:rotate(180deg)}
+.mine-count{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--m);color:#fff;font-size:var(--fs-sm)}
+.mine-who{font-weight:400;font-size:var(--fs-base);color:var(--k3);overflow-wrap:anywhere}
+.mine-list{border-top:1px solid var(--b)}
+.mine-row,.chooser-row{display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap;padding:var(--sp-3) var(--sp-4);border-bottom:1px solid #f1e6d8;text-decoration:none;color:inherit}
+.mine-row:last-child,.chooser-row:last-child{border-bottom:none}
+.mine-row:hover,.chooser-row:hover{background:#fcf6ed}
+.mine-row.on,.chooser-row.on{background:#FFF4DD;box-shadow:inset 3px 0 0 var(--g)}
+.mine-row .mine-id,.chooser-row .mine-id{font-weight:700;color:var(--m);overflow-wrap:anywhere}
+.mine-eq{flex:1;min-width:120px;font-size:var(--fs-base);color:var(--k2);overflow-wrap:anywhere}
+.chooser{margin-top:var(--sp-4);border:1.5px solid var(--g);border-radius:12px;background:#FFFDF7;overflow:hidden}
+.chooser-head{padding:var(--sp-3) var(--sp-4);font-size:var(--fs-md);color:#92600A;background:#FFF7E6;line-height:1.55}
+.chooser-head i{margin-right:var(--sp-1)}
+.chooser-list{border-top:1px solid var(--b)}
+.chooser-date{font-size:var(--fs-base);color:var(--k3);margin-left:auto}
+.chooser-mine{padding:var(--sp-0) var(--sp-2);border-radius:999px;background:var(--m);color:#fff;font-size:var(--fs-sm);font-weight:700}
 .fu-flash{display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-2) var(--sp-3);border-radius:10px;font-size:var(--fs-md);font-weight:600;margin-bottom:var(--sp-3)}
 .fu-flash.ok{background:#F0FDF4;color:var(--ok-tx);border:1px solid #bbf7d0}
 .fu-flash.err{background:#FEF7ED;color:#9A3412;border:1px solid #fed7aa}
@@ -547,8 +648,59 @@ html{scroll-behavior:smooth}
       </form>
       <div class="hint">This tracker supports report tickets, equipment IDs, and asset tags. Start typing to see possible matches from recent reports.</div>
 
+      <?php if ($viewerEmail !== '' && $trackSuggestions): ?>
+      <!-- The signed-in reporter's own tickets. These were already loaded for the
+           type-ahead and shown nowhere, so someone who had lost their ticket
+           number went hunting by asset tag — which is how they ended up on a
+           stranger's report being told to sign in. -->
+      <details class="mine" <?php echo $report ? '' : 'open'; ?>>
+        <summary>
+          <i aria-hidden="true" class="fas fa-folder-open"></i>
+          Your reports<span class="mine-count"><?php echo count($trackSuggestions); ?></span>
+          <span class="mine-who"><?php echo htmlspecialchars($viewerEmail); ?></span>
+        </summary>
+        <div class="mine-list">
+          <?php foreach (array_slice($trackSuggestions, 0, 12) as $s): ?>
+          <a class="mine-row<?php echo ($report && (string)$s['report_id'] === (string)$report['report_id']) ? ' on' : ''; ?>"
+             href="track_report.php?q=<?php echo rawurlencode((string)$s['report_id']); ?>">
+            <span class="mine-id"><?php echo htmlspecialchars((string)$s['report_id']); ?></span>
+            <span class="mine-eq"><?php echo htmlspecialchars((string)($s['equipment_name'] !== '' ? $s['equipment_name'] : $s['equipment_id'])); ?><?php echo $s['location'] !== '' ? ' · ' . htmlspecialchars((string)$s['location']) : ''; ?></span>
+            <span class="badge <?php echo htmlspecialchars(tr_status_class((string)$s['status'])); ?>"><?php echo htmlspecialchars(tr_status_label((string)$s['status'])); ?></span>
+          </a>
+          <?php endforeach; ?>
+        </div>
+      </details>
+      <?php endif; ?>
+
       <?php if ($error): ?>
       <div class="alert"><?php echo htmlspecialchars($error); ?></div>
+      <?php endif; ?>
+
+      <?php if ($equipmentMatches): ?>
+      <!-- An equipment reference is not a ticket: it can name many reports by
+           many people. Offer the choice rather than silently showing the
+           newest one and refusing to act on it. -->
+      <div class="chooser">
+        <div class="chooser-head">
+          <i aria-hidden="true" class="fas fa-layer-group"></i>
+          <strong><?php echo count($equipmentMatches); ?> reports</strong> have been filed on this equipment<?php
+            if ($ownedMatches > 0) { echo ' — <strong>' . $ownedMatches . '</strong> ' . ($ownedMatches === 1 ? 'is yours' : 'are yours'); }
+            elseif ($viewerEmail !== '') { echo ' — none of them yours'; }
+          ?>. Showing <?php echo $ownedMatches > 0 ? 'yours' : 'the most recent'; ?>.
+        </div>
+        <div class="chooser-list">
+          <?php foreach ($equipmentMatches as $m):
+            $mine = trackViewerOwnsReport($viewerEmail, $m); ?>
+          <a class="chooser-row<?php echo (string)$m['report_id'] === (string)$report['report_id'] ? ' on' : ''; ?>"
+             href="track_report.php?q=<?php echo rawurlencode((string)$m['report_id']); ?>">
+            <span class="mine-id"><?php echo htmlspecialchars((string)$m['report_id']); ?></span>
+            <span class="badge <?php echo htmlspecialchars(tr_status_class((string)$m['status'])); ?>"><?php echo htmlspecialchars(tr_status_label((string)$m['status'])); ?></span>
+            <span class="chooser-date"><?php echo htmlspecialchars(tr_when($m['report_date'] ?? null)); ?></span>
+            <?php if ($mine): ?><span class="chooser-mine">Yours</span><?php endif; ?>
+          </a>
+          <?php endforeach; ?>
+        </div>
+      </div>
       <?php endif; ?>
 
       <?php if ($report): ?>
@@ -659,9 +811,39 @@ html{scroll-behavior:smooth}
             // still sees the status — that is what tracking is for — but the
             // buttons that change something are theirs alone.
             $viewerOwnsReport = trackViewerOwnsReport($viewerEmail, $report);
-            $signInPrompt = '<div class="fu-flash err"><i aria-hidden="true" class="fas fa-circle-info"></i> '
-                . 'Sign in with the BEC email you filed this report from to follow up or confirm the repair. '
-                . '<a href="student_index.php" style="color:inherit;text-decoration:underline;">Sign in</a></div>';
+
+            // Their own report on this same equipment, if they filed one. The
+            // signed-in reporter's tickets are already loaded for the type-ahead.
+            $ownTicketHere = '';
+            if (!$viewerOwnsReport && $viewerEmail !== '') {
+                foreach ($trackSuggestions as $s) {
+                    if ((string)$s['equipment_id'] === (string)$report['equipment_id']) { $ownTicketHere = (string)$s['report_id']; break; }
+                }
+            }
+
+            /*
+             * Two different situations used to share one message, and the
+             * message fitted neither: someone already signed in was told to
+             * sign in, and the link threw the ticket away, so signing in
+             * landed them on a blank new-report form. Say which case it is,
+             * and carry the ticket back through the sign-in.
+             */
+            $returnTo  = 'track_report.php?q=' . rawurlencode((string)$report['report_id']);
+            $signInUrl = 'student_index.php?next=' . rawurlencode($returnTo);
+            if ($viewerEmail === '') {
+                $signInPrompt = '<div class="fu-flash err"><i aria-hidden="true" class="fas fa-circle-info"></i> '
+                    . 'Sign in with your BEC email to follow up on this ticket or confirm the repair. '
+                    . 'You will come straight back to this report. '
+                    . '<a href="' . htmlspecialchars($signInUrl, ENT_QUOTES) . '" style="color:inherit;font-weight:700;text-decoration:underline;">Sign in and return here</a></div>';
+            } else {
+                $signInPrompt = '<div class="fu-flash err"><i aria-hidden="true" class="fas fa-circle-info"></i> '
+                    . 'This ticket was filed by someone else, so only they can follow it up. You are signed in as '
+                    . '<strong>' . htmlspecialchars($viewerEmail) . '</strong>.'
+                    . ($ownTicketHere !== ''
+                        ? ' <a href="track_report.php?q=' . rawurlencode($ownTicketHere) . '" style="color:inherit;font-weight:700;text-decoration:underline;">Open your own report on this equipment</a>'
+                        : ' You have no report of your own on this equipment.')
+                    . '</div>';
+            }
           ?>
           <?php if ($satEligible): ?>
           <div class="item full">
@@ -680,6 +862,10 @@ html{scroll-behavior:smooth}
               <?php else: ?>
                 <p class="fu-copy">The repair has been marked done. Please confirm whether your equipment issue was actually resolved — your feedback helps the PMO ensure quality.</p>
                 <form method="POST" action="track_report.php" style="display:flex;gap:.55rem;flex-wrap:wrap;align-items:center;">
+                  <?php /* Rendered here, not left to csrf_inject.php: these two buttons are the
+                           whole point of the page for a reporter, and a script that fails to run
+                           turned them into a 403 with no explanation. */ ?>
+                  <?php echo csrf_field(); ?>
                   <input type="hidden" name="action" value="confirm_satisfaction">
                   <input type="hidden" name="report_id" value="<?php echo htmlspecialchars((string)$report['report_id']); ?>">
                   <input type="text" name="satisfaction_note" placeholder="Optional comment…" style="flex:1;min-width:150px;padding:.6rem .8rem;border:1.5px solid var(--b);border-radius:10px;font:inherit;">
@@ -700,7 +886,11 @@ html{scroll-behavior:smooth}
             <div class="label">Need an update?</div>
             <div class="followup">
               <?php if ($fu === 'ok'): ?>
-                <div class="fu-flash ok"><i aria-hidden="true" class="fas fa-check-circle"></i> Follow-up sent to the PMO — they have been notified.</div>
+                <div class="fu-flash ok"><i aria-hidden="true" class="fas fa-check-circle"></i>
+                  <span>Follow-up sent. The <?php echo htmlspecialchars(strtoupper(trim((string)equipmentUnit((string)$report['equipment_id']))) === 'ITSO' ? 'ITSO' : 'Property Management Office'); ?>
+                  has been notified by email and in their dashboard.
+                  <?php if ($fuRemaining > 0): ?>You have <?php echo $fuRemaining; ?> follow-up<?php echo $fuRemaining === 1 ? '' : 's'; ?> left on this report.<?php endif; ?></span>
+                </div>
               <?php elseif ($fu === 'max'): ?>
                 <div class="fu-flash err"><i aria-hidden="true" class="fas fa-circle-info"></i> You have reached the maximum of <?php echo $FOLLOW_UP_MAX; ?> follow-ups for this report.</div>
               <?php elseif ($fu === 'resolved'): ?>
@@ -720,10 +910,17 @@ html{scroll-behavior:smooth}
               <?php elseif (!$viewerOwnsReport): ?>
                 <?php echo $signInPrompt; ?>
               <?php else: ?>
-                <form method="POST" action="track_report.php" style="margin:0;">
+                <form method="POST" action="track_report.php" style="margin:0;display:grid;gap:var(--sp-2);">
+                  <?php echo csrf_field(); ?>
                   <input type="hidden" name="action" value="follow_up">
                   <input type="hidden" name="report_id" value="<?php echo htmlspecialchars((string)$report['report_id']); ?>">
-                  <button class="fu-btn active" type="submit"><i aria-hidden="true" class="fas fa-bell"></i> Send Follow-Up #<?php echo $fuCount+1; ?></button>
+                  <label for="fu-note" class="label" style="margin-bottom:0;">Anything the office should know? (optional)</label>
+                  <textarea id="fu-note" name="follow_up_note" rows="2" maxlength="300"
+                            placeholder="e.g. Still not working, and we have class in this room at 8am."
+                            style="width:100%;padding:var(--sp-3);border:1.5px solid var(--b);border-radius:11px;font:inherit;resize:vertical;"></textarea>
+                  <div>
+                    <button class="fu-btn active" type="submit"><i aria-hidden="true" class="fas fa-bell"></i> Send Follow-Up #<?php echo $fuCount+1; ?></button>
+                  </div>
                 </form>
               <?php endif; ?>
             </div>

@@ -663,7 +663,7 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .nav-item:focus-visib
 <body>
 
 <!-- == SIDEBAR =================================== -->
-<?php $activeNav = "dashboard"; $navUnread = $unread; require __DIR__ . "/includes/admin_sidebar.php"; ?>
+<?php $activeNav = "dashboard"; require __DIR__ . "/includes/admin_sidebar.php"; ?>
 
 <!-- == MAIN ======================================= -->
 <div class="main">

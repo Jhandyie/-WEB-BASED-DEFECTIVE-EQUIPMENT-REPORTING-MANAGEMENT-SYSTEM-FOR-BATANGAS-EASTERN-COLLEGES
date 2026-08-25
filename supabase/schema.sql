@@ -441,6 +441,17 @@ alter table public.defect_reports  add column if not exists tools_used text;
 alter table public.defect_reports  add column if not exists repair_duration varchar(50);
 alter table public.defect_reports  add column if not exists date_started timestamptz;
 
+-- Reporter follow-ups ("nudges") and the one-time satisfaction verdict.
+-- follow_up_note is what the reporter actually said when they chased the
+-- report; without it a follow-up is a bare counter and an admin has nothing to
+-- act on. follow_up_at is what lets the queue sort by "chased most recently".
+alter table public.defect_reports  add column if not exists follow_up_count integer not null default 0;
+alter table public.defect_reports  add column if not exists follow_up_note text;
+alter table public.defect_reports  add column if not exists follow_up_at timestamptz;
+alter table public.defect_reports  add column if not exists satisfaction varchar(20);
+alter table public.defect_reports  add column if not exists satisfaction_at timestamptz;
+alter table public.defect_reports  add column if not exists satisfaction_note text;
+
 -- Allow the 'waiting_for_materials' / 'accepted' technician statuses.
 alter table public.defect_reports drop constraint if exists defect_reports_status_check;
 alter table public.defect_reports add constraint defect_reports_status_check check (

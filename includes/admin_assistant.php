@@ -98,29 +98,75 @@ try {
   .aia-bell.in-top:hover{background:#7B1D1D;border-color:#7B1D1D;color:#fff;
     transform:none;box-shadow:none;}
   .aia-bell.in-top .ab-dot{min-width:17px;height:17px;font-size:.58rem;top:-5px;right:-5px;}
+  /* The same count badge, once it has been adopted into a page's own header bell.
+     Those buttons are already position:relative (they hosted the old .pip). */
+  .ab-dot-inline{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;
+    border-radius:9px;background:#B42318;color:#fff;font-family:'DM Sans',system-ui,sans-serif;
+    font-size:.58rem;font-weight:700;line-height:17px;text-align:center;
+    box-shadow:0 0 0 2px #fff;pointer-events:none;}
 </style>
-<a class="aia-bell" href="admin_notifications.php" aria-label="Notifications<?php echo $__aiaUnread > 0 ? ' (' . $__aiaUnread . ' unread)' : ''; ?>" title="Notifications">
+<a class="aia-bell" href="admin_notifications.php" data-unread="<?php echo (int)$__aiaUnread; ?>"
+   aria-label="Notifications<?php echo $__aiaUnread > 0 ? ' (' . $__aiaUnread . ' unread)' : ''; ?>" title="Notifications">
   <i class="fas fa-bell"></i>
-  <?php if ($__aiaUnread > 0): ?><span class="ab-dot"><?php echo $__aiaUnread > 9 ? '9+' : $__aiaUnread; ?></span><?php endif; ?>
+  <?php if ($__aiaUnread > 0): ?><span class="ab-dot"><?php echo $__aiaUnread > 99 ? '99+' : $__aiaUnread; ?></span><?php endif; ?>
 </a>
 <script>
-/* Put the notification bell in its perfect place: the page's top-right header.
-   Pages using the .topbar layout already render a header bell, so the floating
-   one is a duplicate and is removed; .top (maroon bar) pages get the bell moved in. */
+/* One bell, one count, on every admin page.
+   This count is read from the database on every admin page load and then never
+   reached the screen. Two things ate it: a page with its own header bell had the
+   counted one removed as a "duplicate" — but those header bells carry a .pip,
+   a decorative dot that pulses whether or not anything is unread — and a page
+   with no .top header had the bell removed outright, so Work Orders, Backup and
+   Preventive showed no notification indicator at all. An admin working a queue
+   therefore never learned that a reporter had chased a report.
+   So: adopt the page's own bell and give it the real number, and when there is
+   nowhere to put it, leave it floating rather than deleting it. */
 (function () {
   var bell = document.querySelector('.aia-bell');
   if (!bell) return;
+  var unread = parseInt(bell.getAttribute('data-unread'), 10) || 0;
+
+  /* The page's own bell, wherever its header puts it. Matching on the link and
+     the icon rather than on a header class name, because the admin pages use
+     four different wrappers (.topbar, .top, .tb-right, .head-row) and a
+     class-name list silently missed the ones it did not know about. */
+  var findHost = function () {
+    var links = document.querySelectorAll('a[href*="admin_notifications.php"]');
+    for (var i = 0; i < links.length; i++) {
+      var a = links[i];
+      if (a === bell) { continue; }
+      if (a.closest && a.closest('.sb, .sb-nav, .aia-panel')) { continue; }  // sidebar/nav links are not bells
+      if (!a.querySelector('.fa-bell')) { continue; }
+      return a;
+    }
+    return null;
+  };
+
   var place = function () {
-    // Any page whose header already shows a notification bell → drop the floating duplicate.
-    if (document.querySelector('.topbar a[href*="notification"], .top a[href*="notification"]')) { bell.remove(); return; }
+    var host = findHost();
+    if (host) {
+      // The page already has a bell in the right spot — give it the count.
+      var stale = host.querySelectorAll('.pip, .npip, .ab-dot');
+      for (var j = 0; j < stale.length; j++) { stale[j].remove(); }
+      if (window.getComputedStyle(host).position === 'static') { host.style.position = 'relative'; }
+      if (unread > 0) {
+        var dot = document.createElement('span');
+        dot.className = 'ab-dot ab-dot-inline';
+        dot.textContent = unread > 99 ? '99+' : String(unread);
+        host.appendChild(dot);
+        host.setAttribute('title', unread + ' unread notification' + (unread === 1 ? '' : 's'));
+        host.setAttribute('aria-label', 'Notifications (' + unread + ' unread)');
+      }
+      bell.remove();
+      return;
+    }
     var top = document.querySelector('.top');
     if (top) {
       bell.classList.add('in-top');
       var back = top.querySelector('a.back, .back');
       if (back) { top.insertBefore(bell, back); } else { top.appendChild(bell); }
-    } else {
-      bell.remove(); // no header to host it → don't leave it floating
     }
+    // else: no header to host it — it stays where it is, floating. Never removed.
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', place);
   else place();
