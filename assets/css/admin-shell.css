@@ -193,9 +193,19 @@ body.is-nav::before{content:'';position:fixed;inset:0 0 auto 0;height:3px;z-inde
 .pg-gap{color:var(--t4,#C8ABAB);font-size:var(--fs-sm,.8rem);padding:0 var(--sp-0,.15rem);}
 
 /* ---- sidebar ------------------------------------------------------------- */
+/* The sidebar sets its own typography and inherits none.
+   It used to take line-height from the host page's body, and only seven of the
+   twelve admin pages load css/typography.css - which sets body line-height to
+   1.55. So the same sidebar rendered 23.06px line boxes on the Dashboard and
+   "normal" ones on Work Orders: the brand block, the user card and the logout
+   button each stood about 3px taller, and the first nav item sat 8px further
+   down. Clicking between pages made the whole list visibly shift. A shared
+   component cannot inherit type from twelve different hosts and stay still. */
 .sb{position:fixed;left:0;top:0;width:var(--sb,262px);height:100vh;
   background:linear-gradient(168deg,#1E0202 0%,#350808 38%,#4A0E0E 68%,#3A0808 100%);
   display:flex;flex-direction:column;z-index:400;overflow:hidden;
+  font-family:'DM Sans',system-ui,-apple-system,Arial,sans-serif;
+  font-size:.82rem;line-height:1.3;letter-spacing:0;
   box-shadow:5px 0 30px rgba(45,5,5,.38);
   transition:transform .32s cubic-bezier(.4,0,.2,1);
   /* Pinned, not inherited. Pages set slightly different body colours and font
@@ -220,7 +230,7 @@ body.is-nav::before{content:'';position:fixed;inset:0 0 auto 0;height:3px;z-inde
 .sb-brand strong{display:block;font-family:'Outfit',sans-serif;font-weight:800;
   font-size:.8rem;color:#fff;line-height:1.25;}
 .sb-brand em{font-size:.57rem;font-style:normal;color:rgba(255,255,255,.3);
-  text-transform:uppercase;letter-spacing:1.8px;}
+  text-transform:uppercase;letter-spacing:1.8px;line-height:1.35;display:block;}
 
 .sb-user{margin:.45rem 1rem .2rem;padding:.65rem .875rem;
   background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.07);
@@ -234,7 +244,7 @@ body.is-nav::before{content:'';position:fixed;inset:0 0 auto 0;height:3px;z-inde
   box-shadow:none;transition:transform .22s;}
 .sb-user:hover .uav{transform:none;}
 .uname{font-size:.8rem;color:#fff;font-weight:600;display:block;line-height:1.2;}
-.urole{font-size:.58rem;color:rgba(255,255,255,.32);text-transform:uppercase;letter-spacing:1px;}
+.urole{font-size:.58rem;color:rgba(255,255,255,.32);text-transform:uppercase;letter-spacing:1px;line-height:1.35;display:block;}
 
 /* Eleven nav items and three headings, and they did not fit: the list stood
    626px tall in a 573px slot on a 1440x900 screen, so every admin page carried a
@@ -251,10 +261,10 @@ body.is-nav::before{content:'';position:fixed;inset:0 0 auto 0;height:3px;z-inde
   scrollbar-width:none;-ms-overflow-style:none;}
 .sb-nav::-webkit-scrollbar{width:0;height:0;display:none;}
 .nav-sec{font-size:.54rem;text-transform:uppercase;letter-spacing:2.5px;
-  color:rgba(255,255,255,.17);padding:.36rem 1.25rem .14rem;font-weight:700;}
+  color:rgba(255,255,255,.17);padding:.36rem 1.25rem .14rem;font-weight:700;line-height:1.5;}
 .ni{display:flex;align-items:center;gap:.65rem;padding:.46rem 1.25rem;
   color:rgba(255,255,255,.42);background:none;border:none;width:100%;
-  text-align:left;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:500;
+  text-align:left;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:500;line-height:1.3;
   cursor:pointer;transition:all .16s;text-decoration:none;position:relative;}
 .ni-ic{width:28px;height:28px;border-radius:var(--r1,8px);
   display:flex;align-items:center;justify-content:center;
@@ -275,7 +285,7 @@ body.is-nav::before{content:'';position:fixed;inset:0 0 auto 0;height:3px;z-inde
 .lout{width:100%;display:flex;align-items:center;gap:.65rem;padding:.52rem .78rem;
   background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);
   color:rgba(255,255,255,.42);border-radius:var(--r1,8px);cursor:pointer;
-  font-size:.8rem;font-family:'DM Sans',sans-serif;font-weight:500;transition:all .18s;}
+  font-size:.8rem;font-family:'DM Sans',sans-serif;font-weight:500;line-height:1.35;transition:all .18s;}
 .lout:hover{background:rgba(220,38,38,.14);color:#fca5a5;border-color:rgba(220,38,38,.22);}
 
 /* ---- topbar + breadcrumb ------------------------------------------------- */

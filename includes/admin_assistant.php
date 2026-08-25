@@ -160,13 +160,17 @@ try {
       bell.remove();
       return;
     }
-    var top = document.querySelector('.top');
-    if (top) {
+    /* No bell of its own, so give this page one in its header rather than
+       leaving it floating over the content. .topbar is a flex row with
+       space-between, so appending puts it on the right where every other page
+       keeps it — and off the table it was sitting on top of. */
+    var bar = document.querySelector('.topbar') || document.querySelector('.top');
+    if (bar) {
       bell.classList.add('in-top');
-      var back = top.querySelector('a.back, .back');
-      if (back) { top.insertBefore(bell, back); } else { top.appendChild(bell); }
+      var back = bar.querySelector('a.back, .back');
+      if (back) { bar.insertBefore(bell, back); } else { bar.appendChild(bell); }
     }
-    // else: no header to host it — it stays where it is, floating. Never removed.
+    // else: nowhere to put it — it stays floating. Never removed.
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', place);
   else place();
