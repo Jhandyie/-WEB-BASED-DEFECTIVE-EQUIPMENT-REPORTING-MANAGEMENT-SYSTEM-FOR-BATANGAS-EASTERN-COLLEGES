@@ -68,8 +68,7 @@ function dbStatus(string $rid): string {
 }
 
 echo "== BEC PMO lifecycle smoke test ==\n";
-$pdo = null; $rid = ''; $seeds = []; $settingsBackup = null;
-$settingsFile = $ROOT . '/data/system_settings.json';
+$pdo = null; $rid = ''; $seeds = [];
 
 try {
     // ── 0) preconditions ──────────────────────────────────────────────
@@ -200,11 +199,10 @@ try {
                          OR reporter_name = 'Smoke Reporter'");
         $wipe($pdo, "DELETE FROM users WHERE user_id='TECH-SMOKE1'");
     }
-    if ($settingsBackup !== null) { file_put_contents($settingsFile, $settingsBackup); }
     foreach ($seeds as $sfile) { @unlink($sfile); }
     foreach (glob($ROOT . '/uploads/completed_work/*/*.png') ?: [] as $p) { if (filesize($p) < 1024) @unlink($p); }
     @unlink($JAR_R); @unlink($JAR_A); @unlink($JAR_T);
-    echo "  cleanup done (test data removed, mail settings restored)\n";
+    echo "  cleanup done (test data removed)\n";
 } catch (\Throwable $e) {
     echo "  CLEANUP WARNING: " . $e->getMessage() . "\n";
 }
