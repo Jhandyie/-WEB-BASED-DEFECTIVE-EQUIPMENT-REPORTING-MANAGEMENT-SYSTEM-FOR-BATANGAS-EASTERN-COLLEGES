@@ -279,6 +279,12 @@ $checks = [
     ]],
     ['Inventory', 'admin', 'admin_inventory.php', [
         ['renders',                  '/<\/html>/i',                 true],
+        // Nothing on this page ever said what an upload should contain, because
+        // there was no format. The template and the importer are generated from
+        // one column list, so the download must be offered here or the format
+        // is undocumented again.
+        ['upload template offered',  '/template=xlsx/',             true],
+        ['csv template too',         '/template=csv/',              true],
     ]],
     ['Analytics', 'admin', 'admin_analytics.php', [
         ['renders',                  '/<\/html>/i',                 true],

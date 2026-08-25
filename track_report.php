@@ -8,8 +8,11 @@ $query = trim($_GET['ticket'] ?? ($_GET['q'] ?? ''));
 $report = null;
 $relatedReports = [];
 $trackSuggestions = [];
-$equipmentMatches = [];   // every report on this equipment, when the search was ambiguous
-$ownedMatches = 0;        // how many of those belong to the signed-in reporter
+$equipmentMatches = [];   // the viewer's OWN reports on this equipment, when the search was ambiguous
+$ownedMatches = 0;        // how many of the matches belong to the signed-in reporter
+$otherMatches = 0;        // how many belong to other people (counted, never listed)
+$canSeeDetail = true;     // may this viewer read the report, or only the equipment's status?
+$byTicket = false;        // did they search by ticket number, or by an equipment reference?
 $error = '';
 $conn = getDBConnection();
 
@@ -277,13 +280,32 @@ if ($query !== '') {
     $stmt->close();
 
     $report = $matches[0] ?? null;
+    $byTicket = $report && strcasecmp((string)$report['report_id'], $query) === 0;
+
+    /*
+     * Who may read the report itself.
+     *
+     * A ticket number is the key to one report: it is printed in the reporter's
+     * confirmation email and nowhere else, so holding it is the entitlement.
+     * An equipment reference is not a key to anything — it is stamped on the
+     * unit and encoded in the QR sticker on the wall, so anyone at all can type
+     * it. Resolving one to a report and printing the report meant a passer-by
+     * could read a stranger's fault description and repair history off a number
+     * on a photocopier. They now get the equipment's status, which is what the
+     * number actually identifies.
+     */
+    $canSeeDetail = $byTicket || trackViewerOwnsReport($viewerEmail, $report);
+
     // A ticket number identifies one report; an equipment reference does not.
-    // Only the ambiguous case gets a chooser.
-    if (count($matches) > 1 && strcasecmp((string)($report['report_id'] ?? ''), $query) !== 0) {
-        $equipmentMatches = $matches;
+    // Only the ambiguous case gets a chooser — and it lists only the tickets
+    // this reporter filed, because a list of other people's ticket numbers is
+    // exactly what someone needs to go looking through them.
+    if (count($matches) > 1 && !$byTicket) {
         foreach ($matches as $m) {
-            if (trackViewerOwnsReport($viewerEmail, $m)) { $ownedMatches++; }
+            if (trackViewerOwnsReport($viewerEmail, $m)) { $equipmentMatches[] = $m; $ownedMatches++; }
         }
+        $otherMatches = count($matches) - $ownedMatches;
+        if ($ownedMatches < 2) { $equipmentMatches = []; }   // nothing to choose between
     }
 
     if (!$report) {
@@ -683,27 +705,87 @@ html{scroll-behavior:smooth}
       <div class="chooser">
         <div class="chooser-head">
           <i aria-hidden="true" class="fas fa-layer-group"></i>
-          <strong><?php echo count($equipmentMatches); ?> reports</strong> have been filed on this equipment<?php
-            if ($ownedMatches > 0) { echo ' — <strong>' . $ownedMatches . '</strong> ' . ($ownedMatches === 1 ? 'is yours' : 'are yours'); }
-            elseif ($viewerEmail !== '') { echo ' — none of them yours'; }
-          ?>. Showing <?php echo $ownedMatches > 0 ? 'yours' : 'the most recent'; ?>.
+          You have filed <strong><?php echo $ownedMatches; ?> reports</strong> on this equipment<?php
+            if ($otherMatches > 0) { echo ', and ' . $otherMatches . ' more ' . ($otherMatches === 1 ? 'was' : 'were') . ' filed by other people'; }
+          ?>. Pick the one you want to follow.
         </div>
         <div class="chooser-list">
-          <?php foreach ($equipmentMatches as $m):
-            $mine = trackViewerOwnsReport($viewerEmail, $m); ?>
+          <?php foreach ($equipmentMatches as $m): ?>
           <a class="chooser-row<?php echo (string)$m['report_id'] === (string)$report['report_id'] ? ' on' : ''; ?>"
              href="track_report.php?q=<?php echo rawurlencode((string)$m['report_id']); ?>">
             <span class="mine-id"><?php echo htmlspecialchars((string)$m['report_id']); ?></span>
             <span class="badge <?php echo htmlspecialchars(tr_status_class((string)$m['status'])); ?>"><?php echo htmlspecialchars(tr_status_label((string)$m['status'])); ?></span>
             <span class="chooser-date"><?php echo htmlspecialchars(tr_when($m['report_date'] ?? null)); ?></span>
-            <?php if ($mine): ?><span class="chooser-mine">Yours</span><?php endif; ?>
           </a>
           <?php endforeach; ?>
         </div>
       </div>
       <?php endif; ?>
 
-      <?php if ($report): ?>
+      <?php if ($report && !$canSeeDetail): ?>
+      <?php
+        /* An equipment reference resolved to somebody else's report. Answer the
+           question the number actually asks — "is this thing being fixed?" —
+           without handing over their fault description, their timeline or their
+           ticket number. Counted with one query rather than from $matches,
+           which is capped at 25. */
+        $eqOpen = 0; $eqDone = 0; $eqLast = null;
+        $cst = $conn->prepare("SELECT dr.status, dr.report_date FROM defect_reports dr WHERE dr.equipment_id = ?");
+        if ($cst) {
+            $cst->bind_param('s', $report['equipment_id']);
+            $cst->execute();
+            foreach ($cst->get_result()->fetch_all(MYSQLI_ASSOC) as $row) {
+                if (in_array(strtolower((string)$row['status']), ['completed','verified','closed','rejected'], true)) { $eqDone++; }
+                else { $eqOpen++; }
+                if ($eqLast === null || strtotime((string)$row['report_date']) > strtotime($eqLast)) { $eqLast = (string)$row['report_date']; }
+            }
+            $cst->close();
+        }
+      ?>
+      <div class="result">
+        <div class="ticket"><?php echo htmlspecialchars((string)($report['equipment_name'] ?: $report['equipment_id'])); ?></div>
+        <div class="badges">
+          <span class="badge <?php echo htmlspecialchars(tr_equipment_status_class((string)$report['equipment_status'])); ?>"><?php echo htmlspecialchars(tr_equipment_status_label((string)$report['equipment_status'])); ?></span>
+          <?php if ($eqOpen > 0): ?><span class="badge st-prog"><?php echo $eqOpen; ?> open report<?php echo $eqOpen === 1 ? '' : 's'; ?></span><?php endif; ?>
+          <?php if ($eqDone > 0): ?><span class="badge st-done"><?php echo $eqDone; ?> resolved</span><?php endif; ?>
+        </div>
+        <div class="grid">
+          <div class="item"><div class="label">Equipment Reference</div><div class="value"><?php echo htmlspecialchars((string)$report['equipment_id']); ?><?php echo !empty($report['asset_tag']) ? ' / ' . htmlspecialchars((string)$report['asset_tag']) : ''; ?></div></div>
+          <div class="item"><div class="label">Location</div><div class="value"><?php echo htmlspecialchars((string)($report['location'] ?: 'Unspecified')); ?></div></div>
+          <div class="item"><div class="label">Equipment Status</div><div class="value"><?php echo htmlspecialchars(tr_equipment_status_label((string)$report['equipment_status'])); ?></div></div>
+          <div class="item"><div class="label">Last Reported</div><div class="value"><?php echo htmlspecialchars($eqLast ? tr_when($eqLast) : 'Never'); ?></div></div>
+          <div class="item full">
+            <div class="label">What this means</div>
+            <div class="value" style="font-weight:500;line-height:1.6;">
+              <?php if ($eqOpen > 0): ?>
+                The Property Management Office has <?php echo $eqOpen; ?> open report<?php echo $eqOpen === 1 ? '' : 's'; ?> on this unit, so the fault is already known and in the queue.
+              <?php elseif ($eqDone > 0): ?>
+                Every report filed on this unit has been resolved. If it is faulty again, please file a new one.
+              <?php else: ?>
+                No reports have been filed on this unit.
+              <?php endif; ?>
+            </div>
+          </div>
+          <div class="item full">
+            <div class="label">Looking for your own report?</div>
+            <div class="followup">
+              <p class="fu-copy">Reports belong to the person who filed them, so this page shows the equipment's status rather than someone else's report. Your ticket number is in the confirmation email you were sent — enter that above to see and follow up your own report.</p>
+              <?php if ($viewerEmail === ''): ?>
+                <div class="fu-flash err"><i aria-hidden="true" class="fas fa-circle-info"></i>
+                  Signed in with your BEC email, this page lists your own reports.
+                  <a href="student_index.php?next=<?php echo rawurlencode('track_report.php?q=' . $query); ?>" style="color:inherit;font-weight:700;text-decoration:underline;">Sign in</a>
+                </div>
+              <?php else: ?>
+                <div class="fu-flash err"><i aria-hidden="true" class="fas fa-circle-info"></i>
+                  You are signed in as <strong><?php echo htmlspecialchars($viewerEmail); ?></strong> and have not filed a report on this equipment.
+                  <a href="student_dashboard.php" style="color:inherit;font-weight:700;text-decoration:underline;">Report a problem with it</a>
+                </div>
+              <?php endif; ?>
+            </div>
+          </div>
+        </div>
+      </div>
+      <?php elseif ($report): ?>
       <div class="result">
         <div class="ticket"><?php echo htmlspecialchars($report['report_id']); ?></div>
         <?php

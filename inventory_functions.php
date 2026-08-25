@@ -7,63 +7,160 @@ require_once __DIR__ . '/includes/auth.php';
 requireRole('admin');
 require_once __DIR__ . '/includes/csrf.php';
 
-// ── Inventory Excel upload (admin) — parses the PMO inventory workbook and
-//    repopulates api/data/inventory.json (empty until a file is uploaded). ──
+require_once __DIR__ . '/includes/inventory_template.php';
+
+/* ── The blank template ──
+   Nothing on this page ever said what to put in an upload, because there was no
+   format to describe. This is the format, and it is generated from the same
+   column list the importer reads back, so the two cannot drift apart. */
+if (isset($_GET['template'])) {
+    $fmt = strtolower(trim((string)$_GET['template'])) === 'csv' ? 'csv' : 'xlsx';
+    logActivity($_SESSION['user_id'] ?? '', 'inventory.template', 'Downloaded the inventory upload template (' . $fmt . ')');
+    becInventorySendTemplate($fmt);
+}
+
+/* ── Inventory upload, in two steps ──
+
+   Step one reads the workbook and reports what would happen. Step two, behind a
+   separate confirmation, writes it.
+
+   What this replaces: the upload used to sweep every cell with a regular
+   expression looking for strings shaped like A-0825-0001, count them by prefix
+   against a hard-coded list of twelve, and write the counts to
+   api/data/inventory.json as invented rows. The equipment table — the records
+   that drive defect reports, QR codes and work orders — was never touched, and
+   any property number outside those twelve prefixes was dropped in silence.
+
+   The old behaviour is kept as a fallback for the legacy PMO workbook, and the
+   page now says which of the two ran, because "imported 1,329 items" meaning
+   two entirely different things was the heart of the confusion. */
+$invPreview = $_SESSION['inv_preview'] ?? null;
+unset($_SESSION['inv_preview']);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['inventory_xlsx'])) {
     $flash = ['ok' => false, 'msg' => ''];
+    $f = $_FILES['inventory_xlsx'];
     if (function_exists('csrf_check') && !csrf_check()) {
         $flash['msg'] = 'Security check failed. Please reload and try again.';
-    } elseif ((int)($_FILES['inventory_xlsx']['error'] ?? 4) !== 0) {
-        $flash['msg'] = 'No file uploaded, or the upload failed.';
-    } elseif (!preg_match('/\.xlsx$/i', (string)($_FILES['inventory_xlsx']['name'] ?? ''))) {
-        $flash['msg'] = 'Please upload an Excel .xlsx file.';
+    } elseif ((int)($f['error'] ?? 4) !== 0) {
+        $flash['msg'] = (int)($f['error'] ?? 4) === UPLOAD_ERR_INI_SIZE
+            ? 'That file is larger than this server accepts (' . ini_get('upload_max_filesize') . ').'
+            : 'No file uploaded, or the upload failed.';
+    } elseif (!is_uploaded_file((string)$f['tmp_name'])) {
+        $flash['msg'] = 'That file did not arrive as an upload.';
+    } elseif (!preg_match('/\.xlsx$/i', (string)($f['name'] ?? ''))) {
+        $flash['msg'] = 'Please upload an Excel .xlsx file. Download the template above if you need the column headings.';
     } else {
-        require_once __DIR__ . '/includes/xlsx_reader.php';
-        $texts = becXlsxAllText((string)$_FILES['inventory_xlsx']['tmp_name']);
-        // Property-number prefix -> inventory category key (robust to sheet layout).
-        $prefixKey = [
-            'A' => 'airConditioners', 'T' => 'televisions',
-            'CF' => 'fans', 'SF' => 'fans', 'IF' => 'fans', 'WF' => 'fans', 'EF' => 'fans', 'RF' => 'fans',
-            'WB' => 'whiteboards', 'L' => 'lockers', 'CA' => 'filingCabinets', 'OT' => 'tables',
-            'OC' => 'officeChairs', 'CP' => 'copyPrinters', 'FW' => 'foodWarmers', 'SHR' => 'shredders', 'PC' => 'computers',
-        ];
-        $seen = []; // propertyNo => prefix (dedup by property number)
-        foreach ($texts as $t) {
-            $t = trim((string)$t);
-            if (preg_match('/^([A-Za-z]{1,4})-\d{3,4}-\d{2,4}$/', $t, $mm)) {
-                $seen[strtoupper($t)] = strtoupper($mm[1]);
-            }
-        }
-        $countByKey = [];
-        foreach ($seen as $pno => $prefix) {
-            $key = $prefixKey[$prefix] ?? null;
-            if ($key) $countByKey[$key] = ($countByKey[$key] ?? 0) + 1;
-        }
-        if (!$countByKey) {
-            $flash['msg'] = 'No inventory property numbers (e.g. A-0825-0001) were found in that file. Please check the workbook.';
-        } else {
-            $labels = [
-                'airConditioners' => 'Air Conditioning Unit', 'televisions' => 'Television Unit', 'fans' => 'Fan',
-                'whiteboards' => 'Whiteboard', 'lockers' => 'Locker', 'filingCabinets' => 'Filing Cabinet',
-                'tables' => 'Table', 'officeChairs' => 'Office Chair', 'copyPrinters' => 'Copy Printer',
-                'foodWarmers' => 'Food Warmer', 'shredders' => 'Shredder', 'computers' => 'Computer',
+        $parsed = becInventoryParseWorkbook((string)$f['tmp_name']);
+
+        if ($parsed['mode'] === 'legacy') {
+            // No headings recognised. Fall back to counting property numbers,
+            // and say plainly that is what happened.
+            $texts = becXlsxAllText((string)$f['tmp_name']);
+            $prefixKey = [
+                'A' => 'airConditioners', 'T' => 'televisions',
+                'CF' => 'fans', 'SF' => 'fans', 'IF' => 'fans', 'WF' => 'fans', 'EF' => 'fans', 'RF' => 'fans',
+                'WB' => 'whiteboards', 'L' => 'lockers', 'CA' => 'filingCabinets', 'OT' => 'tables',
+                'OC' => 'officeChairs', 'CP' => 'copyPrinters', 'FW' => 'foodWarmers', 'SHR' => 'shredders', 'PC' => 'computers',
             ];
-            $out = [];
-            foreach ($countByKey as $key => $cnt) {
-                $out[$key] = [[
-                    'id' => 1,
-                    'propertyNo' => strtoupper(substr($key, 0, 3)) . '-UPLOAD-0001',
-                    'campus' => 'All Campuses', 'building' => 'Multiple', 'buildingName' => 'Uploaded Inventory',
-                    'room' => 'Multiple Rooms', 'type' => ($labels[$key] ?? $key), 'article' => ($labels[$key] ?? $key),
-                    'qty' => $cnt, 'status' => 'Active', 'department' => 'PMO',
-                    'remarks' => 'Imported from ' . basename((string)$_FILES['inventory_xlsx']['name']) . ' on ' . date('M j, Y'),
-                ]];
+            $seen = [];
+            foreach ($texts as $t) {
+                $t = trim((string)$t);
+                if (preg_match('/^([A-Za-z]{1,4})-\d{3,4}-\d{2,4}$/', $t, $mm)) { $seen[strtoupper($t)] = strtoupper($mm[1]); }
             }
-            $out['_meta'] = ['uploaded_at' => date('c'), 'filename' => basename((string)$_FILES['inventory_xlsx']['name']), 'total' => array_sum($countByKey)];
-            @file_put_contents(__DIR__ . '/api/data/inventory.json', json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-            $flash['ok'] = true;
-            $flash['msg'] = 'Inventory imported — ' . number_format(array_sum($countByKey)) . ' items across ' . count($countByKey) . ' categories from ' . basename((string)$_FILES['inventory_xlsx']['name']) . '.';
+            $countByKey = [];
+            $unmapped = [];
+            foreach ($seen as $pno => $prefix) {
+                $key = $prefixKey[$prefix] ?? null;
+                if ($key) { $countByKey[$key] = ($countByKey[$key] ?? 0) + 1; }
+                else { $unmapped[$prefix] = ($unmapped[$prefix] ?? 0) + 1; }
+            }
+            if (!$countByKey) {
+                $flash['msg'] = 'That workbook has neither the column headings this system reads nor any recognisable property numbers. '
+                              . 'Download the template above and copy your data into it.';
+            } else {
+                $labels = [
+                    'airConditioners' => 'Air Conditioning Unit', 'televisions' => 'Television Unit', 'fans' => 'Fan',
+                    'whiteboards' => 'Whiteboard', 'lockers' => 'Locker', 'filingCabinets' => 'Filing Cabinet',
+                    'tables' => 'Table', 'officeChairs' => 'Office Chair', 'copyPrinters' => 'Copy Printer',
+                    'foodWarmers' => 'Food Warmer', 'shredders' => 'Shredder', 'computers' => 'Computer',
+                ];
+                $out = [];
+                foreach ($countByKey as $key => $cnt) {
+                    $out[$key] = [[
+                        'id' => 1,
+                        'propertyNo' => strtoupper(substr($key, 0, 3)) . '-UPLOAD-0001',
+                        'campus' => 'All Campuses', 'building' => 'Multiple', 'buildingName' => 'Uploaded Inventory',
+                        'room' => 'Multiple Rooms', 'type' => ($labels[$key] ?? $key), 'article' => ($labels[$key] ?? $key),
+                        'qty' => $cnt, 'status' => 'Active', 'department' => 'PMO',
+                        'remarks' => 'Counted from ' . basename((string)$f['name']) . ' on ' . date('M j, Y'),
+                    ]];
+                }
+                $out['_meta'] = ['uploaded_at' => date('c'), 'filename' => basename((string)$f['name']), 'total' => array_sum($countByKey)];
+                @file_put_contents(__DIR__ . '/api/data/inventory.json', json_encode($out, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+                logActivity($_SESSION['user_id'] ?? '', 'inventory.count',
+                    'Counted ' . array_sum($countByKey) . ' property numbers from ' . basename((string)$f['name']) . ' (legacy mode)');
+                $flash['ok'] = true;
+                $flash['msg'] = 'Counted only — no equipment records were created or changed. '
+                    . 'That workbook has no column headings this system recognises, so it was read the old way: '
+                    . number_format(array_sum($countByKey)) . ' property numbers across ' . count($countByKey) . ' categories, which now fill the totals below.'
+                    . ($unmapped ? ' ' . array_sum($unmapped) . ' more were skipped because their prefixes (' . implode(', ', array_slice(array_keys($unmapped), 0, 6)) . ') are not in the category list.' : '')
+                    . ' To import real equipment records, download the template above and use its headings.';
+            }
+        } elseif (!$parsed['ok']) {
+            $flash['msg'] = $parsed['message'];
+        } else {
+            // Nothing is written yet. Hold the file, show what would happen.
+            $token = bin2hex(random_bytes(16));
+            $dest  = becInventoryPendingDir() . '/' . $token . '.xlsx';
+            if (!@move_uploaded_file((string)$f['tmp_name'], $dest)) {
+                $flash['msg'] = 'The file could not be held for review — check that data/ is writable.';
+            } else {
+                $_SESSION['inv_preview'] = [
+                    'token'   => $token,
+                    'file'    => basename((string)$f['name']),
+                    'sheet'   => $parsed['sheet'],
+                    'counts'  => becInventoryClassify($parsed['rows']),
+                    'ready'   => count($parsed['rows']),
+                    'errors'  => array_slice($parsed['errors'], 0, 50),
+                    'errall'  => count($parsed['errors']),
+                    'sample'  => array_slice($parsed['rows'], 0, 8),
+                    'matched' => $parsed['matched'],
+                    'ignored' => $parsed['ignored'],
+                ];
+            }
         }
+    }
+    if ($flash['msg'] !== '') { $_SESSION['inv_flash'] = $flash; }
+    header('Location: inventory_functions.php' . (!empty($_SESSION['inv_preview']) ? '#invupload' : ''));
+    exit;
+}
+
+/* Step two: the admin has seen what would change and said yes. The file is
+   read again rather than trusting anything carried across the request. */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'inventory_confirm') {
+    $flash = ['ok' => false, 'msg' => ''];
+    $token = preg_replace('/[^a-f0-9]/', '', (string)($_POST['token'] ?? ''));
+    $path  = $token !== '' ? becInventoryPendingDir() . '/' . $token . '.xlsx' : '';
+    if (function_exists('csrf_check') && !csrf_check()) {
+        $flash['msg'] = 'Security check failed. Please reload and try again.';
+    } elseif ($path === '' || !is_file($path)) {
+        $flash['msg'] = 'That upload is no longer waiting to be reviewed. Please upload the file again.';
+    } else {
+        $parsed = becInventoryParseWorkbook($path);
+        if (!$parsed['ok']) {
+            $flash['msg'] = $parsed['message'];
+        } else {
+            $res = becInventoryApply($parsed['rows']);
+            $flash['ok']  = $res['ok'];
+            $flash['msg'] = $res['message']
+                . ($res['ok'] && $parsed['errors'] ? ' ' . count($parsed['errors']) . ' row(s) were skipped and nothing about them was written.' : '');
+            if ($res['ok']) {
+                logActivity($_SESSION['user_id'] ?? '', 'inventory.import',
+                    'Imported ' . count($parsed['rows']) . ' equipment record(s) — ' . $res['new'] . ' added, ' . $res['updated'] . ' updated');
+            }
+        }
+        @unlink($path);
     }
     $_SESSION['inv_flash'] = $flash;
     header('Location: inventory_functions.php');
@@ -1177,25 +1274,120 @@ textarea.fc{resize:vertical;min-height:72px;}
       </a>
     </div>
 
-        <div class="panel" style="margin-bottom:1rem;">
+        <div class="panel" style="margin-bottom:1rem;" id="invupload">
       <div class="ph3" style="flex-wrap:wrap;gap:.6rem;">
         <h3><i class="fas fa-database"></i> Inventory Totals</h3>
-        <form method="POST" action="inventory_functions.php" enctype="multipart/form-data" style="display:flex;align-items:center;gap:.5rem;margin:0;">
-          <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(function_exists('csrf_token') ? csrf_token() : ''); ?>">
-          <input type="file" name="inventory_xlsx" accept=".xlsx" required data-premium-upload data-hint="Excel .xlsx file">
-          <button type="submit" class="btn btn-green btn-sm"><i class="fas fa-file-excel"></i> Upload Inventory Excel</button>
-        </form>
+        <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
+          <?php /* The template and the importer are generated from one column
+                   list, so what this downloads is exactly what the upload reads
+                   back. Offered before the file picker because reaching for the
+                   picker first is what left people guessing. */ ?>
+          <a class="btn btn-sm" href="?template=xlsx" title="Blank workbook with the headings and one worked example"><i class="fas fa-download"></i> Download template (.xlsx)</a>
+          <a class="btn btn-sm" href="?template=csv" title="The same columns as CSV"><i class="fas fa-download"></i> .csv</a>
+          <form method="POST" action="inventory_functions.php" enctype="multipart/form-data" style="display:flex;align-items:center;gap:.5rem;margin:0;">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(function_exists('csrf_token') ? csrf_token() : ''); ?>">
+            <input type="file" name="inventory_xlsx" accept=".xlsx" required data-premium-upload data-hint="Excel .xlsx file">
+            <button type="submit" class="btn btn-green btn-sm"><i class="fas fa-file-excel"></i> Upload Inventory Excel</button>
+          </form>
+        </div>
       </div>
       <?php if (!empty($_SESSION['inv_flash'])): $fl = $_SESSION['inv_flash']; unset($_SESSION['inv_flash']); ?>
       <div style="margin:.7rem 1rem 0;padding:.6rem .9rem;border-radius:9px;font-size:.78rem;<?php echo $fl['ok'] ? 'background:#ECFDF5;border:1px solid #A7F3D0;color:#065F46;' : 'background:#FEF2F2;border:1px solid #FECACA;color:var(--bad-tx);'; ?>">
         <i class="fas fa-<?php echo $fl['ok'] ? 'check-circle' : 'exclamation-circle'; ?>"></i> <?php echo esc($fl['msg']); ?>
       </div>
       <?php endif; ?>
+      <?php if ($invPreview): ?>
+      <?php /* Nothing has been written at this point. The upload is held on disk
+               and this is the answer to "what is about to happen to my 1,329
+               records" — which the old importer never asked, because it never
+               touched them. */ ?>
+      <div style="margin:.7rem 1rem 0;border:1.5px solid #BFDBFE;border-radius:11px;overflow:hidden;">
+        <div style="padding:.7rem .95rem;background:#EFF6FF;color:#1D4ED8;font-size:.82rem;font-weight:700;">
+          <i class="fas fa-magnifying-glass-chart"></i> Ready to import <?php echo esc($invPreview['file']); ?><?php echo $invPreview['sheet'] !== '' ? ' — sheet “' . esc($invPreview['sheet']) . '”' : ''; ?>
+        </div>
+        <div style="padding:.85rem .95rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.6rem;">
+          <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:9px;padding:.55rem .7rem;">
+            <div style="font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#166534;">New items</div>
+            <div style="font-family:'Outfit',sans-serif;font-size:1.25rem;font-weight:700;color:#166534;"><?php echo number_format((int)$invPreview['counts']['new']); ?></div>
+          </div>
+          <div style="background:#FFFBEB;border:1px solid #FDE68A;border-radius:9px;padding:.55rem .7rem;">
+            <div style="font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#92600A;">Existing, updated</div>
+            <div style="font-family:'Outfit',sans-serif;font-size:1.25rem;font-weight:700;color:#92600A;"><?php echo number_format((int)$invPreview['counts']['updated']); ?></div>
+          </div>
+          <div style="background:<?php echo $invPreview['errall'] ? '#FEF2F2' : 'var(--s2)'; ?>;border:1px solid <?php echo $invPreview['errall'] ? '#FECACA' : 'var(--bdr)'; ?>;border-radius:9px;padding:.55rem .7rem;">
+            <div style="font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:<?php echo $invPreview['errall'] ? 'var(--bad-tx)' : 'var(--t3)'; ?>;">Rejected rows</div>
+            <div style="font-family:'Outfit',sans-serif;font-size:1.25rem;font-weight:700;color:<?php echo $invPreview['errall'] ? 'var(--bad-tx)' : 'var(--t3)'; ?>;"><?php echo number_format((int)$invPreview['errall']); ?></div>
+          </div>
+        </div>
+
+        <?php if (!empty($invPreview['sample'])): ?>
+        <div style="padding:0 .95rem .6rem;overflow-x:auto;">
+          <table style="width:100%;border-collapse:collapse;font-size:.76rem;min-width:520px;">
+            <thead><tr style="text-align:left;color:var(--t2);">
+              <th style="padding:.3rem .5rem;">Property No.</th><th style="padding:.3rem .5rem;">Equipment</th>
+              <th style="padding:.3rem .5rem;">Category</th><th style="padding:.3rem .5rem;">Location</th><th style="padding:.3rem .5rem;">Unit</th>
+            </tr></thead>
+            <tbody>
+              <?php foreach ($invPreview['sample'] as $sr): ?>
+              <tr style="border-top:1px solid var(--bdr);">
+                <td style="padding:.3rem .5rem;font-weight:700;"><?php echo esc($sr['property_no']); ?></td>
+                <td style="padding:.3rem .5rem;"><?php echo esc($sr['equipment_name']); ?></td>
+                <td style="padding:.3rem .5rem;"><?php echo esc($sr['category']); ?></td>
+                <td style="padding:.3rem .5rem;"><?php echo esc($sr['location']); ?></td>
+                <td style="padding:.3rem .5rem;"><?php echo esc($sr['unit']); ?></td>
+              </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+          <?php if ((int)$invPreview['ready'] > count($invPreview['sample'])): ?>
+          <div style="font-size:.74rem;color:var(--t3);margin-top:.35rem;">… and <?php echo number_format((int)$invPreview['ready'] - count($invPreview['sample'])); ?> more.</div>
+          <?php endif; ?>
+        </div>
+        <?php endif; ?>
+
+        <?php if (!empty($invPreview['errors'])): ?>
+        <div style="padding:0 .95rem .6rem;">
+          <div style="font-size:.74rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--bad-tx);margin-bottom:.3rem;">
+            These rows will be skipped
+          </div>
+          <div style="max-height:190px;overflow:auto;border:1px solid #FECACA;border-radius:8px;">
+            <?php foreach ($invPreview['errors'] as $er): ?>
+            <div style="padding:.35rem .6rem;border-bottom:1px solid #FEE2E2;font-size:.76rem;color:var(--bad-tx);">
+              <strong>Row <?php echo (int)$er['row']; ?><?php echo $er['tag'] !== '' ? ' (' . esc($er['tag']) . ')' : ''; ?>:</strong>
+              <?php echo esc($er['why']); ?>
+            </div>
+            <?php endforeach; ?>
+          </div>
+          <?php if ((int)$invPreview['errall'] > count($invPreview['errors'])): ?>
+          <div style="font-size:.74rem;color:var(--t3);margin-top:.3rem;">… and <?php echo number_format((int)$invPreview['errall'] - count($invPreview['errors'])); ?> more rejected rows.</div>
+          <?php endif; ?>
+        </div>
+        <?php endif; ?>
+
+        <?php if (!empty($invPreview['ignored'])): ?>
+        <div style="padding:0 .95rem .6rem;font-size:.74rem;color:var(--t3);">
+          Columns in your sheet that this system does not use: <?php echo esc(implode(', ', array_slice($invPreview['ignored'], 0, 10))); ?><?php echo count($invPreview['ignored']) > 10 ? ', …' : ''; ?>. They are left alone.
+        </div>
+        <?php endif; ?>
+
+        <div style="padding:.7rem .95rem;background:var(--s2);border-top:1px solid var(--bdr);display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+          <form method="POST" action="inventory_functions.php" style="margin:0;">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(function_exists('csrf_token') ? csrf_token() : ''); ?>">
+            <input type="hidden" name="action" value="inventory_confirm">
+            <input type="hidden" name="token" value="<?php echo esc($invPreview['token']); ?>">
+            <button type="submit" class="btn btn-green btn-sm"><i class="fas fa-check"></i> Import <?php echo number_format((int)$invPreview['ready']); ?> item<?php echo (int)$invPreview['ready'] === 1 ? '' : 's'; ?></button>
+          </form>
+          <a class="btn btn-sm" href="inventory_functions.php">Cancel</a>
+          <span style="font-size:.74rem;color:var(--t3);">Nothing has been changed yet.</span>
+        </div>
+      </div>
+      <?php endif; ?>
+
       <?php if ($inventoryGrandTotal <= 0): ?>
       <div style="padding:2.2rem 1rem;text-align:center;color:var(--t3);">
         <i class="fas fa-box-open" style="font-size:1.9rem;color:var(--bdr);"></i>
         <div style="margin-top:.55rem;font-size:.92rem;font-weight:700;color:var(--t2);">No inventory uploaded yet</div>
-        <div style="font-size:.77rem;margin-top:.25rem;max-width:460px;margin-left:auto;margin-right:auto;line-height:1.6;">Upload the PMO inventory Excel (the workbook with property numbers like <b>A-0825-0001</b>, <b>T-0825-0002</b>, <b>CF-0825-0100</b>) to populate the totals. Categories are counted automatically by property number.</div>
+        <div style="font-size:.77rem;margin-top:.25rem;max-width:520px;margin-left:auto;margin-right:auto;line-height:1.6;">Download the template above, fill in one row per item, and upload it — you will see exactly what will be added or changed before anything is written. A legacy PMO workbook with no headings still works: its property numbers (<b>A-0825-0001</b>, <b>CF-0825-0100</b>) are counted to fill these totals, but no equipment records are created that way.</div>
       </div>
       <?php else: ?>
       <div style="padding:.9rem 1rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.65rem;">

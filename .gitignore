@@ -75,6 +75,10 @@ data/rate_limits/
 # Mail retry outbox (undelivered notifications awaiting resend)
 data/mail_outbox/
 
+# An inventory upload waiting for its admin to confirm the preview. Real asset
+# data, and transient - it is deleted on confirm, cancel, or after an hour.
+data/inventory_pending/
+
 # Timestamp of the last SLA escalation sweep (runtime throttle state)
 data/sla_last_sweep
 
