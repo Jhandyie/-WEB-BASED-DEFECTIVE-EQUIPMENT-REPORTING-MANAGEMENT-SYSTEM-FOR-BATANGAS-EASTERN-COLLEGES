@@ -205,7 +205,10 @@ body.is-nav::before{content:'';position:fixed;inset:0 0 auto 0;height:3px;z-inde
 .sb::before{content:'';position:absolute;inset:0;
   background:radial-gradient(ellipse 110% 45% at 50% -5%,rgba(212,160,23,.12),transparent);pointer-events:none;}
 
-.sb-top{padding:1.35rem 1.2rem .9rem;border-bottom:1px solid rgba(255,255,255,.06);
+/* Headroom for the nav list below comes from here rather than from squeezing
+   the items further: the seal and wordmark read the same with a little less
+   air around them, eleven cramped rows would not. */
+.sb-top{padding:1.05rem 1.2rem .7rem;border-bottom:1px solid rgba(255,255,255,.06);
   display:flex;align-items:center;gap:.75rem;position:relative;z-index:1;}
 .seal-ring{position:relative;width:46px;height:46px;flex-shrink:0;}
 .seal-spin{position:absolute;inset:-3px;border-radius:50%;
@@ -233,19 +236,27 @@ body.is-nav::before{content:'';position:fixed;inset:0 0 auto 0;height:3px;z-inde
 .uname{font-size:.8rem;color:#fff;font-weight:600;display:block;line-height:1.2;}
 .urole{font-size:.58rem;color:rgba(255,255,255,.32);text-transform:uppercase;letter-spacing:1px;}
 
-.sb-nav{flex:1;padding:.25rem 0;overflow-y:auto;position:relative;z-index:1;scrollbar-width:thin;scrollbar-color:rgba(212,160,23,.45) transparent;}
-.sb-nav::-webkit-scrollbar{width:6px;}
-.sb-nav::-webkit-scrollbar-thumb{background:rgba(212,160,23,.4);border-radius:3px;}
-.sb-nav::-webkit-scrollbar-thumb:hover{background:rgba(212,160,23,.65);}
-.sb-nav::-webkit-scrollbar{width:3px;}
-.sb-nav::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:3px;}
+/* Eleven nav items and three headings, and they did not fit: the list stood
+   626px tall in a 573px slot on a 1440x900 screen, so every admin page carried a
+   scrollbar down its sidebar. It read as an accident rather than a design, and
+   because the thumb is nearly invisible it looked different from page to page
+   depending on how far each one happened to overflow.
+   The rhythm below is tightened just enough for the whole list to fit at the
+   heights an admin actually works at. Scrolling stays possible for a genuinely
+   short window - the alternative is Logout becoming unreachable - but the
+   scrollbar chrome is gone, so the sidebar never looks like a scroll area.
+   (Two ::-webkit-scrollbar blocks used to be declared here, 6px then 3px, the
+   second silently winning.) */
+.sb-nav{flex:1;padding:.15rem 0;overflow-y:auto;position:relative;z-index:1;
+  scrollbar-width:none;-ms-overflow-style:none;}
+.sb-nav::-webkit-scrollbar{width:0;height:0;display:none;}
 .nav-sec{font-size:.54rem;text-transform:uppercase;letter-spacing:2.5px;
-  color:rgba(255,255,255,.17);padding:.5rem 1.25rem .2rem;font-weight:700;}
-.ni{display:flex;align-items:center;gap:.65rem;padding:.56rem 1.25rem;
+  color:rgba(255,255,255,.17);padding:.36rem 1.25rem .14rem;font-weight:700;}
+.ni{display:flex;align-items:center;gap:.65rem;padding:.46rem 1.25rem;
   color:rgba(255,255,255,.42);background:none;border:none;width:100%;
   text-align:left;font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:500;
   cursor:pointer;transition:all .16s;text-decoration:none;position:relative;}
-.ni-ic{width:30px;height:30px;border-radius:var(--r1,8px);
+.ni-ic{width:28px;height:28px;border-radius:var(--r1,8px);
   display:flex;align-items:center;justify-content:center;
   font-size:.78rem;background:rgba(255,255,255,.05);flex-shrink:0;transition:all .22s;}
 .ni:hover{color:rgba(255,255,255,.82);}
@@ -260,7 +271,7 @@ body.is-nav::before{content:'';position:fixed;inset:0 0 auto 0;height:3px;z-inde
   animation:nbp 2.2s ease-in-out infinite;}
 @keyframes nbp{0%,100%{transform:scale(1);}50%{transform:scale(1.12);}}
 
-.sb-foot{padding:.55rem 1rem .95rem;border-top:1px solid rgba(255,255,255,.06);z-index:1;}
+.sb-foot{padding:.5rem 1rem .8rem;border-top:1px solid rgba(255,255,255,.06);z-index:1;}
 .lout{width:100%;display:flex;align-items:center;gap:.65rem;padding:.52rem .78rem;
   background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);
   color:rgba(255,255,255,.42);border-radius:var(--r1,8px);cursor:pointer;
