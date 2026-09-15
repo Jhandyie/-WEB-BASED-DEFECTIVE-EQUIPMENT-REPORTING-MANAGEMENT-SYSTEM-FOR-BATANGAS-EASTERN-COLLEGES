@@ -16,7 +16,7 @@ outside the college, which this system rarely does.
 > Good day,
 >
 > The Property Management Office's Equipment Reporting System is now running at
-> **https://becpmo.online**. Students, faculty, technicians and PMO staff sign in
+> **https://becpmo.com**. Students, faculty, technicians and PMO staff sign in
 > with their BEC email address, and the system emails them a 6-digit verification
 > code. It also emails updates as each repair progresses.
 >

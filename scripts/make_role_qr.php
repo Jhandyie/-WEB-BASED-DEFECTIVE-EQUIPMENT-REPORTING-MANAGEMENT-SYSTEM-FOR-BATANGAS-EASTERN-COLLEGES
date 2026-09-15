@@ -19,13 +19,13 @@
  *   php scripts/make_role_qr.php [base-url] [output-directory]
  *
  * Pass the base URL without a trailing path:
- *   php scripts/make_role_qr.php https://becpmo.online
+ *   php scripts/make_role_qr.php https://becpmo.com
  *
  * Re-run it whenever the address changes — the codes encode it directly, so a
  * printed page outlives the URL it was built from.
  */
 
-$base = rtrim($argv[1] ?? 'https://becpmo.online', '/');
+$base = rtrim($argv[1] ?? 'https://becpmo.com', '/');
 $dir  = rtrim($argv[2] ?? ((getenv('USERPROFILE') ?: getenv('HOME')) . '/OneDrive/Desktop'), '/\\');
 $root = dirname(__DIR__);
 
