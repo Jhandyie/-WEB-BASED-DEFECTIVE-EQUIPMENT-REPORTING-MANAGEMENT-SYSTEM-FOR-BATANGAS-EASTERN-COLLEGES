@@ -113,4 +113,4 @@ full-screen, home-screen app that works offline for viewing your last-loaded tas
 **Wrong equipment on a QR scan?** You can still change the equipment field before submitting.
 **Photo won't upload?** Max **10 MB per photo, 40 MB per submission** — the form tells you
 which file is too big before uploading.
-**Forgot admin password?** `admin/forgot_password.html` → reset link by email.
+**Forgot admin password?** Click "Forgot password?" on `admin/admin_login_otp.html` → reset link by email.
