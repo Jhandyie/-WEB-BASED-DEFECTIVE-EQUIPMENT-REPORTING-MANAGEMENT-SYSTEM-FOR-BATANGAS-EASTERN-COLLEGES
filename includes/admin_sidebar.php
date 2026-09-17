@@ -48,6 +48,16 @@ if (function_exists('becVenueEnabled') && becVenueEnabled()) {
     $__sections['Reports'][] = ['reservations', 'admin_reservations.php', 'fa-file-signature', 'Venue Reservations'];
 }
 ?>
+<?php /* Preload the faces every admin page paints above the fold, so they arrive
+         alongside the stylesheet rather than after the first paint. The sidebar
+         is the first thing in <body> on all twelve admin pages, so this is the
+         earliest shared point; the browser's preload scanner acts on these as
+         soon as it sees them. Latin subsets only - that is what the UI is. */ ?>
+<link rel="preload" as="font" type="font/woff2" crossorigin href="assets/vendor/fonts/dm-sans-500-normal-40fe3c.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="assets/vendor/fonts/dm-sans-600-normal-40fe3c.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="assets/vendor/fonts/dm-sans-700-normal-40fe3c.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="assets/vendor/fonts/outfit-800-normal-357083.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="assets/vendor/fonts/fraunces-700-normal-c06a4e.woff2">
 <aside class="sb" id="sb">
   <div class="sb-top">
     <div class="seal-ring"><div class="seal-spin"></div><div class="seal-core"><img src="assets/logs.png" alt="BEC" onerror="this.style.display='none'"></div></div>

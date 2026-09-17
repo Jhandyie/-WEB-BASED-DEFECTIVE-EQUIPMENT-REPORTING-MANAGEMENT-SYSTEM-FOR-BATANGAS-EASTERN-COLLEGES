@@ -15,7 +15,7 @@
 
   var css = ''
     + '.fup-wrap{display:inline-flex;align-items:center;gap:.4rem;max-width:100%;vertical-align:middle;}'
-    + '.fup-btn{position:relative;display:inline-flex;align-items:center;gap:.6rem;padding:.55rem .85rem;'
+    + '.fup-btn{position:relative;display:inline-flex;align-items:center;gap:.6rem;padding:.55rem .85rem;min-width:170px;min-height:50px;'
     +   'border:1.5px dashed #D8CCBD;border-radius:10px;background:#FBF8F3;cursor:pointer;'
     +   'transition:border-color .15s,background .15s;max-width:100%;box-sizing:border-box;}'
     + '.fup-btn:hover{border-color:' + MAROON + ';background:#FBF3EC;}'

@@ -19,6 +19,17 @@
    end-of-<body> include relays out the whole page after it has painted. */
 html{font-size:106.25%;scrollbar-gutter:stable;}
 
+/* A file input that file_upload_premium.js will replace after load. Give it
+   the replacement's footprint now, in the head, so the swap does not change
+   the row's wrapping: the native control was 25px tall and ~250px wide, the
+   dropzone that replaces it is ~50px tall and narrower, and on the Inventory
+   page that difference moved the panel heading 16px after every load. Without
+   JavaScript this is still a working, reasonably styled file picker. */
+input[type=file][data-premium-upload]{display:inline-block;box-sizing:border-box;
+  min-height:50px;width:170px;max-width:100%;padding:.55rem .85rem;
+  border:1.5px dashed #D8CCBD;border-radius:10px;background:#FBF8F3;
+  font-family:inherit;font-size:.78rem;color:#2D0505;vertical-align:middle;}
+
 /* The canonical admin palette. Every admin page still declares its own :root
    (which wins, since page CSS loads after this file) — these are the values
    those declarations are kept in sync with, and the fallback for any page or

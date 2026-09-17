@@ -103,6 +103,23 @@ function runPreventiveMaintenanceSweep(bool $force = false): int {
         foreach ($admins as $aid) {
             if (function_exists('addNotification')) { try { addNotification($aid, $msg, 'preventive', $ticket); } catch (\Throwable $e) {} }
         }
+
+        // The technician the schedule names. This told every admin and never the
+        // person who has to do the work: a preventive task landed in the
+        // technician's list with status "assigned" and no notification, no
+        // email - they found it only by opening My Tasks and noticing. A task
+        // assigned by hand from admin_assign_technicians.php sends both; this
+        // sends the same two, through the same helpers.
+        if ($assigned !== '') {
+            if (function_exists('addNotification')) {
+                try { addNotification($assigned, 'New preventive maintenance task assigned - Report #' . $ticket . ' (' . (string)$s['title'] . ')', 'task_assigned', $ticket); } catch (\Throwable $e) {}
+            }
+            if (function_exists('notifyTechnicianAssignment')) {
+                $mailRow = $payload;
+                $mailRow['issue_description'] = '[Preventive Maintenance] ' . (string)$s['title']; // the mail has its own instructions block
+                try { notifyTechnicianAssignment($conn, $assigned, $ticket, $mailRow, (string)$payload['priority'], $instr); } catch (\Throwable $e) { error_log('pm assign email failed: ' . $e->getMessage()); }
+            }
+        }
         if (function_exists('logActivity')) { try { logActivity('system', 'system', 'pm.generated', 'Generated PM task ' . $ticket . ' from schedule #' . $sid); } catch (\Throwable $e) {} }
         $made++;
     }

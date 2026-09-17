@@ -23,7 +23,7 @@
   var CSS = ''
     + '.psel{position:relative;display:inline-block;vertical-align:middle;}'
     + '.psel-native{position:absolute;inset:0;width:100%;height:100%;opacity:0;pointer-events:none;margin:0;}'
-    + '.psel-btn{display:inline-flex;align-items:center;gap:.5rem;width:100%;cursor:pointer;'
+    + '.psel-btn{display:inline-flex;align-items:center;gap:.5rem;width:100%;height:100%;box-sizing:border-box;cursor:pointer;'
     +   'padding:.44rem 2rem .44rem .7rem;background:var(--s2,#f6f4f0);border:1.5px solid var(--bdr,#e2d9cc);'
     +   'border-radius:var(--r1,9px);font-family:inherit;font-size:.8rem;font-weight:600;color:var(--t1,#1c1008);'
     +   'position:relative;transition:border-color .16s,box-shadow .16s,background .16s;text-align:left;white-space:nowrap;}'
@@ -67,8 +67,19 @@
     if (isTouch || narrow.matches) return; // keep native on mobile/touch
     sel.dataset.pselInit = '1';
 
+    /* Measure the native control BEFORE replacing it, and hold the wrapper at
+       that size. The replacement button shrink-wrapped to its own label, which
+       is narrower than a native select sized to its longest option - so the
+       swap changed the width of every filter, the bar re-wrapped from two
+       lines to one, and everything beneath it jumped 45px. That was the
+       "screen moves after it loads" on Defect Reports and every other page
+       with a filter bar. Same box in, same box out: the swap is invisible. */
+    var rect = sel.getBoundingClientRect();
+
     var wrap = document.createElement('span');
     wrap.className = 'psel';
+    if (rect.width)  { wrap.style.width  = Math.ceil(rect.width)  + 'px'; }
+    if (rect.height) { wrap.style.height = Math.ceil(rect.height) + 'px'; }
     sel.parentNode.insertBefore(wrap, sel);
     wrap.appendChild(sel);
     sel.classList.add('psel-native');

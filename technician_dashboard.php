@@ -97,6 +97,14 @@ function eqicon(string $name): string {
     if (preg_match('/(board|whiteboard)/', $n)) return 'fa-chalkboard';
     return 'fa-screwdriver-wrench';
 }
+/* A preventive task is a defect_reports row the schedule sweep wrote, not one
+   a reporter filed. The flag is the truth; the description prefix is the
+   fallback for rows older than the column. */
+function isPmRow(array $row): bool {
+    $flag = $row['is_preventive'] ?? null;
+    if ($flag === true || $flag === 't' || $flag === 1 || $flag === '1') return true;
+    return stripos((string)($row['issue_description'] ?? ''), '[Preventive Maintenance]') === 0;
+}
 function ptone(string $p): string {
     return [
         'critical' => 'crit',
@@ -180,6 +188,7 @@ $assigneeCol = technicianResolveAssigneeColumn($drCols);
 $issueExpr = isset($drCols['issue_description']) ? 'r.issue_description' : (isset($drCols['defect_description']) ? 'r.defect_description' : "''");
 $priorityExpr = isset($drCols['priority']) ? 'r.priority' : "'medium'";
 $statusExpr = isset($drCols['status']) ? 'r.status' : "'assigned'";
+$pmExpr = isset($drCols['is_preventive']) ? 'COALESCE(r.is_preventive, FALSE)' : 'FALSE';
 $reportDateExpr = isset($drCols['report_date']) ? 'r.report_date' : 'NOW()';
 $completionExpr = isset($drCols['completion_date']) ? 'r.completion_date' : 'NULL';
 $startedExpr = isset($drCols['started_at']) ? 'r.started_at' : (isset($drCols['date_started']) ? 'r.date_started' : 'NULL');
@@ -363,8 +372,8 @@ if ($search !== '') {
 }
 $activeStatuses = ['assigned','accepted','in_progress','waiting_for_materials','for_replacement','completed'];
 $historyStatuses = ['verified','closed'];
-$activeSql = "SELECT r.report_id,$equipmentIdExpr equipment_id,r.assigned_date assigned_date,$startedExpr started_at,$equipmentExpr equipment_name,$issueExpr issue_description,$priorityExpr priority,$statusExpr status,$locationExpr location,$reportDateExpr report_date,$completionExpr completion_date,$notesExpr technician_notes,$instExpr handler_instructions,$assetExpr asset_tag,$categoryExpr category_name,{$reporterSelect}r.photo_path photo_path,r.defect_photos defect_photos,r.defect_videos defect_videos FROM defect_reports r $join WHERE $assigneeWhere AND $statusExpr IN ('assigned','accepted','in_progress','waiting_for_materials','for_replacement','completed') $searchSql ORDER BY FIELD($statusExpr,'assigned','accepted','in_progress','waiting_for_materials','for_replacement','completed'), FIELD($priorityExpr,'critical','high','medium','low'), $reportDateExpr DESC";
-$historySql = "SELECT r.report_id,$equipmentIdExpr equipment_id,$equipmentExpr equipment_name,$issueExpr issue_description,$priorityExpr priority,$statusExpr status,$locationExpr location,$reportDateExpr report_date,$completionExpr completion_date,$notesExpr technician_notes,$instExpr handler_instructions,$assetExpr asset_tag,$categoryExpr category_name,{$reporterSelect}r.photo_path photo_path,r.defect_photos defect_photos,r.defect_videos defect_videos FROM defect_reports r $join WHERE $assigneeWhere AND $statusExpr IN ('verified','closed') $searchSql ORDER BY COALESCE($completionExpr,$reportDateExpr) DESC";
+$activeSql = "SELECT r.report_id,$equipmentIdExpr equipment_id,r.assigned_date assigned_date,$startedExpr started_at,$equipmentExpr equipment_name,$issueExpr issue_description,$priorityExpr priority,$statusExpr status,$pmExpr is_preventive,$locationExpr location,$reportDateExpr report_date,$completionExpr completion_date,$notesExpr technician_notes,$instExpr handler_instructions,$assetExpr asset_tag,$categoryExpr category_name,{$reporterSelect}r.photo_path photo_path,r.defect_photos defect_photos,r.defect_videos defect_videos FROM defect_reports r $join WHERE $assigneeWhere AND $statusExpr IN ('assigned','accepted','in_progress','waiting_for_materials','for_replacement','completed') $searchSql ORDER BY FIELD($statusExpr,'assigned','accepted','in_progress','waiting_for_materials','for_replacement','completed'), FIELD($priorityExpr,'critical','high','medium','low'), $reportDateExpr DESC";
+$historySql = "SELECT r.report_id,$equipmentIdExpr equipment_id,$equipmentExpr equipment_name,$issueExpr issue_description,$priorityExpr priority,$statusExpr status,$pmExpr is_preventive,$locationExpr location,$reportDateExpr report_date,$completionExpr completion_date,$notesExpr technician_notes,$instExpr handler_instructions,$assetExpr asset_tag,$categoryExpr category_name,{$reporterSelect}r.photo_path photo_path,r.defect_photos defect_photos,r.defect_videos defect_videos FROM defect_reports r $join WHERE $assigneeWhere AND $statusExpr IN ('verified','closed') $searchSql ORDER BY COALESCE($completionExpr,$reportDateExpr) DESC";
 $activeStmt = $conn->prepare($activeSql);
 $activeStmt->bind_param($assigneeTypes . $searchTypes, ...array_merge($assigneeVals, $searchVals));
 $activeStmt->execute();
@@ -725,6 +734,7 @@ body.modal-open .bell-fab{display:none;}
 .badge.lo{background:#F1F5F9;color:#64748B;border-color:#DDE5EC;}
 .badge.timer{background:#EFE7DD;color:#5B4636;border-color:#DBC7A6;}
 .badge.sla{background:var(--blue-soft);color:var(--blue);border-color:#C7D8FB;}
+.badge.pm{background:#E6F4EA;color:#1E6B3A;border-color:#BFE0C9;}
 .badge.sla.soon{background:var(--amber-soft);color:var(--amber);border-color:#F0D79A;}
 .badge.sla.overdue{background:var(--danger-soft);color:var(--danger);border-color:#F3B9B9;animation:slaPulse 2.4s ease-in-out infinite;}
 @keyframes slaPulse{0%,100%{box-shadow:0 0 0 0 rgba(180,35,24,0);}50%{box-shadow:0 0 0 4px rgba(180,35,24,.12);}}
@@ -1268,6 +1278,7 @@ body.modal-open{overflow:hidden;}
           $due = $tab !== 'history' ? slaDueTs($row) : null;
           $started = strtotime((string)($row['started_at'] ?? ''));
           $isSel = ((string)$row['report_id'] === (string)$selectedId);
+          $isPm = isPmRow($row);
         ?>
         <button class="qcard pri-<?php echo e(ptone($pr)); ?> <?php echo $isSel ? 'active' : ''; ?>" type="button" data-ws-target="ws-<?php echo e((string)$row['report_id']); ?>">
           <span class="q-ic"><i class="fas <?php echo e(eqicon((string)($row['equipment_name'] ?? ''))); ?>"></i></span>
@@ -1277,6 +1288,7 @@ body.modal-open{overflow:hidden;}
             <span class="q-badges">
               <span class="badge <?php echo e(stone($st)); ?>"><i class="fas <?php echo e(sicon($st)); ?>"></i><?php echo e(slabel($st)); ?></span>
               <span class="badge <?php echo e(ptone($pr)); ?>"><i class="fas <?php echo e(picon($pr)); ?>"></i><?php echo e(ucfirst($pr)); ?></span>
+              <?php if ($isPm): ?><span class="badge pm" title="Scheduled preventive maintenance, not a reported defect"><i class="fas fa-calendar-check"></i>Preventive</span><?php endif; ?>
               <?php if ($due !== null): ?><span class="badge sla sla-chip" data-due="<?php echo $due; ?>"><i class="fas fa-gauge-high"></i> —</span><?php endif; ?>
               <?php if ($started && in_array($st, ['in_progress','waiting_for_materials','for_replacement'], true)): ?><span class="badge timer rep-timer" data-started="<?php echo $started; ?>"><i class="fas fa-stopwatch"></i> —</span><?php endif; ?>
             </span>
@@ -1333,6 +1345,7 @@ body.modal-open{overflow:hidden;}
               <div class="q-badges" style="margin-bottom:12px">
                 <span class="badge <?php echo e(stone($st)); ?>"><i class="fas <?php echo e(sicon($st)); ?>"></i><?php echo e(slabel($st)); ?></span>
                 <span class="badge <?php echo e(ptone((string)($row['priority'] ?? 'medium'))); ?>"><i class="fas <?php echo e(picon((string)($row['priority'] ?? 'medium'))); ?>"></i><?php echo e(ucfirst((string)($row['priority'] ?? 'medium'))); ?> priority</span>
+                <?php if (isPmRow($row)): ?><span class="badge pm" title="Scheduled preventive maintenance, not a reported defect"><i class="fas fa-calendar-check"></i>Preventive maintenance</span><?php endif; ?>
               </div>
               <div class="facts">
                 <div><small>Asset Tag</small><strong><?php echo e((string)($row['asset_tag'] ?? 'Not specified')); ?></strong></div>

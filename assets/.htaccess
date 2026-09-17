@@ -1,0 +1,24 @@
+# Static assets: cache hard.
+#
+# Nothing under assets/ carried a Cache-Control header, so browsers fell back
+# to a guess based on Last-Modified - about 10% of the file's age. The font
+# files were last touched in early August; by late August every admin page
+# load was re-requesting them before it would draw with them. With
+# font-display:swap that means text paints in Arial, the fonts arrive a few
+# hundred milliseconds later, and every string on the page changes width:
+# filter bars re-wrap, tables jump (45px on Defect Reports), cards move. That
+# is the "screen moves after it loads" the office reported.
+#
+# Font filenames are content-hashed (dm-sans-400-normal-40fe3c.woff2), so a
+# changed font is a new URL and a year-long immutable cache is exactly right.
+<IfModule mod_headers.c>
+    <FilesMatch "(?i)\.(woff2?|ttf|otf)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+    # Images and icons are not hashed; a week keeps the seal and logo from
+    # being re-fetched on every visit while still picking up a replacement
+    # within days.
+    <FilesMatch "(?i)\.(png|jpe?g|gif|webp|svg|ico)$">
+        Header set Cache-Control "public, max-age=604800"
+    </FilesMatch>
+</IfModule>
