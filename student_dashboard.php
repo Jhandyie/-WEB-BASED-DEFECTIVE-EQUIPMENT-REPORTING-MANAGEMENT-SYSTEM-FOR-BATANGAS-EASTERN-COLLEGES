@@ -24,6 +24,21 @@ if (empty($_SESSION['guest_email']) || empty($_SESSION['guest_name']) || !becGue
 $student_name  = $_SESSION['guest_name'];
 $student_email = $_SESSION['guest_email'];
 
+// The form asks this the moment a unit is chosen on the Equipment step. The
+// same lookup used to run only on submit, so a reporter filled all five steps
+// and attached their photos before being told the fault was already filed.
+if (isset($_GET['check_open'])) {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    $open = function_exists('findOpenReportForEquipment')
+        ? findOpenReportForEquipment((string)$_GET['check_open']) : null;
+    echo json_encode(['open' => $open ? [
+        'report_id' => (string)($open['report_id'] ?? ''),
+        'status'    => ucwords(str_replace('_', ' ', (string)($open['status'] ?? ''))),
+    ] : null]);
+    exit();
+}
+
 /*
  * Official BEC academic structure (department => specific course/program offerings).
  * Source: bec.edu.ph (College, Senior High School Tracks, Technical-Vocational Center).
@@ -896,8 +911,18 @@ body::after {
   font-size:.65rem;color:var(--maroon);font-weight:700;
   flex-shrink:0;
 }
+.chip-link {
+  margin-left:auto;flex-shrink:0;display:inline-flex;align-items:center;gap:.4rem;
+  min-height:40px;padding:0 .75rem;border-radius:40px;
+  color:var(--maroon);font-size:.76rem;font-weight:700;text-decoration:none;
+  background:var(--maroon-soft);border:1px solid rgba(123,29,29,.14);
+  transition:background .15s,color .15s;white-space:nowrap;
+}
+.chip-link:hover { background:var(--maroon);color:#fff; }
+.chip-link i { font-size:.8rem; }
+@media (max-width:480px) { .chip-link span { display:none; } .chip-link { min-width:40px;padding:0;justify-content:center;border-radius:50%; } }
 .logout-link {
-  margin-left:auto;flex-shrink:0;color:var(--ink3);font-size:.9rem;
+  flex-shrink:0;color:var(--ink3);font-size:.9rem;
   text-decoration:none;transition:color .15s,background .15s;
   display:inline-flex;align-items:center;justify-content:center;
   min-width:40px;min-height:40px;border-radius:50%;
@@ -934,33 +959,6 @@ body::after {
 .ticket-copy {
   overflow-wrap:anywhere;
 }
-
-/* ── PROGRESS STEPS ── */
-.steps {
-  display:flex;align-items:center;gap:0;
-  background:var(--surface);border:1px solid var(--border);
-  border-radius:14px;padding:.6rem 1rem;
-  margin-bottom:1.75rem;
-  box-shadow:var(--shadow-sm);
-  animation:riseIn .55s cubic-bezier(.22,1,.36,1) .1s both;
-  overflow-x:auto;
-}
-.step {
-  display:flex;align-items:center;gap:.45rem;
-  flex:1;min-width:80px;
-  font-size:.7rem;color:var(--ink3);font-weight:500;
-  white-space:nowrap;
-}
-.step.active { color:var(--maroon);font-weight:600; }
-.step.done   { color:var(--green); }
-.step-dot {
-  width:22px;height:22px;flex-shrink:0;border-radius:50%;
-  background:var(--border);display:flex;align-items:center;justify-content:center;
-  font-size:.6rem;color:var(--ink3);font-weight:700;
-}
-.step.active .step-dot { background:var(--maroon);color:#fff; }
-.step.done   .step-dot { background:var(--green-bg);color:var(--green);border:1.5px solid var(--green-border); }
-.step-connector { width:24px;height:1px;background:var(--border);flex-shrink:0;margin:0 .25rem; }
 
 /* ── SECTION CARD ── */
 .section-card {
@@ -1255,6 +1253,15 @@ body::after {
 .wz .section-card { display:none; }
 .wz .section-card.wz-on { display:block; }
 .wz-nav { display:flex;align-items:center;gap:.8rem;margin-top:1.4rem;flex-wrap:wrap; }
+/* Open-report notice, filled in on the Equipment step */
+.dup-early { display:flex;gap:.6rem;align-items:flex-start;margin:0 0 1rem;padding:.85rem 1rem;border-radius:12px;background:#FFF7E6;border:1px solid #F0D79A;border-left:4px solid #C9960C;color:#5C3838;font-size:.86rem;line-height:1.6; }
+.dup-early > i { color:#9A6A00;margin-top:.2rem;flex-shrink:0; }
+.dup-early strong { color:#1C1008; }
+.dup-early .dup-early-id { color:var(--maroon); }
+.dup-early a { color:var(--maroon);font-weight:700;text-decoration:underline; }
+.dup-early-ok { display:flex;gap:.55rem;align-items:flex-start;margin-top:.55rem;cursor:pointer; }
+.dup-early-ok input { width:17px;height:17px;flex-shrink:0;margin-top:.2rem;accent-color:var(--maroon); }
+.qr-change { display:inline-block;margin-top:.45rem;padding:0;border:0;background:none;color:var(--maroon);font:inherit;font-size:.82rem;font-weight:700;text-decoration:underline;cursor:pointer; }
 .wz-nav .wz-count { font-size:.78rem;color:var(--ink3);margin-right:auto; }
 .wz-next {
   flex:1;min-width:200px;padding:.9rem 1.5rem;
@@ -1427,12 +1434,6 @@ body::after {
   .form-grid.cols-2,.form-grid.cols-3 { grid-template-columns:1fr; }
   .reporter-grid { grid-template-columns:1fr; }
   .page-title { font-size:1.55rem; }
-  /* Hide the 3-stage journey strip on phones. Its labels are dropped at this
-     width, which left three unlabelled circles sitting directly above the
-     labelled 5-section form stepper — two numbered rows that read as a
-     duplicate. The section stepper below carries the same progress meaning. */
-  .steps { display:none; }
-  .step-connector { width:16px; }
   /* Thumb-zone sticky submit bar — always reachable on the long form */
   .submit-row {
     position:fixed;left:0;right:0;bottom:0;z-index:80;margin:0;
@@ -1513,14 +1514,6 @@ body::after {
     font-size: 16px;
   }
 
-  .steps {
-    padding: .45rem .55rem;
-  }
-
-  .step {
-    min-width: 0;
-  }
-
   .section-head {
     align-items: flex-start;
   }
@@ -1586,8 +1579,6 @@ html { scroll-behavior: smooth; }
   border-bottom: 1px solid rgba(226,217,204,.6);
   padding-top: .7rem; padding-bottom: .7rem;
 }
-/* Sticky progress stepper (top offset set by JS to sit under the topbar) */
-.steps { position: sticky; z-index: 55; }
 /* Scroll-spy: the section currently in view gets a gold accent */
 .section-card.is-active { border-color: rgba(201,150,12,.55); box-shadow: 0 0 0 1px rgba(201,150,12,.35), 0 12px 32px rgba(123,29,29,.10); }
 .section-card.is-active .section-icon { background: var(--maroon); color: #fff; }
@@ -1656,6 +1647,10 @@ html { scroll-behavior: smooth; }
     <div class="user-chip">
       <div class="user-avatar"><?php echo strtoupper(substr($student_name,0,1)); ?></div>
       <span class="user-name"><?php echo htmlspecialchars($student_name); ?></span>
+      <?php /* Track a Report lists a signed-in reporter's own tickets. Nothing on
+               this page led there: the only way to see a report filed last week
+               was back out through the landing page. */ ?>
+      <a href="track_report.php" class="chip-link" title="My reports"><i class="fas fa-list-check"></i><span>My reports</span></a>
       <a href="student_dashboard.php?logout=1" class="logout-link" title="Sign out"><i class="fas fa-sign-out-alt"></i></a>
     </div>
   </div>
@@ -1667,23 +1662,6 @@ html { scroll-behavior: smooth; }
     <p class="page-sub">Fill in all required fields accurately. A ticket number will be emailed to you upon submission.</p>
   </div>
 
-  <!-- PROGRESS STEPS -->
-  <div class="steps">
-    <div class="step done">
-      <div class="step-dot"><i class="fas fa-check" style="font-size:.55rem"></i></div>
-      <span>Your Info</span>
-    </div>
-    <div class="step-connector"></div>
-    <div class="step active">
-      <div class="step-dot">2</div>
-      <span>Report Details</span>
-    </div>
-    <div class="step-connector"></div>
-    <div class="step">
-      <div class="step-dot">3</div>
-      <span>Confirmation</span>
-    </div>
-  </div>
 
   <?php if ($error): ?>
   <div class="alert alert-err">
@@ -1705,9 +1683,47 @@ html { scroll-behavior: smooth; }
   </div>
   <?php endif; ?>
 
+  <?php if ($prefillEq): ?>
+  <?php /* Above the stepper, not inside the Equipment card: the wizard opens a
+           QR scan on the Problem step, and a banner inside step 2 would never
+           be seen by the person it is addressed to. */ ?>
+  <div class="qr-banner" style="display:flex;align-items:flex-start;gap:.7rem;margin-bottom:1rem;padding:.85rem 1rem;border-radius:12px;background:#FFFBEF;border:1px solid rgba(201,150,12,.35);border-left:4px solid #C9960C;">
+    <i class="fas fa-qrcode" style="color:#C9960C;font-size:1.1rem;margin-top:.15rem;"></i>
+    <div style="font-size:.86rem;line-height:1.55;color:#5C3838;">
+      <strong style="color:#1C1008;">Scanned from an equipment QR code</strong><br>
+      Reporting: <strong style="color:#7B1D1D;"><?php echo htmlspecialchars($prefillEq['name'] ?: $prefillEq['id']); ?></strong>
+      <?php if ($prefillEq['asset_tag'] !== ''): ?> · Tag <?php echo htmlspecialchars($prefillEq['asset_tag']); ?><?php endif; ?>
+      <?php if ($prefillEq['location'] !== ''): ?> · <?php echo htmlspecialchars($prefillEq['location']); ?><?php endif; ?>
+      — just describe the issue and submit.
+      <button type="button" class="qr-change" onclick="if(window.wzGoTo)wzGoTo(1)">Not this unit? Change equipment</button>
+    </div>
+  </div>
+  <?php endif; ?>
+  <?php /* Filled by the Equipment step the moment a unit is chosen (see
+           check_open at the top of this file). Lives up here with the QR
+           banner so a scanned unit that is already reported says so at once. */ ?>
+  <div class="dup-early" id="dupEarly" hidden>
+    <i class="fas fa-clone" aria-hidden="true"></i>
+    <div>
+      <strong>This equipment already has an open report:</strong>
+      <strong class="dup-early-id" id="dupEarlyId"></strong> <span id="dupEarlyStatus"></span>
+      — <a id="dupEarlyLink" href="track_report.php" target="_blank" rel="noopener">track it</a> instead of filing again.
+      <label class="dup-early-ok"><input type="checkbox" id="dupEarlyOk" form="report-form" name="duplicate_override" value="1"> <span>Mine is a <em>different problem</em> on the same unit — file a new report anyway.</span></label>
+    </div>
+  </div>
   <nav class="fsteps" id="fsteps" aria-label="Report form progress"></nav>
 
-  <form method="POST" enctype="multipart/form-data" id="report-form" novalidate>
+  <?php
+    /* Where the wizard opens. A scanned unit with a remembered profile has
+       steps 1-3 already filled, so it opens on Problem Details; a remembered
+       profile alone opens on Equipment, since step 1 would show only the
+       reporter's own name and email and a Change button. data-qr lets a
+       first-time reporter who scanned a sticker jump from step 1 straight to
+       Problem once their department is in. */
+    $wzStart = $prefillEq ? ($profileComplete ? 3 : 0) : ($profileComplete ? 1 : 0);
+  ?>
+  <form method="POST" enctype="multipart/form-data" id="report-form" novalidate
+        data-start="<?php echo (int)$wzStart; ?>" data-qr="<?php echo $prefillEq ? '1' : '0'; ?>">
     <?php echo csrf_field(); ?>
 
     <!-- ── SECTION 1: REPORTER INFO ── -->
@@ -1830,18 +1846,6 @@ html { scroll-behavior: smooth; }
 
     <!-- ── SECTION 2: EQUIPMENT INFO ── -->
     <div class="section-card" id="equipSection">
-      <?php if ($prefillEq): ?>
-      <div class="qr-banner" style="display:flex;align-items:flex-start;gap:.7rem;margin-bottom:1rem;padding:.85rem 1rem;border-radius:12px;background:#FFFBEF;border:1px solid rgba(201,150,12,.35);border-left:4px solid #C9960C;">
-        <i class="fas fa-qrcode" style="color:#C9960C;font-size:1.1rem;margin-top:.15rem;"></i>
-        <div style="font-size:.86rem;line-height:1.55;color:#5C3838;">
-          <strong style="color:#1C1008;">Scanned from an equipment QR code</strong><br>
-          Reporting: <strong style="color:#7B1D1D;"><?php echo htmlspecialchars($prefillEq['name'] ?: $prefillEq['id']); ?></strong>
-          <?php if ($prefillEq['asset_tag'] !== ''): ?> · Tag <?php echo htmlspecialchars($prefillEq['asset_tag']); ?><?php endif; ?>
-          <?php if ($prefillEq['location'] !== ''): ?> · <?php echo htmlspecialchars($prefillEq['location']); ?><?php endif; ?>
-          — just describe the issue below and submit.
-        </div>
-      </div>
-      <?php endif; ?>
       <div class="section-head">
         <div class="section-icon"><i class="fas fa-desktop"></i></div>
         <div>
@@ -2318,11 +2322,38 @@ function renderDropdown(query) {
    then blurred, which shuts the on-screen keyboard and — the point of it —
    stops the focus handler below re-opening the list the instant it closes.
    Keyboard selection keeps focus, so arrow-key users are not thrown out. */
+/* The moment a catalogued unit is chosen, ask whether it already has an open
+   report and say so above the stepper - before the description is typed and
+   the photos attached, which is when the server used to say it. The server
+   still checks on submit; this only moves the news earlier. */
+const dupEarly = document.getElementById('dupEarly');
+let dupEarlySeq = 0;
+function checkOpenReport(id) {
+  if (!dupEarly) return;
+  const seq = ++dupEarlySeq;
+  id = (id || '').trim();
+  if (!id) { dupEarly.hidden = true; return; }
+  fetch('student_dashboard.php?check_open=' + encodeURIComponent(id), { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+    .then(r => r.ok ? r.json() : null)
+    .then(j => {
+      if (seq !== dupEarlySeq) return;              // a later pick already answered
+      const open = j && j.open;
+      if (!open || !open.report_id) { dupEarly.hidden = true; return; }
+      document.getElementById('dupEarlyId').textContent = open.report_id;
+      document.getElementById('dupEarlyStatus').textContent = open.status ? '(' + open.status + ')' : '';
+      document.getElementById('dupEarlyLink').href = 'track_report.php?q=' + encodeURIComponent(open.report_id);
+      document.getElementById('dupEarlyOk').checked = false;
+      dupEarly.hidden = false;
+    })
+    .catch(() => {});
+}
+
 function selectEquip(data, byTap) {
   const category = data.cat || data.category || '';
   const assetTag = data.assetTag || data.asset_tag || '';
   searchEl.value   = data.name || '';
   equipIdEl.value  = data.id || '';
+  checkOpenReport(equipIdEl.value);
   hiddenEl.value   = data.name || '';
   catHidden.value  = category;
   assetTagEl.value = assetTag;
@@ -2341,9 +2372,11 @@ function selectEquip(data, byTap) {
 catDisplay.addEventListener('change', () => {
   catHidden.value = catDisplay.value;
 });
+if (equipIdEl.value && !document.getElementById('dupAlert')) checkOpenReport(equipIdEl.value);   // arrived with the unit pre-filled (a QR scan); the server's own notice covers a form sent back
 
 searchEl.addEventListener('input', () => {
   equipIdEl.value = '';
+  checkOpenReport('');                              // typed by hand: no catalogued unit to look up
   hiddenEl.value = searchEl.value.trim();
   if (!searchEl.value.trim()) {
     assetTagEl.value = '';
@@ -2709,7 +2742,9 @@ if (mediaZone && mediaInput) {
   // a tickbox at the end that has to be agreed to. Starting at step 1 would
   // make the reporter walk all five steps again to reach it, so open on the
   // step that holds the notice and the submit button.
-  let current = dupBox ? Math.max(0, sections.length - 1) : 0;
+  const startAt = Math.min(Math.max(0, parseInt(form.dataset.start || '0', 10) || 0), sections.length - 1);
+  const viaQr   = form.dataset.qr === '1';
+  let current = dupBox ? Math.max(0, sections.length - 1) : startAt;
   // Everything up to here has already been filled in and accepted once, so the
   // earlier steps are reachable from the chips rather than locked behind Next.
   let furthest = current;
@@ -2770,7 +2805,10 @@ if (mediaZone && mediaInput) {
     });
   }
 
-  nextBtn.addEventListener('click', () => goTo(current + 1));
+  // A scanned unit arrives with Equipment and Location filled. Leaving step 1
+  // goes straight to Problem; goTo() still validates the two it passes over.
+  nextBtn.addEventListener('click', () => goTo(viaQr && current === 0 ? Math.min(3, sections.length - 1) : current + 1));
+  window.wzGoTo = (i) => goTo(i, false);
   backBtn.addEventListener('click', () => goTo(current - 1));
 
   /* Submit validates the whole form, so a missing field may sit on a step that
@@ -2908,18 +2946,8 @@ window.addEventListener('pageshow', (ev) => {
 });
 </script>
 <script>
-// ── Sticky stepper offset + section scroll-spy ───────────────────────────
+// ── Section scroll-spy ─────────────────────────────────────────────────────
 (function () {
-  const topbar = document.querySelector('.topbar');
-  const steps  = document.querySelector('.steps');
-  // Keep the sticky stepper pinned directly under the sticky topbar.
-  function syncOffsets() {
-    if (topbar && steps) { steps.style.top = topbar.offsetHeight + 'px'; }
-  }
-  syncOffsets();
-  window.addEventListener('resize', syncOffsets);
-  window.addEventListener('load', syncOffsets);
-
   // Highlight the section card you're currently viewing.
   const cards = document.querySelectorAll('.section-card');
   if ('IntersectionObserver' in window && cards.length) {
@@ -2937,13 +2965,13 @@ window.addEventListener('pageshow', (ev) => {
 </script>
 <?php if ($prefillEq): ?>
 <script>
-/* Arrived via equipment QR scan: bring the pre-filled report form into view
-   and drop the cursor straight into the issue description. */
+/* Arrived via equipment QR scan: the wizard opens on Problem Details when the
+   profile is remembered, so drop the cursor straight into the description.
+   (A first-time reporter opens on step 1 and fills their department first.) */
 window.addEventListener('load', function () {
-  var sec = document.getElementById('equipSection');
-  if (sec) setTimeout(function () { sec.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 350);
   var desc = document.querySelector('textarea[name="defect_description"]');
-  if (desc) setTimeout(function () { desc.focus({ preventScroll: true }); }, 900);
+  var card = desc && desc.closest('.section-card');
+  if (desc && card && card.classList.contains('wz-on')) setTimeout(function () { desc.focus({ preventScroll: true }); }, 500);
 });
 </script>
 <?php endif; ?>
