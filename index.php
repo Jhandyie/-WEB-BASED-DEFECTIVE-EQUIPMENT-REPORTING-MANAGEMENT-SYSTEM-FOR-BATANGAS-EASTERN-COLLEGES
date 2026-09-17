@@ -23,7 +23,7 @@ function lp_status_meta(string $status): array {
     return ['Open', '#7B1D1D', 'rgba(123,29,29,.08)'];
 }
 
-/* Turn a timestamp into the "3h ago" phrasing the status widget shows. */
+/* Turn a timestamp into the "3h ago" phrasing the footer status line shows. */
 function lp_ago(?string $ts): string {
     if (!$ts) return '';
     $t = strtotime($ts);
@@ -35,12 +35,12 @@ function lp_ago(?string $ts): string {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   Everything this page reads from the database, in one place. Both the
-   reports preview and the status widget render far down the page, but the
-   queries belong up here — the rest of the file is then pure markup.
+   Everything this page reads from the database, in one place. The reports
+   preview renders far down the page and the status line sits in the footer,
+   but the queries belong up here — the rest of the file is then pure markup.
    ────────────────────────────────────────────────────────────────────────── */
 $previewReports = [];   // latest 4 public reports
-$sysOk          = false; // drives the "All systems operational" widget
+$sysOk          = false; // drives the "All systems operational" footer line
 $lastAgo        = '';    // "12m ago" for the most recent report of any kind
 
 try {
@@ -69,7 +69,7 @@ try {
         while ($row = $prRes->fetch_assoc()) { $previewReports[] = $row; }
     }
 
-    // Deliberately not restricted to public reports — the widget reports on the
+    // Deliberately not restricted to public reports — the status line reports on the
     // platform being alive, not on what a visitor is allowed to see.
     if ($sres = @$conn->query("SELECT MAX(report_date) AS m FROM defect_reports")) {
         $srow    = $sres->fetch_assoc();
@@ -77,7 +77,7 @@ try {
     }
 } catch (Throwable $e) {
     // Landing page must always render; a DB hiccup just hides the preview and
-    // flips the status widget to "degraded".
+    // flips the status line to "degraded".
     error_log('index.php public preview failed: ' . $e->getMessage());
     $previewReports = [];
     $sysOk          = false;
@@ -181,7 +181,7 @@ a { text-decoration: none; color: inherit; }
    could not see where they were. :focus-visible keeps it off mouse clicks, and
    the outline follows each element's own border-radius. */
 :focus-visible { outline: 3px solid var(--maroon); outline-offset: 3px; }
-.hero :focus-visible, .about :focus-visible, .bsfoot :focus-visible { outline-color: #F0C040; }
+.hero :focus-visible, .bsfoot :focus-visible { outline-color: #F0C040; }
 
 /* (the skip link is part of the shared nav — see includes/site_nav.php) */
 
@@ -256,7 +256,7 @@ a { text-decoration: none; color: inherit; }
 .hpill i { color: var(--gold); font-size:var(--fs-sm); }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   4. BUTTONS — shared by the hero and the Becca section
+   4. BUTTONS — the hero actions and the portal cards
    ══════════════════════════════════════════════════════════════════════════ */
 /* `border: 0` matters: "Ask Becca" is a real <button>, so without it that one
    CTA drew the browser's default 2px border while the identical-looking <a>
@@ -289,11 +289,10 @@ a { text-decoration: none; color: inherit; }
 .scroll-prog { position: fixed; top: 0; left: 0; height: 3px; width: 100%; transform: scaleX(0); transform-origin: left; z-index: 400;
   background: linear-gradient(90deg, var(--maroon), var(--gold)); box-shadow: 0 0 8px rgba(201,150,12,.5); pointer-events: none; }
 /* cursor spotlight on cards */
-.portal-card::after, .mod-card::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 0;
+.portal-card::after { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 0;
   opacity: 0; transition: opacity .25s ease; background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 50%), rgba(201,150,12,.15), transparent 62%); }
-.portal-card:hover::after, .mod-card:hover::after { opacity: 1; }
-.mod-card { position: relative; }
-.portal-card > *, .mod-card > * { position: relative; z-index: 1; }
+.portal-card:hover::after { opacity: 1; }
+.portal-card > * { position: relative; z-index: 1; }
 @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1 !important; transform: none !important; transition: none; } }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -313,8 +312,6 @@ a { text-decoration: none; color: inherit; }
    7. SECTION SCAFFOLD — the heading pattern every band below reuses
    ══════════════════════════════════════════════════════════════════════════ */
 .section { padding:3.6rem 0; }
-/* status widget: sits directly under the Becca band, so it drops its top pad */
-.section--tight { padding-top:0; }
 .sec-head { text-align: center; max-width: 60ch; margin:0 auto 2.4rem; }
 .sec-eyebrow { display: inline-flex; align-items: center; gap:var(--sp-2); font-size:var(--fs-xs); font-weight: 700;
   text-transform: uppercase; letter-spacing: 1.6px; color: var(--maroon); margin-bottom:var(--sp-3); }
@@ -359,55 +356,6 @@ a { text-decoration: none; color: inherit; }
 @media (max-width: 760px) { .cta-portal { grid-template-columns: 1fr; } }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   9. CAPABILITIES — the module card grid
-   ══════════════════════════════════════════════════════════════════════════ */
-/* Three columns, not four: the grid holds five cards and the featured one
-   spans two, so 3 gives exactly two full rows with no orphan gap. */
-.mod-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap:var(--sp-4); }
-.mod-card { position: relative; overflow: hidden; display: flex; gap:var(--sp-4); align-items: flex-start; background: var(--surface); border: 1px solid var(--border);
-  border-radius: 16px; padding:var(--sp-5) var(--sp-5); box-shadow: 0 2px 8px rgba(44,10,10,.05);
-  transition: transform .26s cubic-bezier(.22,1,.36,1), box-shadow .26s, border-color .26s; }
-.mod-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 3px;
-  background: linear-gradient(90deg, var(--maroon-d), var(--maroon) 60%, var(--gold)); transform: scaleX(0); transform-origin: left; transition: transform .3s ease; }
-.mod-card::after { content: ''; position: absolute; top: -30px; right: -30px; width: 96px; height: 96px; border-radius: 50%; background: var(--maroon); opacity: 0; transition: opacity .3s, transform .3s; }
-.mod-card:hover { transform:none; border-color: rgba(123,29,29,.2); box-shadow: 0 14px 30px rgba(74,14,14,.13); }
-.mod-card:hover::before { transform: scaleX(1); }
-.mod-card:hover::after { opacity: .05; transform:none; }
-.mod-card.feat { grid-column: span 2; background: linear-gradient(135deg, var(--surface) 55%, var(--maroon-soft)); border-color: rgba(123,29,29,.16); }
-.mod-card.feat .mod-ic { background: linear-gradient(135deg, var(--maroon-d), var(--maroon)); color: #fff; border-color: transparent; box-shadow: 0 4px 12px rgba(123,29,29,.28); }
-.mod-ic { position: relative; z-index: 1; width: 46px; height: 46px; border-radius: 13px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-  font-size:var(--fs-2xl); color: var(--maroon); background: var(--maroon-soft); border: 1px solid rgba(123,29,29,.14);
-  transition: transform .26s, background .26s, color .26s, border-color .26s; }
-.mod-card:hover .mod-ic { transform:none; background: linear-gradient(135deg, var(--maroon-d), var(--maroon)); color: #fff; border-color: transparent; }
-.mod-tx { position: relative; z-index: 1; }
-.mod-tx b { display: block; font-size:var(--fs-xl); font-weight: 700; color: var(--ink); margin-bottom:var(--sp-1); letter-spacing: -.01em; }
-.mod-tx span { display: block; font-size:var(--fs-md); line-height: 1.55; color: var(--ink2); }
-@media (max-width: 900px) { .mod-grid { grid-template-columns: repeat(2, 1fr); } .mod-card.feat { grid-column: span 2; } }
-@media (max-width: 640px) { .mod-grid { grid-template-columns: 1fr; } .mod-card.feat { grid-column: auto; } }
-
-/* ══════════════════════════════════════════════════════════════════════════
-   10. ABOUT THE PMO — dark band
-   ══════════════════════════════════════════════════════════════════════════ */
-.about { position: relative; overflow: hidden; color: #fff; border-radius: 26px; margin:var(--sp-4) 0;
-  padding:3.2rem 2.8rem;
-  background: radial-gradient(120% 90% at 0% 0%, rgba(201,150,12,.2) 0%, transparent 45%),
-              linear-gradient(155deg, var(--maroon-dd) 0%, var(--maroon-d) 55%, var(--maroon) 120%); }
-.about::after { content: ''; position: absolute; inset: 0; pointer-events: none;
-  background-image: radial-gradient(circle, rgba(255,255,255,.06) 1px, transparent 1px); background-size: 22px 22px;
-  -webkit-mask-image: radial-gradient(ellipse 80% 70% at 80% 15%, #000 0%, transparent 75%);
-  mask-image: radial-gradient(ellipse 80% 70% at 80% 15%, #000 0%, transparent 75%); }
-/* One column since the duplicated points column was removed. The paragraph is
-   held to a readable measure rather than being stretched the full band width. */
-.about-grid { position: relative; z-index: 1; display: grid; grid-template-columns: minmax(0,1fr); gap:2.4rem; align-items: center; }
-.about-grid > div { max-width: 68ch; }
-/* The brand gold reads at 2.42:1 on a cream panel — fine as a dark-background
-   accent (it clears 6:1 in the footer), too pale for text on light. This is the
-   same gold taken down to a shade that passes AA. */
-.about-eyebrow { font-size:var(--fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 1.6px; color: #8A6400; margin-bottom:var(--sp-3); }
-.about h2 { font-family: 'Fraunces', serif; font-weight: 700; font-size: 1.9rem; line-height: 1.2; letter-spacing: -.02em; margin-bottom:var(--sp-4); }
-.about p { font-size:var(--fs-xl); line-height: 1.75; color: rgba(255,255,255,.78); }
-
-/* ══════════════════════════════════════════════════════════════════════════
    11. PUBLIC REPORTS PREVIEW
    ══════════════════════════════════════════════════════════════════════════ */
 .rep-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap:var(--sp-4); }
@@ -430,106 +378,6 @@ a { text-decoration: none; color: inherit; }
 .rep-all a:hover i { transform:none; }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   12. SHOWCASE — split copy + the 3D dashboard mockup
-   ══════════════════════════════════════════════════════════════════════════ */
-.showcase-in { display: grid; grid-template-columns: 1fr 1fr; gap:3rem; align-items: center; }
-.showcase-copy .sec-title { max-width: 18ch; }
-
-/* The showcase and Becca bands both use the same gold-ticked feature list; it
-   is defined once here. They had drifted to different gaps (.7 vs .6rem). */
-.showcase-feats, .becca-feats { display: flex; flex-direction: column; gap:var(--sp-3); }
-.showcase-feats { margin-top:var(--sp-5); }
-.becca-feats { margin:var(--sp-5) 0 1.6rem; }
-.showcase-feats span, .becca-feats span { display: inline-flex; align-items: center; gap:var(--sp-2); font-size:var(--fs-lg); font-weight: 600; color: var(--ink2); }
-.showcase-feats i, .becca-feats i { color: var(--gold); width: 18px; text-align: center; }
-
-.showcase-visual { position: relative; perspective: 1400px; min-height: 340px; display: flex; align-items: center; justify-content: center; transition: transform .3s cubic-bezier(.22,1,.36,1); }
-.dash3d { width: 100%; max-width: 420px; border-radius: 18px; overflow: hidden; background: rgba(255,255,255,.72);
-  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,.7);
-  box-shadow: 0 30px 60px rgba(74,14,14,.22), 0 10px 24px rgba(74,14,14,.14);
-  transform: rotateY(-15deg) rotateX(7deg); transform-style: preserve-3d; animation: dashFloat 7s ease-in-out infinite; }
-.dash-bar { display: flex; align-items: center; gap:var(--sp-2); padding:var(--sp-3) var(--sp-4); background: linear-gradient(135deg, var(--maroon-d), var(--maroon)); }
-.dash-bar span { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,.5); }
-.dash-bar b { margin-left:var(--sp-2); color: #fff; font-size:var(--fs-sm); font-weight: 600; letter-spacing: .02em; }
-.dash-body { padding:var(--sp-4); }
-.dash-tiles { display: grid; grid-template-columns: repeat(3,1fr); gap:var(--sp-2); margin-bottom:var(--sp-4); }
-.dtile { background: var(--maroon-soft); border: 1px solid rgba(123,29,29,.1); border-radius: 10px; padding:var(--sp-3) var(--sp-2); text-align: center; }
-.dtile i { color: var(--maroon); font-size:var(--fs-xl); }
-.dtile small { display: block; margin-top:var(--sp-1); font-size:var(--fs-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--ink3); }
-.dash-chart { display: flex; align-items: flex-end; gap:var(--sp-2); height: 68px; padding:0 var(--sp-1) var(--sp-2); margin-bottom:var(--sp-3); border-bottom: 1px solid var(--border); }
-.dash-chart i { flex: 1; height: var(--h); border-radius: 5px 5px 0 0; background: linear-gradient(180deg, var(--gold), rgba(201,150,12,.35)); animation: barGrow 1s ease-out both; transform-origin: bottom; }
-.dash-rows { display: flex; flex-direction: column; gap:var(--sp-2); }
-.drow { display: flex; align-items: center; gap:var(--sp-2); }
-.ddot { width: 8px; height: 8px; border-radius: 50%; background: var(--maroon); flex-shrink: 0; }
-.dline { height: 8px; border-radius: 5px; background: linear-gradient(90deg, var(--border), rgba(232,221,208,.35)); flex: 1; }
-.dline.w70 { max-width: 70%; } .dline.w85 { max-width: 85%; } .dline.w60 { max-width: 60%; }
-.chip { font-size:var(--fs-xs); font-weight: 700; padding:var(--sp-0) var(--sp-2); border-radius: 20px; text-transform: uppercase; letter-spacing: .4px; white-space: nowrap; }
-.chip.open { background: #FDECEC; color: #B4232A; } .chip.prog { background: #FFF4DA; color: #9A6B00; } .chip.done { background: #E7F6EC; color: #1E7A44; }
-.dash-notif { position: absolute; display: inline-flex; align-items: center; gap:var(--sp-2); padding:var(--sp-2) var(--sp-3); border-radius: 12px;
-  background: #fff; border: 1px solid var(--border); box-shadow: 0 12px 28px rgba(74,14,14,.16); font-size:var(--fs-base); font-weight: 600; color: var(--ink); z-index: 2; }
-.dash-notif i { font-size:var(--fs-sm); color: var(--maroon); }
-.dash-notif.n1 { top: 4%; right: 0; animation: notifFloat 5s ease-in-out infinite; }
-.dash-notif.n2 { bottom: 6%; left: 0; animation: notifFloat 6s ease-in-out .8s infinite; }
-.dash-notif.n2 i { color: #1E7A44; }
-@keyframes dashFloat { 0%,100% { transform: rotateY(-15deg) rotateX(7deg) translateY(0); } 50% { transform: rotateY(-15deg) rotateX(7deg) translateY(-12px); } }
-@keyframes notifFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
-@keyframes barGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
-
-/* ══════════════════════════════════════════════════════════════════════════
-   13. LIVE SYSTEM STATUS
-   ══════════════════════════════════════════════════════════════════════════ */
-.status-widget { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap:var(--sp-4) var(--sp-5);
-  background: rgba(255,255,255,.7); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
-  border: 1px solid var(--border); border-radius: 16px; padding:var(--sp-4) var(--sp-5); box-shadow: 0 4px 16px rgba(44,10,10,.06); }
-.sw-main { display: flex; align-items: center; gap:var(--sp-3); }
-.sw-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
-.sw-dot.ok { background: var(--ok); box-shadow: 0 0 0 0 rgba(34,197,94,.6); animation: swPulse 2s infinite; }
-.sw-dot.bad { background: var(--bad); }
-.sw-main b { display: block; font-size:var(--fs-xl); font-weight: 700; color: var(--ink); }
-.sw-main > div span { display: block; font-size:var(--fs-base); color: var(--ink3); }
-.sw-items { display: flex; flex-wrap: wrap; gap:var(--sp-2) var(--sp-5); }
-.sw-item { display: inline-flex; align-items: center; gap:var(--sp-2); font-size:var(--fs-md); font-weight: 600; color: var(--ink2); }
-.sw-item i { color: var(--ink3); }
-.sw-item em { font-style: normal; font-weight: 700; }
-.sw-item em.ok { color: #1E7A44; } .sw-item em.bad { color: #B4232A; }
-@keyframes swPulse { 0% { box-shadow: 0 0 0 0 rgba(34,197,94,.5); } 70% { box-shadow: 0 0 0 8px rgba(34,197,94,0); } 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); } }
-@media (max-width: 860px) {
-  .showcase-in { grid-template-columns: 1fr; gap:2rem; }
-  .dash3d { transform: rotateY(0) rotateX(0); animation: none; max-width: 400px; }
-  .dash-notif.n1 { right: 2%; } .dash-notif.n2 { left: 2%; }
-}
-@media (prefers-reduced-motion: reduce) { .dash3d, .dash-notif, .dash-chart i, .sw-dot.ok { animation: none; } }
-
-/* ══════════════════════════════════════════════════════════════════════════
-   14. BECCA — AI assistant band (feature-list styles live in section 12)
-   ══════════════════════════════════════════════════════════════════════════ */
-.becca-in { display: grid; grid-template-columns: 1fr 1fr; gap:3rem; align-items: center; }
-.becca-copy .sec-title { max-width: 16ch; }
-.becca-visual { display: flex; justify-content: center; }
-.becca-card { width: 100%; max-width: 380px; border-radius: 20px; overflow: hidden;
-  background: rgba(255,255,255,.8); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
-  border: 1px solid rgba(255,255,255,.6); box-shadow: 0 24px 54px rgba(74,14,14,.2), 0 6px 16px rgba(74,14,14,.12);
-  animation: notifFloat 6s ease-in-out infinite; }
-.bc-head { display: flex; align-items: center; gap:var(--sp-2); padding:var(--sp-3) var(--sp-4); background: linear-gradient(135deg, var(--maroon-dd), var(--maroon)); }
-.bc-av { width: 36px; height: 36px; border-radius: 50%; overflow: hidden; flex-shrink: 0; border: 1.5px solid rgba(201,150,12,.6); box-shadow: 0 0 12px rgba(201,150,12,.4); }
-.bc-av img, .bc-mav img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.bc-head b { display: block; font-size:var(--fs-md); color: #fff; font-weight: 700; }
-.bc-head small { display: flex; align-items: center; gap:var(--sp-1); font-size:var(--fs-xs); color: rgba(255,255,255,.62); }
-.bc-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; }
-.bc-body { padding:var(--sp-4) var(--sp-4); display: flex; flex-direction: column; gap:var(--sp-2); background: var(--paper); }
-.bc-msg { font-size:var(--fs-md); line-height: 1.55; padding:var(--sp-2) var(--sp-3); border-radius: 14px; max-width: 85%; }
-.bc-msg.u { align-self: flex-end; background: var(--maroon-d); color: #fff; border-bottom-right-radius: 4px; }
-.bc-msg.b { background: #fff; border: 1px solid var(--border); color: var(--ink); border-bottom-left-radius: 4px; }
-.bc-row { display: flex; gap:var(--sp-2); align-items: flex-end; max-width: 92%; }
-.bc-mav { width: 24px; height: 24px; border-radius: 50%; overflow: hidden; flex-shrink: 0; border: 1px solid rgba(201,150,12,.4); }
-.bc-typing { display: flex; gap:4px; align-items: center; padding:var(--sp-2) var(--sp-3); background: #fff; border: 1px solid var(--border); border-radius: 14px; border-bottom-left-radius: 4px; }
-.bc-typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--maroon); animation: bcType 1.3s infinite; }
-.bc-typing span:nth-child(2) { animation-delay: .2s; } .bc-typing span:nth-child(3) { animation-delay: .4s; }
-@keyframes bcType { 0%,80%,100% { opacity:.2; transform: scale(.85); } 40% { opacity:1; transform: scale(1); } }
-@media (max-width: 860px) { .becca-in { grid-template-columns: 1fr; gap:2rem; } }
-@media (prefers-reduced-motion: reduce) { .becca-card { animation: none; } }
-
-/* ══════════════════════════════════════════════════════════════════════════
    15. FAQ
    ══════════════════════════════════════════════════════════════════════════ */
 .faq-wrap { max-width: 760px; margin:0 auto; display: flex; flex-direction: column; gap:var(--sp-3); }
@@ -544,19 +392,8 @@ a { text-decoration: none; color: inherit; }
 .faq-a { padding:0 var(--sp-4) var(--sp-4) 3.9rem; font-size:var(--fs-lg); line-height: 1.7; color: var(--ink2); }
 .faq-a a { color: var(--maroon); font-weight: 700; text-decoration: underline; }
 .faq-a strong { color: var(--ink); }
-.faq-toggle { display: none; }
 @media (max-width: 640px) {
   .faq-a { padding-left:var(--sp-4); }
-  /* top 3 questions first; the rest behind a premium expander */
-  .faq-wrap:not(.expanded) .faq-item.faq-more { display: none; }
-  .faq-toggle { display: inline-flex; align-items: center; justify-content: center; gap:var(--sp-2);
-    margin:var(--sp-1) auto 0; padding:var(--sp-3) var(--sp-5); min-height: 44px; border-radius: 999px;
-    background: var(--surface); border: 1.5px solid var(--border); color: var(--maroon);
-    font-family: 'DM Sans', sans-serif; font-size:var(--fs-md); font-weight: 700; cursor: pointer;
-    box-shadow: 0 2px 8px rgba(44,10,10,.05); transition: border-color .2s, box-shadow .2s; }
-  .faq-toggle:hover { border-color: rgba(123,29,29,.3); box-shadow: 0 6px 16px rgba(74,14,14,.1); }
-  .faq-toggle i { font-size:var(--fs-sm); transition: transform .25s; }
-  .faq-wrap.expanded .faq-toggle i { transform: rotate(180deg); }
 }
 
 /* (footer styles: see includes/site_footer.php) */
@@ -580,14 +417,12 @@ a { text-decoration: none; color: inherit; }
 
 /* ══════════════════════════════════════════════════════════════════════════
    17. RESPONSIVE — tablet, then phone
-   Section-local breakpoints (.mod-grid, .showcase-in, .becca-in, .cta-portal,
-   .faq-wrap, .cred) stay next to the rules they modify; only the cross-section
+   Section-local breakpoints (.cta-portal, .faq-wrap, .cred) stay next to the
+   rules they modify; only the cross-section
    ones live here.
    ══════════════════════════════════════════════════════════════════════════ */
 @media (max-width: 900px) {
   .rep-grid { grid-template-columns: repeat(2, 1fr); }
-  .about { padding:2.4rem 1.8rem; }
-  .about-grid { grid-template-columns: 1fr; gap:1.6rem; }
   .hero h1 { font-size: 2.5rem; }
 }
 
@@ -631,23 +466,6 @@ a { text-decoration: none; color: inherit; }
     border-color: rgba(255,255,255,.34); }
   .hpill i { font-size: .92em; }
 
-  /* ── capability cards: same content, less height ── */
-  .mod-grid { gap:var(--sp-3); }
-  .mod-card { padding:var(--sp-4) var(--sp-4); gap:var(--sp-3); border-radius: 14px; }
-  .mod-ic { width: 40px; height: 40px; font-size:var(--fs-xl); border-radius: 11px; }
-  .mod-tx b { font-size:var(--fs-lg); margin-bottom:var(--sp-0); }
-  .mod-tx span { font-size:var(--fs-base); }
-
-  /* ── about band ── */
-  .about { padding:2rem var(--sp-5); margin:0; }
-  .about h2 { font-size: 1.3rem; }
-  .about p { font-size:var(--fs-lg); }
-
-  /* ── mockup floating chips: keep them clear of the mockup's title bar ── */
-  .dash-notif { font-size:var(--fs-sm); padding:var(--sp-2) var(--sp-3); }
-  .dash-notif.n1 { top: -14px; right: 0; }
-  .dash-notif.n2 { bottom: -10px; left: 0; }
-
   /* ── recent public reports: compact 2x2 mini-cards, not a tall column ──
      The ticket number, its status and the date are what a person actually reads
      here, and they were the smallest type on the page at 9-10px. The number was
@@ -685,7 +503,7 @@ a { text-decoration: none; color: inherit; }
      collapses into three stacked rows. Legibility and that layout genuinely
      conflict here, and the layout was the deliberate choice (see above). */
   .hero-eyebrow { font-size:var(--fs-sm); }
-  .sec-eyebrow, .about-eyebrow { font-size:var(--fs-sm); }
+  .sec-eyebrow { font-size:var(--fs-sm); }
   .cred-item { font-size:var(--fs-base); }
   .rc-id, .rc-date { font-size:var(--fs-base); }
   .rc-meta { font-size:var(--fs-sm); }
@@ -746,45 +564,6 @@ a { text-decoration: none; color: inherit; }
     </div>
   </div>
 
-  <!-- ══ SHOWCASE / 3D DASHBOARD ══ -->
-  <section class="section showcase">
-    <div class="container showcase-in">
-      <div class="showcase-copy">
-        <span class="sec-eyebrow"><span class="dot"></span> The platform</span>
-        <h2 class="sec-title">One dashboard for the <em>entire equipment lifecycle</em></h2>
-        <p class="sec-sub">Report, review, assign, repair, and resolve — the PMO tracks every case from submission to sign-off, with real-time status and email updates at each step.</p>
-        <?php /* "Verified BEC email sign-in" was a third bullet here and is
-                 already a hero pill, verbatim, one screen up. */ ?>
-        <div class="showcase-feats">
-          <span><i class="fas fa-bolt" aria-hidden="true"></i> Real-time status tracking</span>
-          <span><i class="fas fa-envelope-circle-check" aria-hidden="true"></i> Automated email confirmations</span>
-        </div>
-      </div>
-      <!-- Decorative mockup: a screen reader was announcing the fake dashboard's
-           labels ("Open… In Progress… New report received") as if they were real
-           page content. It illustrates the copy on the left, so it is hidden. -->
-      <div class="showcase-visual" aria-hidden="true">
-        <div class="dash3d">
-          <div class="dash-bar"><span></span><span></span><span></span><b>PMO Dashboard</b></div>
-          <div class="dash-body">
-            <div class="dash-tiles">
-              <div class="dtile"><i class="fas fa-inbox" aria-hidden="true"></i><small>Open</small></div>
-              <div class="dtile"><i class="fas fa-gears" aria-hidden="true"></i><small>In Progress</small></div>
-              <div class="dtile"><i class="fas fa-circle-check" aria-hidden="true"></i><small>Resolved</small></div>
-            </div>
-            <div class="dash-chart"><i style="--h:42%"></i><i style="--h:68%"></i><i style="--h:54%"></i><i style="--h:86%"></i><i style="--h:60%"></i><i style="--h:94%"></i></div>
-            <div class="dash-rows">
-              <div class="drow"><span class="ddot"></span><span class="dline w70"></span><em class="chip prog">In Progress</em></div>
-              <div class="drow"><span class="ddot"></span><span class="dline w85"></span><em class="chip done">Resolved</em></div>
-              <div class="drow"><span class="ddot"></span><span class="dline w60"></span><em class="chip open">Open</em></div>
-            </div>
-          </div>
-        </div>
-        <div class="dash-notif n1"><i class="fas fa-bell" aria-hidden="true"></i> New report received</div>
-        <div class="dash-notif n2"><i class="fas fa-check" aria-hidden="true"></i> Report resolved</div>
-      </div>
-    </div>
-  </section>
 
   <!-- ══ PORTALS ══ -->
   <section class="section" id="portals">
@@ -839,110 +618,9 @@ a { text-decoration: none; color: inherit; }
   </section>
 <?php endif; ?>
 
-  <!-- ══ MODULES / CAPABILITIES ══ -->
-  <section class="section">
-    <div class="container">
-      <div class="sec-head">
-        <span class="sec-eyebrow"><span class="dot"></span> One platform</span>
-        <h2 class="sec-title">Everything the PMO needs, <em>in one system</em></h2>
-        <p class="sec-sub">From the moment a defect is reported to its final resolution — the platform covers the full equipment-management workflow.</p>
-      </div>
-      <?php /* Five cards, not nine. Inventory, Preventive Maintenance, Backup &
-               Recovery and Analytics & Reports were listed here and are all
-               admin-only: nobody who lands on this page can open any of them,
-               and "automated snapshots with one-click data recovery" answers a
-               question a student with a broken projector was never asking.
-               What is left is the part of the system a visitor actually meets. */ ?>
-      <div class="mod-grid">
-        <div class="mod-card feat"><div class="mod-ic"><i class="fas fa-clipboard-list" aria-hidden="true"></i></div><div class="mod-tx"><b>Defect Reporting</b><span>Reporters log equipment issues with photo or video evidence, location, and priority.</span></div></div>
-        <div class="mod-card"><div class="mod-ic"><i class="fas fa-clipboard-check" aria-hidden="true"></i></div><div class="mod-tx"><b>Review &amp; Approval</b><span>The PMO verifies every report before any work begins.</span></div></div>
-        <div class="mod-card"><div class="mod-ic"><i class="fas fa-people-carry-box" aria-hidden="true"></i></div><div class="mod-tx"><b>Technician Assignment</b><span>Cases route to the right unit — PMO or ITSO — with balanced technician workloads.</span></div></div>
-        <div class="mod-card"><div class="mod-ic"><i class="fas fa-screwdriver-wrench" aria-hidden="true"></i></div><div class="mod-tx"><b>Repair Tracking</b><span>Technicians accept a case, log progress, and file a service report.</span></div></div>
-        <div class="mod-card"><div class="mod-ic"><i class="fas fa-robot" aria-hidden="true"></i></div><div class="mod-tx"><b>AI Assistant (Becca)</b><span>Built-in guidance and troubleshooting, anytime.</span></div></div>
-      </div>
-    </div>
-  </section>
 
-  <!-- ══ ABOUT THE PMO ══ -->
-  <section class="section">
-    <div class="container">
-      <div class="about">
-        <div class="about-grid">
-          <div>
-            <div class="about-eyebrow">About the Property Management Office</div>
-            <h2>Safeguarding the institution's equipment and facilities</h2>
-            <p>The Property Management Office (PMO) of Batangas Eastern Colleges is responsible for the custody, maintenance, and accountability of institutional equipment and facilities. This system gives the campus community a single, transparent channel to report defective equipment — and gives the PMO the tools to verify, assign, and resolve each case efficiently.</p>
-          </div>
-          <?php /* Three "about points" used to sit here — Verification &
-                   approval, Technician assignment, Accountability & tracking.
-                   Every one of them restated a card in the modules grid a
-                   screen above, close to word for word ("The PMO verifies every
-                   report before any work begins" against "Every report is
-                   reviewed by the PMO before work begins"). Saying the same
-                   thing a third time in a third shape is what made this page
-                   feel long. What is left here is the part that appears
-                   nowhere else: who the PMO is and what it is accountable for. */ ?>
-        </div>
-      </div>
-    </div>
-  </section>
 
-  <!-- ══ BECCA AI SHOWCASE ══ -->
-  <section class="section becca-show">
-    <div class="container becca-in">
-      <div class="becca-copy">
-        <span class="sec-eyebrow"><span class="dot"></span> AI Assistant</span>
-        <h2 class="sec-title">Meet <em>Becca</em>, your PMO support assistant</h2>
-        <p class="sec-sub">Becca answers questions, guides you through filing a report, and helps troubleshoot common equipment issues — anytime, in English or Filipino.</p>
-        <div class="becca-feats">
-          <span><i class="fas fa-comments" aria-hidden="true"></i> Instant answers &amp; step-by-step guidance</span>
-          <span><i class="fas fa-language" aria-hidden="true"></i> English &amp; Filipino</span>
-          <span><i class="fas fa-clock" aria-hidden="true"></i> Available 24/7</span>
-        </div>
-        <button class="btn btn-primary" type="button" onclick="if(window.openChat)openChat()">Ask Becca <span class="btn-arrow"><i class="fas fa-arrow-right" aria-hidden="true"></i></span></button>
-      </div>
-      <!-- Decorative mockup: a scripted sample conversation, not real content. -->
-      <div class="becca-visual" aria-hidden="true">
-        <div class="becca-card">
-          <div class="bc-head">
-            <span class="bc-av"><img src="assets/becca-mascot.svg" alt="Becca" width="100" height="100" loading="lazy" decoding="async"></span>
-            <div><b>Becca</b><small><span class="bc-dot"></span> Online · BEC Support AI</small></div>
-          </div>
-          <div class="bc-body">
-            <div class="bc-msg u">How do I report a broken projector?</div>
-            <div class="bc-row">
-              <span class="bc-mav"><img src="assets/becca-mascot.svg" alt="" width="100" height="100" loading="lazy" decoding="async"></span>
-              <div class="bc-msg b">Sign in on the report page, choose the equipment and room, attach a photo, and set the priority. You'll get an email as soon as the PMO reviews it. 👍</div>
-            </div>
-            <div class="bc-row">
-              <span class="bc-mav"><img src="assets/becca-mascot.svg" alt="" width="100" height="100" loading="lazy" decoding="async"></span>
-              <div class="bc-typing"><span></span><span></span><span></span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
 
-  <!-- ══ LIVE SYSTEM STATUS ══ (data fetched at the top of this file) -->
-  <section class="section section--tight">
-    <div class="container">
-      <div class="status-widget">
-        <div class="sw-main">
-          <span class="sw-dot <?php echo $sysOk ? 'ok' : 'bad'; ?>"></span>
-          <div>
-            <b><?php echo $sysOk ? 'All systems operational' : 'Service temporarily degraded'; ?></b>
-            <span>Live status of the PMO equipment reporting platform</span>
-          </div>
-        </div>
-        <div class="sw-items">
-          <span class="sw-item"><i class="fas fa-database" aria-hidden="true"></i> Database <em class="<?php echo $sysOk ? 'ok' : 'bad'; ?>"><?php echo $sysOk ? 'Connected' : 'Unavailable'; ?></em></span>
-          <span class="sw-item"><i class="fas fa-clipboard-list" aria-hidden="true"></i> Reporting <em class="<?php echo $sysOk ? 'ok' : 'bad'; ?>"><?php echo $sysOk ? 'Online' : 'Offline'; ?></em></span>
-          <?php if ($lastAgo !== ''): ?><span class="sw-item"><i class="fas fa-clock" aria-hidden="true"></i> Last activity <em><?php echo lp_e($lastAgo); ?></em></span><?php endif; ?>
-        </div>
-      </div>
-    </div>
-  </section>
 
   <!-- ══ PUBLIC REPORTS PREVIEW ══ -->
   <section class="section">
@@ -980,26 +658,22 @@ a { text-decoration: none; color: inherit; }
       <div class="sec-head">
         <span class="sec-eyebrow"><span class="dot"></span> Quick answers</span>
         <h2 class="sec-title">How it works <em>for you</em></h2>
-        <p class="sec-sub">The most common questions from first-time reporters — answered in a minute.</p>
+        <p class="sec-sub">The four questions every first-time reporter asks.</p>
       </div>
       <div class="faq-wrap">
         <details class="faq-item">
           <summary><span class="fq-ic"><i class="fas fa-user-check" aria-hidden="true"></i></span> Who can report defective equipment?<i class="fas fa-chevron-down fq-ch" aria-hidden="true"></i></summary>
-          <div class="faq-a">Any <strong>student, teacher, or staff member</strong> of Batangas Eastern Colleges. You only need your official <strong>BEC email address</strong> — it's verified at sign-in so reports always come from the campus community.</div>
+          <div class="faq-a">Any <strong>student, teacher, or staff member</strong> of Batangas Eastern Colleges. You only need your official <strong>BEC email address</strong> — it's verified at sign-in so reports always come from the campus community. Fastest way in: <strong>scan the QR sticker</strong> on the equipment and the form opens with that unit already selected.</div>
         </details>
         <details class="faq-item">
           <summary><span class="fq-ic"><i class="fas fa-key" aria-hidden="true"></i></span> Do I need to create an account?<i class="fas fa-chevron-down fq-ch" aria-hidden="true"></i></summary>
           <div class="faq-a">No. Enter your <strong>name and BEC email</strong> and you're in — no password, no registration. (PMO administrators and technicians have their own secured logins.)</div>
         </details>
         <details class="faq-item">
-          <summary><span class="fq-ic"><i class="fas fa-qrcode" aria-hidden="true"></i></span> What's the fastest way to report?<i class="fas fa-chevron-down fq-ch" aria-hidden="true"></i></summary>
-          <div class="faq-a"><strong>Scan the QR sticker</strong> on the equipment — the report form opens with that exact unit already selected. Just describe the problem and submit. No sticker? Use <a href="student_index.php">Report defective equipment</a> and search for the item.</div>
-        </details>
-        <details class="faq-item faq-more">
           <summary><span class="fq-ic"><i class="fas fa-route" aria-hidden="true"></i></span> How do I follow up on my report?<i class="fas fa-chevron-down fq-ch" aria-hidden="true"></i></summary>
           <div class="faq-a">You get a <strong>ticket number</strong> on screen and by email the moment you submit. Enter it on the <a href="track_report.php">Track Report</a> page anytime to see the live status — and you'll receive an email at every stage: received, approved, technician assigned, and repaired. Once fixed, we'll ask you to confirm the issue is really resolved.</div>
         </details>
-        <details class="faq-item faq-more">
+        <details class="faq-item">
           <summary><span class="fq-ic"><i class="fas fa-stopwatch" aria-hidden="true"></i></span> How fast will it be repaired?<i class="fas fa-chevron-down fq-ch" aria-hidden="true"></i></summary>
           <div class="faq-a"><?php
             require_once __DIR__ . '/config/sla.php';
@@ -1007,21 +681,15 @@ a { text-decoration: none; color: inherit; }
             $faqD = static fn($h) => rtrim(rtrim(number_format($h / 24, 1), '0'), '.');
           ?>Every report gets a priority with a target timeline: <strong>critical ≈ <?php echo $faqD($faqH['critical']); ?> day(s)</strong>, high ≈ <?php echo $faqD($faqH['high']); ?> days, medium ≈ <?php echo $faqD($faqH['medium']); ?> days, and low ≈ <?php echo $faqD($faqH['low']); ?> days. Reports that pass their target are automatically escalated to the PMO.</div>
         </details>
-        <details class="faq-item faq-more">
-          <summary><span class="fq-ic"><i class="fas fa-user-shield" aria-hidden="true"></i></span> Is my information safe?<i class="fas fa-chevron-down fq-ch" aria-hidden="true"></i></summary>
-          <div class="faq-a">Yes. Your name, email, and report details are used <strong>solely for maintenance and follow-ups</strong>, in line with the <strong>Data Privacy Act of 2012 (RA 10173)</strong> — you give explicit consent at sign-in. Publicly visible reports show only the equipment and status, never your personal details.</div>
-        </details>
-        <button class="faq-toggle" type="button" id="faqToggle" aria-expanded="false">
-          <i class="fas fa-chevron-down" aria-hidden="true"></i> <span>More questions</span>
-        </button>
       </div>
     </div>
   </section>
 
   </main>
 
-  <!-- shared footer -->
-  <?php require __DIR__ . '/includes/site_footer.php'; ?>
+  <!-- shared footer. The one-line platform status used to be a card of its
+       own between Becca and the reports; it is a footer fact, so it lives there. -->
+  <?php $site_footer_status = ['ok' => $sysOk, 'ago' => $lastAgo]; require __DIR__ . '/includes/site_footer.php'; ?>
 
 </div>
 
@@ -1045,11 +713,11 @@ a { text-decoration: none; color: inherit; }
 
   /* ── 1. Scroll reveal ─────────────────────────────────────────────────── */
   // stagger the cards inside each grid so they arrive in sequence
-  document.querySelectorAll('.mod-grid,.rep-grid,.cta-steps').forEach(function (grid) {
+  document.querySelectorAll('.rep-grid,.cta-steps').forEach(function (grid) {
     Array.prototype.forEach.call(grid.children, function (c, i) { c.style.transitionDelay = (i * 60) + 'ms'; });
   });
 
-  var els = document.querySelectorAll('.sec-head,.portal-card,.mod-card,.about,.rep-card,.rep-all,.cred,.showcase-copy,.status-widget,.becca-copy,.faq-item');
+  var els = document.querySelectorAll('.sec-head,.portal-card,.rep-card,.rep-all,.cred,.faq-item');
   if (reduce || !('IntersectionObserver' in window)) {
     els.forEach(function (el) { el.classList.add('reveal', 'in'); });
   } else {
@@ -1066,7 +734,7 @@ a { text-decoration: none; color: inherit; }
   if (richHover) {
     // Cards: 3D tilt and the cursor spotlight are the same gesture, so they
     // share one listener and one getBoundingClientRect per move.
-    document.querySelectorAll('.portal-card,.mod-card').forEach(function (card) {
+    document.querySelectorAll('.portal-card').forEach(function (card) {
       card.classList.add('tilt');
       card.addEventListener('mousemove', function (e) {
         var r  = card.getBoundingClientRect();
@@ -1096,15 +764,6 @@ a { text-decoration: none; color: inherit; }
       });
     }
 
-    // Showcase: the dashboard mockup drifts against the copy beside it.
-    var showcase = document.querySelector('.showcase'), visual = document.querySelector('.showcase-visual');
-    if (showcase && visual) {
-      showcase.addEventListener('mousemove', function (e) {
-        var r = showcase.getBoundingClientRect();
-        var x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
-        visual.style.transform = 'translate(' + (x * 14).toFixed(1) + 'px,' + (y * 12).toFixed(1) + 'px)';
-      });
-      showcase.addEventListener('mouseleave', function () { visual.style.transform = ''; });
     }
   }
 
@@ -1140,14 +799,6 @@ a { text-decoration: none; color: inherit; }
     });
   }
 
-  // FAQ "more questions" expander (phone layout only; the CSS hides the button
-  // on desktop, where every question is already open)
-  var faqBtn = document.getElementById('faqToggle');
-  if (faqBtn) {
-    faqBtn.addEventListener('click', function () {
-      var open = faqBtn.closest('.faq-wrap').classList.toggle('expanded');
-      faqBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-      faqBtn.querySelector('span').textContent = open ? 'Show fewer' : 'More questions';
     });
   }
 

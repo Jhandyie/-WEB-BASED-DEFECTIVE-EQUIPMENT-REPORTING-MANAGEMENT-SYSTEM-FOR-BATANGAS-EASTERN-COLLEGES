@@ -30,6 +30,11 @@ $bsfYear = date('Y');
 .bsfoot-social a:hover{background:#C9960C;color:#2D0505;border-color:#C9960C;transform:none;}
 .bsfoot-div{height:1px;background:rgba(255,255,255,.12);margin:1.8rem 0 1.1rem;}
 .bsfoot-note{font-size:.72rem;line-height:1.7;color:rgba(255,255,255,.45);text-align:center;}
+.bsfoot-status{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:.4rem 1.1rem;margin:0 0 .9rem;font-size:.76rem;color:rgba(255,255,255,.62);}
+.bsfoot-status b{display:inline-flex;align-items:center;gap:.45rem;font-weight:700;color:rgba(255,255,255,.86);}
+.bsfoot-status .dot{width:8px;height:8px;border-radius:50%;background:#22C55E;box-shadow:0 0 0 3px rgba(34,197,94,.22);}
+.bsfoot-status .dot.bad{background:#EF4444;box-shadow:0 0 0 3px rgba(239,68,68,.22);}
+.bsfoot-status span i{color:#C9960C;margin-right:.3rem;}
 @media(max-width:900px){.bsfoot-cols{grid-template-columns:1fr 1fr;gap:1.6rem;}}
 @media(max-width:640px){
   .bsfoot-cols{grid-template-columns:1fr;gap:1.6rem;}
@@ -105,6 +110,20 @@ $bsfYear = date('Y');
       </div>
     </div>
     <div class="bsfoot-div"></div>
+    <?php /* Optional one-line platform status. The landing page passes
+             $site_footer_status = ['ok' => bool, 'ago' => '12m ago'] — the facts
+             its old "All systems operational" card carried in a band of its own.
+             Pages that do not set it render no line. */
+    if (isset($site_footer_status) && is_array($site_footer_status)):
+        $bsfOk  = !empty($site_footer_status['ok']);
+        $bsfAgo = trim((string)($site_footer_status['ago'] ?? '')); ?>
+    <p class="bsfoot-status">
+      <b><span class="dot<?php echo $bsfOk ? '' : ' bad'; ?>" aria-hidden="true"></span><?php echo $bsfOk ? 'All systems operational' : 'Service temporarily degraded'; ?></b>
+      <span><i class="fas fa-database" aria-hidden="true"></i>Database <?php echo $bsfOk ? 'connected' : 'unavailable'; ?></span>
+      <span><i class="fas fa-clipboard-list" aria-hidden="true"></i>Reporting <?php echo $bsfOk ? 'online' : 'offline'; ?></span>
+      <?php if ($bsfAgo !== ''): ?><span><i class="fas fa-clock" aria-hidden="true"></i>Last activity <?php echo htmlspecialchars($bsfAgo, ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?>
+    </p>
+    <?php endif; ?>
     <p class="bsfoot-note">&copy; <?php echo $bsfYear; ?> Batangas Eastern Colleges &middot; Property Management Office. This is an official institutional system — for authorized use by the BEC community.</p>
   </div>
 </footer>
