@@ -25,7 +25,7 @@ try {
 } catch (\Throwable $e) { $__aiaUnread = 0; }
 ?>
 <style>
-  .aia-fab{position:fixed;right:1.4rem;bottom:6rem;z-index:9990;display:flex;align-items:center;justify-content:center;width:62px;height:62px;padding:0;background:linear-gradient(135deg,rgba(74,14,14,.9),rgba(45,5,5,.9));-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:#fff;border:2px solid rgba(201,150,12,.6);border-radius:50%;cursor:pointer;box-shadow:0 10px 30px rgba(44,10,10,.4),0 0 20px rgba(201,150,12,.25);transition:transform .25s cubic-bezier(.22,1,.36,1),box-shadow .3s;animation:aiaFloat 6s ease-in-out infinite,aiaGlow 4.5s ease-in-out infinite;}
+  .aia-fab{position:fixed;right:1.4rem;bottom:1.4rem;z-index:9990;display:flex;align-items:center;justify-content:center;width:62px;height:62px;padding:0;background:linear-gradient(135deg,rgba(74,14,14,.9),rgba(45,5,5,.9));-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);color:#fff;border:2px solid rgba(201,150,12,.6);border-radius:50%;cursor:pointer;box-shadow:0 10px 30px rgba(44,10,10,.4),0 0 20px rgba(201,150,12,.25);transition:transform .25s cubic-bezier(.22,1,.36,1),box-shadow .3s;animation:aiaFloat 6s ease-in-out infinite,aiaGlow 4.5s ease-in-out infinite;}
   .aia-fab:hover{animation:none;transform:none;box-shadow:0 16px 40px rgba(44,10,10,.5),0 0 32px rgba(201,150,12,.5);}
   @keyframes aiaFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
   @keyframes aiaGlow{0%,100%{box-shadow:0 10px 30px rgba(44,10,10,.4),0 0 16px rgba(201,150,12,.2);}50%{box-shadow:0 12px 34px rgba(44,10,10,.46),0 0 30px rgba(201,150,12,.45);}}
@@ -75,8 +75,13 @@ try {
 </style>
 
 <style>
+  /* The assistant button is fixed to the corner, so the last rows of any
+     table would otherwise sit under it once the page is scrolled to the end.
+     It used to float 6rem up to clear a bell that now lives in the header,
+     which put it squarely over the State column of Work Orders. */
+  .wrap{padding-bottom:7rem !important;}
   /* Uniform notification bell — same spot on every admin page (stacked above Becca). */
-  .aia-bell{position:fixed;right:1.4rem;bottom:11rem;z-index:1490;width:52px;height:52px;border-radius:50%;
+  .aia-bell{position:fixed;right:1.4rem;bottom:6.4rem;z-index:1490;width:52px;height:52px;border-radius:50%;
     display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:1.05rem;color:#7B1D1D;
     background:#fff;border:1.5px solid #E2D9CC;box-shadow:0 8px 22px rgba(44,10,10,.18);transition:all .18s;}
   .aia-bell:hover{color:#fff;background:linear-gradient(135deg,#4A0E0E,#7B1D1D);border-color:transparent;

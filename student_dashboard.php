@@ -2862,7 +2862,14 @@ document.addEventListener('input', (e) => {
   if (filled) rfFieldOk(el);
 });
 
+// One submission per form. pointer-events:none on the button stops a second
+// tap, but not an Enter key in a text field, and on slow campus Wi-Fi a
+// reporter waiting on a spinner does press Enter. The flag stops the second
+// submit event itself; the overlay and the disabled button are the feedback.
+let rfSubmitting = false;
+const rfSubmitLabel = submitBtn ? submitBtn.innerHTML : '';
 reportForm?.addEventListener('submit', (e) => {
+  if (rfSubmitting) { e.preventDefault(); return; }
   hiddenEl.value = searchEl.value.trim();
   locationHiddenEl.value = locationSearchEl.value.trim();
   catHidden.value = catDisplay.value;
@@ -2873,11 +2880,30 @@ reportForm?.addEventListener('submit', (e) => {
     return;
   }
 
+  rfSubmitting = true;
   loadingOverlay?.classList.add('show');
   loadingOverlay?.setAttribute('aria-hidden', 'false');
   if (submitBtn) {
     submitBtn.classList.add('is-loading');
+    submitBtn.setAttribute('aria-busy', 'true');
     submitBtn.innerHTML = 'Submitting <span class="btn-arrow"><i class="fas fa-spinner"></i></span>';
+    // Disabled on the next tick, not now: a disabled submit button is excluded
+    // from the form data the browser is about to serialise.
+    setTimeout(() => { submitBtn.disabled = true; }, 0);
+  }
+});
+// Back button after a submit restores the page from the bfcache with the
+// spinner still spinning and the button still disabled. Put it back.
+window.addEventListener('pageshow', (ev) => {
+  if (!ev.persisted) return;
+  rfSubmitting = false;
+  loadingOverlay?.classList.remove('show');
+  loadingOverlay?.setAttribute('aria-hidden', 'true');
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.classList.remove('is-loading');
+    submitBtn.removeAttribute('aria-busy');
+    if (rfSubmitLabel) submitBtn.innerHTML = rfSubmitLabel;
   }
 });
 </script>

@@ -91,8 +91,13 @@ $parts_replaced    = trim((string)($_POST['parts_replaced'] ?? ''));
 $tools_used        = trim((string)($_POST['tools_used'] ?? ''));
 $materials_used    = trim((string)($_POST['materials_used'] ?? ''));
 $repair_duration   = trim((string)($_POST['repair_duration'] ?? ''));
-$repair_cost       = (float)($_POST['repair_cost'] ?? 0);
-$estimated_cost    = (float)($_POST['estimated_cost'] ?? 0);
+// Blank is "not recorded", and must stay distinct from a typed 0: a free
+// in-house repair and a technician who skipped the field used to both land
+// as 0.00, so the office could not tell which jobs actually cost nothing.
+$costRaw           = trim((string)($_POST['repair_cost'] ?? ''));
+$estRaw            = trim((string)($_POST['estimated_cost'] ?? ''));
+$repair_cost       = $costRaw === '' ? null : (float)$costRaw;
+$estimated_cost    = $estRaw  === '' ? null : (float)$estRaw;
 $date_started_raw  = trim((string)($_POST['date_started'] ?? ''));
 $date_started      = $date_started_raw !== '' ? date('Y-m-d H:i:s', strtotime($date_started_raw)) : null;
 
@@ -146,8 +151,8 @@ try {
     $during_json = json_encode($during_photos);
     $after_json  = json_encode($after_photos);
     $work_json   = json_encode($work_photos);
-    $cost_str    = number_format($repair_cost, 2, '.', '');
-    $est_str     = number_format($estimated_cost, 2, '.', '');
+    $cost_str    = $repair_cost    === null ? null : number_format($repair_cost, 2, '.', '');
+    $est_str     = $estimated_cost === null ? null : number_format($estimated_cost, 2, '.', '');
 
     $stmt->bind_param(
         'sssssssssssssssss',

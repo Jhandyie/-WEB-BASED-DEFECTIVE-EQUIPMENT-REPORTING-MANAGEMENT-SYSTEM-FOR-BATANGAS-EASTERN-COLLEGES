@@ -620,21 +620,15 @@ a { text-decoration: none; color: inherit; }
   .hero-eyebrow { font-size:var(--fs-xs); padding:var(--sp-1) var(--sp-3); margin-bottom:var(--sp-4); }
   .hero-cta { flex-direction: column; }
   .btn { width: 100%; justify-content: center; padding:var(--sp-3) var(--sp-5); font-size:var(--fs-lg); }
-  /* full-label pills — exactly 2 on top + 1 centered below.
-     Font scales with the viewport so the pair always fits, as big as possible. */
-  /* minmax(0,…), not a bare 1fr: `1fr` floors at the item's max-content width,
-     and these labels are white-space:nowrap, so the two columns insisted on
-     156px + 163px against the 268px actually available at 320px and the
-     right-hand pill ran 24px off the screen. The clamp() below cannot rescue
-     it — at every phone width the vw term is already under the .55rem floor,
-     so the font never actually scales. A real zero minimum lets 1fr divide the
-     row as intended. */
-  .hero-pills { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap:var(--sp-2) var(--sp-1); padding-top:var(--sp-4); justify-items: center; }
-  .hpill { font-size: clamp(.55rem, 2.42vw, .7rem); padding:var(--sp-2) var(--sp-2); white-space: nowrap;
-    gap:var(--sp-1); letter-spacing: 0; justify-content: center; width: 100%;
+  /* One pill per row on a phone. Two-across forced nowrap and a font clamped
+     down to .55rem (about 9px) so the pair would fit - the badges that say
+     "official" and "verified" were the least legible thing on the screen.
+     Stacked, each has the whole width and can use the body size. */
+  .hero-pills { display: grid; grid-template-columns: minmax(0, 1fr);
+    gap:var(--sp-2); padding-top:var(--sp-4); justify-items: stretch; }
+  .hpill { font-size: var(--fs-base); padding:var(--sp-2) var(--sp-4); white-space: normal;
+    gap:var(--sp-2); letter-spacing: 0; justify-content: center; width: 100%; text-align: center;
     border-color: rgba(255,255,255,.34); }
-  .hpill:nth-child(3) { grid-column: 1 / -1; width: auto; padding:var(--sp-2) var(--sp-4); }
   .hpill i { font-size: .92em; }
 
   /* ── capability cards: same content, less height ── */
@@ -698,15 +692,7 @@ a { text-decoration: none; color: inherit; }
   .badge { font-size:var(--fs-sm); }
 }
 
-/* Below the 390px design target there is no longer room for two full labels
-   side by side: the longest is 167px of unbreakable text and two of them plus
-   the gap need 340px, against 268px at 320px wide. Rather than shrink type
-   that is already at its floor or clip a label, the trio stacks — which is
-   what the third pill has always done. */
-@media (max-width: 374px) {
-  .hero-pills { grid-template-columns: minmax(0, 1fr); }
-  .hpill:nth-child(3) { width: 100%; padding:var(--sp-2) var(--sp-2); }
-}
+
 </style>
 </head>
 <body>

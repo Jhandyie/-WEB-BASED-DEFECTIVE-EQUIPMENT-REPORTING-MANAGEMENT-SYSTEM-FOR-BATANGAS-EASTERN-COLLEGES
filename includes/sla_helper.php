@@ -82,7 +82,7 @@ function runSlaEscalationSweep(bool $force = false): int {
     try { $conn = getDBConnection(); } catch (\Throwable $e) { return 0; }
 
     // Oldest first, so the most overdue reports are always escalated first.
-    $res = $conn->query("SELECT report_id, status, priority, report_date, equipment_name, reported_by, reporter_email
+    $res = $conn->query("SELECT report_id, status, priority, report_date, equipment_name, equipment_id, reported_by, reporter_email
                          FROM defect_reports
                          WHERE status NOT IN ('completed','verified','closed','rejected')
                            AND sla_escalated_at IS NULL
@@ -103,15 +103,16 @@ function runSlaEscalationSweep(bool $force = false): int {
                   WHERE report_id IN (" . implode(',', $ids) . ") AND sla_escalated_at IS NULL");
     if (function_exists('defectReportCacheClear')) { defectReportCacheClear(); }
 
-    // Recipients: active admins + deans.
-    $admins = [];
-    $ar = $conn->query("SELECT user_id FROM users WHERE role = 'admin' AND status = 'active' AND user_id IS NOT NULL AND user_id <> ''");
-    if ($ar) { while ($a = $ar->fetch_assoc()) { $admins[] = (string)$a['user_id']; } }
-
     $count = 0;
     foreach ($rows as $r) {
         $rid = (string)$r['report_id'];
         $msg = 'SLA breach: Ticket ' . $rid . ' (' . ucfirst((string)$r['priority']) . ' priority) is overdue and needs attention.';
+        // The office that owns the equipment, not every admin. Escalations were
+        // the single largest source of notifications (706 rows against 612 new
+        // reports) because each one went to all ten admins - seven of whom could
+        // not act on it. Falls back to everyone when the unit is unknown.
+        $unit   = function_exists('equipmentUnit') ? equipmentUnit((string)($r['equipment_id'] ?? '')) : '';
+        $admins = function_exists('adminIdsForReportUnit') ? adminIdsForReportUnit($unit) : [];
         foreach ($admins as $aid) {
             if (function_exists('addNotification')) { try { addNotification($aid, $msg, 'sla_escalation', $rid); } catch (\Throwable $e) {} }
         }

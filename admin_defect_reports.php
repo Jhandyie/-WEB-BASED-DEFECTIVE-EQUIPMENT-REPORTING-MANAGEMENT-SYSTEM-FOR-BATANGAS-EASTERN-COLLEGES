@@ -393,6 +393,14 @@ $vr = null;
 if (isset($_GET['view_id'])) {
     $vr = getDefectReportById($_GET['view_id']);
     if ($vr) {
+        // Opening the report is reading the notification about it. Without this
+        // the bell sat at 99+ for every admin, because nothing they did in the
+        // course of actually handling reports ever cleared it.
+        try {
+            $rd = $conn->prepare("UPDATE notifications SET is_read = true, read_at = NOW()
+                                   WHERE user_id = ? AND related_id = ? AND is_read = false");
+            if ($rd) { $rd->bind_param('ss', $admin_id, $vr['report_id']); $rd->execute(); $rd->close(); }
+        } catch (\Throwable $e) { /* a notification that will not clear is not worth failing the page for */ }
         $eq = getEquipmentById($vr['equipment_id'] ?? '');
         $vr['equipment_name']  = $eq['equipment_name']  ?? '—';
         $vr['asset_tag']       = $eq['asset_tag']       ?? '—';

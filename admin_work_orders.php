@@ -160,8 +160,9 @@ function wo_date($v, $withTime = true) {
     if (!$ts) { return '—'; }
     return date($withTime ? 'M j, Y · g:i A' : 'M j, Y', $ts);
 }
+/** A dash means the technician recorded no cost; ₱0.00 means they recorded zero. */
 function wo_peso($v) {
-    if ($v === null || $v === '' || (float)$v == 0.0) { return '—'; }
+    if ($v === null || $v === '') { return '—'; }
     return '₱' . number_format((float)$v, 2);
 }
 /** How long the job took, from the two stamps we actually keep. */
@@ -271,7 +272,7 @@ if (strtolower(trim((string)($_GET['export'] ?? ''))) === 'csv') {
         ];
     }
     becCsvSection($out, 'Completed work orders', [
-        'Reference', 'Equipment', 'Asset tag', 'Location', 'Unit', 'Technician',
+        'Report No.', 'Equipment', 'Asset tag', 'Location', 'Unit', 'Technician',
         'Reported', 'Completed', 'Time on job', 'Repair cost', 'State',
         'Diagnosis', 'Work performed', 'Parts & materials',
     ], $csvRows);
@@ -508,7 +509,7 @@ if (strtolower(trim((string)($_GET['export'] ?? ''))) === 'csv') {
                    work_order_id is empty on every finished report in the
                    database, so this column falls back to the report number every
                    time. Name the column after what is actually in it. */
-                $th('wo', 'Reference');
+                $th('wo', 'Report No.');
                 $th('equip', 'Equipment');
                 $th('tech', 'Technician');
                 $th('done', 'Completed');
@@ -562,9 +563,12 @@ if (strtolower(trim((string)($_GET['export'] ?? ''))) === 'csv') {
                 <td>
                   <?php $woNo = trim((string)($r['work_order_id'] ?? '')); ?>
                   <span class="wo-id"><?php echo wo_e($woNo !== '' ? $woNo : $r['report_id']); ?></span>
-                  <span class="wo-sub"><?php echo $woNo !== '' && $woNo !== $r['report_id']
-                        ? 'Work order &middot; report ' . wo_e($r['report_id'])
-                        : 'Report number'; ?></span>
+                  <?php /* The sub-label only earns its space when a work-order number
+                           exists and differs from the report number. Printing "Report
+                           number" under every row said the same thing 100% of the time. */ ?>
+                  <?php if ($woNo !== '' && $woNo !== $r['report_id']): ?>
+                  <span class="wo-sub">Work order &middot; report <?php echo wo_e($r['report_id']); ?></span>
+                  <?php endif; ?>
                 </td>
                 <td>
                   <span class="eq"><?php echo wo_e($r['equipment_name'] ?: '—'); ?></span>
@@ -603,6 +607,10 @@ if (strtolower(trim((string)($_GET['export'] ?? ''))) === 'csv') {
     </div>
   </div>
 
+<?php /* The only admin page that did not load the sidebar drawer: below 860px the
+         sidebar slides off-screen, and without this there was no hamburger to
+         bring it back. */ ?>
+<script src="assets/sidebar_autohide.js" defer></script>
 <?php require_once __DIR__ . '/includes/admin_assistant.php'; ?>
 <script>
 (function () {
@@ -693,7 +701,7 @@ if (strtolower(trim((string)($_GET['export'] ?? ''))) === 'csv') {
       + shots(d.shots)
       + section('Cost', [
           field('Estimated', d.est, {hint: 'Quoted by the technician before the work'}),
-          field('Actual', d.cost, {always: true, hint: 'Parts and labour recorded on completion'})
+          field('Actual', d.cost, {always: true, hint: 'Parts and labour recorded on completion. A dash means no cost was recorded; ₱0.00 means it cost nothing.'})
         ])
       + section('Closing', [
           field('State', d.stat, {always: true}),

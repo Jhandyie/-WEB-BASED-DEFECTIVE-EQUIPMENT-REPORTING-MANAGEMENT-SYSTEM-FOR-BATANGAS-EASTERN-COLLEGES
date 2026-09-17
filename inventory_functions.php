@@ -619,7 +619,11 @@ if (is_array($inv)) {
     }
 }
 $inventoryGrandTotal = array_sum($inventorySummary);
-$c_total = $inventoryGrandTotal; // Total Items reflects the uploaded inventory (0 until an Excel is uploaded)
+// Total Items counts the same equipment records as the Operational / Faulty /
+// Retired cards beside it. It used to show the uploaded workbook's tally
+// instead (3,892) next to cards summing the equipment table (1,329) - one row
+// of numbers from two sources that could not add up to each other. The
+// workbook tally still shows, inside the panel that is labelled as its source.
 
 // Default to JSON "fans" quick view when DB inventory is empty on initial page load.
 if (
@@ -1276,7 +1280,7 @@ textarea.fc{resize:vertical;min-height:72px;}
 
         <div class="panel" style="margin-bottom:1rem;" id="invupload">
       <div class="ph3" style="flex-wrap:wrap;gap:.6rem;">
-        <h3><i class="fas fa-database"></i> Inventory Totals</h3>
+        <h3><i class="fas fa-database"></i> Inventory Totals <span style="font-size:.68rem;font-weight:600;color:var(--t3);margin-left:.4rem;">from the uploaded workbook</span></h3>
         <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
           <?php /* The template and the importer are generated from one column
                    list, so what this downloads is exactly what the upload reads
