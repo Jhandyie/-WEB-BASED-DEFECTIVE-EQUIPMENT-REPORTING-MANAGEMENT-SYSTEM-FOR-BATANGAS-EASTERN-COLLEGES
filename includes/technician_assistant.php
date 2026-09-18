@@ -29,7 +29,7 @@
   .tia-av img{width:100%;height:100%;object-fit:cover;display:block;}
   .tia-head .tia-t{flex:1;min-width:0;}
   .tia-head .tia-t b{font-size:.92rem;display:block;}
-  .tia-head .tia-t small{font-size:.64rem;color:rgba(255,255,255,.6);}
+  .tia-head .tia-t small{font-size:.7rem;color:rgba(255,255,255,.6);}
   .tia-x{background:rgba(255,255,255,.12);border:none;color:#fff;width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:.85rem;}
   .tia-x:hover{background:rgba(255,255,255,.22);}
   .tia-msgs{flex:1;overflow-y:auto;padding:.9rem;display:flex;flex-direction:column;gap:.6rem;background:#F8F3EA;}

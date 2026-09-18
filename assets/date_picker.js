@@ -24,7 +24,7 @@
     +   'border-radius:7px;background:transparent;color:' + MAROON + ';display:flex;align-items:center;justify-content:center;'
     +   'cursor:pointer;font-size:.92rem;transition:background .15s,color .15s;flex-shrink:0;}'
     + '.pdp-trig:hover{background:rgba(123,29,29,.09);}'
-    + '@media(pointer:coarse){.pdp-trig{width:2.6rem;height:2.6rem;right:.1rem;}.pdp-field input[type=date]{padding-right:2.9rem !important;}}'
+    + '@media(pointer:coarse),(max-width:640px){.pdp-trig{width:2.6rem;height:2.6rem;right:.1rem;}.pdp-field input[type=date]{padding-right:2.9rem !important;}}'
     + '.pdp-pop{position:fixed;z-index:99998;width:272px;background:#fff;border-radius:14px;'
     +   'box-shadow:0 18px 44px rgba(20,4,4,.28),0 2px 8px rgba(20,4,4,.12);border:1px solid #EFE3DA;'
     +   'padding:.85rem .85rem .7rem;font-family:"DM Sans",system-ui,sans-serif;'

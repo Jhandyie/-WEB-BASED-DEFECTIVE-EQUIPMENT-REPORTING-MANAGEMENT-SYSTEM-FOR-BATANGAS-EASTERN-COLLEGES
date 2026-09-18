@@ -592,7 +592,7 @@ h1,h2,h3{font-family:'Fraunces',Georgia,serif;letter-spacing:-.01em;}
 .sb-nav{flex:1;padding:.4rem 0;overflow-y:auto;position:relative;z-index:1;scrollbar-width:thin;scrollbar-color:rgba(212,160,23,.45) transparent;}
 .sb-nav::-webkit-scrollbar{width:6px;}
 .sb-nav::-webkit-scrollbar-thumb{background:rgba(212,160,23,.4);border-radius:3px;}
-.nav-sec{font-size:.64rem;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,.2);padding:.6rem 1.25rem .25rem;font-weight:700;}
+.nav-sec{font-size:.66rem;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,.2);padding:.6rem 1.25rem .25rem;font-weight:700;}
 .ni{display:flex;align-items:center;gap:.65rem;padding:.58rem 1.25rem;color:rgba(255,255,255,.45);width:100%;text-align:left;background:none;border:none;font-family:'DM Sans',sans-serif;font-size:.84rem;font-weight:500;cursor:pointer;transition:all .16s;position:relative;}
 .ni-ic{width:30px;height:30px;border-radius:var(--r1);display:flex;align-items:center;justify-content:center;font-size:.78rem;background:rgba(255,255,255,.05);flex-shrink:0;transition:all .22s;}
 .ni:hover{color:rgba(255,255,255,.85);}
@@ -996,7 +996,7 @@ body.modal-open{overflow:hidden;}
   .bnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:300;background:linear-gradient(180deg,#3A0808,#2D0505);
     border-top:1px solid rgba(201,150,12,.25);padding:4px 4px calc(4px + env(safe-area-inset-bottom));box-shadow:0 -6px 20px rgba(45,5,5,.35);}
   .bn{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:8px 4px;
-    background:none;border:none;color:rgba(255,248,238,.72);font-size:.6rem;font-weight:700;cursor:pointer;}
+    background:none;border:none;color:rgba(255,248,238,.72);font-size:.68rem;font-weight:700;cursor:pointer;}
   .bn i{font-size:1.12rem;}
   .bn.on{color:var(--gold-bright);}
   .bn.on::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:26px;height:3px;border-radius:3px;background:var(--gold-bright);}

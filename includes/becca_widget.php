@@ -257,8 +257,8 @@
      includes it gets the same floor. */
   .ch-status { font-size: .7rem; }
   .mtime { font-size: .68rem; }
-  .inp-meta { font-size: .68rem; }
-  .inp-meta i { font-size: .64rem; }
+  .inp-meta { font-size: .72rem; }
+  .inp-meta i { font-size: .66rem; }
 }
 </style>
 
