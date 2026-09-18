@@ -263,13 +263,31 @@ function public_location_label($location) {
     $location = preg_replace('/\s+/', ' ', $location);
     return ucwords(trim($location));
 }
+/* "Aug 25, 2026 / Aug 25, 2026": once a week had passed this fell back to
+   the date, which the cell above it already shows. Empty then, and the row
+   that prints it is skipped. */
 function ago($dt) {
     $diff = time() - strtotime($dt);
     if ($diff < 60)     return 'Just now';
     if ($diff < 3600)   return floor($diff/60).'m ago';
     if ($diff < 86400)  return floor($diff/3600).'h ago';
     if ($diff < 604800) return floor($diff/86400).'d ago';
-    return date('M j, Y', strtotime($dt));
+    return '';
+}
+/* The public label reads "Annex 1 Campus • Building 13 - BEC Skills Training
+   Center • BSTC Rm Area" - one string, eight lines tall in a table column.
+   The campus is the least specific part, so it becomes the small second line
+   and the building and room stay on the first. */
+function public_location_parts($location): array {
+    $label = public_location_label($location);
+    $bits  = array_values(array_filter(array_map('trim', explode('•', $label)), 'strlen'));
+    if (count($bits) < 2) { return ['main' => $label, 'sub' => '']; }
+    $campus = array_shift($bits);
+    return ['main' => implode(' • ', $bits), 'sub' => $campus];
+}
+function public_category_label($category): string {
+    $category = trim((string)$category);
+    return ($category === '' || strcasecmp($category, 'Uncategorized') === 0) ? '' : $category;
 }
 function build_url($extra=[]) {
     $p = array_merge(['q'=>$_GET['q']??'','status'=>$_GET['status']??'','sev'=>$_GET['sev']??'','page'=>$_GET['page']??1], $extra);
@@ -395,6 +413,18 @@ tbody tr:hover{background:var(--ml);}
 td{padding:.85rem 1rem;font-size:.83rem;color:var(--k);vertical-align:middle;}
 td:first-child{padding-left:1.25rem;}
 td:last-child{padding-right:1.25rem;}
+/* Location gets the width. Without this the browser spread the table evenly
+   and the one long column - the location - wrapped into an eight-line tower
+   while the badge columns sat half empty. */
+th:nth-child(1),td:nth-child(1){width:1%;white-space:nowrap;}
+th:nth-child(4),td:nth-child(4),th:nth-child(5),td:nth-child(5),th:nth-child(7),td:nth-child(7){width:1%;white-space:nowrap;}
+th:nth-child(3),td:nth-child(3){min-width:200px;}
+/* Seven columns in 1056px: the cell padding is what decides whether the last
+   one fits or scrolls sideways. */
+th,td{padding-left:.6rem;padding-right:.6rem;}
+th:first-child,td:first-child{padding-left:1rem;}
+th:last-child,td:last-child{padding-right:1rem;}
+td[data-label="Issue"]{max-width:200px !important;}
 .ticket-cell{font-family:'Fraunces',serif;font-weight:700;font-size:.82rem;color:var(--m);letter-spacing:.03em;white-space:nowrap;}
 .equip-name{font-weight:600;color:var(--k);margin-bottom:.12rem;font-size:.84rem;}
 .equip-cat{font-size:.68rem;color:var(--k3);}
@@ -486,15 +516,28 @@ td:last-child{padding-right:1.25rem;}
   table{min-width:0;width:100%;}
   thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);}
   tbody{display:block;}
-  tr{display:block;background:var(--s);border:1px solid var(--b);border-radius:14px;
+  /* A card was eight label/value rows, one under the other, about 430px
+     tall - twelve of them made a 5,000px page. The same cells, arranged:
+     ticket with its status beside it, then equipment, then location, then
+     priority and date side by side, then the issue. */
+  tr{display:flex;flex-wrap:wrap;background:var(--s);border:1px solid var(--b);border-radius:14px;
     box-shadow:var(--sh);margin-bottom:.75rem;padding:.35rem .2rem;}
   td{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:.25rem .9rem;
-    padding:.5rem .85rem;border:none;border-bottom:1px solid var(--b);text-align:right;max-width:none !important;}
-  tr td:last-child{border-bottom:none;}
+    width:100%;padding:.5rem .85rem;border:none;border-bottom:1px solid var(--b);text-align:right;max-width:none !important;min-width:0;}
+  td:nth-child(n){width:100%;white-space:normal;}
+  td[data-label="Ticket"]{order:0;width:auto;flex:1 1 0%;min-width:0;border-radius:12px 0 0 0;}
+  td[data-label="Status"]{order:1;width:auto;flex:0 0 auto;justify-content:flex-end;border-radius:0 12px 0 0;background:var(--maroon-soft,rgba(123,29,29,.05));}
+  td[data-label="Status"]::before{content:none;}
+  td[data-label="Equipment"]{order:2;}
+  td[data-label="Location"]{order:3;}
+  td[data-label="Priority"]{order:4;width:50%;border-right:1px solid var(--b);}
+  td[data-label="Submitted"]{order:5;width:50%;}
+  td[data-label="Issue"]{order:6;border-bottom:none;}
+  td[data-label="Location"] .loc-main,td[data-label="Location"] .loc-sub{width:100%;text-align:right;}
   td::before{content:attr(data-label);font-weight:700;color:var(--k3);font-size:.64rem;
     text-transform:uppercase;letter-spacing:.5px;text-align:left;flex-shrink:0;}
   td .equip-cat,td .date-ago{width:100%;text-align:right;}
-  td[data-label="Ticket"]{background:var(--maroon-soft,rgba(123,29,29,.05));border-radius:12px 12px 0 0;}
+  td[data-label="Ticket"]{background:var(--maroon-soft,rgba(123,29,29,.05));}
   td[data-label="Ticket"] .ticket-cell{font-weight:800;}
   td[data-label="Issue"]>div{width:100%;text-align:left;margin-top:.2rem;}
 
@@ -603,10 +646,11 @@ td:last-child{padding-right:1.25rem;}
             <th>Location</th>
             <th>Priority</th>
             <th>Status</th>
-            <!-- The report's status and the equipment's status are different
-                 things; two columns both headed "Equipment" made the table
-                 unreadable. The mobile cards already said "Equipment status". -->
-            <th>Equipment status</th>
+            <?php /* The inventory's own status used to be a column here. It read
+                     "Operational" on every row - including the ones awaiting
+                     repair - because nobody updates the inventory until a repair
+                     is verified. Noise in the table; the detail view still shows
+                     it, named for what it is. */ ?>
             <th>Issue Summary</th>
             <th>Submitted</th>
           </tr>
@@ -617,20 +661,21 @@ td:last-child{padding-right:1.25rem;}
             <td data-label="Ticket"><div class="ticket-cell"><?= htmlspecialchars($r['ticket']) ?></div></td>
             <td data-label="Equipment">
               <div class="equip-name"><?= htmlspecialchars($r['equipment_name']) ?></div>
-              <div class="equip-cat"><?= htmlspecialchars($r['category']) ?></div>
+              <?php if (($cat = public_category_label($r['category'] ?? '')) !== ''): ?><div class="equip-cat"><?= htmlspecialchars($cat) ?></div><?php endif; ?>
             </td>
             <td data-label="Location">
-              <div class="loc-main"><?= htmlspecialchars(public_location_label($r['location'] ?? '')) ?></div>
+              <?php $loc = public_location_parts($r['location'] ?? ''); ?>
+              <div class="loc-main"><?= htmlspecialchars($loc['main']) ?></div>
+              <?php if ($loc['sub'] !== ''): ?><div class="loc-sub"><?= htmlspecialchars($loc['sub']) ?></div><?php endif; ?>
             </td>
             <td data-label="Priority"><span class="badge <?= severity_class($r['severity']) ?>"><?= htmlspecialchars(priority_label($r['severity'])) ?></span></td>
             <td data-label="Status"><span class="badge <?= status_class($r['status']) ?>"><?= htmlspecialchars(status_label($r['status'])) ?></span></td>
-            <td data-label="Equipment status"><span class="badge <?= equipment_status_class($r['equipment_status'] ?? '') ?>"><?= htmlspecialchars(equipment_status_label($r['equipment_status'] ?? '')) ?></span></td>
-            <td data-label="Issue" style="max-width:260px;">
+            <td data-label="Issue">
               <div style="line-height:1.45;color:var(--k2);"><?= htmlspecialchars(public_issue_summary($r['defect_description'] ?? '')) ?></div>
             </td>
             <td data-label="Submitted">
               <div class="date-main"><?= date('M j, Y', strtotime($r['created_at'])) ?></div>
-              <div class="date-ago"><?= ago($r['created_at']) ?></div>
+              <?php if (($when = ago($r['created_at'])) !== ''): ?><div class="date-ago"><?= $when ?></div><?php endif; ?>
             </td>
           </tr>
           <?php endforeach; ?>
@@ -692,7 +737,7 @@ td:last-child{padding-right:1.25rem;}
           <div class="di-value" id="m-submitted"></div>
         </div>
         <div class="detail-item">
-          <div class="di-label"><i aria-hidden="true" class="fas fa-microchip" style="margin-right:.3rem;font-size:.6rem"></i>Equipment Status</div>
+          <div class="di-label"><i aria-hidden="true" class="fas fa-microchip" style="margin-right:.3rem;font-size:.6rem"></i>Inventory record</div>
           <div class="di-value" id="m-eq-status"></div>
         </div>
         <div class="detail-item full">

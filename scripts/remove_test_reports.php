@@ -34,6 +34,23 @@ $tickets = [
     'BEC-2026-000169', // "Try out lang po at the moment"
     'BEC-2026-000168', // "testing testing"
     'BEC-2026-000167', // "Try out lng po ito."
+    // Second pass, found on the public board after the first run (2026-09-18).
+    // "Problem Details" is the form's own section heading typed in as the
+    // description, four times by three different reporters. Tickets already
+    // removed are simply absent from the listing; the deletes are by number.
+    'BEC-2026-000247', // "piano"
+    'BEC-2026-000231', // "Worst"
+    'BEC-2026-000224', // "Ang galing"
+    'BEC-2026-000223', // "becpmo.online/student_index.php"
+    'BEC-2026-000222', // "becpmo"
+    'BEC-2026-000221', // "becpmo.online/student_index.php"
+    'BEC-2026-000216', // "mamamo"
+    'BEC-2026-000214', // "Problem Details"
+    'BEC-2026-000211', // "Problem Details"
+    'BEC-2026-000208', // "Problem Details"
+    'BEC-2026-000206', // "ioyhuioghjg;luktg"
+    'BEC-2026-000205', // "KUNG ANO"
+    'BEC-2026-000201', // "Problem Details"
 ];
 $testScheduleId = 5;   // title "Maintenance", instructions "This is a test", every 7 days
 

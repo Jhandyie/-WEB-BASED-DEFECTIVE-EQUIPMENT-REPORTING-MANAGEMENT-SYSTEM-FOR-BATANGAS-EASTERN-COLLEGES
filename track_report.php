@@ -452,6 +452,13 @@ function tr_timeline(array $report): array {
     return $items;
 }
 
+/* "T-0825-0027 / T-0825-0027": the asset tag is usually the equipment ID, and
+   the reference printed both. One value when they match, both when they differ. */
+function tr_reference(string $equipmentId, string $assetTag): string {
+    $equipmentId = trim($equipmentId); $assetTag = trim($assetTag);
+    if ($assetTag === '' || strcasecmp($assetTag, $equipmentId) === 0) { return $equipmentId; }
+    return $equipmentId . ' / ' . $assetTag;
+}
 function tr_progress(array $timeline, string $status = ''): array {
     $status = strtolower(trim($status));
     $total = count($timeline);
@@ -462,12 +469,13 @@ function tr_progress(array $timeline, string $status = ''): array {
     }
     // Terminal states are 100% complete.
     if (in_array($status, ['verified', 'closed'], true)) {
-        return ['pct' => 100, 'current' => $current ?: 'Resolved', 'done' => $total, 'total' => $total];
+        return ['pct' => 100, 'current' => $current ?: 'Resolved', 'done' => $total, 'total' => $total, 'stage' => $total];
     }
     $hasActive = false;
     foreach ($timeline as $t) { if ($t['state'] === 'active') { $hasActive = true; break; } }
     $pct = $total ? (int)round((($done + ($hasActive ? 0.5 : 0)) / $total) * 100) : 0;
-    return ['pct' => min(100, max(4, $pct)), 'current' => $current, 'done' => $done, 'total' => $total];
+    return ['pct' => min(100, max(4, $pct)), 'current' => $current, 'done' => $done, 'total' => $total,
+            'stage' => min($total, $done + ($hasActive ? 1 : 0))];
 }
 ?><!DOCTYPE html>
 <html lang="en">
@@ -558,9 +566,9 @@ form{display:flex;gap:var(--sp-3);flex-wrap:wrap}
 .tl-title{font-weight:700;margin-bottom:var(--sp-0)}
 .tl-date{font-size:var(--fs-base);color:var(--k3)}
 .mini-table{margin-top:var(--sp-4);border-top:1px solid var(--b);padding-top:var(--sp-4)}
-.mini-row{display:grid;grid-template-columns:120px 1fr 110px;gap:var(--sp-2);padding:var(--sp-2) 0;border-bottom:1px solid #f1e6d8}
+.mini-row{display:grid;grid-template-columns:max-content 1fr 110px;gap:var(--sp-3);padding:var(--sp-2) 0;border-bottom:1px solid #f1e6d8}
 .mini-row:last-child{border-bottom:none}
-.mini-id{font-weight:700;color:var(--m);overflow-wrap:anywhere}
+.mini-id{font-weight:700;color:var(--m);white-space:nowrap}
 .mini-date{font-size:var(--fs-base);color:var(--k3);text-align:right}
 /* ── Status hero (delivery-style) ── */
 .track-hero{display:flex;align-items:center;gap:var(--sp-4);margin:var(--sp-4) 0 var(--sp-2);padding:var(--sp-4) var(--sp-4);border-radius:16px;background:linear-gradient(135deg,var(--md),var(--m));color:#fff;position:relative;overflow:hidden}
@@ -590,6 +598,7 @@ form{display:flex;gap:var(--sp-3);flex-wrap:wrap}
 @keyframes rtp{0%{box-shadow:0 0 0 0 rgba(201,150,12,.45)}70%{box-shadow:0 0 0 9px rgba(201,150,12,0)}100%{box-shadow:0 0 0 0 rgba(201,150,12,0)}}
 .rt-title{font-weight:700;font-size:var(--fs-xl);display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap}
 .rt-step.pending .rt-title{color:var(--k3);font-weight:600}
+.value-note{display:block;margin-top:.25rem;font-size:var(--fs-sm);font-weight:400;color:var(--k3);line-height:1.5}
 .rt-live{font-size:var(--fs-xs);font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#92400E;background:#FFF3D6;border:1px solid #f0d493;padding:var(--sp-0) var(--sp-2);border-radius:999px}
 .rt-desc{font-size:var(--fs-base);color:var(--k2);line-height:1.5;margin-top:var(--sp-1)}
 .rt-step.pending .rt-desc{color:var(--k3)}
@@ -660,7 +669,7 @@ html{scroll-behavior:smooth}
     <div class="card">
       <div class="eyebrow"><i aria-hidden="true" class="fas fa-magnifying-glass"></i> Report Tracker</div>
       <h1>Track your ticket</h1>
-      <div class="sub">Enter the report ticket, equipment ID, or asset tag to check both the report progress and the current equipment status.</div>
+      <div class="sub">Your ticket number is in the confirmation email. An equipment ID or asset tag works too.</div>
       <form method="GET" action="">
         <div class="search-wrap">
           <input class="input" id="track-search" type="text" name="q" placeholder="e.g. BEC-A1B2C3D4, EQ-001, or COMP-001" value="<?php echo htmlspecialchars($query); ?>" autocomplete="off" required>
@@ -668,7 +677,7 @@ html{scroll-behavior:smooth}
         </div>
         <button class="btn" type="submit">Track Report</button>
       </form>
-      <div class="hint">This tracker supports report tickets, equipment IDs, and asset tags. Start typing to see possible matches from recent reports.</div>
+      <div class="hint">Start typing to see possible matches from recent reports.</div>
 
       <?php if ($viewerEmail !== '' && $trackSuggestions): ?>
       <!-- The signed-in reporter's own tickets. These were already loaded for the
@@ -750,7 +759,7 @@ html{scroll-behavior:smooth}
           <?php if ($eqDone > 0): ?><span class="badge st-done"><?php echo $eqDone; ?> resolved</span><?php endif; ?>
         </div>
         <div class="grid">
-          <div class="item"><div class="label">Equipment Reference</div><div class="value"><?php echo htmlspecialchars((string)$report['equipment_id']); ?><?php echo !empty($report['asset_tag']) ? ' / ' . htmlspecialchars((string)$report['asset_tag']) : ''; ?></div></div>
+          <div class="item"><div class="label">Equipment Reference</div><div class="value"><?php echo htmlspecialchars(tr_reference((string)$report['equipment_id'], (string)($report['asset_tag'] ?? ''))); ?></div></div>
           <div class="item"><div class="label">Location</div><div class="value"><?php echo htmlspecialchars((string)($report['location'] ?: 'Unspecified')); ?></div></div>
           <div class="item"><div class="label">Equipment Status</div><div class="value"><?php echo htmlspecialchars(tr_equipment_status_label((string)$report['equipment_status'])); ?></div></div>
           <div class="item"><div class="label">Last Reported</div><div class="value"><?php echo htmlspecialchars($eqLast ? tr_when($eqLast) : 'Never'); ?></div></div>
@@ -808,38 +817,36 @@ html{scroll-behavior:smooth}
           </div>
           <div class="th-prog">
             <div class="th-ring" style="--pct:<?php echo (int)$prog['pct']; ?>"><span><?php echo (int)$prog['pct']; ?>%</span></div>
-            <small><?php echo (int)$prog['done']; ?> of <?php echo (int)$prog['total']; ?> stages</small>
+            <small><?php echo (int)$prog['done'] >= (int)$prog['total'] ? 'All ' . (int)$prog['total'] . ' stages done' : 'Stage ' . (int)$prog['stage'] . ' of ' . (int)$prog['total']; ?></small>
           </div>
         </div>
         <div class="badges">
           <span class="badge <?php echo htmlspecialchars(tr_priority_class((string)$report['priority'])); ?>"><?php echo htmlspecialchars(ucfirst((string)$report['priority'])); ?></span>
           <span class="badge <?php echo htmlspecialchars(tr_status_class((string)$report['status'])); ?>"><?php echo htmlspecialchars(tr_status_label((string)$report['status'])); ?></span>
-          <span class="badge <?php echo htmlspecialchars(tr_equipment_status_class((string)$report['equipment_status'])); ?>"><?php echo htmlspecialchars(tr_equipment_status_label((string)$report['equipment_status'])); ?></span>
         </div>
         <div class="grid">
           <div class="item">
             <div class="label">Equipment</div>
             <div class="value"><?php echo htmlspecialchars((string)$report['equipment_name']); ?></div>
           </div>
+          <?php $trCat = trim((string)($report['category_name'] ?? '')); if ($trCat !== '' && strcasecmp($trCat, 'Uncategorized') !== 0): ?>
           <div class="item">
             <div class="label">Category</div>
-            <div class="value"><?php echo htmlspecialchars((string)$report['category_name']); ?></div>
+            <div class="value"><?php echo htmlspecialchars($trCat); ?></div>
           </div>
+          <?php endif; ?>
           <div class="item">
             <div class="label">Equipment Reference</div>
-            <div class="value"><?php echo htmlspecialchars((string)$report['equipment_id']); ?><?php echo !empty($report['asset_tag']) ? ' / ' . htmlspecialchars((string)$report['asset_tag']) : ''; ?></div>
+            <div class="value"><?php echo htmlspecialchars(tr_reference((string)$report['equipment_id'], (string)($report['asset_tag'] ?? ''))); ?></div>
           </div>
           <div class="item">
             <div class="label">Location</div>
             <div class="value"><?php echo htmlspecialchars((string)($report['location'] ?: 'Unspecified')); ?></div>
           </div>
-          <div class="item">
-            <div class="label">Equipment Status</div>
-            <div class="value"><?php echo htmlspecialchars(tr_equipment_status_label((string)$report['equipment_status'])); ?></div>
-          </div>
-          <div class="item">
-            <div class="label">Condition</div>
-            <div class="value"><?php echo htmlspecialchars($report['equipment_condition'] !== '' ? ucwords(str_replace('_', ' ', (string)$report['equipment_condition'])) : 'Unknown'); ?></div>
+          <div class="item full">
+            <div class="label">Inventory record</div>
+            <div class="value"><?php echo htmlspecialchars(tr_equipment_status_label((string)$report['equipment_status'])); ?><?php echo $report['equipment_condition'] !== '' ? ' · ' . htmlspecialchars(ucwords(str_replace('_', ' ', (string)$report['equipment_condition']))) . ' condition' : ''; ?>
+              <span class="value-note"><?php echo in_array(strtolower((string)$report['status']), ['verified', 'closed'], true) ? 'As recorded by the PMO after the repair was verified.' : 'What the PMO inventory says about this unit; it is updated when the repair is verified, not when a report is filed.'; ?></span></div>
           </div>
           <div class="item full">
             <div class="label">Description</div>
@@ -872,7 +879,7 @@ html{scroll-behavior:smooth}
                   <?php else: ?><i aria-hidden="true" class="fas fa-circle"></i><?php endif; ?>
                 </div>
                 <div class="rt-body">
-                  <div class="rt-title"><?php echo htmlspecialchars($step['label']); ?><?php if ($step['state'] === 'active'): ?> <span class="rt-live">In progress</span><?php endif; ?></div>
+                  <div class="rt-title"><?php echo htmlspecialchars($step['label']); ?><?php if ($step['state'] === 'active'): ?> <span class="rt-live">Current</span><?php endif; ?></div>
                   <?php if ($step['desc'] !== ''): ?><div class="rt-desc"><?php echo htmlspecialchars($step['desc']); ?></div><?php endif; ?>
                   <?php if (!empty($step['date'])): ?>
                   <div class="rt-date"><i aria-hidden="true" class="fas fa-clock"></i> <?php echo htmlspecialchars(tr_when($step['date'])); ?></div>
