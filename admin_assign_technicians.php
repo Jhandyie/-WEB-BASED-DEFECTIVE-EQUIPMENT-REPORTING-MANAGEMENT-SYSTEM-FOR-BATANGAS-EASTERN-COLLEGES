@@ -75,6 +75,11 @@ $unassigned = array_values(array_filter(
     $allReportsForAssign,
     fn($r) => in_array($r['status'], ['pmo_review', 'ready_for_assignment', 'assigned'], true) && ($r['assigned_to'] ?? '') === ''
 ));
+// New reports nobody has marked received yet. They are not in this queue - the
+// office receives a report in Defect Reports first - but an empty queue that
+// said "all reports are assigned" while fifty sat unreceived was telling the
+// dispatcher the opposite of the truth.
+$notYetReceived = count(array_filter($allReportsForAssign, fn($r) => ($r['status'] ?? '') === 'reported'));
 
 // Active reports already handled by a technician (used for the table + workload).
 $inprogress = array_values(array_filter(
@@ -217,6 +222,11 @@ if (isset($_GET['report'])) {
 $totalTechs      = count($technicians);
 $availTechs      = count(array_filter($technicians, fn($t) => ($t['avail'] ?? '') === 'available'));
 $overloadedTechs = count(array_filter($technicians, fn($t) => ($t['avail'] ?? '') === 'overloaded'));
+// Assigned but not yet accepted by the technician: the number a dispatcher
+// actually watches. "Overloaded technicians" sat in this strip and read 0 on
+// every visit (nobody carries four open repairs), which looked like a card
+// that did not work. The overload warning inside the assign dialog stays.
+$awaitingAccept  = count(array_filter($inprogress, fn($r) => ($r['status'] ?? '') === 'assigned'));
 $totalUnassigned = count($unassigned);
 $totalInProgress = count($inprogress);
 
@@ -1060,10 +1070,10 @@ textarea.fc{resize:vertical;min-height:80px;}
         <div class="smicro"><i class="fas fa-circle" style="color:var(--ok);font-size:var(--fs-xs);"></i> Light workload</div>
       </div>
       <div class="scard sc-c">
-        <div class="sico"><i class="fas fa-triangle-exclamation"></i></div>
-        <div class="snum" id="sn2"><?php echo $overloadedTechs; ?></div>
-        <div class="slbl">Overloaded Technicians</div>
-        <div class="smicro"><i class="fas fa-circle" style="color:var(--bad);font-size:var(--fs-xs);"></i> 4+ active tasks</div>
+        <div class="sico"><i class="fas fa-hourglass-half"></i></div>
+        <div class="snum" id="sn2"><?php echo $awaitingAccept; ?></div>
+        <div class="slbl">Awaiting Acceptance</div>
+        <div class="smicro"><i class="fas fa-circle" style="color:#D97706;font-size:var(--fs-xs);"></i> Assigned, not yet accepted</div>
       </div>
       <div class="scard sc-d">
         <div class="sico"><i class="fas fa-wrench"></i></div>
@@ -1151,8 +1161,15 @@ textarea.fc{resize:vertical;min-height:80px;}
             <tbody>
               <?php if(empty($unassigned)): ?>
               <tr><td colspan="6"><div class="empty">
+                <?php if ($notYetReceived > 0): ?>
+                <i class="fas fa-inbox" style="color:#D97706;"></i>
+                Nothing is waiting for assignment, but <b><?php echo $notYetReceived; ?></b> new report<?php echo $notYetReceived === 1 ? '' : 's'; ?>
+                <?php echo $notYetReceived === 1 ? 'has' : 'have'; ?> not been received yet.
+                <a href="admin_defect_reports.php?status=pending" style="color:var(--m3,#7B1D1D);font-weight:700;">Receive them in Defect Reports</a> and they appear here.
+                <?php else: ?>
                 <i class="fas fa-check-circle" style="color:var(--ok);"></i>
                 All reports are assigned - great work!
+                <?php endif; ?>
               </div></td></tr>
               <?php else: foreach($unassignedShown as $r):
                 /* Everything the toolbar sorts or filters on is written onto the
@@ -2463,7 +2480,7 @@ function animN(id, to) {
 document.addEventListener('DOMContentLoaded', () => {
   animN('sn0', <?php echo $totalUnassigned; ?>);
   animN('sn1', <?php echo $availTechs; ?>);
-  animN('sn2', <?php echo $overloadedTechs; ?>);
+  animN('sn2', <?php echo $awaitingAccept; ?>);
   animN('sn3', <?php echo $totalInProgress; ?>);
 });
 

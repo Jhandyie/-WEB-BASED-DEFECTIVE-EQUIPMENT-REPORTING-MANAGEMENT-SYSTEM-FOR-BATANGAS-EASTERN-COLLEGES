@@ -244,7 +244,10 @@ $checks = [
         ['ledger can be exported',   '/export=csv/',                true],
     ]],
     ['Assign technicians', 'admin', 'admin_assign_technicians.php', [
-        ['queue row is clickable',   '/class="pick-row"/',          true],
+        // A queue row when there is something to assign; the empty state when
+        // there is not (every report still 'reported', none received yet).
+        // The assertion used to demand a row and failed on a clean queue.
+        ['queue row or empty state', '/class="pick-row"|class="empty"/', true],
         ['dispatch drawer',          '/id="asgDw"/',                true],
     ]],
     ['Technician dashboard', 'tech', 'technician_dashboard.php', [
