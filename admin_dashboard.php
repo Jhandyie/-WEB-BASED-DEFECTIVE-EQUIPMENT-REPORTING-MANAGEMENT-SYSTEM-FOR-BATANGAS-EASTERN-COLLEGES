@@ -152,17 +152,20 @@ foreach ($allReports as $r) {
 }
 
 // -- TECHNICIAN PERFORMANCE --------------------
+// Technicians live in two tables (users.role = 'technician', and the office
+// staff in maintenance_technicians). Reading users alone listed one person and
+// left the four who do most of the repairs off their own panel.
+// getAvailableTechnicians() is the list assignment offers, so it is the list
+// performance is measured against.
 $technicianStats = [];
 try {
-    $tconn = getDBConnection();
-    $tres = $tconn->query("SELECT user_id, fullname FROM users WHERE role = 'technician' AND COALESCE(status,'active') = 'active' ORDER BY fullname");
-    if ($tres) {
-        while ($t = $tres->fetch_assoc()) {
-            $technicianStats[(string)$t['user_id']] = [
-                'name' => $t['fullname'] !== '' ? $t['fullname'] : (string)$t['user_id'],
-                'open' => 0, 'completed' => 0, 'res_days' => [],
-            ];
-        }
+    foreach (getAvailableTechnicians() as $t) {
+        $tid = trim((string)($t['technician_id'] ?? $t['user_id'] ?? ''));
+        if ($tid === '') continue;
+        $technicianStats[$tid] = [
+            'name' => trim((string)($t['fullname'] ?? '')) !== '' ? (string)$t['fullname'] : $tid,
+            'open' => 0, 'completed' => 0, 'res_days' => [],
+        ];
     }
 } catch (\Throwable $e) { /* no technicians yet */ }
 
@@ -170,7 +173,7 @@ foreach ($allReports as $r) {
     $tid = (string)($r['assigned_to'] ?? '');
     if ($tid === '' || !isset($technicianStats[$tid])) continue;
     $st = (string)($r['status'] ?? '');
-    if (in_array($st, ['assigned','in_progress','waiting_for_materials'], true)) {
+    if (in_array($st, ['assigned','accepted','in_progress','waiting_for_materials','for_replacement'], true)) {
         $technicianStats[$tid]['open']++;
     } elseif (in_array($st, ['completed','verified','closed'], true)) {
         $technicianStats[$tid]['completed']++;
@@ -189,9 +192,15 @@ $maxTechLoad = 1;
 foreach ($technicianStats as $ts) { $maxTechLoad = max($maxTechLoad, $ts['total']); }
 
 // -- ASSET HEALTH ------------------------------
+// Hidden for now (Sept 2026): the inventory's status column says "operational"
+// for nearly every unit because nobody updates it until a repair is verified,
+// so the panel's fleet counts and "health score" read as the system
+// contradicting the reports beside it. Flip this to true to bring it back;
+// the two queries below are skipped while it is off.
+const ADMIN_DASHBOARD_ASSET_HEALTH = false;
 $assetCounts = ['total' => 0, 'operational' => 0, 'repair' => 0, 'defective' => 0];
 $topDefectiveAssets = [];
-try {
+if (ADMIN_DASHBOARD_ASSET_HEALTH) try {
     $aconn = getDBConnection();
     $cres = $aconn->query("
         SELECT
@@ -905,7 +914,8 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .nav-item:focus-visib
       </div>
     </div>
 
-    <!-- ASSET HEALTH -->
+    <!-- ASSET HEALTH (hidden while ADMIN_DASHBOARD_ASSET_HEALTH is false, see the top of this file) -->
+    <?php if (ADMIN_DASHBOARD_ASSET_HEALTH): ?>
     <div class="panel" style="margin-bottom:1.25rem;">
       <div class="panel-h">
         <h3><i class="fas fa-heart-pulse"></i> Asset Health</h3>
@@ -957,6 +967,7 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .nav-item:focus-visib
         <?php $rk++; endforeach; endif; ?>
       </div>
     </div>
+    <?php endif; ?>
 
     <!-- RECENT DEFECT REPORTS TABLE -->
     <div class="full-grid">
