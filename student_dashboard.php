@@ -32,9 +32,25 @@ if (isset($_GET['check_open'])) {
     header('Cache-Control: no-store');
     $open = function_exists('findOpenReportForEquipment')
         ? findOpenReportForEquipment((string)$_GET['check_open']) : null;
+    // Whose report it is changes what the notice should say. "This equipment
+    // already has an open report" read, to a reporter who had just signed in,
+    // as an accusation that they had filed something - when the unit had been
+    // reported by somebody else, or by them last week.
+    $mine = false; $eqName = ''; $when = '';
+    if ($open && function_exists('getDefectReportById')) {
+        $full = getDefectReportById((string)$open['report_id']);
+        if ($full) {
+            $mine   = strcasecmp(trim((string)($full['reporter_email'] ?? '')), trim($student_email)) === 0;
+            $eqName = (string)($full['equipment_name'] ?? '');
+            $when   = !empty($full['report_date']) ? date('M j', strtotime((string)$full['report_date'])) : '';
+        }
+    }
     echo json_encode(['open' => $open ? [
         'report_id' => (string)($open['report_id'] ?? ''),
         'status'    => ucwords(str_replace('_', ' ', (string)($open['status'] ?? ''))),
+        'mine'      => $mine,
+        'equipment' => $eqName,
+        'when'      => $when,
     ] : null]);
     exit();
 }
@@ -1705,10 +1721,10 @@ html { scroll-behavior: smooth; }
   <div class="dup-early" id="dupEarly" hidden>
     <i class="fas fa-clone" aria-hidden="true"></i>
     <div>
-      <strong>This equipment already has an open report:</strong>
+      <span id="dupEarlyText"><strong>This equipment already has an open report.</strong></span>
       <strong class="dup-early-id" id="dupEarlyId"></strong> <span id="dupEarlyStatus"></span>
       — <a id="dupEarlyLink" href="track_report.php" target="_blank" rel="noopener">track it</a> instead of filing again.
-      <label class="dup-early-ok"><input type="checkbox" id="dupEarlyOk" form="report-form" name="duplicate_override" value="1"> <span>Mine is a <em>different problem</em> on the same unit — file a new report anyway.</span></label>
+      <label class="dup-early-ok"><input type="checkbox" id="dupEarlyOk" form="report-form" name="duplicate_override" value="1"> <span id="dupEarlyOkText">Mine is a <em>different problem</em> on the same unit — file a new report anyway.</span></label>
     </div>
   </div>
   <nav class="fsteps" id="fsteps" aria-label="Report form progress"></nav>
@@ -2339,6 +2355,16 @@ function checkOpenReport(id) {
       if (seq !== dupEarlySeq) return;              // a later pick already answered
       const open = j && j.open;
       if (!open || !open.report_id) { dupEarly.hidden = true; return; }
+      // Say whose it is and when, so a reporter who has just signed in is not
+      // left wondering what they are supposed to have filed.
+      var unit = open.equipment ? open.equipment : 'This equipment';
+      var when = open.when ? ' on ' + open.when : '';
+      document.getElementById('dupEarlyText').innerHTML = open.mine
+        ? '<strong>You already reported this unit' + when + ':</strong>'
+        : '<strong>' + unit.replace(/[<>&]/g, '') + ' was already reported' + when + ' by someone else:</strong>';
+      document.getElementById('dupEarlyOkText').innerHTML = open.mine
+        ? 'This is a <em>new, different problem</em> on the same unit — file another report.'
+        : 'Mine is a <em>different problem</em> on the same unit — file a new report anyway.';
       document.getElementById('dupEarlyId').textContent = open.report_id;
       document.getElementById('dupEarlyStatus').textContent = open.status ? '(' + open.status + ')' : '';
       document.getElementById('dupEarlyLink').href = 'track_report.php?q=' + encodeURIComponent(open.report_id);
