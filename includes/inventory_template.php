@@ -596,6 +596,17 @@ if (!function_exists('becInventoryApply')) {
                 }
                 $stmt->execute($params);
             }
+            // The pages join categories on category_id; the sheet only carries
+            // the name. Resolve it here or every imported row reads
+            // "Uncategorized" on the tracker and the public board (that is how
+            // 1,298 rows sat for a month - scripts/backfill_category_ids.php
+            // fixed the backlog; this keeps it fixed).
+            if (isset($have['category_id']) && isset($have['category'])) {
+                $pdo->exec("UPDATE public.equipment e SET category_id = c.category_id
+                              FROM public.categories c
+                             WHERE e.category_id IS NULL
+                               AND lower(trim(c.category_name)) = lower(trim(COALESCE(NULLIF(e.category,''), '')))");
+            }
             $pdo->commit();
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) { $pdo->rollBack(); }

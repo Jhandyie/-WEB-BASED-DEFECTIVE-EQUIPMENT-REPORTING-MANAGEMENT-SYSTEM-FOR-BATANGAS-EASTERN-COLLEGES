@@ -889,7 +889,7 @@ body::after {
   display:block;
 }
 .logo-text strong { display:block;font-size:.78rem;font-weight:600;color:var(--ink); }
-.logo-text span   { font-size:.62rem;color:var(--ink3);text-transform:uppercase;letter-spacing:1.5px; }
+.logo-text span   { font-size:.66rem;color:var(--ink3);text-transform:uppercase;letter-spacing:1.5px; }
 
 .user-chip {
   display:flex;align-items:center;gap:.5rem;
@@ -1258,7 +1258,7 @@ body::after {
 .dup-early > i { color:#9A6A00;margin-top:.2rem;flex-shrink:0; }
 .dup-early strong { color:#1C1008; }
 .dup-early .dup-early-id { color:var(--maroon); }
-.dup-early a { color:var(--maroon);font-weight:700;text-decoration:underline; }
+.dup-early a { display:inline-block;padding:.35rem 0;color:var(--maroon);font-weight:700;text-decoration:underline; }
 .dup-early-ok { display:flex;gap:.55rem;align-items:flex-start;margin-top:.55rem;cursor:pointer; }
 .dup-early-ok input { width:17px;height:17px;flex-shrink:0;margin-top:.2rem;accent-color:var(--maroon); }
 .qr-change { display:inline-block;margin-top:.45rem;padding:0;border:0;background:none;color:var(--maroon);font:inherit;font-size:.82rem;font-weight:700;text-decoration:underline;cursor:pointer; }
@@ -1472,7 +1472,7 @@ body::after {
   }
   .section-sub,
   .fi-hint {
-    font-size:.68rem;
+    font-size:.74rem;   /* 11.6px was under the 12px phone floor for help copy */
   }
   .usable-label {
     flex-basis:100%;

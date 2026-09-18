@@ -583,16 +583,16 @@ h1,h2,h3{font-family:'Fraunces',Georgia,serif;letter-spacing:-.01em;}
 .seal-core{position:absolute;inset:2px;border-radius:50%;overflow:hidden;background:var(--maroon-dd);}
 .seal-core img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
 .sb-brand strong{display:block;font-family:'Outfit',sans-serif;font-weight:800;font-size:.82rem;color:#fff;line-height:1.25;}
-.sb-brand em{font-size:.57rem;font-style:normal;color:rgba(255,255,255,.32);text-transform:uppercase;letter-spacing:1.8px;}
+.sb-brand em{font-size:.66rem;font-style:normal;color:rgba(255,255,255,.32);text-transform:uppercase;letter-spacing:1.8px;}
 .sb-user{margin:.55rem 1rem .25rem;padding:.65rem .875rem;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.07);border-radius:var(--r2);display:flex;align-items:center;gap:.65rem;position:relative;z-index:1;}
 .sb-user .uav{width:34px;height:34px;flex-shrink:0;border-radius:50%;background:linear-gradient(135deg,var(--gold-2),#B45309);display:flex;align-items:center;justify-content:center;font-family:'Outfit',sans-serif;font-weight:900;font-size:.78rem;color:#fff;box-shadow:none;}
 .sb-user .un{min-width:0;}
 .sb-user .un b{display:block;font-size:.8rem;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.sb-user .un span{display:block;font-size:.58rem;color:rgba(255,255,255,.34);text-transform:uppercase;letter-spacing:1px;}
+.sb-user .un span{display:block;font-size:.66rem;color:rgba(255,255,255,.34);text-transform:uppercase;letter-spacing:1px;}
 .sb-nav{flex:1;padding:.4rem 0;overflow-y:auto;position:relative;z-index:1;scrollbar-width:thin;scrollbar-color:rgba(212,160,23,.45) transparent;}
 .sb-nav::-webkit-scrollbar{width:6px;}
 .sb-nav::-webkit-scrollbar-thumb{background:rgba(212,160,23,.4);border-radius:3px;}
-.nav-sec{font-size:.54rem;text-transform:uppercase;letter-spacing:2.5px;color:rgba(255,255,255,.2);padding:.6rem 1.25rem .25rem;font-weight:700;}
+.nav-sec{font-size:.64rem;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,.2);padding:.6rem 1.25rem .25rem;font-weight:700;}
 .ni{display:flex;align-items:center;gap:.65rem;padding:.58rem 1.25rem;color:rgba(255,255,255,.45);width:100%;text-align:left;background:none;border:none;font-family:'DM Sans',sans-serif;font-size:.84rem;font-weight:500;cursor:pointer;transition:all .16s;position:relative;}
 .ni-ic{width:30px;height:30px;border-radius:var(--r1);display:flex;align-items:center;justify-content:center;font-size:.78rem;background:rgba(255,255,255,.05);flex-shrink:0;transition:all .22s;}
 .ni:hover{color:rgba(255,255,255,.85);}
@@ -660,7 +660,7 @@ body.modal-open .bell-fab{display:none;}
 
 /* Page head — landing editorial style */
 .page-head{margin-bottom:18px;}
-.eyebrow{display:inline-flex;align-items:center;gap:.5rem;font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:1.7px;color:var(--maroon);}
+.eyebrow{display:inline-flex;align-items:center;gap:.5rem;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:1.7px;color:var(--maroon);}
 .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 3px var(--maroon-soft);}
 .page-head h1{font-size:clamp(1.45rem,3vw,1.9rem);color:var(--ink);margin:.2rem 0 .25rem;}
 .page-head p{font-size:.88rem;color:var(--ink3);max-width:60ch;}
@@ -1127,12 +1127,15 @@ body.modal-open{overflow:hidden;}
   .qcard{padding:10px 10px 10px 14px;gap:9px;align-items:center;border-radius:12px;}
   .q-ic{width:34px;height:34px;border-radius:9px;font-size:.85rem;}
   .q-top strong{font-size:.88rem;}
-  .q-id{font-size:.6rem;}
-  .q-loc{margin:.1rem 0 .3rem;font-size:.68rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;}
+  /* Measured on a 390px phone: the status and priority badges were 9.5px and
+     the ticket number 10.2px - the two things a technician scans the queue
+     for. A phone floor of 12px for anything that has to be read. */
+  .q-id{font-size:.74rem;}
+  .q-loc{margin:.1rem 0 .3rem;font-size:.74rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;}
   .q-loc i{display:none;}
   .q-badges{gap:4px;}
-  .q-badges .badge{padding:.16rem .45rem;font-size:.56rem;gap:3px;}
-  .q-badges .badge i{font-size:.54rem;}
+  .q-badges .badge{padding:.2rem .5rem;font-size:.72rem;gap:3px;}
+  .q-badges .badge i{font-size:.62rem;}
 }
 /* Minimalist missing-fields popup */
 .te-modal{position:fixed;inset:0;z-index:12000;display:none;align-items:center;justify-content:center;padding:1.2rem;background:rgba(20,6,6,.55);backdrop-filter:blur(3px);}

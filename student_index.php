@@ -593,7 +593,9 @@ body::after {
   border-top: 1px solid var(--border); padding-top:var(--sp-3); margin:0 0 0;
 }
 .pv-inner dt {
-  font-size:var(--fs-xs); font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  /* --fs-xs is 10.2px on a phone. This is the notice someone is asked to read
+     before agreeing to it; its headings are the one place that floor is wrong. */
+  font-size:var(--fs-base); font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
   color: var(--maroon); margin-top:var(--sp-3);
 }
 .pv-inner dt:first-child { margin-top:0; }

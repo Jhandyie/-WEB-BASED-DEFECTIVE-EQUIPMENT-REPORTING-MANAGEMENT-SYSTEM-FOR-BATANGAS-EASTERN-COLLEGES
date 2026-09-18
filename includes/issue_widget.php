@@ -18,7 +18,7 @@
   cursor:pointer;box-shadow:0 8px 22px rgba(44,10,10,.32);transition:background .18s,transform .18s;}
 #iss-fab:hover{background:#7B1D1D;transform:translateY(-2px);}
 #iss-fab i{color:#F0C040;font-size:.9rem;}
-@media(max-width:640px){#iss-fab{padding:.6rem;border-radius:50%;right:14px;bottom:14px;}
+@media(max-width:640px){#iss-fab{padding:0;min-width:44px;min-height:44px;justify-content:center;border-radius:50%;right:14px;bottom:14px;}
   #iss-fab .iss-lbl{display:none;}}
 
 /* Share the bottom-right corner instead of fighting over it.

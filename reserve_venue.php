@@ -193,7 +193,7 @@ $venues = vrVenueSuggestions($pdo);
   .top img{width:38px;height:38px;object-fit:contain;}
   .top h1{margin:0;font-family:'Outfit',sans-serif;font-size:1.02rem;font-weight:700;}
   .top p{margin:.15rem 0 0;font-size:.72rem;opacity:.85;}
-  .top a.back{margin-left:auto;color:#fff;text-decoration:none;font-size:.78rem;font-weight:700;opacity:.9;}
+  .top a.back{margin-left:auto;display:inline-flex;align-items:center;min-height:44px;padding:0 .6rem;color:#fff;text-decoration:none;font-size:.82rem;font-weight:700;opacity:.9;}
   .wrap{max-width:860px;margin:0 auto;padding:1.4rem 1.1rem 4rem;}
   .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.3rem;box-shadow:0 1px 3px rgba(44,10,10,.06);}
   .lede{font-size:.82rem;color:var(--ink3);line-height:1.6;margin:0 0 1.2rem;}
@@ -203,17 +203,19 @@ $venues = vrVenueSuggestions($pdo);
   .flash.ok {background:var(--ok-bg); color:var(--ok-tx); border-color:var(--ok-bdr); border-left-color:var(--ok);}
   .flash.err{background:var(--bad-bg);color:var(--bad-tx);border-color:var(--bad-bdr);border-left-color:var(--bad);}
   fieldset{border:none;padding:0;margin:0 0 1.3rem;}
-  legend{font-size:.68rem;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--g);margin-bottom:.6rem;padding:0;}
+  /* 10.9px legends and 11.2px labels on a phone; 12.5px is the floor for a
+     label someone has to read before filling the field under it. */
+  legend{font-size:.78rem;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--g);margin-bottom:.6rem;padding:0;}
   .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.9rem;}
   .fg{display:flex;flex-direction:column;min-width:0;}.fg.full{grid-column:1/-1;}
-  label{font-size:.7rem;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:.3rem;}
+  label{font-size:.78rem;font-weight:700;color:var(--ink2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:.3rem;}
   input,select,textarea{width:100%;padding:.7rem .8rem;border:1.5px solid var(--border);border-radius:10px;font:inherit;font-size:.9rem;background:#fff;color:var(--ink);}
   input:focus,select:focus,textarea:focus{outline:none;border-color:var(--m);box-shadow:0 0 0 3px rgba(123,29,29,.1);}
   textarea{resize:vertical;min-height:76px;}
   .natures{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem;}
-  .nat{display:flex;align-items:center;gap:.5rem;padding:.6rem .75rem;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;background:#fff;font-size:.85rem;}
+  .nat{display:flex;align-items:center;gap:.6rem;min-height:44px;padding:.6rem .75rem;border:1.5px solid var(--border);border-radius:10px;cursor:pointer;background:#fff;font-size:.9rem;text-transform:none;letter-spacing:0;}
   .nat:hover{border-color:var(--m);}
-  .nat input{width:auto;margin:0;accent-color:var(--m);}
+  .nat input{width:18px;height:18px;margin:0;accent-color:var(--m);flex-shrink:0;}
   .nat.on{border-color:var(--m);background:#fdf7f0;font-weight:700;}
   .mrow{display:grid;grid-template-columns:1fr 6.5rem 2.5rem;gap:.5rem;margin-bottom:.5rem;align-items:center;}
   .mrow button{border:1.5px solid var(--border);background:#fff;border-radius:10px;height:2.7rem;cursor:pointer;color:var(--ink3);}
