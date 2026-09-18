@@ -119,6 +119,8 @@ function runPreventiveMaintenanceSweep(bool $force = false): int {
                 $mailRow['issue_description'] = '[Preventive Maintenance] ' . (string)$s['title']; // the mail has its own instructions block
                 try { notifyTechnicianAssignment($conn, $assigned, $ticket, $mailRow, (string)$payload['priority'], $instr); } catch (\Throwable $e) { error_log('pm assign email failed: ' . $e->getMessage()); }
             }
+            // The third thing a manual assignment sends: a push to the installed app.
+            try { require_once __DIR__ . '/webpush.php'; wpNotifyUser($assigned); } catch (\Throwable $e) { error_log('pm assign push failed: ' . $e->getMessage()); }
         }
         if (function_exists('logActivity')) { try { logActivity('system', 'system', 'pm.generated', 'Generated PM task ' . $ticket . ' from schedule #' . $sid); } catch (\Throwable $e) {} }
         $made++;
