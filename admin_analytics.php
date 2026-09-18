@@ -13,13 +13,24 @@ $admin_id   = $_SESSION['user_id'];
 $admin_name = $_SESSION['fullname'] ?? 'Administrator';
 
 /* ─── DATE RANGE ─────────────────────────────────────── */
-$range  = $_GET['range'] ?? '30';   // 7 | 30 | 90 | 365 | custom
-$date_from = $_GET['from'] ?? date('Y-m-d', strtotime("-{$range} days"));
-$date_to   = $_GET['to']   ?? date('Y-m-d');
+// 7 | 30 | 90 | 365 | custom. Anything else is 30: an unknown range used to
+// reach strtotime() as "-abc days" and silently become 1970.
+$range = (string)($_GET['range'] ?? '30');
+if (!in_array($range, ['7', '30', '90', '365', 'custom'], true)) { $range = '30'; }
+$isDate = static fn($v) => is_string($v) && preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $v, $m)
+    && checkdate((int)$m[2], (int)$m[3], (int)$m[1]);
 if ($range === 'custom') {
-    $date_from = $_GET['from'] ?? date('Y-m-d', strtotime('-30 days'));
-    $date_to   = $_GET['to']   ?? date('Y-m-d');
+    // A bad or missing date falls back rather than reaching Postgres as text
+    // it cannot parse; a From after the To is turned round rather than
+    // producing seven empty charts.
+    $date_from = $isDate($_GET['from'] ?? null) ? $_GET['from'] : date('Y-m-d', strtotime('-30 days'));
+    $date_to   = $isDate($_GET['to']   ?? null) ? $_GET['to']   : date('Y-m-d');
+    if ($date_from > $date_to) { [$date_from, $date_to] = [$date_to, $date_from]; }
+} else {
+    $date_from = date('Y-m-d', strtotime("-{$range} days"));
+    $date_to   = date('Y-m-d');
 }
+$spanDays = max(1, (int)round((strtotime($date_to) - strtotime($date_from)) / 86400) + 1);
 
 $df = $date_from;
 $dt = $date_to;
@@ -45,7 +56,9 @@ function esc($s){return htmlspecialchars((string)($s??''),ENT_QUOTES,'UTF-8');}
    config/database.php had already fetched. */
 $drCols   = getTableColumns('defect_reports');
 $userCols = getTableColumns('users');
-$resolutionDateCol = isset($drCols['updated_at']) ? 'updated_at' : (isset($drCols['completion_date']) ? 'completion_date' : null);
+// completion_date is when the technician finished; updated_at moves on any later
+// edit (a verification note, a cost correction) and was inflating the average.
+$resolutionDateCol = isset($drCols['completion_date']) ? 'completion_date' : (isset($drCols['updated_at']) ? 'updated_at' : null);
 $reporterJoinCol = isset($drCols['reporter_id']) ? 'reporter_id' : (isset($drCols['reported_by']) ? 'reported_by' : null);
 $userDeptExpr = isset($userCols['department']) ? 'u.department' : "''";
 
@@ -100,7 +113,9 @@ if ($resolutionDateCol !== null) {
 $avg_resolution_days = $avg_res && $avg_res[0] ? round((float)$avg_res[0], 1) : 0;
 
 /* ─── CHART 1: Reports over time (daily/weekly) ──────── */
-$interval = $range <= 30 ? 'day' : ($range <= 90 ? 'week' : 'month');
+// By the span in days, so a custom range gets the right grain too - 'custom'
+// compared against 30 as a string used to land every custom range on months.
+$interval = $spanDays <= 31 ? 'day' : ($spanDays <= 120 ? 'week' : 'month');
 // Bucket label expression (same in SELECT and GROUP BY so Postgres is happy).
 $bucket = $interval === 'day'
     ? "to_char(report_date, 'Mon DD')"
@@ -115,9 +130,25 @@ $chart1_res = q($conn, "
     WHERE report_date BETWEEN ? AND ?
     GROUP BY $bucket ORDER BY MIN(report_date)
 ", "ss", $df_ts, $dt_ts)->fetch_all(MYSQLI_ASSOC);
-$chart1_labels   = array_column($chart1_res,'lbl');
-$chart1_total    = array_column($chart1_res,'total');
-$chart1_resolved = array_column($chart1_res,'resolved');
+// The query returns only the days (weeks, months) that had a report, so a
+// quiet fortnight vanished from the axis and two busy days sat side by side as
+// if consecutive. Walk the whole range and give every bucket a value, zero
+// where nothing happened - that is what a trend line is for.
+$chart1_by = [];
+foreach ($chart1_res as $r) { $chart1_by[$r['lbl']] = $r; }
+$chart1_labels = $chart1_total = $chart1_resolved = [];
+$t0 = strtotime($df); $t1 = strtotime($dt);
+if ($interval === 'day') {
+    for ($t = $t0; $t <= $t1; $t += 86400) { $chart1_labels[] = date('M d', $t); }
+} elseif ($interval === 'week') {
+    for ($t = strtotime('monday this week', $t0); $t <= $t1; $t = strtotime('+1 week', $t)) { $chart1_labels[] = date('M d', $t); }
+} else {
+    for ($t = strtotime(date('Y-m-01', $t0)); $t <= $t1; $t = strtotime('+1 month', $t)) { $chart1_labels[] = date('M Y', $t); }
+}
+foreach ($chart1_labels as $lbl) {
+    $chart1_total[]    = (int)($chart1_by[$lbl]['total'] ?? 0);
+    $chart1_resolved[] = (int)($chart1_by[$lbl]['resolved'] ?? 0);
+}
 
 /* ─── CHART 2: Reports by status (donut) ─────────────── */
 $status_res = q($conn,"
@@ -138,13 +169,26 @@ $prio_labels = array_column($prio_res,'priority');
 $prio_vals   = array_column($prio_res,'n');
 
 /* ─── CHART 4: Reports by department (horizontal bar) ── */
-$dept_res = q($conn,"
-    SELECT COALESCE(NULLIF({$userDeptExpr},''),'Unassigned') AS dept, COUNT(*) AS n
-    FROM defect_reports r
-    LEFT JOIN users u ON r.assigned_to = u.user_id
-    WHERE r.report_date BETWEEN ? AND ? AND r.status!='deleted'
-    GROUP BY dept ORDER BY n DESC LIMIT 8
-","ss",$df_ts,$dt_ts)->fetch_all(MYSQLI_ASSOC);
+// "Which departments report the most" - so the reporter's department, which
+// the form records on every report. This used to join the assigned
+// technician's department, which made the chart a picture of PMO vs ITSO
+// workload with "Unassigned" as its biggest bar.
+if (isset($drCols['reporter_department'])) {
+    $dept_res = q($conn,"
+        SELECT COALESCE(NULLIF(r.reporter_department,''),'Not stated') AS dept, COUNT(*) AS n
+        FROM defect_reports r
+        WHERE r.report_date BETWEEN ? AND ? AND r.status!='deleted'
+        GROUP BY 1 ORDER BY n DESC LIMIT 8
+    ","ss",$df_ts,$dt_ts)->fetch_all(MYSQLI_ASSOC);
+} else {
+    $dept_res = q($conn,"
+        SELECT COALESCE(NULLIF({$userDeptExpr},''),'Unassigned') AS dept, COUNT(*) AS n
+        FROM defect_reports r
+        LEFT JOIN users u ON r.assigned_to = u.user_id
+        WHERE r.report_date BETWEEN ? AND ? AND r.status!='deleted'
+        GROUP BY dept ORDER BY n DESC LIMIT 8
+    ","ss",$df_ts,$dt_ts)->fetch_all(MYSQLI_ASSOC);
+}
 $dept_labels = array_column($dept_res,'dept');
 $dept_vals   = array_column($dept_res,'n');
 
@@ -163,20 +207,40 @@ $top_eq_res = q($conn,"
     WHERE r.report_date BETWEEN ? AND ? AND r.status!='deleted'
     GROUP BY e.equipment_id ORDER BY defects DESC, crit DESC LIMIT 8
 ","ss",$df_ts,$dt_ts)->fetch_all(MYSQLI_ASSOC);
-$top_eq_labels = array_map(fn($e)=>substr($e['equipment_name'],0,22).'..', array_slice($top_eq_res,0,8));
+$top_eq_labels = array_map(fn($e)=>mb_strlen($e['equipment_name']) > 22 ? mb_substr($e['equipment_name'],0,22).'…' : $e['equipment_name'], array_slice($top_eq_res,0,8));
 $top_eq_vals   = array_column($top_eq_res,'defects');
 
 /* ─── CHART 7: Technician performance ────────────────── */
-$tech_res = q($conn,"
-    SELECT u.fullname,
-           COUNT(r.report_id) AS total,
-           SUM(CASE WHEN r.status IN('completed','verified','closed') THEN 1 ELSE 0 END) AS done
-    FROM users u
-    LEFT JOIN defect_reports r ON r.assigned_to = u.user_id
-        AND r.report_date BETWEEN ? AND ?
-    WHERE u.role='technician' AND u.status='active'
-    GROUP BY u.user_id ORDER BY done DESC, total DESC LIMIT 8
-","ss",$df_ts,$dt_ts)->fetch_all(MYSQLI_ASSOC);
+// Technicians live in two tables (users.role = 'technician', and the office
+// staff listed in maintenance_technicians). This table counted only the first,
+// so four of the five people who actually do repairs were missing from their
+// own performance table. getAvailableTechnicians() is what assignment offers,
+// so it is what performance is measured against.
+$tech_res = [];
+$techList = function_exists('getAvailableTechnicians') ? getAvailableTechnicians() : [];
+$techIds  = [];
+foreach ($techList as $t) {
+    $id = trim((string)($t['technician_id'] ?? $t['user_id'] ?? ''));
+    if ($id !== '') { $techIds[$id] = (string)($t['fullname'] ?? $id); }
+}
+if ($techIds) {
+    $ph = implode(',', array_fill(0, count($techIds), '?'));
+    $counts = q($conn, "
+        SELECT assigned_to,
+               COUNT(*) AS total,
+               SUM(CASE WHEN status IN('completed','verified','closed') THEN 1 ELSE 0 END) AS done
+        FROM defect_reports
+        WHERE assigned_to IN ($ph) AND report_date BETWEEN ? AND ?
+        GROUP BY assigned_to
+    ", str_repeat('s', count($techIds)) . 'ss', ...array_merge(array_keys($techIds), [$df_ts, $dt_ts]))->fetch_all(MYSQLI_ASSOC);
+    $byTech = [];
+    foreach ($counts as $c) { $byTech[(string)$c['assigned_to']] = $c; }
+    foreach ($techIds as $id => $name) {
+        $tech_res[] = ['fullname' => $name, 'total' => (int)($byTech[$id]['total'] ?? 0), 'done' => (int)($byTech[$id]['done'] ?? 0)];
+    }
+    usort($tech_res, static fn($a, $b) => [$b['done'], $b['total']] <=> [$a['done'], $a['total']]);
+    $tech_res = array_slice($tech_res, 0, 8);
+}
 
 /* Chart 8 (work-order status) removed with the work-order module. */
 
@@ -190,9 +254,18 @@ $trend_res = q($conn,"
     WHERE report_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH) AND status!='deleted'
     GROUP BY 1, 2 ORDER BY 2 ASC
 ")->fetch_all(MYSQLI_ASSOC);
-$trend_labels   = array_column($trend_res,'lbl');
-$trend_total    = array_column($trend_res,'total');
-$trend_resolved = array_column($trend_res,'resolved');
+// Twelve months means twelve points, including the months with nothing in
+// them; the query returns only the months that had a report.
+$trend_by = [];
+foreach ($trend_res as $r) { $trend_by[$r['mkey']] = $r; }
+$trend_labels = $trend_total = $trend_resolved = [];
+for ($i = 11; $i >= 0; $i--) {
+    $t = strtotime(date('Y-m-01') . " -{$i} months");
+    $k = date('Y-m', $t);
+    $trend_labels[]   = date('M Y', $t);
+    $trend_total[]    = (int)($trend_by[$k]['total'] ?? 0);
+    $trend_resolved[] = (int)($trend_by[$k]['resolved'] ?? 0);
+}
 
 /* ─── RECENT ACTIVITY FEED ───────────────────────────── */
 $activity = q($conn,"
@@ -202,8 +275,24 @@ $activity = q($conn,"
 ")->fetch_all(MYSQLI_ASSOC);
 
 /* ─── TOP REPORTERS ──────────────────────────────────── */
+// Reporters hold no user account - the portal identifies them by their BEC
+// email, which the report carries along with the name and department they
+// gave. Joining users on reported_by matched only the seeded demo rows, so
+// the real reporters never appeared here.
 $top_reporters = [];
-if ($reporterJoinCol !== null) {
+if (isset($drCols['reporter_email'])) {
+    $top_reporters = q($conn,"
+    SELECT COALESCE(NULLIF(MAX(r.reporter_name),''), MIN(r.reporter_email)) AS fullname,
+           COALESCE(NULLIF(MAX(r.reporter_department),''), '—') AS department,
+           COUNT(r.report_id) AS n
+    FROM defect_reports r
+    WHERE r.report_date BETWEEN ? AND ? AND r.status!='deleted'
+      AND COALESCE(NULLIF(r.reporter_email,''), r.reported_by) IS NOT NULL
+      AND r.reported_by <> 'SYSTEM-PM'
+    GROUP BY lower(COALESCE(NULLIF(r.reporter_email,''), r.reported_by))
+    ORDER BY n DESC LIMIT 5
+","ss",$df_ts,$dt_ts)->fetch_all(MYSQLI_ASSOC);
+} elseif ($reporterJoinCol !== null) {
     $top_reporters = q($conn,"
     SELECT u.fullname, {$userDeptExpr} AS department, COUNT(r.report_id) AS n
     FROM defect_reports r JOIN users u ON r.{$reporterJoinCol}=u.user_id
@@ -510,7 +599,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
       </a>
       <?php endforeach;?>
       <?php if($range==='custom'):?>
-      <span class="rtab on"><i class="fas fa-calendar-alt"></i> Custom: <?php echo date('M j',$_GET['from']?strtotime($_GET['from']):time());?> – <?php echo date('M j',$_GET['to']?strtotime($_GET['to']):time());?></span>
+      <span class="rtab on"><i class="fas fa-calendar-alt"></i> Custom: <?php echo date('M j, Y', strtotime($df));?> – <?php echo date('M j, Y', strtotime($dt));?></span>
       <?php else:?>
       <a href="#" class="rtab" onclick="document.getElementById('customMo').classList.add('open');return false;"><i class="fas fa-calendar-alt"></i> Custom</a>
       <?php endif;?>
