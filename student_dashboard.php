@@ -1338,7 +1338,12 @@ body::after {
 .dup-early-acts { display:flex;align-items:center;flex-wrap:wrap;gap:.5rem .7rem;margin-top:.6rem; }
 .dup-btn { display:inline-flex;align-items:center;gap:.45rem;min-height:40px;padding:.45rem .9rem;border-radius:10px;border:1.5px solid var(--maroon);background:var(--maroon);color:#fff;font:inherit;font-size:.86rem;font-weight:700;cursor:pointer; }
 .dup-btn:disabled { opacity:.6;cursor:default; }
-.dup-or { font-size:.8rem;color:#8A7466; }
+/* The notice's generic link rule (maroon, underlined) would otherwise win over
+   the button colours and leave white-on-maroon text invisible; and a class
+   that sets display beats the hidden attribute unless told not to. */
+.dup-early a.dup-btn { color:#fff;text-decoration:none;padding:.45rem .9rem; }
+.dup-early a.dup-btn.dup-btn-alt, .dup-btn-alt { background:#fff;color:var(--maroon); }
+.dup-btn[hidden] { display:none; }
 .dup-early-done { margin-top:.5rem;padding:.6rem .8rem;border-radius:8px;background:#E6F4EA;color:#1E6B3A;font-weight:600;font-size:.88rem; }
 .dup-early-done a { color:#1E6B3A; }
 .dup-early-ok input { width:17px;height:17px;flex-shrink:0;margin-top:.2rem;accent-color:var(--maroon); }
@@ -1786,12 +1791,11 @@ html { scroll-behavior: smooth; }
   <div class="dup-early" id="dupEarly" hidden>
     <i class="fas fa-clone" aria-hidden="true"></i>
     <div>
-      <span id="dupEarlyText"><strong>This equipment already has an open report.</strong></span>
-      <strong class="dup-early-id" id="dupEarlyId"></strong> <span id="dupEarlyStatus"></span>
-      — <a id="dupEarlyLink" href="track_report.php" target="_blank" rel="noopener">track it</a> instead of filing again.
-      <div class="dup-early-acts" id="dupEarlyActs">
-        <button type="button" class="dup-btn" id="dupMeToo"><i class="fas fa-hand"></i> I'm affected too — tell the PMO</button>
-        <span class="dup-or">or</span>
+      <span id="dupEarlyText"><strong>This unit already has an open report</strong></span>
+      — <strong class="dup-early-id" id="dupEarlyId"></strong> <span id="dupEarlyStatus"></span>
+      <div class="dup-early-acts">
+        <a class="dup-btn" id="dupEarlyLink" href="track_report.php" target="_blank" rel="noopener"><i class="fas fa-clock-rotate-left"></i> Check its history — track it instead</a>
+        <button type="button" class="dup-btn dup-btn-alt" id="dupMeToo"><i class="fas fa-hand"></i> I'm affected too — tell the PMO</button>
       </div>
       <label class="dup-early-ok"><input type="checkbox" id="dupEarlyOk" form="report-form" name="duplicate_override" value="1"> <span id="dupEarlyOkText">Mine is a <em>different problem</em> on the same unit — file a new report anyway.</span></label>
       <div class="dup-early-done" id="dupEarlyDone" hidden></div>
@@ -2427,11 +2431,10 @@ function checkOpenReport(id) {
       if (!open || !open.report_id) { dupEarly.hidden = true; return; }
       // Say whose it is and when, so a reporter who has just signed in is not
       // left wondering what they are supposed to have filed.
-      var unit = open.equipment ? open.equipment : 'This equipment';
       var when = open.when ? ' on ' + open.when : '';
       document.getElementById('dupEarlyText').innerHTML = open.mine
-        ? '<strong>You already reported this unit' + when + ':</strong>'
-        : '<strong>' + unit.replace(/[<>&]/g, '') + ' was already reported' + when + ' by someone else:</strong>';
+        ? '<strong>You already reported this unit' + when + '</strong>'
+        : '<strong>This unit was already reported' + when + ' by someone else</strong>';
       document.getElementById('dupEarlyOkText').innerHTML = open.mine
         ? 'This is a <em>new, different problem</em> on the same unit — file another report.'
         : 'Mine is a <em>different problem</em> on the same unit — file a new report anyway.';
@@ -2441,7 +2444,7 @@ function checkOpenReport(id) {
       document.getElementById('dupEarlyOk').checked = false;
       // "Affected too" is for somebody else's report; the owner follows up
       // from Track a Report, where their nudge already lives.
-      document.getElementById('dupEarlyActs').hidden = !!open.mine;
+      document.getElementById('dupMeToo').hidden = !!open.mine;
       var done = document.getElementById('dupEarlyDone'); done.hidden = true; done.textContent = '';
       dupEarly.dataset.report = open.report_id;
       dupEarly.hidden = false;
@@ -2490,7 +2493,7 @@ if (equipIdEl.value && !document.getElementById('dupAlert')) checkOpenReport(equ
       .then(function (j) {
         var done = document.getElementById('dupEarlyDone');
         if (j && j.ok) {
-          document.getElementById('dupEarlyActs').hidden = true;
+          document.getElementById('dupMeToo').hidden = true;
           done.innerHTML = (j.already ? 'You are already on this report. ' : 'Thanks — the PMO now knows ' + (j.count > 1 ? j.count + ' people are' : 'someone else is') + ' waiting on this. ')
             + '<a href="track_report.php?q=' + encodeURIComponent(rid) + '" target="_blank" rel="noopener">Track ' + rid + '</a>';
           done.hidden = false;
