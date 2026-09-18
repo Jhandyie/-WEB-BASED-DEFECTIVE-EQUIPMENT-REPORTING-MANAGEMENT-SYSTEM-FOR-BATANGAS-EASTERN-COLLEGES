@@ -27,6 +27,65 @@ $student_email = $_SESSION['guest_email'];
 // The form asks this the moment a unit is chosen on the Equipment step. The
 // same lookup used to run only on submit, so a reporter filled all five steps
 // and attached their photos before being told the fault was already filed.
+// "I'm affected too." A reporter who scans a unit that somebody has already
+// reported used to hit a dead end: track a stranger's ticket, or file a
+// duplicate. This records them on the existing report instead - the same
+// follow-up columns and unit-admin notification the reporter's own nudge
+// uses - so the office sees "2 people are waiting on this" and the reporter
+// leaves having done something.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'me_too') {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    $out = static function (array $j): void { echo json_encode($j); exit(); };
+    if (!csrf_check()) { $out(['ok' => false, 'reason' => 'csrf', 'message' => 'Your session expired - reload the page and try again.']); }
+    $rid = trim((string)($_POST['report_id'] ?? ''));
+    if ($rid === '') { $out(['ok' => false, 'reason' => 'bad', 'message' => 'No report given.']); }
+    require_once __DIR__ . '/includes/rate_limiter.php';
+    try { RateLimiter::enforce('me_too:' . strtolower($student_email), 5, 900); }
+    catch (\Throwable $e) { $out(['ok' => false, 'reason' => 'rate', 'message' => 'Too many in a short time - please wait a few minutes.']); }
+    $rep = getDefectReportById($rid);
+    if (!$rep) { $out(['ok' => false, 'reason' => 'notfound', 'message' => 'That report no longer exists.']); }
+    if (in_array(strtolower((string)($rep['status'] ?? '')), ['completed','verified','closed','rejected'], true)) {
+        $out(['ok' => false, 'reason' => 'resolved', 'message' => 'That report is already resolved - please file a new one.']);
+    }
+    if (strcasecmp(trim((string)($rep['reporter_email'] ?? '')), trim($student_email)) === 0) {
+        $out(['ok' => false, 'reason' => 'own', 'message' => 'This is your own report - follow it up from Track a Report.']);
+    }
+    $note  = (string)($rep['follow_up_note'] ?? '');
+    $count = (int)($rep['follow_up_count'] ?? 0);
+    if (stripos($note, $student_email) !== false) {
+        $out(['ok' => true, 'already' => true, 'count' => $count, 'message' => 'You are already on this report.']);
+    }
+    $count++;
+    $line = '[' . date('M j') . '] Also affected: ' . trim(strip_tags((string)$student_name)) . ' <' . $student_email . '>';
+    $note = trim($note === '' ? $line : $note . "\n" . $line);
+    if (mb_strlen($note) > 1000) { $note = mb_substr($note, -1000); }
+    $drc = getTableColumns('defect_reports');
+    $mc  = getDBConnection();   // the page's own $conn is created further down
+    if (isset($drc['follow_up_note'], $drc['follow_up_at'])) {
+        $up = $mc->prepare("UPDATE defect_reports SET follow_up_count = ?, follow_up_note = ?, follow_up_at = NOW() WHERE report_id = ?");
+        if ($up) { $up->bind_param('iss', $count, $note, $rid); $up->execute(); $up->close(); }
+    } else {
+        $up = $mc->prepare("UPDATE defect_reports SET follow_up_count = ? WHERE report_id = ?");
+        if ($up) { $up->bind_param('is', $count, $rid); $up->execute(); $up->close(); }
+    }
+    $unit = function_exists('equipmentUnit') ? equipmentUnit((string)($rep['equipment_id'] ?? '')) : '';
+    $eqName = (string)($rep['equipment_name'] ?? '');
+    // bind_param() hands the bound variable back as a string, so read it as a number again.
+    $countN = (int)$count;
+    $msg = 'Another person is affected by Ticket ' . $rid . ($eqName !== '' ? ' (' . $eqName . ')' : '')
+         . ': ' . trim(strip_tags((string)$student_name)) . ' - ' . $countN . ' follow-up' . ($countN === 1 ? '' : 's') . ' now.';
+    if (function_exists('adminRecipientsForReportUnit') && function_exists('addNotification')) {
+        foreach (adminRecipientsForReportUnit($unit) as $rcpt) {
+            try { addNotification($rcpt['user_id'], $msg, 'follow_up', $rid); } catch (\Throwable $e) {}
+        }
+    }
+    if (function_exists('logActivity')) {
+        try { logActivity($student_email, 'reporter', 'report.me_too', 'Also affected by ' . $rid . ': ' . $student_email); } catch (\Throwable $e) {}
+    }
+    $out(['ok' => true, 'count' => $countN]);
+}
+
 if (isset($_GET['check_open'])) {
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');
@@ -1276,6 +1335,12 @@ body::after {
 .dup-early .dup-early-id { color:var(--maroon); }
 .dup-early a { display:inline-block;padding:.35rem 0;color:var(--maroon);font-weight:700;text-decoration:underline; }
 .dup-early-ok { display:flex;gap:.55rem;align-items:flex-start;margin-top:.55rem;cursor:pointer; }
+.dup-early-acts { display:flex;align-items:center;flex-wrap:wrap;gap:.5rem .7rem;margin-top:.6rem; }
+.dup-btn { display:inline-flex;align-items:center;gap:.45rem;min-height:40px;padding:.45rem .9rem;border-radius:10px;border:1.5px solid var(--maroon);background:var(--maroon);color:#fff;font:inherit;font-size:.86rem;font-weight:700;cursor:pointer; }
+.dup-btn:disabled { opacity:.6;cursor:default; }
+.dup-or { font-size:.8rem;color:#8A7466; }
+.dup-early-done { margin-top:.5rem;padding:.6rem .8rem;border-radius:8px;background:#E6F4EA;color:#1E6B3A;font-weight:600;font-size:.88rem; }
+.dup-early-done a { color:#1E6B3A; }
 .dup-early-ok input { width:17px;height:17px;flex-shrink:0;margin-top:.2rem;accent-color:var(--maroon); }
 .qr-change { display:inline-block;margin-top:.45rem;padding:0;border:0;background:none;color:var(--maroon);font:inherit;font-size:.82rem;font-weight:700;text-decoration:underline;cursor:pointer; }
 .wz-nav .wz-count { font-size:.78rem;color:var(--ink3);margin-right:auto; }
@@ -1724,7 +1789,12 @@ html { scroll-behavior: smooth; }
       <span id="dupEarlyText"><strong>This equipment already has an open report.</strong></span>
       <strong class="dup-early-id" id="dupEarlyId"></strong> <span id="dupEarlyStatus"></span>
       — <a id="dupEarlyLink" href="track_report.php" target="_blank" rel="noopener">track it</a> instead of filing again.
+      <div class="dup-early-acts" id="dupEarlyActs">
+        <button type="button" class="dup-btn" id="dupMeToo"><i class="fas fa-hand"></i> I'm affected too — tell the PMO</button>
+        <span class="dup-or">or</span>
+      </div>
       <label class="dup-early-ok"><input type="checkbox" id="dupEarlyOk" form="report-form" name="duplicate_override" value="1"> <span id="dupEarlyOkText">Mine is a <em>different problem</em> on the same unit — file a new report anyway.</span></label>
+      <div class="dup-early-done" id="dupEarlyDone" hidden></div>
     </div>
   </div>
   <nav class="fsteps" id="fsteps" aria-label="Report form progress"></nav>
@@ -2369,6 +2439,11 @@ function checkOpenReport(id) {
       document.getElementById('dupEarlyStatus').textContent = open.status ? '(' + open.status + ')' : '';
       document.getElementById('dupEarlyLink').href = 'track_report.php?q=' + encodeURIComponent(open.report_id);
       document.getElementById('dupEarlyOk').checked = false;
+      // "Affected too" is for somebody else's report; the owner follows up
+      // from Track a Report, where their nudge already lives.
+      document.getElementById('dupEarlyActs').hidden = !!open.mine;
+      var done = document.getElementById('dupEarlyDone'); done.hidden = true; done.textContent = '';
+      dupEarly.dataset.report = open.report_id;
       dupEarly.hidden = false;
     })
     .catch(() => {});
@@ -2398,7 +2473,35 @@ function selectEquip(data, byTap) {
 catDisplay.addEventListener('change', () => {
   catHidden.value = catDisplay.value;
 });
-if (equipIdEl.value && !document.getElementById('dupAlert')) checkOpenReport(equipIdEl.value);   // arrived with the unit pre-filled (a QR scan); the server's own notice covers a form sent back
+if (equipIdEl.value && !document.getElementById('dupAlert')) checkOpenReport(equipIdEl.value);
+
+(function () {
+  var btn = document.getElementById('dupMeToo');
+  if (!btn) return;
+  btn.addEventListener('click', function () {
+    var rid = dupEarly.dataset.report || '';
+    var tok = document.querySelector('#report-form input[name="csrf_token"]');
+    if (!rid) return;
+    btn.disabled = true;
+    var fd = new FormData();
+    fd.append('action', 'me_too'); fd.append('report_id', rid); fd.append('csrf_token', tok ? tok.value : '');
+    fetch('student_dashboard.php', { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var done = document.getElementById('dupEarlyDone');
+        if (j && j.ok) {
+          document.getElementById('dupEarlyActs').hidden = true;
+          done.innerHTML = (j.already ? 'You are already on this report. ' : 'Thanks — the PMO now knows ' + (j.count > 1 ? j.count + ' people are' : 'someone else is') + ' waiting on this. ')
+            + '<a href="track_report.php?q=' + encodeURIComponent(rid) + '" target="_blank" rel="noopener">Track ' + rid + '</a>';
+          done.hidden = false;
+        } else {
+          done.textContent = (j && j.message) ? j.message : 'That did not go through — please try again.';
+          done.hidden = false; btn.disabled = false;
+        }
+      })
+      .catch(function () { btn.disabled = false; });
+  });
+})();   // arrived with the unit pre-filled (a QR scan); the server's own notice covers a form sent back
 
 searchEl.addEventListener('input', () => {
   equipIdEl.value = '';
