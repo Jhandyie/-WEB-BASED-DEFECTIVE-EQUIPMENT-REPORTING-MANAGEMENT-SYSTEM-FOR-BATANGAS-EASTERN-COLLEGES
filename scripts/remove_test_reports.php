@@ -51,6 +51,19 @@ $tickets = [
     'BEC-2026-000206', // "ioyhuioghjg;luktg"
     'BEC-2026-000205', // "KUNG ANO"
     'BEC-2026-000201', // "Problem Details"
+    // Third pass: the older pages of the public board, once the first two
+    // batches were gone. Keyboard mashes and jokes; "mahangin sobra" and
+    // "hindi abot sa akin ang aircon" read as real complaints and stay.
+    'BEC-2026-000187', // "Problem Details"
+    'BEC-2026-000183', // "Problem Details"
+    'BEC-2026-000174', // "gwjqkqg"
+    'BEC-2026-000170', // "Papoi"
+    'BEC-2026-000161', // "Nothing"
+    'BEC-2026-000159', // "gejanna"
+    'BEC-2026-000158', // "gsjanabau"
+    'BEC-2026-000157', // "hskana"
+    'BEC-2026-000156', // "masakit ang talab boss"
+    'BEC-2026-000148', // "Hakdog ni de castro"
 ];
 $testScheduleId = 5;   // title "Maintenance", instructions "This is a test", every 7 days
 
