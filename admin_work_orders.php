@@ -114,7 +114,8 @@ $sql = "SELECT r.report_id, r.work_order_id, r.status, r.priority, r.category,
                r.estimated_cost,
                r.before_photos, r.during_photos, r.after_photos, r.work_photos,
                r.satisfaction, r.satisfaction_note,
-               r.reporter_name, r.reporter_department
+               r.reporter_name, r.reporter_department,
+               r.reporter_type
           FROM public.defect_reports r
           LEFT JOIN public.equipment e  ON e.equipment_id = r.equipment_id
           LEFT JOIN public.users u      ON u.user_id      = r.assigned_to
@@ -555,7 +556,9 @@ if (strtolower(trim((string)($_GET['export'] ?? ''))) === 'csv') {
                     'sat'   => wo_sat($r['satisfaction']),
                     'satn'  => $r['satisfaction_note'] ?: '',
                     'rby'   => $r['reporter_name'] ?: '',
-                    'rdept' => $r['reporter_department'] ?: '',
+                    // The directory fills the department in for students; a
+                    // teacher or staff member shows what they are instead.
+                    'rdept' => $r['reporter_department'] ?: reporterTypeLabel($r['reporter_type'] ?? ''),
                     'shots' => wo_shots($r),
                 ];
             ?>
@@ -713,7 +716,7 @@ if (strtolower(trim((string)($_GET['export'] ?? ''))) === 'csv') {
       + '<a class="btn sm" href="defect_report_ticket.php?report=' + encodeURIComponent(d.rid) + '" target="_blank" rel="noopener">'
       + '<i class="fas fa-file-lines"></i> Print the defect report</a>'
       + '<a class="btn sm m" href="technician_service_report.php?report=' + encodeURIComponent(d.rid) + '" target="_blank" rel="noopener">'
-      + '<i class="fas fa-file-invoice"></i> Print the service report</a>'
+      + '<i class="fas fa-file-invoice"></i> Print the repair form</a>'
       + '</div>'
       + '</div>';
 

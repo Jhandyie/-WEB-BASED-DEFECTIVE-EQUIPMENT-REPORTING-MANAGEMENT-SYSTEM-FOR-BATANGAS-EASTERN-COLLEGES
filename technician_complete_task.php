@@ -108,6 +108,29 @@ if ($repair_duration === '' && $date_started !== null) {
     $repair_duration = $mins >= 60 ? intdiv($mins, 60) . 'h ' . ($mins % 60) . 'm' : $mins . 'm';
 }
 
+// The finish form asks for two things and a picture: what was done, and (if
+// any) the parts it took, plus a photo of the result. Everything else above is
+// still accepted — older clients and the smoke test post it — but nothing on
+// the technician's screen asks for it any more.
+if ($work_performed === '') {
+    echo json_encode(['success' => false, 'message' => 'Please say what you did before marking the task as fixed.']);
+    exit();
+}
+// A photo is part of the report, not an extra: it is what the PMO checks
+// against when it verifies. Counted before anything is saved so a refused
+// submit leaves no files behind. Any stage counts, so the older before/during
+// fields still satisfy it.
+$photoOffered = false;
+foreach (['after_photos', 'before_photos', 'during_photos', 'work_photos'] as $pf) {
+    foreach ((array)($_FILES[$pf]['error'] ?? []) as $err) {
+        if ((int)$err === UPLOAD_ERR_OK) { $photoOffered = true; break 2; }
+    }
+}
+if (!$photoOffered) {
+    echo json_encode(['success' => false, 'message' => 'Please add a photo of the finished work.']);
+    exit();
+}
+
 // --- Photo documentation by stage ---
 $base_dir       = __DIR__ . '/uploads/completed_work';
 $before_photos  = tcSavePhotoStage('before_photos', $base_dir . '/before');
@@ -115,6 +138,11 @@ $during_photos  = tcSavePhotoStage('during_photos', $base_dir . '/during');
 $after_photos   = tcSavePhotoStage('after_photos',  $base_dir . '/after');
 // Backward-compatible single field.
 $work_photos    = tcSavePhotoStage('work_photos', $base_dir);
+if (!$before_photos && !$during_photos && !$after_photos && !$work_photos) {
+    // Offered but not a usable image (too large, not a JPG/PNG/WEBP).
+    echo json_encode(['success' => false, 'message' => 'That photo could not be used — please take it again, as a JPG or PNG under 10 MB.']);
+    exit();
+}
 
 $conn = getDBConnection();
 

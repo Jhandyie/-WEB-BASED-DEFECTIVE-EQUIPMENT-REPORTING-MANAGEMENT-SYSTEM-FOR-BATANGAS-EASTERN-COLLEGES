@@ -125,6 +125,27 @@ notifications and branded email. `users.department` (PMO or ITSO) scopes which r
 - **In JS, use `form.getAttribute('action')`, not `form.action`.** A control named `action` (or
   `submit`) shadows the property and returns the element. Also: errors thrown inside `async` event
   listeners surface as unhandled promise rejections, not `window.onerror`.
+- **The reporter form is one screen with four questions** (what, where, what's wrong, photo or
+  video) and must stay that way — the Sept 2026 defense panel rejected the five-step version
+  with department/course pickers, a category select, an asset tag, a "date noticed" and a
+  "still usable?" question. Who the reporter is (student/teacher/staff) is one tap at sign-in
+  (`reporter_type`); department/course come silently from the BEC directory; the category and
+  the PMO/ITSO unit are inferred server-side (`inferEquipmentCategory()`,
+  `classifyDepartmentByEquipment()` in `config/database.php`); evidence is required on both
+  sides. Do not add a reporter-facing category, priority or usability control back. The
+  camera buttons are `assets/camera_capture.js` (`capture="environment"` on a fresh input
+  created inside the tap) — a bare `<input type=file>` is allowed to open the file picker on
+  phones, which is the bug the panel saw.
+- **The technician workspace is one briefing and one button.** Same panel, same reason: the
+  technicians are not "techy" and rejected an eleven-field completion report. A task shows
+  what/where/who and the reporter's photos, then exactly one primary button for its status
+  (Start the repair → Mark as fixed; Parts arrived / Continue for stalled tasks), with "Need
+  parts first" and "Can't be fixed" hidden under a "Having a problem?" disclosure. The finish
+  form is *what did you do · parts used · a photo of the result (required) · cost (PMO only)*.
+  `technician_complete_task.php` still accepts the retired fields (`diagnosis`,
+  `actions_performed`, `repair_procedures`, `tools_used`, `materials_used`, before/during
+  photos) because `e2e_smoke.php` and older clients post them — do not put them back on the
+  screen, and do not add a stepper, filter chips or a second timeline.
 - **Admin pages are desktop-only by design.** Do not spend effort on admin mobile layouts; mobile
   work belongs to the reporter, public and technician surfaces.
 - **`activity_log.action` is empty in every row** — it is dead. `logActivity()` writes

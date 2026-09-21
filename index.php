@@ -582,7 +582,7 @@ a { text-decoration: none; color: inherit; }
         </a>
         <ul class="cta-steps">
           <li><span class="cs-n">1</span><div class="cs-tx"><b>Sign in with your BEC email</b><span>Use your official <strong>@bec.edu.ph</strong> account — no separate registration needed.</span></div></li>
-          <li><span class="cs-n">2</span><div class="cs-tx"><b>Describe the problem</b><span>Add the equipment, location, priority, and attach photo or video evidence.</span></div></li>
+          <li><span class="cs-n">2</span><div class="cs-tx"><b>Describe the problem</b><span>Say what is broken and where, and add a photo or a short video.</span></div></li>
           <li><span class="cs-n">3</span><div class="cs-tx"><b>Track it to resolution</b><span>Get email updates as the PMO reviews, assigns, and completes the repair.</span></div></li>
         </ul>
       </div>

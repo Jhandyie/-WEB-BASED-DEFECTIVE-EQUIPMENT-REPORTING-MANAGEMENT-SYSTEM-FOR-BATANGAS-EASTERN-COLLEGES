@@ -253,6 +253,21 @@ $checks = [
     ['Technician dashboard', 'tech', 'technician_dashboard.php', [
         ['renders',                  '/<\/html>/i',                 true],
         ['CSRF token injected',      '/name="csrf_token"/',         true],
+        /* The one-button workspace the defense panel asked for. The finish
+           form is what did you do · parts · a photo (· cost); none of the
+           eleven-field completion report may creep back. These hold whether or
+           not the seeded technician has a task in progress: they assert the
+           absence of the retired controls, which never render at all now. */
+        ['no five-step strip',       '/class="steps"/',             false],
+        ['no facts grid',            '/class="facts"/',             false],
+        ['no queue filter chips',    '/class="chips"/',             false],
+        ['no right rail',            '/class="tp-rail"/',           false],
+        ['no diagnosis box',         '/name="diagnosis"/',          false],
+        ['no procedures box',        '/name="repair_procedures"/',  false],
+        ['no chip widgets',          '/data-chipfield/',            false],
+        ['no cost worksheet link',   '/cost-sheet-link/',           false],
+        ['no before/during photos',  '/name="before_photos\[\]"|name="during_photos\[\]"/', false],
+        ['no Receive/Save buttons',  '/value="accept"|value="save"/', false],
     ]],
 
     /* The public surfaces matter most of all: they are the ones a stranger
@@ -273,6 +288,10 @@ $checks = [
     ]],
     ['Reporter sign-in', 'admin', 'student_index.php', [
         ['renders',                  '/<\/html>/i',                 true],
+        // One tap says who is asking; the report form no longer has a
+        // department / course / year level / phone section at all.
+        ['who-am-I offered',         '/name="reporter_type"/',      true],
+        ['three choices',            '/id="who-student"[\s\S]*id="who-teacher"[\s\S]*id="who-staff"/', true],
     ]],
     /* The rest of the admin surface. These carry the heaviest queries and the
        most markup, so a fatal here is both likely and loud. */
@@ -330,6 +349,22 @@ $checks = [
         ['renders',                  '/<\/html>/i',                 true],
         ['CSRF token injected',      '/name="csrf_token"/',         true],
         ['not bounced to sign-in',   '/student_index\.php["\']\s*;?\s*<\/script>/', false],
+        /* The one-screen form the defense panel asked for. What follows is the
+           shape of that screen, asserted so a "helpful" field cannot creep back
+           in unnoticed: four questions, a camera that opens the camera, and
+           none of the controls the panel rejected. */
+        ['equipment is plain text',  '/<input[^>]+id="equip-name"[^>]+name="equipment_name"/', true],
+        ['location picker present',  '/id="location-search"/',      true],
+        ['description present',      '/id="defectDesc"/',           true],
+        ['take-a-photo button wired','/data-camera="photo"[^>]*data-cam-init="1"|data-cam-init="1"[^>]*data-camera="photo"/', true],
+        ['record-a-video button',    '/data-camera="video"/',       true],
+        ['evidence card present',    '/id="evidenceCard"/',         true],
+        ['no category select',       '/id="cat-display"/',          false],
+        ['no still-usable radios',   '/name="still_usable"/',       false],
+        ['no date-noticed field',    '/id="issueDate"/',            false],
+        ['no department picker',     '/id="rDept"/',                false],
+        ['no step bar',              '/class="fsteps"|class="wz-nav"/', false],
+        ['no equipment dropdown',    '/id="equip-dropdown"/',       false],
     ]],
 
     ['Admin sign-in (signed out)', 'none', 'admin/admin_login_otp.html', [
@@ -369,8 +404,13 @@ if ($techReport !== '') {
     $checks[] = ['Cost estimate', 'http:tech', 'technician_cost_estimate.php?report=' . rawurlencode($techReport), [
         ['renders',                  '/<\/html>/i',                 true],
     ]];
-    $checks[] = ['Service report', 'http:tech', 'technician_service_report.php?report=' . rawurlencode($techReport), [
+    $checks[] = ['Repair form', 'http:tech', 'technician_service_report.php?report=' . rawurlencode($techReport), [
         ['renders',                  '/<\/html>/i',                 true],
+        // Written by the system once a task is fixed; before that it says so
+        // instead of printing a half-empty record. Either is a pass — which
+        // one depends on the state of the technician's task today.
+        ['form or not-yet gate',     '/Equipment Repair Completion Form|Not fixed yet/', true],
+        ['no typed-in fields',       '/<input|<textarea/',          false],
     ]];
     $checks[] = ['Printable ticket', 'http:tech', 'defect_report_ticket.php?report=' . rawurlencode($techReport), [
         ['renders',                  '/<\/html>/i',                 true],

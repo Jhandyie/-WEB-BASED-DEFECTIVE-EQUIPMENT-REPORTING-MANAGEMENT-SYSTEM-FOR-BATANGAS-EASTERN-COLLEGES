@@ -1063,6 +1063,11 @@ textarea.fc{resize:vertical;min-height:70px;}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .dr-sum-s{font-size:var(--fs-sm);color:#8A7060;margin-top:var(--sp-0);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* Student / Teacher / Staff — what the reporter said they are at sign-in,
+   which is now the one thing the form asks about them. */
+.dr-who{display:inline-block;vertical-align:1px;margin-left:var(--sp-1);padding:1px var(--sp-2);border-radius:20px;
+  font-size:var(--fs-xs);font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  background:rgba(123,29,29,.08);color:#7B1D1D;border:1px solid rgba(123,29,29,.16);}
 
 /* ── body ───────────────────────────────────────────────────────────────── */
 .dr-body{flex:1;min-height:0;overflow-y:auto;display:grid;
@@ -1707,7 +1712,8 @@ textarea.fc{resize:vertical;min-height:70px;}
     <div class="dr-summary">
       <div class="dr-sum">
         <div class="dr-sum-l"><i class="fas fa-user" aria-hidden="true"></i> Reporter</div>
-        <div class="dr-sum-v" title="<?php echo esc($vr['reporter_name']); ?>"><?php echo esc($vr['reporter_name']); ?></div>
+        <?php $drWho = reporterTypeLabel($vr['reporter_type'] ?? ''); ?>
+        <div class="dr-sum-v" title="<?php echo esc($vr['reporter_name']); ?>"><?php echo esc($vr['reporter_name']); ?><?php if ($drWho !== ''): ?><span class="dr-who"><?php echo esc($drWho); ?></span><?php endif; ?></div>
         <?php if (!empty($vr['reporter_email'])): ?>
         <div class="dr-sum-s" title="<?php echo esc($vr['reporter_email']); ?>"><?php echo esc($vr['reporter_email']); ?></div>
         <?php endif; ?>
@@ -1722,7 +1728,10 @@ textarea.fc{resize:vertical;min-height:70px;}
       </div>
       <div class="dr-sum">
         <div class="dr-sum-l"><i class="fas fa-building-columns" aria-hidden="true"></i> Department</div>
-        <div class="dr-sum-v" title="<?php echo esc($vr['reporter_department'] ?? ''); ?>"><?php echo esc($vr['reporter_department'] ?: '—'); ?></div>
+        <?php /* The directory fills this in for students. A teacher or a staff
+                 member is not in it, so the line says what they are instead of
+                 a dash. */ ?>
+        <div class="dr-sum-v" title="<?php echo esc($vr['reporter_department'] ?? ''); ?>"><?php echo esc($vr['reporter_department'] ?: ($drWho !== '' ? $drWho : '—')); ?></div>
         <?php if (!empty($vr['reporter_course'])): ?>
         <div class="dr-sum-s" title="<?php echo esc($vr['reporter_course']); ?>"><?php echo esc($vr['reporter_course']); ?></div>
         <?php endif; ?>
@@ -1744,16 +1753,21 @@ textarea.fc{resize:vertical;min-height:70px;}
         <section class="dr-card">
           <div class="dr-card-h"><i class="fas fa-circle-info" aria-hidden="true"></i><h3>Issue Details</h3></div>
 
+          <?php /* The form no longer asks whether the unit still works, so new
+                   reports carry nothing here. Walk-ins and older reports still
+                   do, and keep the chip. */ ?>
+          <?php if ($drUs !== ''): ?>
           <div class="dr-cond <?php echo $drCond[0]; ?>">
             <span class="dot" style="background:<?php echo $drCond[1]; ?>;"></span>
             <span><?php echo esc(strtoupper($drCond[2])); ?></span>
           </div>
+          <?php endif; ?>
 
           <dl class="dr-rows">
             <div class="dr-row"><dt>Equipment</dt><dd><?php echo esc($vr['equipment_name']); ?></dd></div>
             <div class="dr-row"><dt>Asset Tag</dt><dd><?php echo esc($vr['asset_tag'] ?: '—'); ?></dd></div>
             <div class="dr-row"><dt>Location</dt><dd><?php echo esc($vr['location'] ?: '—'); ?></dd></div>
-            <div class="dr-row"><dt>Reported by</dt><dd><?php echo esc($vr['reporter_name']); ?></dd></div>
+            <div class="dr-row"><dt>Reported by</dt><dd><?php echo esc($vr['reporter_name']); ?><?php if ($drWho !== ''): ?> <span class="dr-who"><?php echo esc($drWho); ?></span><?php endif; ?></dd></div>
             <?php if (!empty($vr['reporter_email'])): ?>
             <div class="dr-row"><dt>Contact</dt><dd><a href="mailto:<?php echo esc($vr['reporter_email']); ?>"><?php echo esc($vr['reporter_email']); ?></a></dd></div>
             <?php endif; ?>
@@ -2054,7 +2068,7 @@ textarea.fc{resize:vertical;min-height:70px;}
       <div class="dr-foot-l">
       <a href="defect_report_ticket.php?report=<?php echo urlencode($vr['report_id']);?>" target="_blank" rel="noopener" class="btn btn-ghost btn-sm"><i class="fas fa-ticket"></i> Print Ticket</a>
       <?php if (in_array($vr['status'], ['completed','verified','closed'], true)): ?>
-      <a href="technician_service_report.php?report=<?php echo urlencode($vr['report_id']);?>" target="_blank" rel="noopener" class="btn btn-ghost btn-sm"><i class="fas fa-file-lines"></i> Service Report</a>
+      <a href="technician_service_report.php?report=<?php echo urlencode($vr['report_id']);?>" target="_blank" rel="noopener" class="btn btn-ghost btn-sm"><i class="fas fa-file-lines"></i> Repair form</a>
       <?php endif; ?>
       </div>
       <div class="dr-foot-r">

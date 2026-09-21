@@ -193,8 +193,12 @@ $today = date('F j, Y');
       <div class="grid2">
         <div class="kv"><span class="k">Name</span><span class="v"><?php echo dt_has($g('reporter_name'))?dt_e($g('reporter_name')):'<span class="muted">—</span>'; ?></span></div>
         <div class="kv"><span class="k">Email</span><span class="v"><?php echo dt_has($g('reporter_email'))?dt_e($g('reporter_email')):'<span class="muted">—</span>'; ?></span></div>
+        <?php $rtWho = reporterTypeLabel($g('reporter_type')); ?>
+        <div class="kv"><span class="k">Reporter is a</span><span class="v"><?php echo $rtWho !== '' ? dt_e($rtWho) : '<span class="muted">—</span>'; ?></span></div>
         <div class="kv"><span class="k">Department / Unit</span><span class="v"><?php echo dt_has($g('reporter_department'))?dt_e($g('reporter_department')):'<span class="muted">—</span>'; ?></span></div>
-        <div class="kv"><span class="k">Course / Program</span><span class="v"><?php echo dt_has($g('reporter_course'))?dt_e($g('reporter_course')):'<span class="muted">—</span>'; ?></span></div>
+        <?php if (dt_has($g('reporter_course'))): ?>
+        <div class="kv"><span class="k">Course / Program</span><span class="v"><?php echo dt_e($g('reporter_course')); ?></span></div>
+        <?php endif; ?>
       </div>
     </div>
 
@@ -214,7 +218,10 @@ $today = date('F j, Y');
       <div class="sec-h"><i class="fas fa-triangle-exclamation"></i> Defect Details</div>
       <div class="grid2" style="margin-bottom:.7rem;">
         <div class="kv"><span class="k">Priority</span><span class="v"><?php echo dt_has($g('priority'))?'<span class="prio '.dt_e(strtolower((string)$g('priority'))).'">'.dt_e(ucfirst((string)$g('priority'))).'</span>':'<span class="muted">—</span>'; ?></span></div>
-        <div class="kv"><span class="k">Still usable?</span><span class="v"><?php echo $usInfo?'<span style="color:'.$usInfo[0].';font-weight:700;">'.dt_e($usInfo[1]).'</span>':'<span class="muted">—</span>'; ?></span></div>
+        <?php /* The form no longer asks this; only older reports and walk-ins carry it. */ ?>
+        <?php if ($usInfo): ?>
+        <div class="kv"><span class="k">Still usable?</span><span class="v"><span style="color:<?php echo $usInfo[0]; ?>;font-weight:700;"><?php echo dt_e($usInfo[1]); ?></span></span></div>
+        <?php endif; ?>
         <div class="kv"><span class="k">Date reported</span><span class="v"><?php $d=$fmtDate($g('report_date'),true); echo $d?dt_e($d):'<span class="muted">—</span>'; ?></span></div>
         <div class="kv"><span class="k">Responsible unit</span><span class="v"><?php echo dt_has($g('department_assigned'))?dt_e($g('department_assigned')):'<span class="muted">Not yet triaged</span>'; ?></span></div>
       </div>

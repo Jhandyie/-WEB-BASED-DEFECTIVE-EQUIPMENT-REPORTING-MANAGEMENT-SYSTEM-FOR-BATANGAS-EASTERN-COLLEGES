@@ -1488,6 +1488,85 @@ function defectTimelineSteps(array $report): array {
     return $steps;
 }
 
+/** The answers a reporter may give to "I am a…" at sign-in, in display order. */
+const REPORTER_TYPES = ['student' => 'Student', 'teacher' => 'Teacher', 'staff' => 'Staff'];
+
+/**
+ * Normalise a reporter role from the form, the trust cookie or the directory
+ * to a REPORTER_TYPES key, or '' when it is none of them.
+ */
+function reporterCanonType(string $raw): string {
+    $t = strtolower(trim($raw));
+    if ($t === 'faculty') { $t = 'teacher'; }   // the BEC directory's own word for it
+    return isset(REPORTER_TYPES[$t]) ? $t : '';
+}
+
+/** "Student" / "Teacher" / "Staff" for a stored reporter_type, or '' when unknown. */
+function reporterTypeLabel(?string $type): string {
+    $t = reporterCanonType((string)$type);
+    return $t === '' ? '' : REPORTER_TYPES[$t];
+}
+
+/**
+ * The category a reporter's equipment belongs to, worked out from what they typed.
+ *
+ * The form used to ask for this with an 18-item select beside the equipment
+ * name. Nobody reporting a dripping aircon needs to be asked whether it is an
+ * "Air Conditioner", and the panel said so. The name (and, when it helps, the
+ * description) is enough: the words people use for campus equipment are few
+ * and stable, so a keyword table answers it, offline, in the same request.
+ *
+ * Returns one of becCategories(); "Other / Not sure" when nothing matches. A
+ * phrase hit ("network switch") outweighs a single word so the phrases below
+ * settle the ambiguous ones: "switch" alone is deliberately in no list.
+ */
+function inferEquipmentCategory(string $name, string $description = ''): string {
+    // "aircon," and "aircon" are one word, and "air-con" is "air con" — so the
+    // table below lists the spaced spellings only. The name is what the
+    // reporter called the thing, so it counts double against the description,
+    // where "dripping water" would otherwise pull an aircon into Plumbing.
+    $clean = static fn(string $t): string => ' ' . preg_replace('/[^a-z0-9\/]+/', ' ', strtolower($t)) . ' ';
+    $parts = [[$clean($name), 2], [$clean($description), 1]];
+    if (trim($parts[0][0]) === '' && trim($parts[1][0]) === '') { return 'Other / Not sure'; }
+
+    // Order matters only for ties. Multi-word entries score 2, single words 1.
+    $table = [
+        'Air Conditioner'        => ['aircon', 'air con', 'a/c', 'ac unit', 'ac', 'split type', 'window type', 'hvac', 'air conditioner', 'air conditioning'],
+        'Electric Fan'           => ['fan', 'ceiling fan', 'stand fan', 'wall fan', 'exhaust fan', 'electric fan'],
+        'Television'             => ['tv', 'television', 'smart tv', 'led tv'],
+        'Computer'               => ['computer', 'pc', 'desktop', 'laptop', 'notebook', 'macbook', 'system unit', 'cpu', 'monitor', 'keyboard', 'mouse'],
+        'Printer'                => ['printer', 'print', 'ink', 'toner'],
+        'Copier / Duplicator'    => ['copier', 'photocopier', 'xerox', 'riso', 'duplicator'],
+        'Projector'              => ['projector'],
+        'Network Equipment'      => ['wifi', 'wi fi', 'router', 'modem', 'internet', 'network', 'lan', 'access point', 'network switch'],
+        'Lighting / Electrical'  => ['light', 'lights', 'bulb', 'lamp', 'fluorescent', 'outlet', 'socket', 'light switch', 'wiring', 'breaker', 'electrical'],
+        'Plumbing / Sanitary'    => ['faucet', 'sink', 'toilet', 'urinal', 'flush', 'pipe', 'leak', 'leaking', 'drain', 'water', 'comfort room', 'cr', 'lavatory', 'plumbing'],
+        'Office Chair'           => ['chair', 'armchair', 'stool', 'monobloc', 'office chair'],
+        'Office Table'           => ['table', 'desk', 'office table'],
+        'Cabinet'                => ['cabinet', 'drawer', 'shelf', 'shelves', 'filing cabinet'],
+        'Locker'                 => ['locker'],
+        'Whiteboard / Glassboard'=> ['whiteboard', 'glassboard', 'blackboard', 'chalkboard', 'white board', 'glass board'],
+        'Piano'                  => ['piano'],
+        'Food Warmer'            => ['food warmer', 'warmer'],
+    ];
+
+    $best = 'Other / Not sure';
+    $bestScore = 0;
+    foreach ($table as $category => $words) {
+        $score = 0;
+        foreach ($words as $w) {
+            // Whole words only, plural allowed: "pc" and "pcs" fire, "space"
+            // does not, and "cr" must not fire inside "screen".
+            $re = '/(?<![a-z0-9])' . preg_quote($w, '/') . 's?(?![a-z0-9])/';
+            foreach ($parts as [$text, $weight]) {
+                if (preg_match($re, $text)) { $score += $weight * ((strpos($w, ' ') !== false) ? 2 : 1); }
+            }
+        }
+        if ($score > $bestScore) { $bestScore = $score; $best = $category; }
+    }
+    return $best;
+}
+
 /**
  * Auto-classify responsible department from reported equipment context.
  * Returns "ITSO" or "PMO" with PMO as conservative fallback.

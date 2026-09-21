@@ -50,13 +50,22 @@ $trustedEmail = reporterTrustedEmail();
 $trustedName  = $trustedEmail !== '' ? becdir_display_name(becdir_known_name($trustedEmail)) : '';
 if ($trustedEmail !== '' && $trustedName === '') { $trustedName = $trustedEmail; }
 $trustedFirst = $trustedName !== '' ? becdir_first_name($trustedName) : '';
+// Who they are, for the one question the report form no longer asks. The
+// cookie remembers what they tapped last time; failing that, the directory
+// knows every student. A teacher on an older cookie is asked once more.
+$trustedRole = $trustedEmail !== '' ? reporterTrustedRole() : '';
+if ($trustedEmail !== '' && $trustedRole === '') {
+    $__dir = function_exists('becdir_lookup') ? becdir_lookup($trustedEmail) : null;
+    $trustedRole = reporterCanonType((string)($__dir['user_type'] ?? ''));
+}
+$reporterTypeLabels = REPORTER_TYPES;   // student / teacher / staff, in button order
 
 // Seconds left on the code being verified, read from the record itself so the
 // page can count down instead of repeating a fixed "3 minutes".
 $otpSecondsLeft = 0;
 $otpAskedAt     = (int)($_SESSION['otp_sent_at'] ?? 0);
 
-$signIn = static function (string $email, string $typedName, string $eq, string $next = ''): void {
+$signIn = static function (string $email, string $typedName, string $eq, string $next = '', string $role = ''): void {
     // The typed name is not evidence of anything. Where BEC holds a name on
     // file that is the one used, so the field cannot be used to claim to be
     // someone else; it survives only for people with no name on record.
@@ -64,9 +73,12 @@ $signIn = static function (string $email, string $typedName, string $eq, string 
     $_SESSION['guest_name']        = htmlspecialchars($onFile !== '' ? $onFile : $typedName, ENT_QUOTES, 'UTF-8');
     $_SESSION['guest_email']       = $email;
     $_SESSION['guest_name_source'] = $onFile !== '' ? 'directory' : 'self-declared';
+    // student | teacher | staff — the report carries it, so the PMO can see who
+    // is asking without the form having to ask anything more.
+    $_SESSION['guest_role']        = reporterCanonType($role);
     $_SESSION['guest_since']       = time();
     $_SESSION['guest_last']        = time();
-    unset($_SESSION['otp_email'], $_SESSION['otp_name'], $_SESSION['otp_eq'], $_SESSION['otp_next'], $_SESSION['otp_sent_at']);
+    unset($_SESSION['otp_email'], $_SESSION['otp_name'], $_SESSION['otp_role'], $_SESSION['otp_eq'], $_SESSION['otp_next'], $_SESSION['otp_sent_at']);
     // An id issued before sign-in must not survive it.
     session_regenerate_id(true);
     // Back to whatever sent them here — a ticket they were tracking — before
@@ -96,14 +108,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // The name is deliberately kept: someone correcting a typo in their
         // address should not have to type their name again as well.
         reporterForgetDevice();
-        unset($_SESSION['otp_email'], $_SESSION['otp_eq'], $_SESSION['otp_next'], $_SESSION['otp_sent_at']);
+        unset($_SESSION['otp_email'], $_SESSION['otp_role'], $_SESSION['otp_eq'], $_SESSION['otp_next'], $_SESSION['otp_sent_at']);
         $carry = array_filter(['eq' => $eq, 'next' => $next], static fn($v) => $v !== '');
         header('Location: student_index.php' . ($carry ? '?' . http_build_query($carry) : ''));
         exit();
     } elseif ($step === 'trusted') {
         // This browser has already proved it can read that mailbox.
-        if ($trustedEmail !== '') { $signIn($trustedEmail, $trustedName, $eq, $next); }
-        $error = 'That sign-in has expired. Please enter your BEC email to continue.';
+        if ($trustedEmail !== '') {
+            $role = reporterCanonType((string)($_POST['reporter_type'] ?? '')) ?: $trustedRole;
+            if ($role === '') {
+                $error = 'Please tell us whether you are a student, teacher or staff.';
+            } else {
+                // Re-issued with the role, so next month is one tap again.
+                reporterTrustDevice($trustedEmail, $role);
+                $signIn($trustedEmail, $trustedName, $eq, $next, $role);
+            }
+        } else {
+            $error = 'That sign-in has expired. Please enter your BEC email to continue.';
+        }
     } elseif ($step === 'verify') {
         $stage   = 'verify';
         $pending = strtolower(trim((string)($_SESSION['otp_email'] ?? '')));
@@ -126,14 +148,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $res = reporterOtpVerify($pending, (string)($_POST['otp_code'] ?? ''));
             if ($res['ok']) {
-                reporterTrustDevice($pending);                     // a month of one-tap
-                $signIn($pending, (string)($_SESSION['otp_name'] ?? ''), (string)($_SESSION['otp_eq'] ?? $eq), (string)($_SESSION['otp_next'] ?? $next));
+                $role = (string)($_SESSION['otp_role'] ?? '');
+                reporterTrustDevice($pending, $role);              // a month of one-tap
+                $signIn($pending, (string)($_SESSION['otp_name'] ?? ''), (string)($_SESSION['otp_eq'] ?? $eq), (string)($_SESSION['otp_next'] ?? $next), $role);
             }
             $error = $res['message'];
         }
     } else {
         $name  = trim($_POST['full_name'] ?? '');
         $email = strtolower(trim($_POST['email'] ?? ''));
+        $role  = reporterCanonType((string)($_POST['reporter_type'] ?? ''));
 
         // Nothing limited how often this form could be submitted, and its two
         // failure messages told apart "not in the directory" from "not a BEC
@@ -152,6 +176,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Please enter a valid email address.';
         } elseif (strlen($name) < 2) {
             $error = 'Please enter your full name.';
+        } elseif ($role === '') {
+            $error = 'Please tell us whether you are a student, teacher or staff.';
         } elseif (empty($_POST['privacy_consent'])) {
             $error = 'Please read and accept the Data Privacy notice to continue.';
         } else {
@@ -163,6 +189,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // code was sent to is the only one that can be verified.
                 $_SESSION['otp_email']   = $email;
                 $_SESSION['otp_name']    = $name;
+                $_SESSION['otp_role']    = $role;
                 $_SESSION['otp_eq']      = $eq;
                 $_SESSION['otp_next']    = $next;
                 $_SESSION['otp_sent_at'] = time();
@@ -424,6 +451,24 @@ body::after {
 .fi:focus { border-color: var(--maroon); box-shadow: 0 0 0 3.5px rgba(123,29,29,.09); }
 .fi::placeholder { color: #C4AFA8; font-size:var(--fs-xl); }
 .fi-hint { font-size:var(--fs-sm); color: var(--ink3); margin-top:var(--sp-1); display: block; line-height: 1.55; }
+/* ── "I am a…" ────────────────────────────────────────────────────────
+   Three buttons, one tap. This replaced the department / course / year
+   level / contact number pickers that used to open the report form: the
+   PMO needs to know who is asking, not their programme. Radios styled as
+   buttons so the choice posts with no script and reads back on an error. */
+.who { display:grid; grid-template-columns:repeat(3,1fr); gap:var(--sp-2); }
+.who input { position:absolute; opacity:0; width:1px; height:1px; pointer-events:none; }
+.who label { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:var(--sp-1);
+  min-height:58px; padding:var(--sp-2) var(--sp-1); border:1.5px solid var(--border); border-radius:11px;
+  background:#fff; color:var(--ink2); font-size:var(--fs-md); font-weight:600; cursor:pointer; text-align:center;
+  transition:border-color .16s, background .16s, color .16s, box-shadow .16s; }
+.who label i { font-size:var(--fs-xl); color:var(--ink3); transition:color .16s; }
+.who label:hover { border-color:var(--maroon); color:var(--maroon); }
+.who input:checked + label { border-color:var(--maroon); background:var(--maroon-soft); color:var(--maroon);
+  box-shadow:0 0 0 3px rgba(123,29,29,.09); }
+.who input:checked + label i { color:var(--maroon); }
+.who input:focus-visible + label { outline:3px solid var(--maroon); outline-offset:2px; }
+@media (max-width:390px){ .who { gap:var(--sp-1); } .who label { min-height:52px; font-size:var(--fs-base); } }
 .fi-hint i { margin-right:var(--sp-1); }
 .fi-hint strong { color: var(--ink2); white-space: nowrap; }
 /* Friendly "about this portal" details (replaces the old button-like pills) */
@@ -864,6 +909,18 @@ body::after {
       <input type="hidden" name="step" value="trusted">
       <input type="hidden" name="next" value="<?php echo htmlspecialchars($next, ENT_QUOTES); ?>">
       <input type="hidden" name="eq" value="<?php echo htmlspecialchars($eq, ENT_QUOTES); ?>">
+      <?php /* Pre-selected from the cookie or the directory, so the common case
+               is still the single tap below. Shown at all so a wrong guess can
+               be corrected without signing out. */ ?>
+      <div class="fg">
+        <span class="fl" id="whoTrustLbl">I am a <span class="req">*</span></span>
+        <div class="who" role="radiogroup" aria-labelledby="whoTrustLbl">
+          <?php foreach ($reporterTypeLabels as $__v => $__l): ?>
+          <input type="radio" name="reporter_type" id="whoT-<?php echo $__v; ?>" value="<?php echo $__v; ?>"<?php echo $trustedRole === $__v ? ' checked' : ''; ?> required>
+          <label for="whoT-<?php echo $__v; ?>"><i aria-hidden="true" class="fas <?php echo ['student'=>'fa-user-graduate','teacher'=>'fa-chalkboard-user','staff'=>'fa-id-badge'][$__v]; ?>"></i><?php echo $__l; ?></label>
+          <?php endforeach; ?>
+        </div>
+      </div>
       <button type="submit" class="btn-submit trust-go">
         Continue as <?php echo htmlspecialchars($trustedFirst !== '' ? $trustedFirst : $trustedName); ?>
         <span class="btn-arrow"><i aria-hidden="true" class="fas fa-arrow-right"></i></span>
@@ -1005,6 +1062,16 @@ body::after {
         </div>
         <div class="fi-hint"><i aria-hidden="true" class="fas fa-id-badge"></i> Use your official BEC account (<strong>@bec.edu.ph</strong>). Your ticket confirmation will be sent here.</div>
       </div>
+      <div class="fg">
+        <span class="fl" id="whoLbl">I am a <span class="req">*</span></span>
+        <div class="who" role="radiogroup" aria-labelledby="whoLbl">
+          <?php $__whoSel = reporterCanonType((string)($_POST['reporter_type'] ?? ''));
+                foreach ($reporterTypeLabels as $__v => $__l): ?>
+          <input type="radio" name="reporter_type" id="who-<?php echo $__v; ?>" value="<?php echo $__v; ?>"<?php echo $__whoSel === $__v ? ' checked' : ''; ?> required>
+          <label for="who-<?php echo $__v; ?>"><i aria-hidden="true" class="fas <?php echo ['student'=>'fa-user-graduate','teacher'=>'fa-chalkboard-user','staff'=>'fa-id-badge'][$__v]; ?>"></i><?php echo $__l; ?></label>
+          <?php endforeach; ?>
+        </div>
+      </div>
       <div class="pv-block">
         <label class="pv-consent">
           <input type="checkbox" name="privacy_consent" value="1" required <?php echo !empty($_POST['privacy_consent']) ? 'checked' : ''; ?>>
@@ -1043,22 +1110,17 @@ body::after {
     </form>
     <?php endif; ?>
     <div class="or-row">or</div>
-    <div class="action-row">
+    <?php /* One other thing to do here, not two. "View all reports" lives on the
+             landing page; on the screen that exists to get a report filed it was
+             one more button. */ ?>
+    <div class="action-row" style="grid-template-columns:1fr;">
       <a href="track_report.php" class="action-btn">
-        <i aria-hidden="true" class="fas fa-ticket-alt"></i>Track existing report
-      </a>
-      <a href="public_reports.php" class="action-btn">
-        <i aria-hidden="true" class="fas fa-table-list"></i>View all reports
+        <i aria-hidden="true" class="fas fa-ticket-alt"></i>Track an existing report
       </a>
     </div>
     <div class="safety-note">
       <i aria-hidden="true" class="fas fa-triangle-exclamation"></i>
       <span><strong>Safety first.</strong> For urgent hazards that put people at risk — live electrical faults, fire, gas, or water leaks — contact the PMO or campus security in person or by phone <em>immediately</em>. Use this portal for non-emergency equipment concerns.</span>
-    </div>
-    <div class="trust-strip">
-      <span><i aria-hidden="true" class="fas fa-lock"></i> Confidential</span>
-      <span><i aria-hidden="true" class="fas fa-circle-check"></i> Official @bec.edu.ph only</span>
-      <span><i aria-hidden="true" class="fas fa-route"></i> Tracked end-to-end</span>
     </div>
     <div class="footer-link">
       Need help?<a onclick="openChat()" role="button" tabindex="0">Contact support</a>

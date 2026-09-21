@@ -14,10 +14,10 @@ notifications at every stage, and a built-in AI assistant ("Becca") on every por
 | Portal | Who | Highlights |
 |---|---|---|
 | **Landing page** (`index.php`) | Everyone | Campus-photo hero, modules overview, live public-reports preview, Becca AI chat |
-| **Reporter portal** (`student_index.php`) | Students, faculty & staff | Guided defect reporting with photos, priority inference, email confirmations |
+| **Reporter portal** (`student_index.php`) | Students, faculty & staff | One-screen defect report — what, where, what's wrong, photo/video (required); category, PMO/ITSO unit and priority inferred by the system; email confirmations |
 | **Public tracker** (`track_report.php`, `public_reports.php`) | Everyone | Track any ticket by ID/asset tag, follow-up requests, satisfaction confirmation |
 | **Admin / PMO suite** (`admin_*.php`) | PMO administrators | Dashboard + analytics, defect review (receive → approve → assign → verify), preventive maintenance, inventory, user management, backup & recovery, branded exports |
-| **Technician portal** (`technician_dashboard.php`) | Maintenance technicians | Installable **PWA**; scroll-down repair workspace with live SLA/repair timers, workflow stepper, photo-documented completion reports |
+| **Technician portal** (`technician_dashboard.php`) | Maintenance technicians | Installable **PWA**; one task, one button (Start the repair → Mark as fixed), due-time chip, a three-field finish form with a required photo of the result |
 
 ## The report lifecycle
 

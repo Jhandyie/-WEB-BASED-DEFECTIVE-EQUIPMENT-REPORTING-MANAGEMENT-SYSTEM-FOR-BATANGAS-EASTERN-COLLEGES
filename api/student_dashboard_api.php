@@ -8,6 +8,13 @@ require_once __DIR__ . '/../controllers/studentDashboardController.php';
    student API call with a 302. Nothing in this API uses its PHP helpers. */
 require_once __DIR__ . '/../file_storage_helpers.php';
 
+/* This is a separate submit path from the reporter form (student_dashboard.php)
+   and is what scripts/e2e_smoke.php drives. The form requires a photo or video
+   and infers the category itself; this endpoint still accepts a category and
+   files a report without evidence. Left that way on purpose: the smoke test
+   posts over raw HTTP with no camera, and the two paths are meant to be
+   compared, not kept identical. */
+
 // Check if this is an API request
 $requestAction = (string)($_POST['action'] ?? $_GET['action'] ?? '');
 if ($requestAction !== '') {

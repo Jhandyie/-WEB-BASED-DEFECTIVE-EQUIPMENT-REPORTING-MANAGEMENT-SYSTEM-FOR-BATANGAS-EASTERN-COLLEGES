@@ -1,15 +1,22 @@
 <?php
 /**
- * technician_service_report.php — formal, printable Equipment Repair / Service Report.
+ * technician_service_report.php — the Repair Completion Form.
  *
- * Read-only: pulls a defect report's full record and renders a professional
- * printable document (same formal header as the cost estimate). Reachable by
- * the technician who did the job and by admins (requireRole('technician') —
- * admins bypass). Requires ?report=<ID>.
+ * Written by the system, not by anyone: once a task has been marked fixed,
+ * everything the office needs to file is already on the record — who reported
+ * what and where, who fixed it, when, how, with which parts, at what cost, and
+ * the photos before and after. This page arranges that into one printable
+ * document and reads it back as a short narrative. Nobody types anything.
+ *
+ * Exists only for a fixed task (completed, verified or closed). Earlier than
+ * that there is nothing to print, and the page says so.
+ *
+ * Reachable by the technician who did the job and by admins
+ * (requireRole('technician') — admins bypass). Requires ?report=<ID>.
  */
 require_once __DIR__ . '/includes/session_bootstrap.php';
-// Reachable by the technician who did the job and by admins. The page name would
-// force the 'technician' session context, so pick the session that's actually present.
+// The page name would force the 'technician' session context; pick the session
+// that is actually present.
 startRoleSession(isset($_COOKIE['BECSESSID_ADMIN']) ? 'admin' : 'technician');
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/config/database.php';
@@ -19,41 +26,40 @@ requireRole('technician'); // admins bypass this in requireRole()
 function sr_e($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 function sr_has($v) { return trim((string)$v) !== ''; }
 function sr_peso($v) { $v = (float)$v; return $v > 0 ? '₱' . number_format($v, 2) : ''; }
+/** A JSON list of upload paths (or one bare path) → web paths. */
+function sr_paths($raw): array {
+    $raw = trim((string)$raw);
+    if ($raw === '') return [];
+    $d = json_decode($raw, true);
+    $list = (json_last_error() === JSON_ERROR_NONE && is_array($d)) ? $d : [$raw];
+    $out = [];
+    foreach ($list as $p) { $p = str_replace('\\', '/', trim((string)$p)); if ($p !== '' && is_file(__DIR__ . '/' . $p)) $out[] = $p; }
+    return $out;
+}
+/** "1 day 2 h", "45 min" — between two timestamps, or '' when either is missing. */
+function sr_span($from, $to): string {
+    $a = strtotime((string)$from); $b = strtotime((string)$to);
+    if (!$a || !$b || $b <= $a) return '';
+    $m = intdiv($b - $a, 60);
+    if ($m < 60) return $m . ' min';
+    $h = intdiv($m, 60); $m %= 60;
+    if ($h < 24) return $h . ' h' . ($m ? ' ' . $m . ' min' : '');
+    $d = intdiv($h, 24); $h %= 24;
+    return $d . ' day' . ($d === 1 ? '' : 's') . ($h ? ' ' . $h . ' h' : '');
+}
 
 $reportId = trim((string)($_GET['report'] ?? ''));
-$r = null;
-if ($reportId !== '') {
-    try {
-        $pdo = getPgsqlPdoConnection();
-        $st = $pdo->prepare("
-            SELECT dr.*, e.asset_tag AS eq_asset_tag,
-                   COALESCE(NULLIF(dr.equipment_name,''), e.equipment_name) AS eq_name,
-                   COALESCE(c.category_name, CAST(e.category_id AS TEXT)) AS eq_category
-            FROM public.defect_reports dr
-            LEFT JOIN public.equipment e ON e.equipment_id = dr.equipment_id
-            LEFT JOIN public.categories c ON c.category_id = e.category_id
-            WHERE dr.report_id = :r LIMIT 1");
-        $st->execute(['r' => $reportId]);
-        $r = $st->fetch(PDO::FETCH_ASSOC) ?: null;
-    } catch (\Throwable $e) {
-        // fall back to a simpler query if the join fails
-        try {
-            $st = getPgsqlPdoConnection()->prepare("SELECT * FROM public.defect_reports WHERE report_id = :r LIMIT 1");
-            $st->execute(['r' => $reportId]);
-            $r = $st->fetch(PDO::FETCH_ASSOC) ?: null;
-        } catch (\Throwable $e2) { $r = null; }
-    }
-}
+$r = $reportId !== '' ? getDefectReportById($reportId) : null;   // technician & reporter names, photos, resolved
 
 // The report carries the reporter's name and the full fault history, and the
 // portal promises reporters that only the PMO and *their* technician see it.
 // Any signed-in technician could previously read any report by changing the id
 // in the address bar, so the assignment is checked here as well as the role.
-if ($r !== null && ($_SESSION['role'] ?? '') === 'technician') {
+if ($r && ($_SESSION['role'] ?? '') === 'technician') {
     $assignee = (string)($r['assigned_to'] ?? ($r['assigned_technician'] ?? ''));
     if (!technicianOwnsAssigneeValue($assignee, technicianIdentityKeysFromSession($_SESSION))) {
         http_response_code(403);
-        exit('This service report belongs to another technician\'s task.');
+        exit('This form belongs to another technician\'s task.');
     }
 }
 
@@ -62,25 +68,105 @@ $fmtDate = static function ($v, $withTime = false) {
     $t = is_numeric($v) ? (int)$v : strtotime((string)$v);
     return $t ? date($withTime ? 'F j, Y · g:i A' : 'F j, Y', $t) : '';
 };
-$statusLabels = ['reported'=>'Pending','pmo_review'=>'Received by PMO','ready_for_assignment'=>'Ready to Assign','assigned'=>'Assigned','accepted'=>'Accepted','in_progress'=>'In Progress','completed'=>'Completed','verified'=>'Verified','closed'=>'Closed','rejected'=>'Rejected'];
+$statusLabels = ['reported'=>'Pending','pmo_review'=>'Received by PMO','ready_for_assignment'=>'Ready to Assign','assigned'=>'Assigned','accepted'=>'Accepted','in_progress'=>'In Progress','waiting_for_materials'=>'Waiting for Materials','for_replacement'=>'For Replacement','completed'=>'Fixed — awaiting PMO check','verified'=>'Verified','closed'=>'Verified & Closed','rejected'=>'Rejected'];
 $status = strtolower((string)$g('status'));
 $statusLabel = $statusLabels[$status] ?? ucfirst(str_replace('_',' ',$status));
+// The form exists once the repair is done. Before that there is nothing to
+// print, and a half-empty "record" would only invite someone to fill it in.
+$isFixed = $r && in_array($status, ['completed','verified','closed'], true);
 
-$eqName   = (string)($r['eq_name'] ?? $g('equipment_name'));
-$assetTag = (string)($r['eq_asset_tag'] ?? $g('asset_tag'));
-$category = (string)($r['eq_category'] ?? $g('category'));
-$estCost  = sr_peso($g('estimated_cost'));
-$toolsMaterials = trim(implode(' · ', array_filter([trim((string)$g('tools_used')), trim((string)$g('materials_used'))])));
+$eqName   = (string)$g('equipment_name');
+$assetTag = (string)$g('asset_tag');
+$category = (string)$g('category_name');
+$location = (string)$g('location');
+$unit     = (string)$g('department_assigned');
+$unitName = ['PMO' => 'Property Management Office', 'ITSO' => 'IT Services Office'][strtoupper($unit)] ?? $unit;
 
-// Service detail rows (label => value) — only rendered when present.
-$serviceRows = array_filter([
-    'Diagnosis'           => (string)$g('diagnosis'),
-    'Work performed'      => (string)$g('work_performed'),
-    'Actions performed'   => (string)$g('actions_performed'),
-    'Repair procedures'   => (string)$g('repair_procedures'),
-    'Parts replaced'      => (string)$g('parts_replaced'),
-    'Tools & materials'   => $toolsMaterials,
-], 'sr_has');
+$techName = (string)$g('technician_name');
+if (strcasecmp($techName, 'Unassigned') === 0) $techName = '';
+$rpName   = (string)$g('reporter_name');
+$rpWho    = reporterTypeLabel($g('reporter_type'));
+$rpDept   = (string)$g('reporter_department');
+$rpLine   = implode(', ', array_filter([$rpWho, $rpDept]));
+
+$reported  = (string)$g('report_date');
+$received  = (string)($g('received_by_pmo_at') ?: $g('pmo_reviewed_at'));
+$assigned  = (string)$g('assigned_date');
+$started   = (string)($g('started_at') ?: $g('date_started'));
+$finished  = (string)$g('completion_date');
+$duration  = trim((string)$g('repair_duration')) ?: sr_span($started, $finished);
+$openFor   = sr_span($reported, $finished);
+
+// What was done. New reports carry it in work_performed; older ones may have
+// written the same thing under diagnosis / actions instead.
+$workDone  = trim((string)($g('work_performed') ?: ($g('actions_performed') ?: $g('diagnosis'))));
+$parts     = trim((string)$g('parts_replaced'));
+$extraRows = array_filter([
+    'Diagnosis'         => (string)$g('diagnosis'),
+    'Actions performed' => (string)$g('actions_performed'),
+    'Repair procedures' => (string)$g('repair_procedures'),
+    'Tools & materials' => trim(implode(' · ', array_filter([trim((string)$g('tools_used')), trim((string)$g('materials_used'))]))),
+], static fn($v, $k) => sr_has($v) && $v !== $workDone, ARRAY_FILTER_USE_BOTH);
+$cost      = sr_peso((float)$g('repair_cost') > 0 ? $g('repair_cost') : $g('estimated_cost'));
+$techNote  = trim((string)$g('technician_notes'));
+if (strcasecmp($techNote, $workDone) === 0) $techNote = '';   // the same sentence twice helps nobody
+$pmoNote   = trim((string)($g('admin_notes') ?: $g('verification_notes')));
+$sat       = strtolower(trim((string)$g('satisfaction')));
+$satNote   = trim((string)$g('satisfaction_note'));
+
+$beforePhotos = array_values(array_unique(array_merge((array)($r['photos'] ?? []), sr_paths($g('before_photos')))));
+$duringPhotos = sr_paths($g('during_photos'));
+$afterPhotos  = array_values(array_unique(array_merge(sr_paths($g('after_photos')), sr_paths($g('work_photos')))));
+
+/* ── The narrative: the record read back as plain sentences ─────────────
+   This is the part a person used to write. Every clause is conditional on
+   the data being there, so an old record with gaps reads as shorter, never
+   as wrong. */
+$story = [];
+if ($isFixed) {
+    $s = 'On ' . ($fmtDate($reported) ?: 'an unrecorded date') . ', '
+       . ($rpName !== '' ? $rpName . ($rpLine !== '' ? ' (' . $rpLine . ')' : '') : 'a member of the BEC community')
+       . ' reported a problem with the ' . ($eqName !== '' ? $eqName : 'equipment')
+       . ($assetTag !== '' ? ' (tag ' . $assetTag . ')' : '')
+       . ($location !== '' ? ' at ' . $location : '') . '.';
+    $story[] = $s;
+    $s = ($techName !== '' ? $techName : 'A technician') . ($unitName !== '' ? ' of the ' . $unitName : '');
+    if ($assigned !== '' && $started !== '') {
+        $s .= ' was assigned on ' . $fmtDate($assigned) . ' and started work on ' . $fmtDate($started, true) . '.';
+    } elseif ($started !== '') {
+        $s .= ' started work on ' . $fmtDate($started, true) . '.';
+    } elseif ($assigned !== '') {
+        $s .= ' was assigned on ' . $fmtDate($assigned) . '.';
+    } else {
+        $s .= ' carried out the repair.';
+    }
+    $story[] = $s;
+    $s = 'The repair was completed on ' . ($fmtDate($finished, true) ?: 'an unrecorded date')
+       . ($duration !== '' ? ', taking ' . $duration : '')
+       . ($parts !== '' ? ', using ' . $parts : '')
+       . ($cost !== '' ? ', at a cost of ' . $cost : '') . '.';
+    $story[] = $s;
+    if ($status === 'closed' || $status === 'verified') {
+        $story[] = 'The Property Management Office checked the work and ' . ($status === 'closed' ? 'closed the report' : 'verified it')
+                 . ($pmoNote !== '' ? ', noting: "' . $pmoNote . '"' : '') . '.';
+    } else {
+        $story[] = 'The report is now with the Property Management Office for verification.';
+    }
+    if ($sat === 'satisfied' || $sat === 'yes') {
+        $story[] = 'The reporter confirmed the equipment is working again' . ($satNote !== '' ? ': "' . $satNote . '"' : '.');
+    } elseif ($sat !== '' && $sat !== 'satisfied') {
+        $story[] = 'The reporter said the problem was not resolved' . ($satNote !== '' ? ': "' . $satNote . '"' : '.');
+    }
+    if ($openFor !== '') $story[] = 'From report to repair: ' . $openFor . '.';
+}
+
+$timeline = array_values(array_filter([
+    ['Reported',           $reported,  'fa-flag'],
+    ['Received by the PMO',$received,  'fa-inbox'],
+    ['Assigned',           $assigned,  'fa-user-gear'],
+    ['Repair started',     $started,   'fa-play'],
+    ['Marked fixed',       $finished,  'fa-circle-check'],
+], static fn($row) => sr_has($row[1])));
 
 $today = date('F j, Y');
 ?><!DOCTYPE html>
@@ -88,7 +174,7 @@ $today = date('F j, Y');
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Service Report<?php echo $reportId !== '' ? ' — ' . sr_e($reportId) : ''; ?> — BEC PMO</title>
+<title>Repair Form<?php echo $reportId !== '' ? ' — ' . sr_e($reportId) : ''; ?> — BEC PMO</title>
 <link rel="icon" type="image/png" href="assets/logs.png">
 <link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
 <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
@@ -135,6 +221,22 @@ $today = date('F j, Y');
   .sign .nm{font-weight:700;font-size:.86rem;color:var(--ink);text-transform:uppercase;letter-spacing:.4px;min-height:1.1em;}
   .sign .rl{font-size:.72rem;color:var(--ink3);margin-top:.1rem;}
   .foot-note{margin-top:1.6rem;font-size:.68rem;color:var(--ink3);line-height:1.5;border-top:1px dashed var(--line);padding-top:.7rem;}
+  .story{font-size:.92rem;line-height:1.75;color:var(--ink);padding:1rem 1.15rem;border-left:3px solid var(--gold);background:#FBF7F0;border-radius:0 10px 10px 0;}
+  .story p+p{margin-top:.45rem;}
+  .tl{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.6rem;}
+  .tl .st{padding:.6rem .75rem;border:1px solid var(--line);border-radius:9px;background:#fff;}
+  .tl .st i{color:var(--gold);font-size:.72rem;margin-right:.35rem;}
+  .tl .st b{display:block;font-size:.66rem;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--ink3);}
+  .tl .st span{font-size:.8rem;font-weight:600;color:var(--ink);}
+  .shots{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+  .shots h4{font-size:.68rem;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--ink3);margin-bottom:.4rem;}
+  .shots .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:.45rem;}
+  .shots img{width:100%;height:110px;object-fit:cover;border-radius:8px;border:1px solid var(--line);}
+  .shots .none{font-size:.8rem;color:var(--ink3);padding:.6rem;border:1px dashed var(--line);border-radius:8px;text-align:center;}
+  .auto-note{display:flex;align-items:center;gap:.5rem;font-size:.72rem;color:var(--ink3);margin:-.6rem 0 1.1rem;justify-content:center;}
+  .auto-note i{color:var(--gold);}
+  @media(max-width:640px){.shots{grid-template-columns:1fr;}}
+  @media print{.tl .st,.story,.shots img{break-inside:avoid;}}
   .missing{max-width:560px;margin:3rem auto;text-align:center;background:#fff;border:1px solid var(--border);border-radius:14px;padding:2.5rem 2rem;}
   .missing i{font-size:2rem;color:var(--gold);}
   @media(max-width:640px){.doc{padding:1.5rem 1.1rem;}.grid2{grid-template-columns:1fr;}.signs{grid-template-columns:1fr;gap:2rem;}.srv-row{grid-template-columns:1fr;gap:.15rem;}}
@@ -149,9 +251,11 @@ $today = date('F j, Y');
 <body>
   <div class="toolbar no-print">
     <a class="btn ghost" href="javascript:history.back()"><i class="fas fa-arrow-left"></i> Back</a>
-    <?php if ($r): ?>
+    <?php if ($isFixed): ?>
     <button class="btn gold" type="button" onclick="window.print()"><i class="fas fa-print"></i> Print / Save as PDF</button>
+    <?php if (($_SESSION['role'] ?? '') !== 'technician'): ?>
     <a class="btn ghost" href="technician_cost_estimate.php?report=<?php echo urlencode($reportId); ?>" target="_blank" rel="noopener"><i class="fas fa-file-invoice-dollar"></i> Cost estimate</a>
+    <?php endif; ?>
     <?php endif; ?>
   </div>
 
@@ -159,7 +263,14 @@ $today = date('F j, Y');
   <div class="missing">
     <i class="fas fa-file-circle-question"></i>
     <h2 style="font-family:'Fraunces',serif;margin:.6rem 0 .3rem;">Report not found</h2>
-    <p style="font-size:.9rem;color:var(--ink3);">No repair record matches <strong><?php echo sr_e($reportId ?: '(none)'); ?></strong>. Open this page from a case with <code>?report=&lt;ID&gt;</code>.</p>
+    <p style="font-size:.9rem;color:var(--ink3);">No repair record matches <strong><?php echo sr_e($reportId ?: '(none)'); ?></strong>.</p>
+  </div>
+<?php elseif (!$isFixed): ?>
+  <div class="missing">
+    <i class="fas fa-hourglass-half"></i>
+    <h2 style="font-family:'Fraunces',serif;margin:.6rem 0 .3rem;">Not fixed yet</h2>
+    <p style="font-size:.9rem;color:var(--ink3);line-height:1.6;">Report <strong><?php echo sr_e($reportId); ?></strong> is <strong><?php echo sr_e($statusLabel); ?></strong>.
+      The repair form is created by the system the moment the task is marked fixed — there is nothing to print before then.</p>
   </div>
 <?php else: ?>
   <div class="doc" id="doc">
@@ -172,13 +283,20 @@ $today = date('F j, Y');
       </div>
       <div style="width:66px;flex-shrink:0;"></div>
     </div>
-    <div class="doc-title">Equipment Repair / Service Report</div>
-    <div class="doc-title-sub">Record of completed maintenance work</div>
+    <div class="doc-title">Equipment Repair Completion Form</div>
+    <div class="doc-title-sub">Record of a completed repair</div>
+    <div class="auto-note"><i class="fas fa-wand-magic-sparkles"></i> Filled in automatically by the system from the report record — nothing here was typed by hand.</div>
 
     <div class="refbar">
       <div class="ri">Report No. <b><?php echo sr_e($reportId); ?></b></div>
-      <div class="ri"><span class="badge <?php echo in_array($status,['completed','verified','closed'],true)?'done':''; ?>"><?php echo sr_e($statusLabel); ?></span></div>
+      <div class="ri"><span class="badge done"><?php echo sr_e($statusLabel); ?></span></div>
       <div class="ri">Printed <?php echo sr_e($today); ?></div>
+    </div>
+
+    <!-- The record, read back -->
+    <div class="sec">
+      <div class="sec-h"><i class="fas fa-align-left"></i> Summary</div>
+      <div class="story"><?php foreach ($story as $p): ?><p><?php echo sr_e($p); ?></p><?php endforeach; ?></div>
     </div>
 
     <!-- Equipment -->
@@ -188,53 +306,75 @@ $today = date('F j, Y');
         <div class="kv"><span class="k">Equipment</span><span class="v"><?php echo sr_has($eqName)?sr_e($eqName):'<span class="muted">—</span>'; ?></span></div>
         <div class="kv"><span class="k">Asset tag</span><span class="v"><?php echo sr_has($assetTag)?sr_e($assetTag):'<span class="muted">—</span>'; ?></span></div>
         <div class="kv"><span class="k">Category</span><span class="v"><?php echo sr_has($category)?sr_e($category):'<span class="muted">—</span>'; ?></span></div>
-        <div class="kv"><span class="k">Location</span><span class="v"><?php echo sr_has($g('location'))?sr_e($g('location')):'<span class="muted">—</span>'; ?></span></div>
-        <div class="kv"><span class="k">Responsible unit</span><span class="v"><?php echo sr_has($g('department_assigned'))?sr_e($g('department_assigned')):'<span class="muted">—</span>'; ?></span></div>
+        <div class="kv"><span class="k">Location</span><span class="v"><?php echo sr_has($location)?sr_e($location):'<span class="muted">—</span>'; ?></span></div>
+        <div class="kv"><span class="k">Handled by</span><span class="v"><?php echo sr_has($unitName)?sr_e($unitName):'<span class="muted">—</span>'; ?></span></div>
         <div class="kv"><span class="k">Priority</span><span class="v"><?php echo sr_has($g('priority'))?sr_e(ucfirst((string)$g('priority'))):'<span class="muted">—</span>'; ?></span></div>
       </div>
     </div>
 
-    <!-- Request -->
+    <!-- The concern -->
     <div class="sec">
       <div class="sec-h"><i class="fas fa-clipboard-list"></i> Reported Concern</div>
       <div class="grid2" style="margin-bottom:.6rem;">
-        <div class="kv"><span class="k">Reported by</span><span class="v"><?php echo sr_has($g('reporter_name'))?sr_e($g('reporter_name')):'<span class="muted">—</span>'; ?></span></div>
-        <div class="kv"><span class="k">Date reported</span><span class="v"><?php $d=$fmtDate($g('report_date'),true); echo $d?sr_e($d):'<span class="muted">—</span>'; ?></span></div>
+        <div class="kv"><span class="k">Reported by</span><span class="v"><?php echo sr_has($rpName)?sr_e($rpName):'<span class="muted">—</span>'; ?><?php if ($rpLine !== ''): ?> <span class="muted" style="font-weight:500">(<?php echo sr_e($rpLine); ?>)</span><?php endif; ?></span></div>
+        <div class="kv"><span class="k">Date reported</span><span class="v"><?php $d=$fmtDate($reported,true); echo $d?sr_e($d):'<span class="muted">—</span>'; ?></span></div>
       </div>
-      <div class="kv"><span class="k">Issue described</span><span class="v prose"><?php echo sr_has($g('issue_description'))?nl2br(sr_e($g('issue_description'))):'<span class="muted">—</span>'; ?></span></div>
+      <div class="kv"><span class="k">What the reporter said</span><span class="v prose"><?php echo sr_has($g('issue_description'))?nl2br(sr_e($g('issue_description'))):'<span class="muted">—</span>'; ?></span></div>
     </div>
 
-    <!-- Service performed -->
+    <!-- The repair -->
     <div class="sec">
-      <div class="sec-h"><i class="fas fa-screwdriver-wrench"></i> Service Performed</div>
-      <?php if ($serviceRows): foreach ($serviceRows as $k => $v): ?>
-      <div class="srv-row"><div class="k"><?php echo sr_e($k); ?></div><div class="v"><?php echo nl2br(sr_e($v)); ?></div></div>
-      <?php endforeach; else: ?>
-      <div class="prose" style="color:var(--ink3);">No service details have been recorded for this case yet.</div>
+      <div class="sec-h"><i class="fas fa-screwdriver-wrench"></i> Repair Done</div>
+      <div class="srv-row"><div class="k">Technician</div><div class="v"><?php echo sr_has($techName)?sr_e($techName):'<span class="muted">—</span>'; ?></div></div>
+      <div class="srv-row"><div class="k">What was done</div><div class="v"><?php echo sr_has($workDone)?nl2br(sr_e($workDone)):'<span class="muted">Not written down.</span>'; ?></div></div>
+      <?php if ($parts !== ''): ?><div class="srv-row"><div class="k">Parts used</div><div class="v"><?php echo sr_e($parts); ?></div></div><?php endif; ?>
+      <?php foreach ($extraRows as $k => $v): ?><div class="srv-row"><div class="k"><?php echo sr_e($k); ?></div><div class="v"><?php echo nl2br(sr_e($v)); ?></div></div><?php endforeach; ?>
+      <?php if ($techNote !== ''): ?><div class="srv-row"><div class="k">Technician's note</div><div class="v"><?php echo nl2br(sr_e($techNote)); ?></div></div><?php endif; ?>
+      <?php if ($duration !== ''): ?><div class="srv-row"><div class="k">Time on the job</div><div class="v"><?php echo sr_e($duration); ?></div></div><?php endif; ?>
+      <?php if ($cost !== ''): ?>
+      <div class="cost-box"><span class="cl">Cost of the repair</span><span class="cv"><?php echo sr_e($cost); ?></span></div>
       <?php endif; ?>
     </div>
 
-    <!-- Timeline & cost -->
+    <!-- Photos -->
+    <?php if ($beforePhotos || $afterPhotos || $duringPhotos): ?>
     <div class="sec">
-      <div class="sec-h"><i class="fas fa-clock"></i> Timeline<?php echo sr_has($estCost)?' &amp; Cost':''; ?></div>
-      <div class="grid2">
-        <div class="kv"><span class="k">Date started</span><span class="v"><?php $d=$fmtDate($g('date_started'),true); echo $d?sr_e($d):'<span class="muted">—</span>'; ?></span></div>
-        <div class="kv"><span class="k">Date completed</span><span class="v"><?php $d=$fmtDate($g('completion_date'),true); echo $d?sr_e($d):'<span class="muted">—</span>'; ?></span></div>
-        <?php if (sr_has($g('repair_duration'))): ?>
-        <div class="kv"><span class="k">Duration</span><span class="v"><?php echo sr_e($g('repair_duration')); ?></span></div>
+      <div class="sec-h"><i class="fas fa-camera"></i> Before &amp; After</div>
+      <div class="shots">
+        <div>
+          <h4>Before — from the report</h4>
+          <?php if ($beforePhotos): ?><div class="grid"><?php foreach (array_slice($beforePhotos, 0, 6) as $p): ?><img src="<?php echo sr_e($p); ?>" alt="Before"><?php endforeach; ?></div>
+          <?php else: ?><div class="none">No photo was attached to the report.</div><?php endif; ?>
+        </div>
+        <div>
+          <h4>After — by the technician</h4>
+          <?php $afterAll = array_merge($afterPhotos, $duringPhotos); if ($afterAll): ?><div class="grid"><?php foreach (array_slice($afterAll, 0, 6) as $p): ?><img src="<?php echo sr_e($p); ?>" alt="After"><?php endforeach; ?></div>
+          <?php else: ?><div class="none">No photo of the finished work.</div><?php endif; ?>
+        </div>
+      </div>
+    </div>
+    <?php endif; ?>
+
+    <!-- Timeline -->
+    <div class="sec">
+      <div class="sec-h"><i class="fas fa-clock"></i> Timeline</div>
+      <div class="tl">
+        <?php foreach ($timeline as [$lbl, $when, $ic]): ?>
+        <div class="st"><b><i class="fas <?php echo $ic; ?>"></i><?php echo sr_e($lbl); ?></b><span><?php echo sr_e($fmtDate($when, true)); ?></span></div>
+        <?php endforeach; ?>
+        <?php if ($status === 'closed' || $status === 'verified'): ?>
+        <div class="st"><b><i class="fas fa-certificate"></i>Verified by the PMO</b><span><?php echo $status === 'closed' ? 'Report closed' : 'Verified'; ?></span></div>
         <?php endif; ?>
       </div>
-      <?php if (sr_has($estCost)): ?>
-      <div class="cost-box"><span class="cl">Estimated service cost</span><span class="cv"><?php echo sr_e($estCost); ?></span></div>
-      <?php endif; ?>
+      <?php if ($pmoNote !== ''): ?><div class="kv" style="margin-top:.7rem;"><span class="k">PMO verification note</span><span class="v prose"><?php echo nl2br(sr_e($pmoNote)); ?></span></div><?php endif; ?>
     </div>
 
     <div class="signs">
-      <div class="sign"><div class="ln"></div><div class="nm"><?php echo sr_has($g('technician_name'))?sr_e($g('technician_name')):'&nbsp;'; ?></div><div class="rl">Serviced by — Maintenance Technician</div></div>
+      <div class="sign"><div class="ln"></div><div class="nm"><?php echo sr_has($techName)?sr_e($techName):'&nbsp;'; ?></div><div class="rl">Repaired by — Maintenance Technician</div></div>
       <div class="sign"><div class="ln"></div><div class="nm">&nbsp;</div><div class="rl">Verified by — Property Management Office</div></div>
     </div>
 
-    <div class="foot-note"><i class="fas fa-circle-info"></i> Official record generated from the BEC PMO Equipment Reporting &amp; Maintenance Management System. Report No. <?php echo sr_e($reportId); ?>.</div>
+    <div class="foot-note"><i class="fas fa-circle-info"></i> Generated by the BEC PMO Equipment Reporting &amp; Maintenance Management System from the record of Report No. <?php echo sr_e($reportId); ?>. Printed <?php echo sr_e($today); ?>.</div>
   </div>
 <?php endif; ?>
 </body>

@@ -76,13 +76,6 @@ function sprogress(string $s): int {
         'completed' => 85, 'verified' => 100, 'closed' => 100,
     ][strtolower(trim($s))] ?? 12;
 }
-function sstep(string $s): int {
-    return [
-        'assigned' => 1, 'accepted' => 1, 'in_progress' => 2,
-        'waiting_for_materials' => 3, 'for_replacement' => 3,
-        'completed' => 4, 'verified' => 5, 'closed' => 5,
-    ][strtolower(trim($s))] ?? 1;
-}
 function eqicon(string $name): string {
     $n = strtolower($name);
     if (preg_match('/projector/', $n)) return 'fa-video';
@@ -121,18 +114,6 @@ function picon(string $p): string {
         'low' => 'fa-arrow-down',
     ][strtolower(trim($p))] ?? 'fa-equals';
 }
-function nextActionLabel(string $status): string {
-    return [
-        'assigned' => 'Receive this task',
-        'accepted' => 'Start the repair',
-        'in_progress' => 'Continue repair',
-        'waiting_for_materials' => 'Waiting for materials',
-        'for_replacement' => 'Review replacement recommendation',
-        'completed' => 'Waiting for PMO',
-        'verified' => 'Verified record',
-        'closed' => 'Closed record',
-    ][strtolower(trim($status))] ?? 'Review task';
-}
 function taskPhotos(array $row): array {
     $out = [];
     foreach (['photo_path', 'photo_url', 'image_path'] as $field) {
@@ -169,17 +150,6 @@ function taskVideos(array $row): array {
     }
     return $out;
 }
-function workflowSteps(string $status): array {
-    $status = strtolower(trim($status));
-    $reached = fn(array $targets) => in_array($status, $targets, true);
-    return [
-        ['label' => 'Inspection', 'desc' => 'Arrive on site and inspect the defective equipment.', 'done' => $reached(['in_progress','for_replacement','completed','verified','closed']), 'active' => $status === 'assigned'],
-        ['label' => 'Repair Decision', 'desc' => 'Decide whether repair is feasible or replacement is needed.', 'done' => $reached(['for_replacement','completed','verified','closed']), 'active' => $status === 'in_progress'],
-        ['label' => 'Repair / Recommendation', 'desc' => 'Complete the repair or recommend replacement for PMO action.', 'done' => $reached(['completed','verified','closed']), 'active' => $status === 'for_replacement'],
-        ['label' => 'PMO Verification', 'desc' => 'PMO verifies that the equipment works properly or continues further action.', 'done' => $reached(['verified','closed']), 'active' => $status === 'completed'],
-    ];
-}
-
 $drCols = technicianFetchDefectReportColumns($conn);
 $eqCols = [];
 try { $r = $conn->query('SHOW COLUMNS FROM equipment'); if ($r) while ($c = $r->fetch_assoc()) $eqCols[$c['Field']] = true; } catch (Exception $e) {}
@@ -208,9 +178,10 @@ $reporterDeptExpr = isset($drCols['reporter_department']) ? 'r.reporter_departme
 $reporterCrsExpr  = isset($drCols['reporter_course'])     ? 'r.reporter_course'     : "''";
 $reporterLvlExpr  = isset($drCols['reporter_level'])      ? 'r.reporter_level'      : "''";
 $usableExpr       = isset($drCols['usable_status'])       ? 'r.usable_status'       : "''";
+$reporterTypeExpr = isset($drCols['reporter_type'])       ? 'r.reporter_type'       : "''";
 $reporterSelect   = "$reporterExpr reporter_name,$reporterMailExpr reporter_email,"
                   . "$reporterDeptExpr reporter_department,$reporterCrsExpr reporter_course,"
-                  . "$reporterLvlExpr reporter_level,$usableExpr usable_status,";
+                  . "$reporterLvlExpr reporter_level,$usableExpr usable_status,$reporterTypeExpr reporter_type,";
 
 $equipmentExpr = isset($drCols['equipment_name']) ? 'r.equipment_name' : 'CAST(r.equipment_id AS CHAR)';
 $locationExpr = isset($drCols['location']) ? 'r.location' : "''";
@@ -241,7 +212,6 @@ if (!in_array($tab, ['my_tasks', 'history'], true)) $tab = 'my_tasks';
 // Queue-oriented views (list rendering, filters, workspace) share the "my_tasks" data shape.
 $listTab = $tab === 'history' ? 'history' : 'my_tasks';
 $search = trim((string)($_GET['search'] ?? ''));
-$queueFilter = trim((string)($_GET['queue'] ?? 'all'));
 $selectedId = trim((string)($_GET['report'] ?? ''));
 $flash = ['type' => trim((string)($_GET['flash_type'] ?? '')), 'message' => trim((string)($_GET['flash'] ?? ''))];
 
@@ -294,6 +264,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $type = 'ok';
             } elseif ($action === 'start' && in_array($current, ['assigned','accepted'], true)) {
                 $updates['status'] = 'in_progress';
+                // One button now covers "received" and "started": a task that was
+                // never separately accepted gets its acceptance stamp here.
+                if ($current === 'assigned' && isset($drCols['accepted_at'])) $updates['accepted_at'] = date('Y-m-d H:i:s');
                 if (isset($drCols['started_at'])) $updates['started_at'] = date('Y-m-d H:i:s');
                 if ($notes !== '' && $notesField !== '') $updates[$notesField] = $notes;
                 $message = 'Repair in progress.';
@@ -389,29 +362,11 @@ unset($t);
 foreach ($historyTasks as &$t) { $t['photos'] = taskPhotos($t); $t['videos'] = taskVideos($t); }
 unset($t);
 
-$filterConfig = $tab === 'history'
-    ? [
-        'all' => fn(array $row): bool => true,
-        'verified' => fn(array $row): bool => strtolower((string)($row['status'] ?? '')) === 'verified',
-        'closed' => fn(array $row): bool => strtolower((string)($row['status'] ?? '')) === 'closed',
-      ]
-    : [
-        'all' => fn(array $row): bool => true,
-        'urgent' => fn(array $row): bool => in_array(strtolower((string)($row['priority'] ?? '')), ['critical', 'high'], true),
-        'assigned' => fn(array $row): bool => strtolower((string)($row['status'] ?? '')) === 'assigned',
-        'in_progress' => fn(array $row): bool => strtolower((string)($row['status'] ?? '')) === 'in_progress',
-        'completed' => fn(array $row): bool => strtolower((string)($row['status'] ?? '')) === 'completed',
-      ];
-if (!isset($filterConfig[$queueFilter])) $queueFilter = 'all';
-
-$queueCounts = [];
-foreach ($filterConfig as $key => $matcher) {
-    $target = $tab === 'history' ? $historyTasks : $activeTasks;
-    $queueCounts[$key] = count(array_filter($target, $matcher));
-}
-
-$activeViewTasks = array_values(array_filter($activeTasks, $filterConfig[$queueFilter] ?? $filterConfig['all']));
-$historyViewTasks = array_values(array_filter($historyTasks, $filterConfig[$queueFilter] ?? $filterConfig['all']));
+// The queue used to offer five filter chips (All / Urgent / New / Active /
+// Awaiting PMO) over a list a technician can see whole. The SQL already puts
+// new tasks first, then active, then awaiting, urgent before the rest.
+$activeViewTasks = $activeTasks;
+$historyViewTasks = $historyTasks;
 
 $selected = null;
 $list = $tab === 'history' ? $historyViewTasks : $activeViewTasks;
@@ -696,12 +651,6 @@ body.modal-open .bell-fab{display:none;}
 .search input:focus{outline:none;border-color:var(--maroon);background:#fff;box-shadow:0 0 0 3px rgba(123,29,29,.08);}
 .search .clear{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:.75rem;}
 .search .clear:hover{background:var(--maroon-soft);color:var(--maroon);}
-.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
-.chip{display:inline-flex;align-items:center;gap:6px;padding:.42rem .8rem;border-radius:20px;border:1.5px solid var(--bdr);background:#fff;color:var(--ink2);font-size:.76rem;font-weight:700;transition:all .15s;}
-.chip strong{font-family:'Outfit',sans-serif;font-weight:800;font-size:.72rem;color:var(--ink3);}
-.chip:hover{border-color:var(--maroon);color:var(--maroon);}
-.chip.on{background:linear-gradient(135deg,var(--maroon-d),var(--maroon));color:#fff;border-color:transparent;box-shadow:0 5px 14px rgba(74,14,14,.24);}
-.chip.on strong{color:rgba(255,255,255,.85);}
 .qgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;}
 .qcard{position:relative;display:flex;gap:12px;align-items:flex-start;text-align:left;padding:14px 14px 14px 18px;border:1px solid var(--bdr);border-radius:var(--r2);background:var(--field);cursor:pointer;transition:transform .16s,box-shadow .16s,border-color .16s,background .16s;overflow:hidden;}
 .qcard::before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--bdr);}
@@ -756,22 +705,19 @@ body.modal-open .bell-fab{display:none;}
    queue | workspace | context. The outer columns scroll on their own against a
    sticky viewport so the centre panel — the one with the forms — is never
    pushed off screen by a long queue or a long repair history.             */
-.tp-work{display:grid;grid-template-columns:clamp(270px,23vw,330px) minmax(0,1fr) clamp(260px,21vw,310px);
+.tp-work{display:grid;grid-template-columns:clamp(270px,23vw,330px) minmax(0,1fr);
   gap:18px;align-items:start;}
-.tp-queue,.tp-rail{position:sticky;top:22px;max-height:calc(100vh - 44px);overflow-y:auto;overscroll-behavior:contain;}
+.tp-queue{position:sticky;top:22px;max-height:calc(100vh - 44px);overflow-y:auto;overscroll-behavior:contain;}
 /* Thin scrollbars: a full-width one inside a 300px column eats the content. */
-.tp-queue::-webkit-scrollbar,.tp-rail::-webkit-scrollbar{width:7px;}
-.tp-queue::-webkit-scrollbar-thumb,.tp-rail::-webkit-scrollbar-thumb{background:rgba(123,29,29,.22);border-radius:8px;}
+.tp-queue::-webkit-scrollbar{width:7px;}
+.tp-queue::-webkit-scrollbar-thumb{background:rgba(123,29,29,.22);border-radius:8px;}
 .tp-queue{scrollbar-width:thin;}
-.tp-rail{scrollbar-width:thin;}
 /* The queue card carried a bottom margin from when it was a stacked band. */
 .tp-queue .queue-shell{margin-bottom:0;}
 
-/* Below a laptop the context column has nowhere useful to sit beside the form,
-   so it drops under the workspace and stops being sticky. */
+/* Below a laptop the queue column narrows a little. */
 @media(max-width:1240px){
   .tp-work{grid-template-columns:clamp(250px,30vw,320px) minmax(0,1fr);}
-  .tp-rail{grid-column:1 / -1;position:static;max-height:none;overflow:visible;}
 }
 /* One column on a tablet or phone: the queue and the workspace take turns,
    which is what body.ws-open switches between. */
@@ -779,8 +725,7 @@ body.modal-open .bell-fab{display:none;}
   .tp-work{grid-template-columns:minmax(0,1fr);}
   .tp-queue{position:static;max-height:none;overflow:visible;}
   body.ws-open .tp-queue{display:none;}
-  body:not(.ws-open) .tp-center,
-  body:not(.ws-open) .tp-rail{display:none;}
+  body:not(.ws-open) .tp-center{display:none;}
   .ws-back{display:inline-flex;align-items:center;justify-content:center;}
 }
 
@@ -801,31 +746,17 @@ body.modal-open .bell-fab{display:none;}
 .ws-head-tags .ws-srv:hover{filter:brightness(1.08);transform:none;}
 
 /* Workflow stepper */
-.steps{display:flex;align-items:flex-start;justify-content:space-between;gap:4px;padding:18px 22px 12px;background:linear-gradient(180deg,rgba(74,14,14,.05),transparent);}
-.step{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;text-align:center;}
-.step::before{content:'';position:absolute;top:17px;left:-50%;width:100%;height:3px;background:var(--bdr);z-index:0;}
-.step:first-child::before{display:none;}
-.step.done::before,.step.now::before{background:linear-gradient(90deg,var(--gold),var(--maroon));}
-.step .nd{position:relative;z-index:1;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#fff;border:2px solid var(--bdr);color:var(--ink3);font-size:.8rem;}
-.step.done .nd{background:linear-gradient(135deg,var(--maroon),var(--gold));border-color:transparent;color:#fff;}
-.step.now .nd{border-color:var(--maroon);color:var(--maroon);box-shadow:0 0 0 4px rgba(123,29,29,.1);}
-.step .lb{font-size:.62rem;font-weight:700;color:var(--ink3);}
-.step.done .lb,.step.now .lb{color:var(--maroon-d);}
-
-/* Workspace inner sections */
 .ws-body{padding:18px 20px 22px;display:grid;gap:16px;}
 .sec{border:1px solid var(--bdr);border-radius:var(--r2);padding:16px;background:var(--surface);box-shadow:0 1px 3px rgba(44,10,10,.05);}
 .sec-h{margin-bottom:10px;}
 .sec-h small{display:block;font-size:.6rem;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--gold);margin-bottom:2px;}
 .sec-h h3{font-size:1.02rem;color:var(--ink);}
-/* Collapsible reference sections — tap the header to hide/show, cuts scrolling */
-.sec.collapsible > .sec-h{cursor:pointer;position:relative;padding-right:26px;user-select:none;-webkit-tap-highlight-color:transparent;}
-.sec.collapsible > .sec-h::after{content:"\f078";font-family:"Font Awesome 6 Free";font-weight:900;position:absolute;right:2px;top:50%;transform:translateY(-50%);font-size:.72rem;color:var(--ink3);transition:transform .22s,color .15s;}
-.sec.collapsible > .sec-h:hover::after{color:var(--maroon);}
-.sec.collapsed > .sec-h::after{transform:translateY(-50%) rotate(-90deg);}
-.sec.collapsed > .sec-h{margin-bottom:0;}
-.sec.collapsed > :not(.sec-h){display:none!important;}
+/* (The workspace sections used to fold away behind their headers. With two or
+   three short cards there is nothing to fold, and a header that is secretly a
+   button is the kind of thing that confused the people this is for.) */
 .copy{font-size:.87rem;line-height:1.7;color:var(--ink2);}
+.copy-label{font-size:.6rem;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--gold);margin-bottom:4px;}
+.where-pin{color:var(--maroon);font-size:.8rem;margin-right:6px;}
 /* Reporter block — one line of who, one tap to reach them. Wraps on a phone
    rather than pushing the Email action off the edge. */
 .reporter{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:11px 13px;border-radius:12px;
@@ -841,20 +772,6 @@ body.modal-open .bell-fab{display:none;}
 .rp-act:hover{background:#fff;border-color:var(--maroon);}
 .rp-warn{display:flex;align-items:center;gap:8px;margin-top:9px;padding:9px 12px;border-radius:10px;
   background:#FEF2F2;border:1px solid #FECACA;color:#8A1C1C;font-size:.78rem;line-height:1.5;}
-.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px;}
-.facts>div{position:relative;overflow:hidden;padding:11px 13px 11px 16px;border-radius:12px;border:1px solid var(--bdr);
-  background:linear-gradient(135deg,#fff 60%,var(--field));box-shadow:0 1px 3px rgba(44,10,10,.04);}
-.facts>div::before{content:'';position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:linear-gradient(180deg,var(--gold),var(--maroon));}
-.facts small{display:block;font-size:.58rem;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--gold);margin-bottom:3px;}
-/* Two lines, then ellipsis, with the full value on the tile's title.
-   A grid row stretches every tile to the tallest one, and the location runs to
-   "Annex 1 Campus • Building 13 – BEC Skills Training Center • BSTC Rm 203
-   (Computer Lab)" — five lines — so Asset Tag and Category sat in tiles four
-   fifths empty beside it. overflow-wrap replaces word-break:break-word, which
-   split words mid-letter even when they would have fitted. */
-.facts strong{font-size:.85rem;color:var(--ink);font-weight:700;line-height:1.35;
-  overflow-wrap:anywhere;word-break:normal;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
 .photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;}
 .photos img{width:100%;height:110px;object-fit:cover;border-radius:10px;border:1px solid var(--bdr);cursor:zoom-in;transition:transform .12s,box-shadow .12s;}
 .vids{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;}
@@ -881,11 +798,40 @@ body.modal-open .bell-fab{display:none;}
 .money-in{position:relative;}
 .money-in .cur{position:absolute;left:.85rem;top:50%;transform:translateY(-50%);color:var(--ink3);font-weight:700;font-size:.95rem;pointer-events:none;}
 .money-in input{padding-left:1.9rem !important;}
-.cost-sheet-link{display:inline-flex;align-items:center;gap:.55rem;margin:.1rem 0 .3rem;padding:.62rem .95rem;border-radius:10px;border:1.5px dashed rgba(201,150,12,.5);background:linear-gradient(135deg,rgba(201,150,12,.06),rgba(123,29,29,.04));color:var(--maroon);font-size:.82rem;font-weight:700;text-decoration:none;transition:transform .16s,border-color .16s,background .16s;flex-wrap:wrap;}
-.cost-sheet-link span{font-weight:600;color:var(--ink3);font-size:.74rem;}
-.cost-sheet-link i{color:var(--gold);}
-.cost-sheet-link:hover{border-color:var(--gold);background:linear-gradient(135deg,rgba(201,150,12,.12),rgba(123,29,29,.07));transform:none;}
 .form textarea{min-height:92px;resize:vertical;line-height:1.55;}
+.form label .opt{font-weight:600;letter-spacing:0;text-transform:none;color:var(--ink3);}
+/* One big button per status — the thing the technician presses next. */
+.big-go{width:100%;justify-content:center;font-size:1rem !important;padding:1rem 1.25rem !important;min-height:56px;}
+.go-link{display:inline-flex;align-items:center;gap:.5rem;border-radius:11px;font-weight:700;color:#fff;text-decoration:none;
+  background:linear-gradient(135deg,var(--maroon-d),var(--maroon));box-shadow:0 8px 18px rgba(74,14,14,.22);}
+.form-ready .sec-lead{margin-bottom:12px;}
+.form + .problem, .sec-lead + .form{margin-top:12px;}
+.sec-lead{font-size:.86rem;color:var(--ink2);line-height:1.55;margin-bottom:12px;}
+.waiting-pmo{display:flex;gap:10px;align-items:flex-start;padding:14px 16px;border-radius:12px;background:var(--green-soft);border:1px solid #CFE9D6;color:#1E6B3A;font-size:.88rem;line-height:1.5;font-weight:600;}
+.waiting-pmo i{margin-top:2px;}
+/* "Having a problem?" — a disclosure, so the screen is one button until asked. */
+.problem{margin-top:14px;border:1px dashed var(--bdr);border-radius:12px;padding:0 14px;}
+.problem summary{list-style:none;cursor:pointer;padding:12px 0;font-size:.84rem;font-weight:700;color:var(--ink2);display:flex;align-items:center;gap:8px;min-height:44px;}
+.problem summary::-webkit-details-marker{display:none;}
+.problem summary i{color:var(--gold);}
+.problem[open] summary{color:var(--maroon);border-bottom:1px dashed var(--bdr);}
+.problem .form{padding-bottom:14px;}
+.problem .actions button{flex:1;justify-content:center;min-height:48px;}
+/* The finish form's single photo field. */
+.finish .photo-field{margin-top:4px;}
+.finish .cam-row{margin:0 0 8px;}
+.finish .cam-trigger{min-height:52px;font-size:.92rem;}
+.finish .photo-drop{min-height:72px;padding:12px;}
+.finish .photo-drop i{font-size:1.1rem;}
+.photo-field.f-err-photo .photo-drop{border-color:var(--bad);background:#FFF8F8;}
+/* Earlier repairs of the unit, folded away under one line. */
+.prev-fix{border:1px solid var(--bdr);border-radius:var(--r2);padding:0 16px;background:var(--surface);}
+.prev-fix summary{list-style:none;cursor:pointer;padding:14px 0;font-size:.86rem;font-weight:700;color:var(--ink2);display:flex;align-items:center;gap:8px;min-height:44px;}
+.prev-fix summary::-webkit-details-marker{display:none;}
+.prev-fix summary i{color:var(--maroon);}
+.prev-fix .hist{padding-bottom:14px;}
+.ws-sub{margin-top:4px;font-size:.74rem;font-weight:700;color:rgba(255,255,255,.72);display:flex;align-items:center;gap:6px;}
+.ws-sub i{color:var(--gold-bright);font-size:.66rem;}
 .form input:focus,.form textarea:focus{outline:none;border-color:var(--maroon);box-shadow:0 0 0 3px rgba(123,29,29,.08);}
 .fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;}
 .fgrid label{margin-top:0;}
@@ -929,20 +875,6 @@ body.modal-open .bell-fab{display:none;}
 .photo-drop.has-files i{color:var(--green);}
 
 /* ═══════════════ CONTEXT (below the workspace) ═══════════════ */
-.ctx{display:none;}
-/* One column: this now lives in the ~300px context rail, not in a full-width
-   band. It goes back to two side by side at 1240px, where the rail drops below
-   the workspace and has the width to use. */
-.ctx.active{display:grid;grid-template-columns:1fr;gap:16px;align-items:start;}
-.ctx .card{padding:16px;}
-@media(max-width:1240px) and (min-width:961px){.ctx.active{grid-template-columns:1fr 1fr;}}
-.tl{display:grid;gap:12px;}
-.tl-step{display:flex;gap:10px;align-items:flex-start;}
-.tl-dot{width:26px;height:26px;flex-shrink:0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.66rem;font-weight:800;background:#fff;border:2px solid var(--bdr);color:var(--ink3);}
-.tl-dot.done{background:linear-gradient(135deg,var(--maroon),var(--gold));border-color:transparent;color:#fff;}
-.tl-dot.act{border-color:var(--maroon);color:var(--maroon);box-shadow:0 0 0 3px rgba(123,29,29,.1);}
-.tl-step strong{display:block;font-size:.84rem;color:var(--ink);}
-.tl-step p{font-size:.74rem;color:var(--ink3);line-height:1.5;margin-top:2px;}
 .hist{display:grid;gap:10px;}
 .hrow{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--bdr);border-radius:11px;background:var(--field);}
 .hrow .hic{width:30px;height:30px;flex-shrink:0;border-radius:9px;background:var(--maroon-soft);color:var(--maroon);display:flex;align-items:center;justify-content:center;font-size:.72rem;}
@@ -986,11 +918,10 @@ body.modal-open{overflow:hidden;}
   body.sb-open .sb{transform:none;box-shadow:0 0 60px rgba(0,0,0,.5);}
   .main{margin-left:0;min-width:0;}
   .wrap{padding:12px 12px 90px;max-width:100%;}
-  .ctx.active{grid-template-columns:1fr;} /* Workflow + Asset History stack instead of cramming side-by-side */
   .ws-body{grid-template-columns:1fr;}
   /* let grid/flex children shrink so long text wraps instead of clipping / forcing width */
-  .facts>div,.qcard,.qcard>*,.hrow,.hrow>*,.tl-step,.tl-step>*,.sec,.card,.ws-head,.ws-head>*{min-width:0;}
-  .facts strong,.qcard .qc-sub,.qcard .qc-loc,.hrow .hd,.hrow strong,.ws-title,.tl-step p{overflow-wrap:anywhere;white-space:normal;}
+  .qcard,.qcard>*,.hrow,.hrow>*,.sec,.card,.ws-head,.ws-head>*{min-width:0;}
+  .qcard .qc-sub,.qcard .qc-loc,.hrow .hd,.hrow strong,.ws-title{overflow-wrap:anywhere;white-space:normal;}
   .topbar{display:flex;}
   .ws-back{display:flex;align-items:center;justify-content:center;}
   .bnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:300;background:linear-gradient(180deg,#3A0808,#2D0505);
@@ -1027,13 +958,11 @@ body.modal-open{overflow:hidden;}
   .cam-trigger.compact{min-height:44px;}
   /* 16px so iOS Safari doesn't zoom when the search field is focused */
   .search input{font-size:16px;min-height:44px;}
-  /* Completion report: pin the primary submit to the thumb zone (only present while a task is completable) */
-  .cmp-actions{position:fixed;left:0;right:0;bottom:0;z-index:70;margin:0;
-    padding:.65rem .85rem calc(.65rem + env(safe-area-inset-bottom,0px));
-    background:rgba(255,255,255,.94);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
-    border-top:1px solid var(--bdr);box-shadow:0 -6px 22px rgba(45,5,5,.12);}
+  /* Mark as fixed used to be pinned to the bottom of the screen — under the
+     bottom nav, which sat on top of it (z-index 300 over 70), so on a phone
+     the one button that finishes a job was half hidden. The form is four
+     controls long now; the button simply sits at its end. */
   .cmp-actions .b4{width:100%;flex:1 1 100%;justify-content:center;min-height:50px;}
-  .sec-form{padding-bottom:4.75rem;}   /* clear the fixed bar so the last fields aren't hidden */
 }
 @media(max-width:420px){
   .frow{grid-template-columns:1fr;}
@@ -1045,17 +974,6 @@ body.modal-open{overflow:hidden;}
 .row-del{width:36px;height:36px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;border-radius:9px;border:1.5px solid var(--bdr);background:#fff;color:#9E8070;font-size:.8rem;cursor:pointer;transition:all .15s;}
 .row-del:hover{border-color:var(--bad);background:#FEF2F2;color:var(--bad);}
 @media(max-width:900px){.row-del{justify-self:start;}}
-
-/* ── Chip fields (parts / tools / materials) ── */
-.chipfield label{margin-top:0;}
-.chip-entry{display:flex;gap:6px;}
-.chip-entry .chip-in{flex:1;}
-.chip-add{width:42px;flex-shrink:0;border-radius:11px;border:1.5px solid var(--bdr);background:#fff;color:var(--maroon);cursor:pointer;font-size:.85rem;transition:all .15s;}
-.chip-add:hover{background:linear-gradient(135deg,var(--maroon-d),var(--maroon));color:#fff;border-color:transparent;}
-.chip-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
-.chip-item{display:inline-flex;align-items:center;gap:6px;padding:.32rem .4rem .32rem .7rem;border-radius:16px;background:var(--maroon-soft);border:1px solid rgba(123,29,29,.16);color:var(--maroon);font-size:.74rem;font-weight:700;}
-.chip-item button{width:18px;height:18px;border-radius:50%;border:none;background:rgba(123,29,29,.15);color:var(--maroon);cursor:pointer;font-size:.58rem;display:flex;align-items:center;justify-content:center;}
-.chip-item button:hover{background:var(--danger);color:#fff;}
 
 /* ── Branded toasts (replace browser alert popups) ── */
 .toasts{position:fixed;top:1rem;right:1rem;z-index:4000;display:flex;flex-direction:column;gap:8px;max-width:min(380px,calc(100vw - 2rem));}
@@ -1121,7 +1039,6 @@ body.modal-open{overflow:hidden;}
      at 38px, the collapsible section headers at 36px, the add-photo chip 42px
      wide. Padding only — nothing moves, the tappable area just grows. */
   .lout{min-height:44px;}
-  .sec.collapsible > .sec-h{min-height:44px;display:flex;align-items:center;}
   .chip-add{width:44px;min-height:44px;}
   .qgrid{gap:7px;}
   .qcard{padding:10px 10px 10px 14px;gap:9px;align-items:center;border-radius:12px;}
@@ -1223,8 +1140,8 @@ body.modal-open{overflow:hidden;}
       <span class="eyebrow"><span class="dot"></span> Property Management Office · Technician</span>
       <h1><?php echo $tab === 'history' ? 'Work History' : 'My Tasks'; ?><span class="qcount"><?php echo (int)$totalItems; ?></span></h1>
       <p><?php echo $tab === 'history'
-          ? 'Your verified and closed repair records, kept for accountability and reference.'
-          : 'Select a task below to open its repair workspace. Work through each stage and submit your completion report when done.'; ?></p>
+          ? 'Tasks the PMO has checked and closed.'
+          : 'Tap a task to see what is wrong and where. Press Start when you begin, and Mark as fixed when you are done.'; ?></p>
     </header>
 
     <!-- Compact PWA actions: buttons only. Each chip shows only when it applies. -->
@@ -1243,34 +1160,20 @@ body.modal-open{overflow:hidden;}
         <span class="eyebrow"><span class="dot"></span> <?php echo $tab === 'history' ? 'Completed records' : 'Assigned to you'; ?></span>
         <form class="search" method="get">
           <input type="hidden" name="tab" value="<?php echo e($tab); ?>">
-          <input type="hidden" name="queue" value="<?php echo e($queueFilter); ?>">
           <i class="fas fa-magnifying-glass"></i>
           <input type="text" name="search" value="<?php echo e($search); ?>" placeholder="Search report, equipment, location…">
-          <?php if ($search !== ''): ?><a class="clear" href="?tab=<?php echo e($tab); ?>&queue=<?php echo e($queueFilter); ?>" aria-label="Clear search"><i class="fas fa-xmark"></i></a><?php endif; ?>
+          <?php if ($search !== ''): ?><a class="clear" href="?tab=<?php echo e($tab); ?>" aria-label="Clear search"><i class="fas fa-xmark"></i></a><?php endif; ?>
         </form>
-      </div>
-
-      <div class="chips">
-        <?php
-          $chipSet = $tab === 'history'
-            ? [['all','All','fa-layer-group'],['verified','Verified','fa-certificate'],['closed','Closed','fa-circle-check']]
-            : [['all','All','fa-layer-group'],['urgent','Urgent','fa-bolt'],['assigned','New','fa-clipboard-list'],['in_progress','Active','fa-screwdriver-wrench'],['completed','Awaiting PMO','fa-user-check']];
-          foreach ($chipSet as [$fk,$fl,$fi]):
-        ?>
-        <a class="chip <?php echo $queueFilter === $fk ? 'on' : ''; ?>" href="?tab=<?php echo e($tab); ?>&queue=<?php echo e($fk); ?><?php echo $search !== '' ? '&search=' . urlencode($search) : ''; ?>">
-          <i class="fas <?php echo e($fi); ?>"></i> <?php echo e($fl); ?> <strong><?php echo (int)($queueCounts[$fk] ?? 0); ?></strong>
-        </a>
-        <?php endforeach; ?>
       </div>
 
       <?php if (!$list): ?>
       <div class="empty">
         <i class="fas fa-clipboard-check"></i>
         <strong>Nothing in this view.</strong>
-        <div><?php echo $search !== '' ? 'Try clearing your search or switching queues.' : 'No records in this queue right now.'; ?></div>
+        <div><?php echo $search !== '' ? 'Nothing matches that search.' : ($tab === 'history' ? 'Finished tasks will be listed here.' : 'No tasks for you right now. New ones arrive here with an alert.'); ?></div>
         <div class="empty-actions">
           <?php if ($search !== ''): ?><a class="empty-action" href="?tab=<?php echo e($tab); ?>"><i class="fas fa-xmark"></i> Clear Search</a><?php endif; ?>
-          <a class="empty-action" href="?tab=my_tasks"><i class="fas fa-list-check"></i> My Tasks</a>
+          <?php if ($tab === 'history'): ?><a class="empty-action" href="?tab=my_tasks"><i class="fas fa-list-check"></i> My Tasks</a><?php endif; ?>
         </div>
       </div>
       <?php else: ?>
@@ -1293,7 +1196,6 @@ body.modal-open{overflow:hidden;}
               <span class="badge <?php echo e(ptone($pr)); ?>"><i class="fas <?php echo e(picon($pr)); ?>"></i><?php echo e(ucfirst($pr)); ?></span>
               <?php if ($isPm): ?><span class="badge pm" title="Scheduled preventive maintenance, not a reported defect"><i class="fas fa-calendar-check"></i>Preventive</span><?php endif; ?>
               <?php if ($due !== null): ?><span class="badge sla sla-chip" data-due="<?php echo $due; ?>"><i class="fas fa-gauge-high"></i> —</span><?php endif; ?>
-              <?php if ($started && in_array($st, ['in_progress','waiting_for_materials','for_replacement'], true)): ?><span class="badge timer rep-timer" data-started="<?php echo $started; ?>"><i class="fas fa-stopwatch"></i> —</span><?php endif; ?>
             </span>
           </span>
         </button>
@@ -1313,54 +1215,49 @@ body.modal-open{overflow:hidden;}
         $started = strtotime((string)($row['started_at'] ?? ''));
         $photos = taskPhotos($row);
         $videos = taskVideos($row);
-        $curStep = sstep($st);
       ?>
       <article class="ws-panel <?php echo $isSel ? 'active' : ''; ?>" id="ws-<?php echo $rid_e; ?>">
         <div class="ws-card">
           <div class="ws-head">
             <button class="ws-back" type="button" data-ws-back aria-label="Back to task list"><i class="fas fa-arrow-left"></i></button>
             <div class="ws-head-copy">
-              <small>Repair Workspace · Report <?php echo $rid_e; ?></small>
+              <small>Task <?php echo $rid_e; ?></small>
               <h2 class="ws-title"><?php echo e((string)($row['equipment_name'] ?? 'Equipment')); ?></h2>
+              <?php $wsTag = trim((string)($row['asset_tag'] ?? '')); if ($wsTag !== ''): ?><div class="ws-sub"><i class="fas fa-tag"></i> <?php echo e($wsTag); ?></div><?php endif; ?>
             </div>
             <div class="ws-head-tags">
-              <?php if ($started && in_array($st, ['in_progress','waiting_for_materials','for_replacement'], true)): ?><span class="badge timer rep-timer" data-started="<?php echo $started; ?>"><i class="fas fa-stopwatch"></i> —</span><?php endif; ?>
               <?php if ($due !== null): ?><span class="badge sla sla-chip" data-due="<?php echo $due; ?>"><i class="fas fa-gauge-high"></i> —</span><?php endif; ?>
               <?php if (in_array($st, ['completed','verified','closed'], true)): ?>
-              <a class="badge ws-srv" href="technician_service_report.php?report=<?php echo $rid_e; ?>" target="_blank" rel="noopener"><i class="fas fa-file-lines"></i> Service Report</a>
+              <a class="badge ws-srv" href="technician_service_report.php?report=<?php echo $rid_e; ?>" target="_blank" rel="noopener"><i class="fas fa-file-lines"></i> Repair form</a>
               <?php endif; ?>
             </div>
           </div>
 
-          <div class="steps">
-            <?php foreach ([[1,'Received','fa-hand'],[2,'In Progress','fa-screwdriver-wrench'],[3,'Materials','fa-hourglass-half'],[4,'Completed','fa-user-check'],[5,'Verified','fa-certificate']] as [$si,$sl,$sic2]):
-              $cls = $si < $curStep ? 'done' : ($si === $curStep ? 'now' : ''); ?>
-            <div class="step <?php echo $cls; ?>">
-              <div class="nd"><i class="fas <?php echo $si < $curStep ? 'fa-check' : $sic2; ?>"></i></div>
-              <div class="lb"><?php echo $sl; ?></div>
-            </div>
-            <?php endforeach; ?>
-          </div>
-
           <div class="ws-body">
+            <?php /* The briefing. A technician needs three things before walking
+                     over: what is broken, where it is, and what the reporter saw.
+                     The five-step strip, the facts grid and the second timeline
+                     in the right rail that used to sit above this said nothing a
+                     repair needs and were what the panel meant by "too much". */ ?>
             <div class="sec">
-              <div class="sec-h"><small>At a glance</small><h3>Task Overview</h3></div>
-              <div class="q-badges" style="margin-bottom:12px">
+              <div class="sec-h"><small>Where</small><h3><i class="fas fa-location-dot where-pin"></i><?php echo e((string)($row['location'] ?? 'Location not given')); ?></h3></div>
+              <div class="q-badges" style="margin-bottom:14px">
                 <span class="badge <?php echo e(stone($st)); ?>"><i class="fas <?php echo e(sicon($st)); ?>"></i><?php echo e(slabel($st)); ?></span>
                 <span class="badge <?php echo e(ptone((string)($row['priority'] ?? 'medium'))); ?>"><i class="fas <?php echo e(picon((string)($row['priority'] ?? 'medium'))); ?>"></i><?php echo e(ucfirst((string)($row['priority'] ?? 'medium'))); ?> priority</span>
                 <?php if (isPmRow($row)): ?><span class="badge pm" title="Scheduled preventive maintenance, not a reported defect"><i class="fas fa-calendar-check"></i>Preventive maintenance</span><?php endif; ?>
               </div>
-              <div class="facts">
-                <div><small>Asset Tag</small><strong><?php echo e((string)($row['asset_tag'] ?? 'Not specified')); ?></strong></div>
-                <div title="<?php echo e((string)($row['location'] ?? '')); ?>"><small>Location</small><strong><?php echo e((string)($row['location'] ?? 'Unspecified')); ?></strong></div>
-                <div><small>Category</small><strong><?php echo e((string)($row['category_name'] ?? 'Not specified')); ?></strong></div>
-                <div><small>Reported</small><strong><?php echo e(fdt((string)($row['report_date'] ?? ''))); ?></strong></div>
+              <div class="copy-label">What the reporter said</div>
+              <div class="copy"><?php echo nl2br(e((string)($row['issue_description'] ?? 'No description was given.'))); ?></div>
+              <?php if ($photos): ?>
+              <div class="photos" style="margin-top:12px">
+                <?php foreach ($photos as $photo): ?><img src="<?php echo e($photo); ?>" alt="Defect photo — tap to enlarge" loading="lazy" tabindex="0" role="button"><?php endforeach; ?>
               </div>
-            </div>
-
-            <div class="sec">
-              <div class="sec-h"><small>Issue summary</small><h3>Issue Description</h3></div>
-              <div class="copy"><?php echo nl2br(e((string)($row['issue_description'] ?? 'No issue description recorded.'))); ?></div>
+              <?php endif; ?>
+              <?php if (!empty($videos)): ?>
+              <div class="vids" style="margin-top:12px">
+                <?php foreach ($videos as $vid): ?><video src="<?php echo e($vid); ?>" controls preload="metadata" playsinline></video><?php endforeach; ?>
+              </div>
+              <?php endif; ?>
             </div>
 
             <?php
@@ -1371,9 +1268,11 @@ body.modal-open{overflow:hidden;}
               $rpName = trim((string)($row['reporter_name'] ?? ''));
               $rpMail = trim((string)($row['reporter_email'] ?? ''));
               $rpDept = trim((string)($row['reporter_department'] ?? ''));
-              $rpCrs  = trim((string)($row['reporter_course'] ?? ''));
-              $rpLvl  = trim((string)($row['reporter_level'] ?? ''));
-              $rpSub  = implode(' · ', array_filter([$rpCrs, $rpLvl]));
+              // Student / Teacher / Staff — the one thing the form asks about
+              // the reporter; the department comes from the directory and is
+              // blank for anyone not in it.
+              $rpWho  = reporterTypeLabel($row['reporter_type'] ?? '');
+              $rpWhen = fdate((string)($row['report_date'] ?? ''), '');
             ?>
             <?php if ($rpName !== '' || $rpMail !== ''): ?>
             <div class="sec">
@@ -1382,8 +1281,8 @@ body.modal-open{overflow:hidden;}
                 <div class="rp-av"><?php echo e(initials($rpName !== '' ? $rpName : 'Reporter')); ?></div>
                 <div class="rp-tx">
                   <strong><?php echo e($rpName !== '' ? $rpName : 'Not recorded'); ?></strong>
-                  <?php if ($rpDept !== ''): ?><span><?php echo e($rpDept); ?></span><?php endif; ?>
-                  <?php if ($rpSub !== ''): ?><span><?php echo e($rpSub); ?></span><?php endif; ?>
+                  <?php $rpLine = implode(' · ', array_filter([$rpWho, $rpDept, $rpWhen !== '' ? 'Reported ' . $rpWhen : ''])); ?>
+                  <?php if ($rpLine !== ''): ?><span><?php echo e($rpLine); ?></span><?php endif; ?>
                 </div>
                 <?php if ($rpMail !== ''): ?>
                 <a class="rp-act" href="mailto:<?php echo e($rpMail); ?>?subject=<?php echo rawurlencode('BEC PMO — Report ' . (string)($row['report_id'] ?? '')); ?>"
@@ -1392,158 +1291,149 @@ body.modal-open{overflow:hidden;}
                 </a>
                 <?php endif; ?>
               </div>
-              <?php if (strcasecmp(trim((string)($row['usable_status'] ?? '')), 'No') === 0): ?>
-              <div class="rp-warn"><i class="fas fa-triangle-exclamation"></i> The reporter marked this equipment <strong>not usable</strong> — it is out of service until repaired.</div>
-              <?php endif; ?>
             </div>
             <?php endif; ?>
 
             <?php if (trim((string)($row['handler_instructions'] ?? '')) !== ''): ?>
             <div class="sec">
-              <div class="sec-h"><small>PMO guidance</small><h3>Assignment Instructions</h3></div>
+              <div class="sec-h"><small>From the office</small><h3>Note from the PMO</h3></div>
               <div class="copy"><?php echo nl2br(e((string)$row['handler_instructions'])); ?></div>
             </div>
             <?php endif; ?>
 
             <?php if (trim((string)($row['technician_notes'] ?? '')) !== ''): ?>
             <div class="sec">
-              <div class="sec-h"><small>Recorded work</small><h3>Latest Technician Notes</h3></div>
+              <div class="sec-h"><small>What you wrote</small><h3>Your note</h3></div>
               <div class="copy"><?php echo nl2br(e((string)$row['technician_notes'])); ?></div>
             </div>
             <?php endif; ?>
 
-            <?php if ($photos): ?>
-            <div class="sec">
-              <div class="sec-h"><small>Evidence</small><h3>Photo Evidence</h3></div>
-              <div class="photos">
-                <?php foreach ($photos as $photo): ?><img src="<?php echo e($photo); ?>" alt="Defect photo — tap to enlarge" loading="lazy" tabindex="0" role="button"><?php endforeach; ?>
-              </div>
-            </div>
-            <?php endif; ?>
-
-            <?php if (!empty($videos)): ?>
-            <div class="sec">
-              <div class="sec-h"><small>Evidence</small><h3>Video Evidence</h3></div>
-              <div class="vids">
-                <?php foreach ($videos as $vid): ?><video src="<?php echo e($vid); ?>" controls preload="metadata" playsinline></video><?php endforeach; ?>
-              </div>
+            <?php if (in_array($st, ['completed','verified','closed'], true)): ?>
+            <?php /* The moment a task is marked fixed the system writes up the
+                     repair form itself — who, what, where, when, parts, cost,
+                     before/after photos — from what is already on the record.
+                     Nothing to fill in; one tap to print. It exists only for
+                     fixed tasks, which is why it appears here and nowhere
+                     earlier. */ ?>
+            <div class="sec form-ready">
+              <div class="sec-h"><small>Ready to print</small><h3>Repair form</h3></div>
+              <p class="sec-lead">The system has written up this repair from the record — the reporter's concern, what you did, parts, cost, and the before and after photos.</p>
+              <a class="b1 big-go go-link" href="technician_service_report.php?report=<?php echo $rid_e; ?>" target="_blank" rel="noopener"><i class="fas fa-print"></i> Open the repair form</a>
             </div>
             <?php endif; ?>
 
             <?php if ($tab === 'my_tasks'): ?>
+            <?php
+              /* One button. Which one depends only on where the task is, so the
+                 technician never has to choose an action — only press the one
+                 offered. "Receive" and "Start" used to be two taps to say one
+                 thing; the start action already accepts a task that was never
+                 separately received. */
+              $primary = [
+                  'assigned'              => ['start',            'fa-play',     'Start the repair'],
+                  'accepted'              => ['start',            'fa-play',     'Start the repair'],
+                  'waiting_for_materials' => ['resume_materials', 'fa-box-open', 'Parts arrived — continue'],
+                  'for_replacement'       => ['resume',           'fa-play',     'Continue the repair'],
+              ][$st] ?? null;
+              $canFlag = in_array($st, ['assigned','accepted','in_progress','waiting_for_materials'], true);
+            ?>
+            <?php if ($primary || $canFlag || $st === 'completed'): ?>
             <div class="sec sec-form">
-              <div class="sec-h"><small>Update case</small><h3>Repair Progress</h3></div>
+              <?php if ($st === 'completed'): ?>
+              <div class="waiting-pmo"><i class="fas fa-user-check"></i> You marked this fixed. The PMO will check it and close the task — nothing more to do here.</div>
+              <?php elseif ($st === 'in_progress'): ?>
+              <div class="sec-h"><small>When the job is done</small><h3>Finish this task</h3></div>
+              <p class="sec-lead">Fill in the short form below and press <strong>Mark as fixed</strong>.</p>
+              <?php endif; ?>
+              <?php if ($primary): ?>
               <form class="form" method="post">
                 <input type="hidden" name="report_id" value="<?php echo $rid_e; ?>">
-                <label for="notes_<?php echo $rid_e; ?>">Progress note</label>
-                <textarea id="notes_<?php echo $rid_e; ?>" name="technician_notes" placeholder="Record inspection findings, progress, or the reason for waiting / replacement."><?php echo e((string)($row['technician_notes'] ?? '')); ?></textarea>
-                <div class="actions">
-                  <?php if ($st === 'assigned'): ?><button class="b1" type="submit" name="action" value="accept"><i class="fas fa-hand"></i> Receive Task</button><?php endif; ?>
-                  <?php if ($st === 'accepted'): ?><button class="b1" type="submit" name="action" value="start"><i class="fas fa-play"></i> Start Repair</button><?php endif; ?>
-                  <?php if (in_array($st, ['assigned','accepted','in_progress','waiting_for_materials','for_replacement','completed'], true)): ?><button class="b2" type="submit" name="action" value="save"><i class="fas fa-floppy-disk"></i> Save Note</button><?php endif; ?>
-                  <?php if (in_array($st, ['accepted','in_progress'], true)): ?><button class="b3" type="submit" name="action" value="waiting"><i class="fas fa-hourglass-half"></i> Waiting for Materials</button><?php endif; ?>
-                  <?php if ($st === 'waiting_for_materials'): ?><button class="b1" type="submit" name="action" value="resume_materials"><i class="fas fa-box-open"></i> Materials Received — Resume</button><?php endif; ?>
-                  <?php if (in_array($st, ['accepted','in_progress','waiting_for_materials'], true)): ?><button class="b3" type="submit" name="action" value="replace"><i class="fas fa-rotate"></i> Recommend Replacement</button><?php endif; ?>
-                  <?php if ($st === 'for_replacement'): ?><button class="b2" type="submit" name="action" value="resume"><i class="fas fa-play"></i> Resume Repair</button><?php endif; ?>
-                </div>
+                <button class="b1 big-go" type="submit" name="action" value="<?php echo $primary[0]; ?>"><i class="fas <?php echo $primary[1]; ?>"></i> <?php echo $primary[2]; ?></button>
               </form>
-            </div>
-
-            <?php if (in_array($st, ['in_progress','waiting_for_materials','for_replacement'], true)): ?>
-            <div class="sec sec-form">
-              <div class="sec-h"><small>Finish the job</small><h3>Completion Report</h3></div>
-              <form class="form tech-ajax" method="post" action="technician_complete_task.php" enctype="multipart/form-data" data-reload="1">
+              <?php endif; ?>
+              <?php if ($st === 'in_progress'): ?>
+              <?php /* The finish form. Eleven inputs and a separate cost worksheet
+                       used to stand between a technician and "done": diagnosis,
+                       actions, procedures, summary, parts chips, tools chips,
+                       before / during / after photos, date started, cost. What
+                       the office actually reads is what was done, what parts it
+                       took, and a picture of the result. Field names are the
+                       ones technician_complete_task.php already stores; the
+                       retired ones simply arrive empty. */ ?>
+              <form class="form tech-ajax finish" method="post" action="technician_complete_task.php" enctype="multipart/form-data" data-reload="1">
                 <input type="hidden" name="report_id" value="<?php echo $rid_e; ?>">
                 <input type="hidden" name="action" value="complete">
-                <div class="fs"><span class="fs-num">1</span><span class="fs-tx"><strong><?php echo $techIsItso ? 'Timing' : 'Timing &amp; Cost'; ?></strong><span>Pre-filled from when you pressed Start — adjust only if needed</span></span></div>
-                <div class="fgrid">
-                  <div><label>Date started</label><input type="datetime-local" name="date_started" value="<?php echo $started ? date('Y-m-d\TH:i', $started) : ''; ?>"></div>
-                  <?php if (!$techIsItso): ?>
-                  <div><label>Estimated cost — repair &amp; maintenance</label>
-                    <div class="money-in"><span class="cur">₱</span>
-                      <input type="text" inputmode="decimal" name="estimated_cost" placeholder="0.00" autocomplete="off"
-                        pattern="\d{1,9}(\.\d{1,2})?" title="Amount in pesos, up to 2 decimals (e.g. 1500.00)"
-                        oninput="this.value=this.value.replace(/[^0-9.]/g,'').replace(/(\d*\.\d{0,2}).*/,'$1');"></div>
-                  </div>
-                  <?php endif; ?>
+                <label>What did you do? <em class="req">*</em></label>
+                <textarea name="work_performed" placeholder="e.g. Replaced the capacitor and cleaned the filter. Cooling again." data-req="What you did"></textarea>
+                <label>Parts used <span class="opt">(if any)</span></label>
+                <input type="text" name="parts_replaced" placeholder="e.g. capacitor, 2 screws" maxlength="300" autocomplete="off">
+                <label>Photo of the finished work <em class="req">*</em></label>
+                <div class="photo-field" data-req-photo="A photo of the finished work">
+                  <div class="cam-row"><button type="button" class="cam-trigger" data-camera="photo" data-camera-target='#after_<?php echo $rid_e; ?>'><i class="fas fa-camera"></i> Take a photo</button></div>
+                  <label class="photo-drop">
+                    <input type="file" class="photo-input" id="after_<?php echo $rid_e; ?>" name="after_photos[]" accept="image/*" data-shrink multiple>
+                    <i class="fas fa-images"></i>
+                    <span class="photo-drop-label">or choose from your gallery</span>
+                  </label>
+                  <div class="photo-count"></div>
+                  <div class="photo-preview"></div>
                 </div>
                 <?php if (!$techIsItso): ?>
-                <a href="technician_cost_estimate.php?report=<?php echo $rid_e; ?>" target="_blank" rel="noopener" class="cost-sheet-link">
-                  <i class="fas fa-file-invoice-dollar"></i> Prepare a detailed cost estimate <span>(materials + labor + miscellaneous — printable)</span>
-                </a>
+                <label>Cost <span class="opt">(if you spent anything)</span></label>
+                <div class="money-in"><span class="cur">₱</span>
+                  <input type="text" inputmode="decimal" name="estimated_cost" placeholder="0.00" autocomplete="off"
+                    pattern="\d{1,9}(\.\d{1,2})?" title="Amount in pesos, up to 2 decimals (e.g. 1500.00)"
+                    oninput="this.value=this.value.replace(/[^0-9.]/g,'').replace(/(\d*\.\d{0,2}).*/,'$1');"></div>
                 <?php endif; ?>
-                <div class="fs"><span class="fs-num">2</span><span class="fs-tx"><strong>Diagnosis &amp; Work Done</strong><span>Only these two are required — the rest is optional detail</span></span></div>
-                <label>Diagnosis <em class="req">*</em></label>
-                <textarea name="diagnosis" placeholder="What was found to be wrong?" data-req="Diagnosis"></textarea>
-                <label>Actions performed</label>
-                <textarea name="actions_performed" placeholder="Optional — specific steps you took."></textarea>
-                <label>Repair procedures</label>
-                <textarea name="repair_procedures" placeholder="Optional — procedures followed, for the maintenance record."></textarea>
-                <label>Repair summary <em class="req">*</em></label>
-                <textarea name="work_performed" placeholder="Overall summary of the repair." data-req="Repair summary"></textarea>
-                <div class="fs"><span class="fs-num">3</span><span class="fs-tx"><strong>Parts, Tools &amp; Materials</strong><span>Add each item one by one — press Enter or “+” after each</span></span></div>
-                <div class="fgrid">
-                  <div class="chipfield" data-chipfield>
-                    <label>Parts replaced</label>
-                    <input type="hidden" name="parts_replaced" value="">
-                    <div class="chip-entry">
-                      <input type="text" class="chip-in" placeholder="e.g. capacitor">
-                      <button type="button" class="chip-add" aria-label="Add item"><i class="fas fa-plus"></i></button>
-                    </div>
-                    <div class="chip-list"></div>
-                  </div>
-                  <div class="chipfield" data-chipfield>
-                    <label>Tools &amp; materials used</label>
-                    <input type="hidden" name="materials_used" value="">
-                    <div class="chip-entry">
-                      <input type="text" class="chip-in" placeholder="e.g. multimeter, thermal paste">
-                      <button type="button" class="chip-add" aria-label="Add item"><i class="fas fa-plus"></i></button>
-                    </div>
-                    <div class="chip-list"></div>
-                  </div>
-                </div>
-                <div class="fs"><span class="fs-num">4</span><span class="fs-tx"><strong>Photo Documentation</strong><span>Optional — before, during &amp; after evidence of the repair</span></span></div>
-                <div class="photo-grid">
-                  <div class="photo-field">
-                    <label class="photo-drop">
-                      <input type="file" class="photo-input" name="before_photos[]" accept="image/*" data-shrink multiple>
-                      <i class="fas fa-camera"></i>
-                      <span class="photo-drop-label">Before photos</span>
-                      <span class="photo-hint">Tap, capture, or drag &amp; drop</span>
-                    </label>
-                    <div class="cam-row"><button type="button" class="cam-trigger compact" data-camera="photo" data-camera-target='[name="before_photos[]"]'><i class="fas fa-camera"></i> Take photo</button></div>
-                    <div class="photo-count"></div>
-                    <div class="photo-preview"></div>
-                  </div>
-                  <div class="photo-field">
-                    <label class="photo-drop">
-                      <input type="file" class="photo-input" name="during_photos[]" accept="image/*" data-shrink multiple>
-                      <i class="fas fa-camera"></i>
-                      <span class="photo-drop-label">During photos</span>
-                      <span class="photo-hint">Tap, capture, or drag &amp; drop</span>
-                    </label>
-                    <div class="cam-row"><button type="button" class="cam-trigger compact" data-camera="photo" data-camera-target='[name="during_photos[]"]'><i class="fas fa-camera"></i> Take photo</button></div>
-                    <div class="photo-count"></div>
-                    <div class="photo-preview"></div>
-                  </div>
-                  <div class="photo-field">
-                    <label class="photo-drop">
-                      <input type="file" class="photo-input" name="after_photos[]" accept="image/*" data-shrink multiple>
-                      <i class="fas fa-camera"></i>
-                      <span class="photo-drop-label">After photos</span>
-                      <span class="photo-hint">Tap, capture, or drag &amp; drop</span>
-                    </label>
-                    <div class="cam-row"><button type="button" class="cam-trigger compact" data-camera="photo" data-camera-target='[name="after_photos[]"]'><i class="fas fa-camera"></i> Take photo</button></div>
-                    <div class="photo-count"></div>
-                    <div class="photo-preview"></div>
-                  </div>
-                </div>
                 <div class="actions cmp-actions">
-                  <button class="b4" type="submit"><i class="fas fa-clipboard-check"></i> Submit Completion Report</button>
+                  <button class="b4 big-go" type="submit"><i class="fas fa-circle-check"></i> Mark as fixed</button>
                 </div>
               </form>
+              <?php endif; ?>
+
+              <?php if ($canFlag): ?>
+              <?php /* Two reasons a job stalls, each needing one sentence for the
+                       office. Hidden behind a link so the screen stays one
+                       button; a plain <details>, so it works without script. */ ?>
+              <details class="problem" id="problem_<?php echo $rid_e; ?>">
+                <summary><i class="fas fa-circle-question"></i> Having a problem with this task?</summary>
+                <form class="form" method="post">
+                  <input type="hidden" name="report_id" value="<?php echo $rid_e; ?>">
+                  <label for="pnote_<?php echo $rid_e; ?>">Tell the PMO what is wrong, in a sentence</label>
+                  <textarea id="pnote_<?php echo $rid_e; ?>" name="technician_notes" placeholder="e.g. Needs a new compressor — none in stock."></textarea>
+                  <div class="actions">
+                    <?php if (in_array($st, ['assigned','accepted','in_progress'], true)): ?><button class="b3" type="submit" name="action" value="waiting"><i class="fas fa-box"></i> Need parts first</button><?php endif; ?>
+                    <button class="b3" type="submit" name="action" value="replace"><i class="fas fa-rotate"></i> Can't be fixed — needs replacement</button>
+                  </div>
+                </form>
+              </details>
+              <?php endif; ?>
             </div>
             <?php endif; ?>
+            <?php endif; ?>
+
+            <?php
+              /* Earlier repairs of this same unit, folded away. It was a whole
+                 panel of its own on the right; a technician who wants it opens
+                 it, everyone else sees one line. */
+              $histRows = $maintByEquip[trim((string)($row['equipment_id'] ?? ''))] ?? [];
+            ?>
+            <?php if ($histRows): ?>
+            <details class="prev-fix">
+              <summary><i class="fas fa-clock-rotate-left"></i> Fixed before: <?php echo count($histRows); ?> time<?php echo count($histRows) === 1 ? '' : 's'; ?></summary>
+              <div class="hist">
+                <?php foreach (array_slice($histRows, 0, 6) as $h): ?>
+                <div class="hrow">
+                  <span class="hic"><i class="fas fa-screwdriver-wrench"></i></span>
+                  <div>
+                    <strong><?php echo e(ucwords(str_replace('_', ' ', (string)($h['maintenance_type'] ?? 'Maintenance')))); ?></strong>
+                    <span class="hw"><?php echo e(fdate((string)($h['maintenance_date'] ?? ''))); ?><?php if (trim((string)($h['cost'] ?? '')) !== '' && (float)$h['cost'] > 0): ?> · ₱<?php echo e(number_format((float)$h['cost'], 2)); ?><?php endif; ?></span>
+                    <?php if (trim((string)($h['work_description'] ?? '')) !== ''): ?><span class="hd"><?php echo e((string)$h['work_description']); ?></span><?php endif; ?>
+                  </div>
+                </div>
+                <?php endforeach; ?>
+              </div>
+            </details>
             <?php endif; ?>
           </div>
         </div>
@@ -1551,47 +1441,6 @@ body.modal-open{overflow:hidden;}
       <?php endforeach; ?>
     </div><!-- /tp-center -->
 
-    <!-- ═══ CONTEXT (right) — workflow + this asset's repair history ═══ -->
-    <aside class="tp-rail">
-      <?php foreach ($list as $row):
-        $st = strtolower((string)($row['status'] ?? 'assigned'));
-        $isSel = ((string)$row['report_id'] === (string)$selectedId);
-        $histRows = $maintByEquip[trim((string)($row['equipment_id'] ?? ''))] ?? [];
-      ?>
-      <div class="ctx <?php echo $isSel ? 'active' : ''; ?>" id="rail-<?php echo e((string)$row['report_id']); ?>">
-        <section class="card">
-          <div class="sec-h"><small>Workflow</small><h3>Maintenance Flow</h3></div>
-          <div class="tl">
-            <?php foreach (workflowSteps($st) as $stepRow): ?>
-            <div class="tl-step">
-              <span class="tl-dot <?php echo $stepRow['done'] ? 'done' : ($stepRow['active'] ? 'act' : ''); ?>"><?php echo $stepRow['done'] ? '✓' : ($stepRow['active'] ? '!' : '•'); ?></span>
-              <div><strong><?php echo e($stepRow['label']); ?></strong><p><?php echo e($stepRow['desc']); ?></p></div>
-            </div>
-            <?php endforeach; ?>
-          </div>
-        </section>
-        <section class="card">
-          <div class="sec-h"><small>Asset history</small><h3>Previous Repairs</h3></div>
-          <?php if (!$histRows): ?>
-          <div class="empty" style="padding:22px 12px"><i class="fas fa-clock-rotate-left"></i><div>No earlier maintenance records for this equipment.</div></div>
-          <?php else: ?>
-          <div class="hist">
-            <?php foreach (array_slice($histRows, 0, 6) as $h): ?>
-            <div class="hrow">
-              <span class="hic"><i class="fas fa-screwdriver-wrench"></i></span>
-              <div>
-                <strong><?php echo e(ucwords(str_replace('_', ' ', (string)($h['maintenance_type'] ?? 'Maintenance')))); ?></strong>
-                <span class="hw"><?php echo e(fdate((string)($h['maintenance_date'] ?? ''))); ?><?php if (trim((string)($h['cost'] ?? '')) !== '' && (float)$h['cost'] > 0): ?> · ₱<?php echo e(number_format((float)$h['cost'], 2)); ?><?php endif; ?></span>
-                <?php if (trim((string)($h['work_description'] ?? '')) !== ''): ?><span class="hd"><?php echo e((string)$h['work_description']); ?></span><?php endif; ?>
-              </div>
-            </div>
-            <?php endforeach; ?>
-          </div>
-          <?php endif; ?>
-        </section>
-      </div>
-      <?php endforeach; ?>
-    </aside><!-- /tp-rail -->
 
     </div><!-- /tp-work -->
 
@@ -1693,7 +1542,6 @@ window.addEventListener('resize', function () { if (window.innerWidth > 960) bod
 /* Task selection → reveal its repair workspace below and scroll to it */
 const wsPanels = document.querySelectorAll('.ws-panel');
 const qcards   = document.querySelectorAll('.qcard[data-ws-target]');
-const ctxRails = document.querySelectorAll('.ctx');
 /* Wide enough for the three panels to be on screen together? Then selecting a
    task is a panel swap and must NOT scroll — the queue you are picking from is
    already beside the workspace, and scrolling would move it out from under the
@@ -1704,8 +1552,6 @@ function selectWorkspace(id, userPicked) {
   let found = false;
   wsPanels.forEach(function (p) { const on = p.id === id; p.classList.toggle('active', on); if (on) found = true; });
   qcards.forEach(function (c) { c.classList.toggle('active', c.getAttribute('data-ws-target') === id); });
-  const railId = id.replace(/^ws-/, 'rail-');
-  ctxRails.forEach(function (r) { r.classList.toggle('active', r.id === railId); });
   if (!found) { return; }
   if (tpNarrow()) {
     body.classList.add('ws-open');
@@ -1796,11 +1642,6 @@ function fmtDur(sec) {
 }
 function tickTimers() {
   const now = Date.now() / 1000;
-  document.querySelectorAll('.rep-timer').forEach(function (el) {
-    const s = parseInt(el.getAttribute('data-started'), 10);
-    if (!s) return;
-    el.innerHTML = '<i class="fas fa-stopwatch"></i> ' + fmtDur(now - s);
-  });
   document.querySelectorAll('.sla-chip').forEach(function (el) {
     const due = parseInt(el.getAttribute('data-due'), 10);
     if (!due) return;
@@ -1865,14 +1706,25 @@ function validateForm(f, submitterVal) {
     if (!el.value.trim()) { fieldError(el, (el.dataset.req || 'This field') + ' is required.'); bad.push(el); }
     else fieldOk(el);
   });
-  /* waiting / replacement need a reason in the note */
+  /* "Need parts first" and "Can't be fixed" each need one sentence for the office */
   if (submitterVal === 'waiting' || submitterVal === 'replace') {
     const t = f.querySelector('textarea[name="technician_notes"]');
     if (t && !t.value.trim()) {
-      fieldError(t, 'Please add a note explaining the ' + (submitterVal === 'waiting' ? 'material hold.' : 'replacement recommendation.'));
+      fieldError(t, submitterVal === 'waiting' ? 'Tell the PMO which parts you need.' : 'Tell the PMO why it cannot be fixed.');
+      const d = t.closest('details'); if (d) d.open = true;
+      t.dataset.req = submitterVal === 'waiting' ? 'Which parts you need' : 'Why it cannot be fixed';
       bad.push(t);
     }
   }
+  /* The finish form: a photo of the result is part of the report, not an extra.
+     The files live in the photo widget's store, so an [data-req] check cannot
+     see them; count what the input carries instead. */
+  f.querySelectorAll('[data-req-photo]').forEach(function (pf) {
+    const inp = pf.querySelector('input[type=file]');
+    const has = inp && inp.files && inp.files.length > 0;
+    pf.classList.toggle('f-err-photo', !has);
+    if (!has) { pf.dataset.req = pf.dataset.reqPhoto; bad.push(pf); }
+  });
   if (bad.length) {
     var seen = {}, names = [];
     bad.forEach(function (el) { var n = el.dataset.req || 'A required field'; if (!seen[n]) { seen[n] = 1; names.push(n); } });
@@ -1961,40 +1813,6 @@ document.querySelectorAll('form.tech-ajax').forEach(function (f) {
   });
 });
 
-/* ── Chip fields: unlimited parts / tools / materials, joined into one value ── */
-document.querySelectorAll('[data-chipfield]').forEach(function (cf) {
-  const hidden = cf.querySelector('input[type=hidden]');
-  const entry = cf.querySelector('.chip-in');
-  const list = cf.querySelector('.chip-list');
-  const items = [];
-  function sync() { hidden.value = items.join(', '); }
-  function render() {
-    list.innerHTML = '';
-    items.forEach(function (t, i) {
-      const chip = document.createElement('span'); chip.className = 'chip-item';
-      const label = document.createElement('span'); label.textContent = t;
-      const x = document.createElement('button'); x.type = 'button'; x.innerHTML = '<i class="fas fa-xmark"></i>'; x.setAttribute('aria-label', 'Remove');
-      x.addEventListener('click', function () { items.splice(i, 1); render(); sync(); });
-      chip.appendChild(label); chip.appendChild(x); list.appendChild(chip);
-    });
-  }
-  function add() {
-    const v = entry.value.trim().replace(/,+$/, '');
-    if (!v) return;
-    items.push(v); entry.value = ''; render(); sync(); entry.focus();
-  }
-  cf.querySelector('.chip-add').addEventListener('click', add);
-  entry.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(); }
-  });
-  /* absorb any leftover typed text on submit so nothing is lost */
-  const form = cf.closest('form');
-  if (form) form.addEventListener('submit', function () {
-    const v = entry.value.trim();
-    if (v) { items.push(v); entry.value = ''; sync(); }
-  }, true);
-});
-
 /* Photo capture previews — drag & drop, count, per-photo remove.
    Each field keeps its own file store; we re-sync the native input via
    DataTransfer so removals stick and normal multipart submission is unchanged. */
@@ -2037,6 +1855,7 @@ document.querySelectorAll('[data-chipfield]').forEach(function (cf) {
 
   function addFiles(inp, fileList) {
     var list = stores.get(inp) || [];
+    var pf = inp.closest('.photo-field'); if (pf) pf.classList.remove('f-err-photo');
     Array.from(fileList).forEach(function (file) {
       if (!file.type || file.type.indexOf('image/') !== 0) return;
       if (list.some(function (f) { return f.name === file.name && f.size === file.size; })) return;
@@ -2314,32 +2133,6 @@ if ('serviceWorker' in navigator) {
 })();
 </script>
 <?php require_once __DIR__ . '/includes/csrf_inject.php'; ?>
-<script>
-/* Collapsible workspace reference sections — tap a header to hide/show it.
-   Secondary sections start collapsed to cut the initial scroll; action forms
-   (.sec-form) are never collapsible. */
-(function () {
-  var startCollapsed = ['Assignment Instructions', 'Latest Technician Notes', 'Video Evidence'];
-  document.querySelectorAll('.sec:not(.sec-form)').forEach(function (sec) {
-    var h = sec.querySelector('.sec-h');
-    if (!h) return;
-    sec.classList.add('collapsible');
-    var title = ((h.querySelector('h3') || {}).textContent || '').trim();
-    if (startCollapsed.indexOf(title) !== -1) sec.classList.add('collapsed');
-    h.setAttribute('role', 'button');
-    h.setAttribute('tabindex', '0');
-    h.setAttribute('aria-expanded', sec.classList.contains('collapsed') ? 'false' : 'true');
-    function toggle() {
-      var collapsed = sec.classList.toggle('collapsed');
-      h.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-    }
-    h.addEventListener('click', toggle);
-    h.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
-    });
-  });
-})();
-</script>
 <script src="assets/camera_capture.js"></script>
 <!-- Repair photos are taken on a phone in the field; shrink them there. -->
 <script src="assets/photo_shrink.js"></script>
