@@ -1024,6 +1024,13 @@ body::after {
   -webkit-overflow-scrolling:touch;overscroll-behavior:contain;
 }
 .search-dd.open { display:block; }
+/* Opens upward when there is no room below. On a phone the keyboard takes the
+   bottom half of the screen the moment the field is tapped, and a list that
+   drops down from a field in the lower half went straight under it - the
+   reporter saw the field, typed, and nothing appeared to happen. The script
+   measures the visible viewport (keyboard included) and flips the list to
+   whichever side has more room. */
+.search-dd.up { top:auto; bottom:calc(100% + 4px); box-shadow:0 -8px 30px rgba(44,10,10,.15); }
 /* Sticky campus/building heading, so you always know which building the rooms
    you are scrolling past belong to. */
 .loc-group {
@@ -1916,6 +1923,7 @@ function renderLocationDropdown(query) {
   if (!matches.length) {
     locationDropdown.innerHTML = '<div class="eq-empty"><i class="fas fa-map-marker-alt" style="margin-right:.3rem;opacity:.5"></i>No location found</div>';
     locationDropdown.classList.add('open');
+    placeLocationDropdown();
     return;
   }
 
@@ -1946,7 +1954,33 @@ function renderLocationDropdown(query) {
   locationDropdown.innerHTML = html;
   locationDropdown.classList.add('open');
   locationFocusIdx = -1;
+  placeLocationDropdown();
 }
+
+/* Drop-down or drop-up: whichever side of the field has more visible room.
+   visualViewport is the part of the page not covered by the on-screen
+   keyboard; without it (older browsers) the whole window counts. Re-run on
+   viewport changes, because the keyboard sliding in is exactly the moment
+   the room below disappears. */
+function placeLocationDropdown() {
+  if (!locationDropdown.classList.contains('open')) return;
+  const vv = window.visualViewport;
+  const viewTop = vv ? vv.offsetTop : 0;
+  const viewH   = vv ? vv.height : window.innerHeight;
+  const rect  = locationSearchEl.getBoundingClientRect();
+  const below = viewTop + viewH - rect.bottom;
+  const above = rect.top - viewTop;
+  // Downward unless there is not even a short list's worth of room below
+  // and the space above is the better of the two.
+  const up    = below < 200 && above > below;
+  locationDropdown.classList.toggle('up', up);
+  locationDropdown.style.maxHeight = Math.max(150, Math.min(340, (up ? above : below) - 12)) + 'px';
+}
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', placeLocationDropdown);
+  window.visualViewport.addEventListener('scroll', placeLocationDropdown);
+}
+window.addEventListener('resize', placeLocationDropdown);
 
 function selectLocation(location, byTap) {
   locationSearchEl.value = location;
