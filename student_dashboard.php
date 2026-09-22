@@ -1194,6 +1194,15 @@ body::after {
 .loading-title {
   font-family:'Fraunces',serif;font-size:1.2rem;font-weight:700;color:var(--ink);
 }
+.load-bar {
+  width:100%;height:8px;margin-top:.9rem;border-radius:99px;overflow:hidden;
+  background:var(--border);
+}
+.load-bar span {
+  display:block;height:100%;width:0;border-radius:99px;
+  background:linear-gradient(90deg,var(--maroon-d),var(--maroon));
+  transition:width .2s ease;
+}
 .loading-sub {
   margin-top:.35rem;font-size:.82rem;line-height:1.5;color:var(--ink3);
 }
@@ -1726,8 +1735,13 @@ html { scroll-behavior: smooth; }
 <div class="loading-overlay" id="loading-overlay" aria-live="polite" aria-hidden="true">
   <div class="loading-box">
     <div class="loading-spinner"></div>
-    <div class="loading-title">Submitting report</div>
-    <div class="loading-sub">Please wait while we save the report and generate the ticket number.</div>
+    <div class="loading-title" id="loadTitle">Submitting report</div>
+    <div class="loading-sub" id="loadSub">Please wait while we save the report and generate the ticket number.</div>
+    <?php /* Shown only when there is enough to upload for the wait to be felt.
+             A photo taken on campus wi-fi can take most of a minute, and a
+             spinner that says nothing for that long reads as a frozen page —
+             which is when people press the button again. */ ?>
+    <div class="load-bar" id="loadBar" hidden><span id="loadBarFill"></span></div>
   </div>
 </div>
 
@@ -2309,6 +2323,7 @@ reportForm?.addEventListener('submit', (e) => {
   rfSubmitting = true;
   loadingOverlay?.classList.add('show');
   loadingOverlay?.setAttribute('aria-hidden', 'false');
+  rfUploadWithProgress(e);
   if (submitBtn) {
     submitBtn.classList.add('is-loading');
     submitBtn.setAttribute('aria-busy', 'true');
@@ -2318,6 +2333,93 @@ reportForm?.addEventListener('submit', (e) => {
     setTimeout(() => { submitBtn.disabled = true; }, 0);
   }
 });
+/* ── Upload progress ──────────────────────────────────────────────────────
+   A plain form post gives no feedback at all: the photo (and a video, which
+   may be 20 MB) goes up behind a spinner that says "please wait" for as long
+   as campus wi-fi takes. The same post through XHR reports its progress, so
+   the reporter can see it moving and knows not to press again.
+
+   Only for uploads big enough to matter — anything smaller goes the ordinary
+   way, so the common case keeps the browser's own, better-tested path. Any
+   failure falls straight back to a native submit, which is what would have
+   happened anyway.
+
+   By the time this runs photo_shrink.js has already replaced the files with
+   its downscaled copies (it listens in the capture phase), so the bytes
+   measured here are the bytes actually sent. */
+const RF_XHR_MIN_BYTES = 1.5 * 1024 * 1024;
+function rfUploadBytes() {
+  let total = 0;
+  reportForm?.querySelectorAll('input[type=file]').forEach((inp) => {
+    Array.from(inp.files || []).forEach((f) => { total += f.size; });
+  });
+  return total;
+}
+function rfSetProgress(loaded, total) {
+  const bar = document.getElementById('loadBar');
+  const fill = document.getElementById('loadBarFill');
+  const sub = document.getElementById('loadSub');
+  if (!bar || !fill) return;
+  bar.hidden = false;
+  const pct = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0;
+  fill.style.width = pct + '%';
+  if (sub) {
+    sub.textContent = pct < 100
+      ? 'Uploading your photo — ' + pct + '% of ' + fmtSize(total) + '.'
+      : 'Saving your report and generating the ticket number…';
+  }
+}
+function rfUploadWithProgress(ev) {
+  const total = rfUploadBytes();
+  if (total < RF_XHR_MIN_BYTES || !window.XMLHttpRequest || !window.FormData) { return; }
+  let fd;
+  try { fd = new FormData(reportForm); } catch (err) { return; }   // fall through to the native post
+  ev.preventDefault();
+
+  const title = document.getElementById('loadTitle');
+  if (title) title.textContent = 'Sending your report';
+  rfSetProgress(0, total);
+
+  // The browser has already been told not to submit, so any failure from here
+  // has to put the form back on the wire itself.
+  let handed = false;
+  const nativeFallback = () => {
+    if (handed) return;
+    handed = true;
+    const bar = document.getElementById('loadBar');
+    if (bar) bar.hidden = true;
+    // .submit() deliberately, not requestSubmit(): it bypasses the submit
+    // listeners, so this cannot loop back into here.
+    reportForm.submit();
+  };
+
+  const xhr = new XMLHttpRequest();
+  // getAttribute, never form.action — a control named "action" would shadow it.
+  xhr.open('POST', reportForm.getAttribute('action') || window.location.href, true);
+  xhr.upload.addEventListener('progress', (p) => {
+    if (p.lengthComputable) rfSetProgress(p.loaded, p.total);
+  });
+  xhr.addEventListener('load', () => {
+    if (handed) return;
+    if (xhr.status >= 200 && xhr.status < 400 && xhr.responseText) {
+      handed = true;
+      rfSetProgress(total, total);
+      // The server answers with the whole page — the success modal with the
+      // ticket number, or the form again with its error. Render exactly that,
+      // so this path and the native one end on the same screen.
+      document.open();
+      document.write(xhr.responseText);
+      document.close();
+    } else {
+      nativeFallback();
+    }
+  });
+  xhr.addEventListener('error', nativeFallback);
+  xhr.addEventListener('abort', nativeFallback);
+  xhr.addEventListener('timeout', nativeFallback);
+  try { xhr.send(fd); } catch (err) { nativeFallback(); }
+}
+
 // Back button after a submit restores the page from the bfcache with the
 // spinner still spinning and the button still disabled. Put it back.
 window.addEventListener('pageshow', (ev) => {

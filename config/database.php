@@ -1529,24 +1529,40 @@ function inferEquipmentCategory(string $name, string $description = ''): string 
     $parts = [[$clean($name), 2], [$clean($description), 1]];
     if (trim($parts[0][0]) === '' && trim($parts[1][0]) === '') { return 'Other / Not sure'; }
 
-    // Order matters only for ties. Multi-word entries score 2, single words 1.
+    /*
+     * Order matters only for ties. Multi-word entries score 2, single words 1.
+     *
+     * Filipino sits beside English in every row, because that is how BEC
+     * reports are actually written — "hindi abot sa akin ang aircon", "sirang
+     * gripo sa CR". English-only lists filed all of those under "Other / Not
+     * sure" and sent them to the PMO by default, and the "Filed under…" line
+     * under the equipment field — the one that shows the reporter their words
+     * were understood — stayed blank for anyone not typing in English.
+     */
     $table = [
         'Air Conditioner'        => ['aircon', 'air con', 'a/c', 'ac unit', 'ac', 'split type', 'window type', 'hvac', 'air conditioner', 'air conditioning'],
-        'Electric Fan'           => ['fan', 'ceiling fan', 'stand fan', 'wall fan', 'exhaust fan', 'electric fan'],
-        'Television'             => ['tv', 'television', 'smart tv', 'led tv'],
-        'Computer'               => ['computer', 'pc', 'desktop', 'laptop', 'notebook', 'macbook', 'system unit', 'cpu', 'monitor', 'keyboard', 'mouse'],
-        'Printer'                => ['printer', 'print', 'ink', 'toner'],
+        'Electric Fan'           => ['fan', 'ceiling fan', 'stand fan', 'wall fan', 'exhaust fan', 'electric fan',
+                                     'bentilador', 'elektrik fan'],
+        'Television'             => ['tv', 'television', 'smart tv', 'led tv', 'telebisyon'],
+        'Computer'               => ['computer', 'pc', 'desktop', 'laptop', 'notebook', 'macbook', 'system unit', 'cpu', 'monitor', 'keyboard', 'mouse',
+                                     'kompyuter', 'kompyutar', 'teklado'],
+        'Printer'                => ['printer', 'print', 'ink', 'toner', 'tinta'],
         'Copier / Duplicator'    => ['copier', 'photocopier', 'xerox', 'riso', 'duplicator'],
-        'Projector'              => ['projector'],
-        'Network Equipment'      => ['wifi', 'wi fi', 'router', 'modem', 'internet', 'network', 'lan', 'access point', 'network switch'],
-        'Lighting / Electrical'  => ['light', 'lights', 'bulb', 'lamp', 'fluorescent', 'outlet', 'socket', 'light switch', 'wiring', 'breaker', 'electrical'],
-        'Plumbing / Sanitary'    => ['faucet', 'sink', 'toilet', 'urinal', 'flush', 'pipe', 'leak', 'leaking', 'drain', 'water', 'comfort room', 'cr', 'lavatory', 'plumbing'],
-        'Office Chair'           => ['chair', 'armchair', 'stool', 'monobloc', 'office chair'],
-        'Office Table'           => ['table', 'desk', 'office table'],
-        'Cabinet'                => ['cabinet', 'drawer', 'shelf', 'shelves', 'filing cabinet'],
-        'Locker'                 => ['locker'],
-        'Whiteboard / Glassboard'=> ['whiteboard', 'glassboard', 'blackboard', 'chalkboard', 'white board', 'glass board'],
-        'Piano'                  => ['piano'],
+        'Projector'              => ['projector', 'prodyektor'],
+        'Network Equipment'      => ['wifi', 'wi fi', 'router', 'modem', 'internet', 'network', 'lan', 'access point', 'network switch',
+                                     'walang internet', 'walang wifi'],
+        'Lighting / Electrical'  => ['light', 'lights', 'bulb', 'lamp', 'fluorescent', 'outlet', 'socket', 'light switch', 'wiring', 'breaker', 'electrical',
+                                     'ilaw', 'bombilya', 'bumbilya', 'kuryente', 'saksakan', 'kable', 'walang kuryente', 'walang ilaw'],
+        'Plumbing / Sanitary'    => ['faucet', 'sink', 'toilet', 'urinal', 'flush', 'pipe', 'leak', 'leaking', 'drain', 'water', 'comfort room', 'cr', 'lavatory', 'plumbing',
+                                     'gripo', 'tubig', 'walang tubig', 'inidoro', 'kubeta', 'palikuran', 'banyo', 'lababo', 'tubo', 'kanal', 'barado', 'imburnal'],
+        'Office Chair'           => ['chair', 'armchair', 'stool', 'monobloc', 'office chair',
+                                     'upuan', 'silya', 'upuang'],
+        'Office Table'           => ['table', 'desk', 'office table', 'mesa', 'lamesa'],
+        'Cabinet'                => ['cabinet', 'drawer', 'shelf', 'shelves', 'filing cabinet',
+                                     'aparador', 'kabinet', 'estante'],
+        'Locker'                 => ['locker', 'lalagyan ng gamit'],
+        'Whiteboard / Glassboard'=> ['whiteboard', 'glassboard', 'blackboard', 'chalkboard', 'white board', 'glass board', 'pisara'],
+        'Piano'                  => ['piano', 'piyano'],
         'Food Warmer'            => ['food warmer', 'warmer'],
     ];
 
@@ -1555,9 +1571,13 @@ function inferEquipmentCategory(string $name, string $description = ''): string 
     foreach ($table as $category => $words) {
         $score = 0;
         foreach ($words as $w) {
-            // Whole words only, plural allowed: "pc" and "pcs" fire, "space"
-            // does not, and "cr" must not fire inside "screen".
-            $re = '/(?<![a-z0-9])' . preg_quote($w, '/') . 's?(?![a-z0-9])/';
+            // Whole words only. A trailing "s" is allowed so "pc" matches
+            // "pcs", and a trailing "ng" so the Tagalog linker does too —
+            // "gripong tumutulo" and "mesang sira" carry it on the noun. Both
+            // are suffixes no English or Filipino word here turns into a
+            // different word, and the boundary still stops "cr" from firing
+            // inside "screen".
+            $re = '/(?<![a-z0-9])' . preg_quote($w, '/') . '(?:s|ng)?(?![a-z0-9])/';
             foreach ($parts as [$text, $weight]) {
                 if (preg_match($re, $text)) { $score += $weight * ((strpos($w, ' ') !== false) ? 2 : 1); }
             }
@@ -1607,8 +1627,12 @@ function classifyDepartmentByEquipment($equipment_id = null, $equipment_name = '
     $hay = strtolower(trim($equipment_name . ' ' . $category_name . ' ' . $location . ' ' . $issue_description));
     if ($hay === '') return 'PMO';
 
+    // Filipino beside English for the same reason as inferEquipmentCategory():
+    // BEC reports are written in Taglish, and a legacy row whose category is
+    // "Other / Not sure" has nothing but these words to route on.
     $itsoKeywords = [
         'computer','desktop','laptop','notebook','macbook','pc',
+        'kompyuter','kompyutar','teklado','telebisyon','prodyektor',
         'monitor','display','projector','printer','scanner','router','switch','modem',
         'wifi','network','server','ups','keyboard','mouse','cpu','system unit',
         'it lab','laboratory computer','av','audio visual','smart tv','television',
@@ -1616,6 +1640,9 @@ function classifyDepartmentByEquipment($equipment_id = null, $equipment_name = '
     ];
     $pmoKeywords = [
         'chair','table','desk','cabinet','drawer','shelf','door','window','ceiling','floor',
+        'silya','upuan','mesa','lamesa','aparador','estante','pinto','bintana','kisame','sahig','dingding',
+        'gripo','tubig','inidoro','kubeta','lababo','banyo','palikuran','barado','kanal',
+        'ilaw','bombilya','kuryente','saksakan','bentilador','pisara',
         'wall','toilet','sink','faucet','plumbing','pipe','drain','aircon','aircon unit',
         'air conditioner','hvac','electrical','wiring','outlet','socket','breaker','light',
         'bulb','fan','facility','building','room','furniture','paint'

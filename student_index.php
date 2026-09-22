@@ -43,12 +43,15 @@ require_once __DIR__ . '/includes/reporter_otp.php';
  * the common case stays a single tap and the code does not become a toll on
  * every report.
  */
-$stage   = 'signin';           // signin | verify | trusted
+$stage   = 'signin';           // signin | verify | name | trusted
 $notice  = '';
 $devCode = '';
 $trustedEmail = reporterTrustedEmail();
-$trustedName  = $trustedEmail !== '' ? becdir_display_name(becdir_known_name($trustedEmail)) : '';
-if ($trustedEmail !== '' && $trustedName === '') { $trustedName = $trustedEmail; }
+// What to call them: the registrar's name first, then whatever they told us
+// last time on this device, and only then the address itself.
+$trustedDirName  = $trustedEmail !== '' ? becdir_display_name(becdir_known_name($trustedEmail)) : '';
+$trustedSelfName = $trustedEmail !== '' ? reporterTrustedName() : '';
+$trustedName  = $trustedDirName !== '' ? $trustedDirName : ($trustedSelfName !== '' ? $trustedSelfName : $trustedEmail);
 $trustedFirst = $trustedName !== '' ? becdir_first_name($trustedName) : '';
 // Who they are, for the one question the report form no longer asks. The
 // cookie remembers what they tapped last time; failing that, the directory
@@ -78,7 +81,7 @@ $signIn = static function (string $email, string $typedName, string $eq, string 
     $_SESSION['guest_role']        = reporterCanonType($role);
     $_SESSION['guest_since']       = time();
     $_SESSION['guest_last']        = time();
-    unset($_SESSION['otp_email'], $_SESSION['otp_name'], $_SESSION['otp_role'], $_SESSION['otp_eq'], $_SESSION['otp_next'], $_SESSION['otp_sent_at']);
+    unset($_SESSION['otp_email'], $_SESSION['otp_name'], $_SESSION['otp_role'], $_SESSION['otp_eq'], $_SESSION['otp_next'], $_SESSION['otp_sent_at'], $_SESSION['otp_named_email']);
     // An id issued before sign-in must not survive it.
     session_regenerate_id(true);
     // Back to whatever sent them here — a ticket they were tracking — before
@@ -105,10 +108,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Your session expired. Please check your details and sign in again.';
         $stage = ($step === 'verify') ? 'verify' : 'signin';
     } elseif ($step === 'forget') {
-        // The name is deliberately kept: someone correcting a typo in their
-        // address should not have to type their name again as well.
         reporterForgetDevice();
-        unset($_SESSION['otp_email'], $_SESSION['otp_role'], $_SESSION['otp_eq'], $_SESSION['otp_next'], $_SESSION['otp_sent_at']);
+        unset($_SESSION['otp_email'], $_SESSION['otp_role'], $_SESSION['otp_eq'], $_SESSION['otp_next'], $_SESSION['otp_sent_at'], $_SESSION['otp_named_email']);
         $carry = array_filter(['eq' => $eq, 'next' => $next], static fn($v) => $v !== '');
         header('Location: student_index.php' . ($carry ? '?' . http_build_query($carry) : ''));
         exit();
@@ -119,8 +120,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($role === '') {
                 $error = 'Please tell us whether you are a student, teacher or staff.';
             } else {
-                // Re-issued with the role, so next month is one tap again.
-                reporterTrustDevice($trustedEmail, $role);
+                // Re-issued with the role and the name, so next month is one
+                // tap again and still greets them properly.
+                reporterTrustDevice($trustedEmail, $role, $trustedSelfName);
                 $signIn($trustedEmail, $trustedName, $eq, $next, $role);
             }
         } else {
@@ -149,13 +151,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $res = reporterOtpVerify($pending, (string)($_POST['otp_code'] ?? ''));
             if ($res['ok']) {
                 $role = (string)($_SESSION['otp_role'] ?? '');
-                reporterTrustDevice($pending, $role);              // a month of one-tap
-                $signIn($pending, (string)($_SESSION['otp_name'] ?? ''), (string)($_SESSION['otp_eq'] ?? $eq), (string)($_SESSION['otp_next'] ?? $next), $role);
+                // BEC holds a name for every student on its roster, and that
+                // is the name the report must carry anyway — so asking for one
+                // up front was a field most reporters filled for nothing. Ask
+                // only the people it has none for, and only now that they have
+                // proved the mailbox is theirs.
+                if (trim(becdir_known_name($pending)) !== '') {
+                    reporterTrustDevice($pending, $role);          // a month of one-tap
+                    $signIn($pending, '', (string)($_SESSION['otp_eq'] ?? $eq), (string)($_SESSION['otp_next'] ?? $next), $role);
+                }
+                $_SESSION['otp_named_email'] = $pending;           // verified; awaiting a name
+                $stage = 'name';
+            } else {
+                $error = $res['message'];
             }
-            $error = $res['message'];
+        }
+    } elseif ($step === 'name') {
+        // Reached only after a code was verified, and only when BEC holds no
+        // name for the address. The address comes from the session, never the
+        // form, so this cannot be used to name someone else's account.
+        $stage    = 'name';
+        $verified = strtolower(trim((string)($_SESSION['otp_named_email'] ?? '')));
+        $typed    = trim((string)($_POST['full_name'] ?? ''));
+        if ($verified === '') {
+            $stage = 'signin';
+            $error = 'That sign-in timed out. Please start again.';
+        } elseif (mb_strlen($typed) < 2) {
+            $error = 'Please enter your full name.';
+        } else {
+            $role = (string)($_SESSION['otp_role'] ?? '');
+            reporterTrustDevice($verified, $role, $typed);
+            $signIn($verified, $typed, (string)($_SESSION['otp_eq'] ?? $eq), (string)($_SESSION['otp_next'] ?? $next), $role);
         }
     } else {
-        $name  = trim($_POST['full_name'] ?? '');
         $email = strtolower(trim($_POST['email'] ?? ''));
         $role  = reporterCanonType((string)($_POST['reporter_type'] ?? ''));
 
@@ -170,12 +198,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($error !== '') {
             // Already rejected — fall through and redisplay.
-        } elseif ($name === '' || $email === '') {
-            $error = 'Please enter both your name and email address.';
+        } elseif ($email === '') {
+            $error = 'Please enter your BEC email address.';
         } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $error = 'Please enter a valid email address.';
-        } elseif (strlen($name) < 2) {
-            $error = 'Please enter your full name.';
         } elseif ($role === '') {
             $error = 'Please tell us whether you are a student, teacher or staff.';
         } elseif (empty($_POST['privacy_consent'])) {
@@ -188,7 +214,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Held in the session, not a hidden field, so the address the
                 // code was sent to is the only one that can be verified.
                 $_SESSION['otp_email']   = $email;
-                $_SESSION['otp_name']    = $name;
                 $_SESSION['otp_role']    = $role;
                 $_SESSION['otp_eq']      = $eq;
                 $_SESSION['otp_next']    = $next;
@@ -201,6 +226,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+} elseif (!empty($_SESSION['otp_named_email'])) {
+    $stage = 'name';     // code already verified, still owed a name
 } elseif (!empty($_SESSION['otp_email']) && (time() - (int)($_SESSION['otp_sent_at'] ?? 0)) < 900) {
     $stage = 'verify';   // came back to the tab mid-verification
 }
@@ -939,7 +966,7 @@ body::after {
          is read from the session, never from the page, so a code cannot be
          redirected to a different account. -->
     <div class="otp-steps" aria-hidden="true">
-      <span class="otp-step done"><i aria-hidden="true" class="fas fa-check"></i> Your details</span>
+      <span class="otp-step done"><i aria-hidden="true" class="fas fa-check"></i> Your email</span>
       <span class="otp-step-line"></span>
       <span class="otp-step now">2 · Verify your email</span>
     </div>
@@ -1026,6 +1053,51 @@ body::after {
       Can&rsquo;t find it? Check your spam or junk folder. Codes are sent only to
       addresses on record with Batangas Eastern Colleges.
     </p>
+    <?php elseif ($stage === 'name'): ?>
+    <!-- The mailbox is proved; BEC simply has no name on file for it (a
+         teacher, usually). One field, asked once, and remembered on this
+         device for a month so the next report starts with a greeting. -->
+    <div class="otp-steps" aria-hidden="true">
+      <span class="otp-step done"><i aria-hidden="true" class="fas fa-check"></i> Your email</span>
+      <span class="otp-step-line"></span>
+      <span class="otp-step now">2 · Your name</span>
+    </div>
+
+    <div class="otp-head">
+      <div class="otp-ic" aria-hidden="true"><i class="fas fa-user-check" style="font-size:1.6rem;color:var(--maroon);"></i></div>
+      <h2>Almost there</h2>
+      <p>Your email is verified. Batangas Eastern Colleges has no name on record
+      for this address, so please tell us what to put on your reports.</p>
+      <div class="otp-to">
+        <i aria-hidden="true" class="fas fa-circle-check"></i>
+        <span><?php echo htmlspecialchars((string)($_SESSION['otp_named_email'] ?? '')); ?></span>
+      </div>
+    </div>
+
+    <form method="POST" action="" id="nameForm">
+      <?php echo csrf_field(); ?>
+      <input type="hidden" name="step" value="name">
+      <div class="fg">
+        <label class="fl" for="nameField">Full Name <span class="req">*</span></label>
+        <div class="fi-wrap">
+          <i aria-hidden="true" class="fas fa-user fi-icon"></i>
+          <input type="text" name="full_name" id="nameField" class="fi" placeholder="e.g. Maria Santos"
+            value="<?php echo htmlspecialchars($_POST['full_name'] ?? ''); ?>"
+            autocomplete="name" maxlength="80" data-guard="alpha" required autofocus>
+        </div>
+        <div class="fi-hint"><i aria-hidden="true" class="fas fa-id-card"></i> This is the name the PMO will see on the reports you file.</div>
+      </div>
+      <button type="submit" class="btn-submit">
+        Continue to Report Submission
+        <span class="btn-arrow"><i aria-hidden="true" class="fas fa-arrow-right"></i></span>
+      </button>
+    </form>
+    <form method="POST" action="" style="text-align:center;">
+      <?php echo csrf_field(); ?>
+      <input type="hidden" name="step" value="forget">
+      <button type="submit" class="otp-link">Use a different email address</button>
+    </form>
+
     <?php else: ?>
 <form method="POST" action="" id="signinForm" onsubmit="if(window.AuthLoader)AuthLoader.show('Signing you in…','Preparing your report portal…');">
       <?php /* Rendered here, not left to the JS injector: every POST on this page
@@ -1036,16 +1108,11 @@ body::after {
       <input type="hidden" name="next" value="<?php echo htmlspecialchars($next, ENT_QUOTES); ?>">
       <?php if ($eq !== ''): ?><div class="notice" style="margin-bottom:.6rem;"><i aria-hidden="true" class="fas fa-qrcode"></i> <span>You scanned an equipment QR — it will be pre-selected after you sign in.</span></div><?php endif; ?>
       <?php if ($next !== ''): ?><div class="notice" style="margin-bottom:.6rem;"><i aria-hidden="true" class="fas fa-arrow-rotate-left"></i> <span>Sign in and we will take you straight back to the report you were looking at.</span></div><?php endif; ?>
-      <div class="fg">
-        <label class="fl" for="signinName">Full Name <span class="req">*</span></label>
-        <div class="fi-wrap">
-          <i aria-hidden="true" class="fas fa-user fi-icon"></i>
-          <input type="text" name="full_name" id="signinName" class="fi" placeholder="e.g. Maria Santos"
-            value="<?php echo htmlspecialchars($_POST['full_name'] ?? ''); ?>"
-            autocomplete="name" maxlength="80" data-guard="alpha" required>
-        </div>
-        <div class="fi-hint"><i aria-hidden="true" class="fas fa-id-card"></i> If Batangas Eastern Colleges holds a name for your account, your report will carry that official name.</div>
-      </div>
+      <?php /* No name field here any more. BEC holds one for everybody on its
+               roster, and the report carries that official name whatever the
+               reporter types — so for almost everyone this was a field filled
+               in for nothing. The few people it has no name for are asked
+               after the code, on a screen of their own. */ ?>
       <div class="fg">
         <label class="fl" for="signinEmail">Email Address <span class="req">*</span></label>
         <div class="fi-wrap">

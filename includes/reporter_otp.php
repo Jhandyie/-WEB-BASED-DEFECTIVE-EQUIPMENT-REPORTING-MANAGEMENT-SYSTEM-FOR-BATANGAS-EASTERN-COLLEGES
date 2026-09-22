@@ -196,11 +196,15 @@ function reporterOtpExpiresAt(string $email): ?int {
  * tap: it is the one thing about a reporter the form still needs and the
  * directory cannot always supply (teachers are not in it).
  */
-function reporterTrustDevice(string $email, string $role = ''): void {
+function reporterTrustDevice(string $email, string $role = '', string $name = ''): void {
     $email   = strtolower(trim($email));
     $role    = reporterCanonType($role);
+    // Only for people BEC holds no name for — a teacher, usually. Without it
+    // their own device greets them by email address a month later, and they
+    // type their name again every time the code is asked for.
+    $name    = rawurlencode(mb_substr(trim($name), 0, 80));
     $expires = time() + (REPORTER_TRUST_DAYS * 86400);
-    $payload = $email . '|' . $expires . '|' . $role;
+    $payload = $email . '|' . $expires . '|' . $role . '|' . $name;
     $token   = $payload . '|' . hash_hmac('sha256', $payload, reporterSigningKey());
     $secure  = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
     setcookie(REPORTER_TRUST_COOKIE, $token, [
@@ -225,28 +229,45 @@ function reporterTrustedRole(): string {
     return reporterTrustedDevice()['role'];
 }
 
+/** The self-declared name that browser signed in with, or ''. */
+function reporterTrustedName(): string {
+    return reporterTrustedDevice()['name'];
+}
+
 /**
- * ['email' => …, 'role' => …] from the trust cookie, both '' when there is no
- * valid one. Cookies issued before the role was added have three parts and
- * are still honoured — they simply carry no role.
+ * ['email' => …, 'role' => …, 'name' => …] from the trust cookie, all '' when
+ * there is no valid one. The cookie has grown twice; every shape it has worn
+ * is still honoured, so nobody is signed out by an upgrade:
+ *   3 parts  email|expires|sig                 (original)
+ *   4 parts  email|expires|role|sig            (+ role, Sep 2026)
+ *   5 parts  email|expires|role|name|sig       (+ name, Sep 2026)
  */
 function reporterTrustedDevice(): array {
     static $out = null;
     if ($out !== null) { return $out; }
-    $out = ['email' => '', 'role' => ''];
+    $out = ['email' => '', 'role' => '', 'name' => ''];
     $raw = (string)($_COOKIE[REPORTER_TRUST_COOKIE] ?? '');
     if ($raw === '') { return $out; }
     $parts = explode('|', $raw);
-    if (count($parts) === 3)      { [$email, $expires, $sig] = $parts; $role = null; }
+    $role = null; $name = null;
+    if (count($parts) === 3)      { [$email, $expires, $sig] = $parts; }
     elseif (count($parts) === 4)  { [$email, $expires, $role, $sig] = $parts; }
+    elseif (count($parts) === 5)  { [$email, $expires, $role, $name, $sig] = $parts; }
     else                          { return $out; }
-    $payload  = $email . '|' . $expires . ($role === null ? '' : '|' . $role);
+    $payload  = $email . '|' . $expires
+              . ($role === null ? '' : '|' . $role)
+              . ($name === null ? '' : '|' . $name);
     $expected = hash_hmac('sha256', $payload, reporterSigningKey());
     if (!hash_equals($expected, $sig)) { return $out; }
     if ((int)$expires < time()) { return $out; }
     // Someone can leave the college between one report and the next.
     if (!reporterEmailIsKnown($email)) { return $out; }
-    $out = ['email' => strtolower($email), 'role' => reporterCanonType((string)$role)];
+    $out = [
+        'email' => strtolower($email),
+        'role'  => reporterCanonType((string)$role),
+        // The signature covers it, so this is our own text coming back.
+        'name'  => trim(rawurldecode((string)$name)),
+    ];
     return $out;
 }
 
