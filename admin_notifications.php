@@ -68,11 +68,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $link   = trim($_POST['link']      ?? '');
 
         // The form offers fixed choices, but a direct POST can send anything —
-        // an unknown role would simply reach nobody, and an off-site link in a
-        // message that carries the institution's name is a phishing vector.
-        $allowedTargets = ['all', 'reporter', 'technician', 'pmo', 'admin'];
+        // and an off-site link in a message carrying the institution's name is
+        // a phishing vector.
+        //
+        // An unknown audience used to fall back to 'all'. The pills offered a
+        // "Students" button, there is no student role in this system, and so
+        // choosing it broadcast to every active user instead — reporters,
+        // technicians and all ten administrators — under a message that said
+        // "sent to N user(s)" and looked entirely plausible. Falling back to
+        // the widest possible audience is the wrong default: refuse instead.
+        $allowedTargets = ['all', 'reporter', 'technician', 'admin'];
         $allowedTypes   = ['announcement', 'alert', 'reminder', 'system'];
-        if (!in_array($target, $allowedTargets, true)) { $target = 'all'; }
+        if (!in_array($target, $allowedTargets, true)) {
+            $_SESSION['flash'] = ['err', 'That audience is not one this system can send to. Nothing was sent.'];
+            header('Location: admin_notifications.php');
+            exit();
+        }
         if (!in_array($type, $allowedTypes, true))     { $type = 'announcement'; }
         if (mb_strlen($msg) > 500) { $msg = mb_substr($msg, 0, 500); }
         // Same-site paths only: no scheme, no host, no protocol-relative "//".
@@ -90,17 +101,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $res = $stmt2->get_result();
             }
             $users = $res->fetch_all(MYSQLI_ASSOC);
+            /*
+             * notification_id is NOT NULL with no default, and this INSERT did
+             * not supply one — so every row was rejected by the database while
+             * the counter below incremented regardless. The office was told
+             * "Broadcast sent to 15 user(s)" and nobody was sent anything. An
+             * announcement nobody receives is worse than no announcement, and
+             * there was no way to tell from the screen.
+             *
+             * The id is minted the same way addNotification() does it, and the
+             * count is now of rows that actually went in.
+             */
             $sent = 0;
+            $failed = 0;
+            $stmt3 = $conn->prepare("INSERT INTO notifications (notification_id,user_id,message,type,link,created_date,is_read)
+                                     VALUES (?,?,?,?,?,NOW(),false)");
             foreach ($users as $u) {
                 $uid = $u['user_id'];
-                $stmt3 = $conn->prepare("INSERT INTO notifications (user_id,message,type,link,created_date) VALUES (?,?,?,?,NOW())");
-                $stmt3->bind_param('ssss', $uid, $msg, $type, $link);
-                $stmt3->execute();
-                $sent++;
+                $nid = 'NOT-' . uniqid('', true);
+                $stmt3->bind_param('sssss', $nid, $uid, $msg, $type, $link);
+                if ($stmt3->execute()) { $sent++; } else { $failed++; }
             }
             logActivity($admin_id, 'notification.broadcast',
-                "Broadcast ($type) to $target — $sent recipient(s): " . mb_substr($msg, 0, 120));
-            $_SESSION['flash'] = ['ok', "Broadcast sent to $sent user(s)."];
+                "Broadcast ($type) to $target — $sent recipient(s)"
+                . ($failed ? ", $failed failed" : '') . ': ' . mb_substr($msg, 0, 120));
+            if ($sent > 0) {
+                $_SESSION['flash'] = ['ok', "Broadcast sent to $sent user(s)."
+                    . ($failed ? " $failed could not be delivered." : '')];
+            } else {
+                $_SESSION['flash'] = ['err', 'The broadcast could not be sent to anyone. Nothing was delivered.'];
+            }
         } else {
             $_SESSION['flash'] = ['err', 'Message cannot be empty.'];
         }
@@ -805,14 +835,20 @@ textarea.fc{resize:vertical;min-height:88px;}
       <button class="mx" onclick="document.getElementById('broadcastMo').classList.remove('open')"><i class="fas fa-times"></i></button>
     </div>
     <div class="mb">
-      <form method="POST" action="admin_notifications.php" id="bcastForm">
+      <?php /* A broadcast cannot be recalled, so it asks once, naming the
+               audience and the number it is about to reach. */ ?>
+      <form method="POST" action="admin_notifications.php" id="bcastForm" onsubmit="return confirmBroadcast();">
         <input type="hidden" name="action" value="broadcast">
         <input type="hidden" name="target_role" id="bcastTarget" value="all">
 
         <div class="fg">
           <label class="fl">Send To <span>*</span></label>
           <div class="target-pills">
-            <?php foreach([['all','Everyone'],['admin','Admins'],['technician','Technicians'],['reporter','Reporters'],['student','Students']] as [$rv,$rl]):?>
+            <?php /* Reporters are the students, teachers and staff who file
+                     reports — they hold no login role of their own beyond
+                     'reporter'. A "Students" pill used to sit here and, because
+                     no such role exists, sent to everyone instead. */ ?>
+            <?php foreach([['all','Everyone'],['admin','Admins'],['technician','Technicians'],['reporter','Reporters']] as [$rv,$rl]):?>
             <div class="tpill <?php echo $rv==='all'?'sel':'';?>"
               onclick="selectTarget('<?php echo $rv;?>',this)"><?php echo $rl;?></div>
             <?php endforeach;?>
@@ -1028,9 +1064,15 @@ const roleCounts = {
   admin: <?php echo count(array_filter($all_users,fn($u)=>$u['role']==='admin'));?>,
   technician: <?php echo count(array_filter($all_users,fn($u)=>$u['role']==='technician'));?>,
   reporter: <?php echo count(array_filter($all_users,fn($u)=>$u['role']==='reporter'));?>,
-  student: <?php echo count(array_filter($all_users,fn($u)=>$u['role']==='student'));?>,
 };
-const roleLabels={all:'all active users',admin:'administrators',technician:'technicians',reporter:'reporters',student:'students'};
+const roleLabels={all:'all active users',admin:'administrators',technician:'technicians',reporter:'reporters'};
+function confirmBroadcast() {
+  const t = document.getElementById('bcastTarget').value;
+  const n = roleCounts[t] || 0;
+  const who = roleLabels[t] || t;
+  if (!n) { alert('There is nobody in that group to send to.'); return false; }
+  return confirm('Send this message to ' + n + ' ' + who + '?\n\nA notification cannot be recalled once sent.');
+}
 function selectTarget(val, el) {
   document.querySelectorAll('.tpill').forEach(p=>p.classList.remove('sel'));
   el.classList.add('sel');

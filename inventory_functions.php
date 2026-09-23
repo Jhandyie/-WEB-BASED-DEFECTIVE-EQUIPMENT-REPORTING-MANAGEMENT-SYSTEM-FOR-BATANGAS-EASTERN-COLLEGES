@@ -350,24 +350,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($errors) {
             $_SESSION['flash'] = ['err', implode(' ', $errors)];
         } else {
+            /*
+             * Only write a column the form actually sent.
+             *
+             * The edit modal offers nine fields; this handler read nineteen,
+             * defaulting every absent one to '' — so correcting an item's
+             * location silently blanked its brand, model, serial number,
+             * purchase price, warranty expiry and acquisition dates, and reset
+             * its condition to "good". Most of the 1,331 rows come from the
+             * registrar's workbook, which is precisely where those columns come
+             * from, and nothing in the interface ever showed them again.
+             *
+             * Gating on the POST key rather than on the value also means a
+             * field added to the form later starts being saved on its own,
+             * and one removed from it stops overwriting.
+             */
+            $sent = static fn(string $k): bool => array_key_exists($k, $_POST);
+
             $set = ['equipment_name=?', 'asset_tag=?'];
             $vals = [$name, $tag];
-            if ($hasEqCategory)   { $set[] = 'category=?';        $vals[] = $cat; }
-            if ($hasEqLocation)   { $set[] = 'location=?';        $vals[] = $loc; }
-            if ($hasEqDepartment) { $set[] = 'department=?';      $vals[] = $dept; }
-            if ($hasEqBrand)      { $set[] = 'brand=?';           $vals[] = $brand; }
-            if ($hasEqModel)      { $set[] = 'model=?';           $vals[] = $model; }
-            if (isset($eqCols['serial_number']))  { $set[] = 'serial_number=?';  $vals[] = $serial; }
-            if ($hasEqStatus)     { $set[] = 'status=?';          $vals[] = $status; }
-            if ($hasEqCondition)  { $set[] = '`condition`=?';     $vals[] = $cond; }
-            if (isset($eqCols['purchase_date']))  { $set[] = 'purchase_date=?';  $vals[] = $pdate; }
-            if (isset($eqCols['purchase_price'])) { $set[] = 'purchase_price=?'; $vals[] = $price; }
-            if ($hasEqWarranty)   { $set[] = 'warranty_expiry=?'; $vals[] = $warranty; }
-            if ($hasEqAcquired)   { $set[] = 'acquired=?';        $vals[] = $acquired; }
-            if ($hasEqIssued)     { $set[] = 'issued=?';          $vals[] = $issued; }
-            if ($hasEqCounted)    { $set[] = 'counted=?';         $vals[] = $counted; }
-            if ($hasEqRemarks)    { $set[] = 'remarks=?';         $vals[] = $remarks; }
-            if (isset($eqCols['notes']))          { $set[] = 'notes=?';          $vals[] = $notes; }
+            if ($hasEqCategory   && $sent('category'))    { $set[] = 'category=?';        $vals[] = $cat; }
+            if ($hasEqLocation   && $sent('location'))    { $set[] = 'location=?';        $vals[] = $loc; }
+            if ($hasEqDepartment && $sent('department'))  { $set[] = 'department=?';      $vals[] = $dept; }
+            if ($hasEqBrand      && $sent('brand'))       { $set[] = 'brand=?';           $vals[] = $brand; }
+            if ($hasEqModel      && $sent('model'))       { $set[] = 'model=?';           $vals[] = $model; }
+            if (isset($eqCols['serial_number'])  && $sent('serial_number'))  { $set[] = 'serial_number=?';  $vals[] = $serial; }
+            if ($hasEqStatus     && $sent('status'))      { $set[] = 'status=?';          $vals[] = $status; }
+            if ($hasEqCondition  && $sent('condition'))   { $set[] = '`condition`=?';     $vals[] = $cond; }
+            if (isset($eqCols['purchase_date'])  && $sent('purchase_date'))  { $set[] = 'purchase_date=?';  $vals[] = $pdate; }
+            if (isset($eqCols['purchase_price']) && $sent('purchase_price')) { $set[] = 'purchase_price=?'; $vals[] = $price; }
+            if ($hasEqWarranty   && $sent('warranty_expiry')) { $set[] = 'warranty_expiry=?'; $vals[] = $warranty; }
+            if ($hasEqAcquired   && $sent('acquired'))    { $set[] = 'acquired=?';        $vals[] = $acquired; }
+            if ($hasEqIssued     && $sent('issued'))      { $set[] = 'issued=?';          $vals[] = $issued; }
+            if ($hasEqCounted    && $sent('counted'))     { $set[] = 'counted=?';         $vals[] = $counted; }
+            if ($hasEqRemarks    && $sent('remarks'))     { $set[] = 'remarks=?';         $vals[] = $remarks; }
+            if (isset($eqCols['notes'])          && $sent('notes'))          { $set[] = 'notes=?';          $vals[] = $notes; }
             if ($hasEqUpdatedAt)  { $set[] = 'updated_at=NOW()'; }
 
             $vals[] = $eid;
@@ -1815,7 +1832,9 @@ textarea.fc{resize:vertical;min-height:72px;}
             <form method="POST" action="admin_inventory.php" style="margin-top:.5rem;">
               <input type="hidden" name="action" value="delete">
               <input type="hidden" name="equipment_id" id="dEid">
-              <button type="submit" class="btn btn-red btn-sm" onclick="return confirm('Delete this item? This cannot be undone.')"><i class="fas fa-trash"></i> Delete</button>
+              <button type="submit" class="btn btn-red btn-sm" onclick="return confirm('Delete this item?
+
+It is removed from the inventory and from every list in the system. The record is kept in the database, so the PMO can have it restored, but nothing in this interface can bring it back.')"><i class="fas fa-trash"></i> Delete</button>
             </form>
           </div>
         </div>

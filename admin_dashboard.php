@@ -1004,7 +1004,10 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .nav-item:focus-visib
               <td style="font-size:.75rem;color:var(--t3);"><?php echo date('M j, Y',strtotime($r['report_date'])); ?></td>
               <td>
                 <div style="display:flex;gap:.3rem;">
-                  <a href="admin_defect_reports.php?view=<?php echo $r['report_id']; ?>" class="btn btn-icon btn-view" title="View"><i class="fas fa-eye"></i></a>
+                  <?php /* view_id opens the report. "view" is the table/kanban
+                           switch on that page, so this used to land the admin
+                           on a list with no rows and no report and no error. */ ?>
+                  <a href="admin_defect_reports.php?view_id=<?php echo urlencode($r['report_id']); ?>" class="btn btn-icon btn-view" title="View"><i class="fas fa-eye"></i></a>
                   <a href="admin_assign_technicians.php?report=<?php echo $r['report_id']; ?>" class="btn btn-icon btn-edit" title="Assign"><i class="fas fa-user-plus"></i></a>
                 </div>
               </td>

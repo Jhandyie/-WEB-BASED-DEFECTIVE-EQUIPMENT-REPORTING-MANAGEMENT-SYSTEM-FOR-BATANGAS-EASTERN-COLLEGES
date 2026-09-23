@@ -127,10 +127,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     elseif ($act === 'verify_completion') {
         // "Verify & Close" — the PMO confirms the repair and closes the report in one step
         // (the button and the reporter notice both say the report is resolved/closed).
+        //
+        // The verification note used to be written into admin_notes, which is
+        // where the approval instructions already live — so signing a job off
+        // erased what the office had told the technician to do, and the
+        // verification_notes column it belongs in stayed empty for every report
+        // ever closed. Work Orders and the printable repair form both read that
+        // column, so both showed nothing.
+        //
+        // completion_verified_by_admin is not a column on this table;
+        // updateDefectReport() drops unknown keys, so it was never stored.
+        // Left out rather than left in, so the code stops implying otherwise.
         updateDefectReport($reportId, [
-            'status'                        => 'closed',
-            'completion_verified_by_admin'  => $admin_id,
-            'admin_notes'                   => $_POST['verification_notes'] ?? '',
+            'status'             => 'closed',
+            'verification_notes' => $_POST['verification_notes'] ?? '',
         ]);
 
         $cur = getDefectReportById($reportId);
@@ -177,6 +187,9 @@ $unitFilter = function ($r) use ($df, $dfExplicit) {
 };
 $sq = $_GET['search']   ?? '';
 $vw = $_GET['view']     ?? 'table'; // 'table' | 'kanban'
+// Anything else is not a view. Unvalidated, a stray ?view=REP-0042 matched
+// neither branch and rendered a page with no list and no report at all.
+if (!in_array($vw, ['table', 'kanban'], true)) { $vw = 'table'; }
 // Where the ticket came from. Preventive ones are raised by a schedule on
 // admin_preventive.php rather than reported by a person, and until this filter
 // existed there was no way to see them as a group — is_preventive was written
@@ -1813,6 +1826,15 @@ textarea.fc{resize:vertical;min-height:70px;}
             <i class="fas fa-note-sticky" aria-hidden="true"></i><h3>PMO Notes</h3>
           </div>
           <div class="dr-desc"><?php echo nl2br(esc($vr['admin_notes'])); ?></div>
+          <?php endif; ?>
+          <?php /* Written when the office signs the repair off. It used to
+                   overwrite the notes above instead of being kept beside
+                   them. */ ?>
+          <?php if (!empty($vr['verification_notes'])): ?>
+          <div class="dr-card-h" style="margin:1rem 0 .5rem;">
+            <i class="fas fa-clipboard-check" aria-hidden="true"></i><h3>Verification Note</h3>
+          </div>
+          <div class="dr-desc"><?php echo nl2br(esc($vr['verification_notes'])); ?></div>
           <?php endif; ?>
         </section>
 
