@@ -28,22 +28,44 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
 // Enforce CSRF on registration submissions.
 requireCsrf(true);
 
-// Role — only Administrator (PMO) self-registers here.
-// Reporters (students, teachers, staff, janitors, etc.) use the universal
-// reporter portal (student_index.php) with their BEC identity — no separate
-// faculty login. Technician accounts are created by the Administrator.
-$role = trim($_POST['role'] ?? 'student');
-if (!in_array($role, ['student', 'admin'], true)) {
-    // Reject roles that must be provisioned internally or have no self-signup.
-    if (in_array($role, ['technician'], true)) {
-        echo json_encode([
-            'success' => false,
-            'message' => 'This account type cannot be self-registered. Please contact the Property Management Office.'
-        ]);
-        exit();
-    }
-    $role = 'student';
+/*
+ * Role — nobody self-registers into a staff account any more.
+ *
+ * This used to accept role=admin, and the admin sign-in page shipped a Sign Up
+ * form that posted exactly that. There was no domain check here or at login, no
+ * approval step and no rate limit, and the account was created 'active' — so
+ * anyone who could reach the page could make themselves a PMO administrator
+ * with any address they liked, and the login code was then mailed to them. An
+ * admin account reaches every report, the whole BEC directory, user management
+ * and the database backups.
+ *
+ * Staff accounts (admin and technician alike) are created by an existing
+ * administrator in admin_users.php, which has done so all along.
+ *
+ * Reporters (students, teachers, staff, janitors) do not register at all: they
+ * use the reporter portal with their BEC identity and an emailed code.
+ *
+ * Nothing self-registers now, so this endpoint refuses every role and creates
+ * nothing. It is kept, rather than deleted, so a stale bookmark or a cached
+ * page gets a clear answer instead of a 404, and so this note stays with the
+ * history. The code below it is left intact for the same reason.
+ */
+require_once __DIR__ . '/includes/rate_limiter.php';
+try {
+    RateLimiter::enforce('register:' . RateLimiter::clientIp(), 12, 900);
+} catch (\Throwable $e) {
+    // Answer the same way either way; a different reply here is a probe oracle.
 }
+echo json_encode([
+    'success' => false,
+    'message' => 'Accounts are not self-registered. Property Management Office staff and technicians are set up by an administrator; students, teachers and staff report equipment through the reporter portal with their BEC email.'
+]);
+exit();
+
+/*
+ * Unreachable from here down — see the note above.
+ */
+$role = 'student';
 
 // Inputs (spec fields)
 $fullname        = trim($_POST['fullname'] ?? '');

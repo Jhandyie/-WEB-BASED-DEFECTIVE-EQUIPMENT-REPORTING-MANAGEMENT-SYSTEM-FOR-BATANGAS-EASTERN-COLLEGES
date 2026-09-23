@@ -369,6 +369,10 @@ $checks = [
 
     ['Admin sign-in (signed out)', 'none', 'admin/admin_login_otp.html', [
         ['renders',                  '/<\/html>/i',                 true],
+        /* Nobody self-registers into a PMO account. The page used to carry a
+           hidden sign-up panel posting role=admin to register_process.php,
+           which created an active administrator for any address given. */
+        ['no self sign-up form',     '/id="signUpForm"|class="sign-up"/', false],
         ['no dead remember-me box',  '/rememberMe/',                false],
         // The working one, on the code step. Unlike the dead box above it is
         // posted with the verification and remembers the browser for a day.

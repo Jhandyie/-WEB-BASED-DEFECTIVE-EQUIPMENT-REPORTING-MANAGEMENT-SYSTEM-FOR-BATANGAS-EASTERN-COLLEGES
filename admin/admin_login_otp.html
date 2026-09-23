@@ -157,16 +157,12 @@
       }
       .switch-row button:hover { text-decoration: underline; }
 
-      /* Sign-in / sign-up visibility (toggled by #container.active) */
-      .sign-up { display: none; }
-      .container.active .sign-in { display: none; }
-      .container.active .sign-up { display: block; }
+      /* Sign-in panel visibility */
 
       /* OTP step (in-flow so the card grows to fit — no overlap with the footer) */
       .otp-section { display: none; }
       .otp-section.show { display: block; animation: otpIn .25s ease; }
       .container.otp-mode .sign-in,
-      .container.otp-mode .sign-up { display: none; }
       @keyframes otpIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
       .otp-section h2 { font-size: 1.05rem; font-weight: 700; color: var(--ink); }
       .otp-badge {
@@ -363,56 +359,6 @@
             </form>
           </div>
 
-          <!-- Sign Up -->
-          <div class="sign-up">
-            <form id="signUpForm" autocomplete="on">
-              <div class="form-title">Create administrator account</div>
-              <div class="form-hint">For Property Management Office personnel only.</div>
-              <div id="signUpMessage"></div>
-
-              <div class="field">
-                <label for="signUpName">Full Name <span class="req">*</span></label>
-                <div class="input-wrapper">
-                  <input type="text" id="signUpName" placeholder="e.g. Juan Dela Cruz" required />
-                  <i class="fas fa-user input-icon"></i>
-                </div>
-              </div>
-
-              <div class="field">
-                <label for="signUpEmail">Email Address <span class="req">*</span></label>
-                <div class="input-wrapper">
-                  <input type="email" id="signUpEmail" placeholder="name@bec.edu.ph" required />
-                  <i class="fas fa-envelope input-icon"></i>
-                </div>
-              </div>
-
-              <div class="field">
-                <label for="signUpPassword">Password <span class="req">*</span></label>
-                <div class="input-wrapper">
-                  <input type="password" id="signUpPassword" placeholder="Min. 8 chars, letters &amp; numbers" required />
-                  <i class="fas fa-lock input-icon"></i>
-                  <i class="fas fa-eye-slash password-toggle" id="toggleSignUpPwd" onclick="togglePassword('signUpPassword','toggleSignUpPwd')"></i>
-                </div>
-              </div>
-
-              <div class="field">
-                <label for="signUpConfirmPassword">Confirm Password <span class="req">*</span></label>
-                <div class="input-wrapper">
-                  <input type="password" id="signUpConfirmPassword" placeholder="Re-enter your password" required />
-                  <i class="fas fa-lock input-icon"></i>
-                  <i class="fas fa-eye-slash password-toggle" id="toggleSignUpConfirmPwd" onclick="togglePassword('signUpConfirmPassword','toggleSignUpConfirmPwd')"></i>
-                </div>
-              </div>
-
-              <button type="submit" class="btn-primary"><i class="fas fa-user-plus"></i> Create Account</button>
-
-              <div class="switch-row">
-                Already have an account?
-                <button type="button" id="login">Sign in instead</button>
-              </div>
-            </form>
-          </div>
-
           <!-- OTP Verification -->
           <div class="otp-section" id="otpSection">
             <h2>Two-step verification</h2>
@@ -482,23 +428,16 @@
     <script>
         // DOM Elements
         const container = document.getElementById("container");
-        const registerBtn = document.getElementById("register");
-        const loginBtn = document.getElementById("login");
         let otpTimer = null;
         let otpExpiryTime = null;
         let otpTotalDuration = 3 * 60 * 1000;
         let resendTimer = null;
         let resendCountdown = 30;
 
-        // Toggle sign-in / sign-up. The "Register here" link was removed from the
-        // sign-in panel — admin accounts are created in User Management, not by
-        // self-service — so #register no longer exists and this must not throw:
-        // an uncaught error here would leave every listener below it unwired.
-        if (registerBtn) { registerBtn.addEventListener("click", () => container.classList.add("active")); }
-        loginBtn.addEventListener("click", () => {
-            container.classList.remove("active");
-            cancelOTP();
-        });
+        // Sign-in only. Administrator accounts are created in User Management
+        // by someone who already has one; nothing self-registers. The sign-up
+        // panel that used to live here is gone, and register_process.php now
+        // refuses every role it is asked for.
 
         // Password toggle
         function togglePassword(inputId, iconId) {
@@ -507,51 +446,6 @@
             inp.type = inp.type === 'password' ? 'text' : 'password';
             ico.className = `fas ${inp.type === 'password' ? 'fa-eye-slash' : 'fa-eye'} password-toggle`;
         }
-
-        // Sign Up
-        document.getElementById("signUpForm").addEventListener("submit", async (e) => {
-            e.preventDefault();
-            const name = document.getElementById("signUpName").value;
-            const email = document.getElementById("signUpEmail").value;
-            const password = document.getElementById("signUpPassword").value;
-            const confirmPassword = document.getElementById("signUpConfirmPassword").value;
-
-            if (name.length < 3) { showMessage('error', 'Name must be at least 3 characters', 'signUpMessage'); return; }
-            if (password.length < 8) { showMessage('error', 'Password must be at least 8 characters', 'signUpMessage'); return; }
-            if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) { showMessage('error', 'Password must contain at least one letter and one number', 'signUpMessage'); return; }
-            if (password !== confirmPassword) { showMessage('error', 'Passwords do not match', 'signUpMessage'); return; }
-
-            showLoading('Creating admin account...');
-            try {
-                const formData = new FormData();
-                formData.append('fullname', name);
-                formData.append('email', email);
-                formData.append('password', password);
-                formData.append('confirm_password', confirmPassword);
-                formData.append('role', 'admin');
-                try {
-                    const cr = await fetch('../register_process.php?action=get_csrf', { credentials: 'same-origin' });
-                    const cd = await cr.json();
-                    if (cd.token) formData.append('csrf_token', cd.token);
-                } catch {}
-
-                const response = await fetch('../register_process.php', { method: 'POST', body: formData, credentials: 'same-origin' });
-                const data = await response.json();
-                hideLoading();
-
-                if (data.success) {
-                    showMessage('success', 'Admin account created! Please sign in.', 'signUpMessage');
-                    document.getElementById("signUpForm").reset();
-                    setTimeout(() => container.classList.remove("active"), 1500);
-                } else {
-                    showMessage('error', data.message || 'Registration failed. Please try again.', 'signUpMessage');
-                }
-            } catch (error) {
-                hideLoading();
-                showMessage('error', 'Registration failed. Please try again.', 'signUpMessage');
-                console.error('Registration error:', error);
-            }
-        });
 
         // Fetch a CSRF token once and reuse it for all admin login POSTs.
         let CSRF_TOKEN = null;
