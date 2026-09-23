@@ -93,6 +93,21 @@ function eqicon(string $name): string {
 /* A preventive task is a defect_reports row the schedule sweep wrote, not one
    a reporter filed. The flag is the truth; the description prefix is the
    fallback for rows older than the column. */
+/**
+ * "Campus • Building • Room" split into the room and everything above it.
+ *
+ * The room is the only part that gets a technician to the door, and it sits at
+ * the end of a string that runs to eighty characters — so on a phone it was
+ * the part pushed onto the third line, or cut off by the ellipsis entirely.
+ * A location typed by hand (no bullets) has no parts and is shown whole.
+ */
+function locParts(string $full): array {
+    $bits = array_values(array_filter(array_map('trim', explode('•', $full)), static fn($b) => $b !== ''));
+    if (count($bits) < 2) { return ['room' => trim($full), 'rest' => '']; }
+    $room = array_pop($bits);
+    return ['room' => $room, 'rest' => implode(' • ', $bits)];
+}
+
 function isPmRow(array $row): bool {
     $flag = $row['is_preventive'] ?? null;
     if ($flag === true || $flag === 't' || $flag === 1 || $flag === '1') return true;
@@ -665,8 +680,11 @@ body.modal-open .bell-fab{display:none;}
 .q-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
 .q-top strong{font-family:'Fraunces',serif;font-size:.98rem;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .q-id{font-size:.66rem;font-weight:800;color:var(--ink3);flex-shrink:0;}
-.q-loc{display:flex;align-items:center;gap:.35rem;font-size:.76rem;color:var(--ink3);margin:.25rem 0 .5rem;}
+.q-loc{display:flex;align-items:center;gap:.35rem;font-size:.8rem;font-weight:700;color:var(--ink2);margin:.25rem 0 0;}
 .q-loc i{color:var(--gold);font-size:.68rem;}
+/* The campus and building, under the room rather than in front of it. */
+.q-loc-sub{display:block;font-size:.7rem;color:var(--ink3);margin:0 0 .5rem 1.05rem;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .q-badges{display:flex;flex-wrap:wrap;gap:5px;}
 
 /* Badges (shared) */
@@ -757,6 +775,7 @@ body.modal-open .bell-fab{display:none;}
 .copy{font-size:.87rem;line-height:1.7;color:var(--ink2);}
 .copy-label{font-size:.6rem;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--gold);margin-bottom:4px;}
 .where-pin{color:var(--maroon);font-size:.8rem;margin-right:6px;}
+.where-rest{font-size:.78rem;color:var(--ink3);margin-top:2px;}
 /* Reporter block — one line of who, one tap to reach them. Wraps on a phone
    rather than pushing the Email action off the edge. */
 .reporter{display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:11px 13px;border-radius:12px;
@@ -800,6 +819,7 @@ body.modal-open .bell-fab{display:none;}
 .money-in input{padding-left:1.9rem !important;}
 .form textarea{min-height:92px;resize:vertical;line-height:1.55;}
 .form label .opt{font-weight:600;letter-spacing:0;text-transform:none;color:var(--ink3);}
+.fhint{font-size:.72rem;color:var(--ink3);margin-top:.3rem;}
 /* One big button per status — the thing the technician presses next. */
 .big-go{width:100%;justify-content:center;font-size:1rem !important;padding:1rem 1.25rem !important;min-height:56px;}
 .go-link{display:inline-flex;align-items:center;gap:.5rem;border-radius:11px;font-weight:700;color:#fff;text-decoration:none;
@@ -1012,6 +1032,8 @@ body.modal-open{overflow:hidden;}
 .axl-core i{font-size:1.8rem;color:#F0C040;}
 .axl-label{font-family:'Fraunces',serif;font-weight:700;font-size:1.02rem;color:#fff;letter-spacing:.01em;}
 .axl-sub{font-size:.72rem;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:rgba(240,192,64,.85);}
+.axl-bar{width:min(260px,70vw);height:8px;margin:14px auto 0;border-radius:99px;overflow:hidden;background:rgba(255,255,255,.18);}
+.axl-bar span{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#C9960C,#F0C040);transition:width .2s ease;}
 @keyframes axlSpin{to{transform:rotate(360deg);}}
 /* per-action icon animations */
 .axl.ax-receive .axl-core i{animation:axGrab 1s ease-in-out infinite;}
@@ -1048,8 +1070,9 @@ body.modal-open{overflow:hidden;}
      the ticket number 10.2px - the two things a technician scans the queue
      for. A phone floor of 12px for anything that has to be read. */
   .q-id{font-size:.74rem;}
-  .q-loc{margin:.1rem 0 .3rem;font-size:.74rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;}
+  .q-loc{margin:.1rem 0 0;font-size:.78rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;}
   .q-loc i{display:none;}
+  .q-loc-sub{margin-left:0;}
   .q-badges{gap:4px;}
   .q-badges .badge{padding:.2rem .5rem;font-size:.72rem;gap:3px;}
   .q-badges .badge i{font-size:.62rem;}
@@ -1190,7 +1213,9 @@ body.modal-open{overflow:hidden;}
           <span class="q-ic"><i class="fas <?php echo e(eqicon((string)($row['equipment_name'] ?? ''))); ?>"></i></span>
           <span class="q-body">
             <span class="q-top"><strong><?php echo e((string)($row['equipment_name'] ?? 'Equipment')); ?></strong><span class="q-id">#<?php echo e((string)$row['report_id']); ?></span></span>
-            <span class="q-loc"><i class="fas fa-location-dot"></i> <?php echo e((string)($row['location'] ?? 'Unspecified')); ?></span>
+            <?php $qLoc = locParts((string)($row['location'] ?? '')); ?>
+            <span class="q-loc"><i class="fas fa-location-dot"></i> <?php echo e($qLoc['room'] !== '' ? $qLoc['room'] : 'Unspecified'); ?></span>
+            <?php if ($qLoc['rest'] !== ''): ?><span class="q-loc-sub"><?php echo e($qLoc['rest']); ?></span><?php endif; ?>
             <span class="q-badges">
               <span class="badge <?php echo e(stone($st)); ?>"><i class="fas <?php echo e(sicon($st)); ?>"></i><?php echo e(slabel($st)); ?></span>
               <span class="badge <?php echo e(ptone($pr)); ?>"><i class="fas <?php echo e(picon($pr)); ?>"></i><?php echo e(ucfirst($pr)); ?></span>
@@ -1240,7 +1265,12 @@ body.modal-open{overflow:hidden;}
                      in the right rail that used to sit above this said nothing a
                      repair needs and were what the panel meant by "too much". */ ?>
             <div class="sec">
-              <div class="sec-h"><small>Where</small><h3><i class="fas fa-location-dot where-pin"></i><?php echo e((string)($row['location'] ?? 'Location not given')); ?></h3></div>
+              <?php $wLoc = locParts((string)($row['location'] ?? '')); ?>
+              <div class="sec-h">
+                <small>Where</small>
+                <h3><i class="fas fa-location-dot where-pin"></i><?php echo e($wLoc['room'] !== '' ? $wLoc['room'] : 'Location not given'); ?></h3>
+                <?php if ($wLoc['rest'] !== ''): ?><div class="where-rest"><?php echo e($wLoc['rest']); ?></div><?php endif; ?>
+              </div>
               <div class="q-badges" style="margin-bottom:14px">
                 <span class="badge <?php echo e(stone($st)); ?>"><i class="fas <?php echo e(sicon($st)); ?>"></i><?php echo e(slabel($st)); ?></span>
                 <span class="badge <?php echo e(ptone((string)($row['priority'] ?? 'medium'))); ?>"><i class="fas <?php echo e(picon((string)($row['priority'] ?? 'medium'))); ?>"></i><?php echo e(ucfirst((string)($row['priority'] ?? 'medium'))); ?> priority</span>
@@ -1364,9 +1394,13 @@ body.modal-open{overflow:hidden;}
                 <input type="hidden" name="report_id" value="<?php echo $rid_e; ?>">
                 <input type="hidden" name="action" value="complete">
                 <label>What did you do? <em class="req">*</em></label>
-                <textarea name="work_performed" placeholder="e.g. Replaced the capacitor and cleaned the filter. Cooling again." data-req="What you did"></textarea>
+                <?php /* The example is Taglish on purpose. BEC technicians write
+                         the way they speak, and an English-only prompt is what
+                         turns a full answer into three words. */ ?>
+                <textarea name="work_performed" placeholder="Hal. Pinalitan ang capacitor at nilinis ang filter — malamig na ulit." data-req="What you did"></textarea>
+                <div class="fhint">English or Filipino — kahit alin ang mas madali.</div>
                 <label>Parts used <span class="opt">(if any)</span></label>
-                <input type="text" name="parts_replaced" placeholder="e.g. capacitor, 2 screws" maxlength="300" autocomplete="off">
+                <input type="text" name="parts_replaced" placeholder="Hal. capacitor, 2 turnilyo" maxlength="300" autocomplete="off">
                 <label>Photo of the finished work <em class="req">*</em></label>
                 <div class="photo-field" data-req-photo="A photo of the finished work">
                   <div class="cam-row"><button type="button" class="cam-trigger" data-camera="photo" data-camera-target='#after_<?php echo $rid_e; ?>'><i class="fas fa-camera"></i> Take a photo</button></div>
@@ -1400,7 +1434,7 @@ body.modal-open{overflow:hidden;}
                 <form class="form" method="post">
                   <input type="hidden" name="report_id" value="<?php echo $rid_e; ?>">
                   <label for="pnote_<?php echo $rid_e; ?>">Tell the PMO what is wrong, in a sentence</label>
-                  <textarea id="pnote_<?php echo $rid_e; ?>" name="technician_notes" placeholder="e.g. Needs a new compressor — none in stock."></textarea>
+                  <textarea id="pnote_<?php echo $rid_e; ?>" name="technician_notes" placeholder="Hal. Kailangan ng bagong compressor — wala sa stock."></textarea>
                   <div class="actions">
                     <?php if (in_array($st, ['assigned','accepted','in_progress'], true)): ?><button class="b3" type="submit" name="action" value="waiting"><i class="fas fa-box"></i> Need parts first</button><?php endif; ?>
                     <button class="b3" type="submit" name="action" value="replace"><i class="fas fa-rotate"></i> Can't be fixed — needs replacement</button>
@@ -1498,6 +1532,11 @@ body.modal-open{overflow:hidden;}
     <div>
       <div class="axl-label" id="axlLabel">Working…</div>
       <div class="axl-sub" id="axlSub">Please wait</div>
+      <?php /* Shown only while a photo is actually going up. A repair photo is
+               a full camera shot and the signal in a corridor is what it is;
+               a spinner that says nothing for forty seconds is what makes
+               somebody press the button again. */ ?>
+      <div class="axl-bar" id="axlBar" hidden><span id="axlBarFill"></span></div>
     </div>
   </div>
 </div>
@@ -1764,6 +1803,46 @@ document.querySelectorAll('form:not(.tech-ajax):not(.search)').forEach(function 
   });
 });
 
+/* The same POST the completion report used to send with fetch(), but through
+   XHR so the upload can be watched. fetch() cannot report upload progress at
+   all; everything else — the JSON answer, the messages, the reload — is
+   unchanged, so this is only about the technician being able to see that
+   something is happening. */
+function axlProgress(loaded, total) {
+  const bar = document.getElementById('axlBar');
+  const fill = document.getElementById('axlBarFill');
+  const sub = document.getElementById('axlSub');
+  if (!bar || !fill) return;
+  bar.hidden = false;
+  const pct = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0;
+  fill.style.width = pct + '%';
+  if (sub) sub.textContent = pct < 100 ? 'Sending photo — ' + pct + '%' : 'Saving your report';
+}
+function axlProgressReset() {
+  const bar = document.getElementById('axlBar');
+  const fill = document.getElementById('axlBarFill');
+  if (bar) bar.hidden = true;
+  if (fill) fill.style.width = '0%';
+}
+function techPostWithProgress(url, formData) {
+  return new Promise(function (resolve, reject) {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url, true);
+    xhr.upload.addEventListener('progress', function (p) {
+      if (p.lengthComputable) axlProgress(p.loaded, p.total);
+    });
+    xhr.addEventListener('load', function () {
+      let data = null;
+      try { data = JSON.parse(xhr.responseText); } catch (err) { /* not JSON */ }
+      resolve(data || { success: false, message: 'The server sent an unreadable response (HTTP ' + xhr.status + '). If you attached photos, try smaller ones; otherwise contact the PMO.' });
+    });
+    xhr.addEventListener('error', function () { reject(new Error('network')); });
+    xhr.addEventListener('abort', function () { reject(new Error('abort')); });
+    xhr.addEventListener('timeout', function () { reject(new Error('timeout')); });
+    xhr.send(formData);
+  });
+}
+
 /* AJAX submit for the completion report (keeps file uploads working) */
 document.querySelectorAll('form.tech-ajax').forEach(function (f) {
   f.addEventListener('submit', async function (e) {
@@ -1795,19 +1874,18 @@ document.querySelectorAll('form.tech-ajax').forEach(function (f) {
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Submitting…'; }
     const actionUrl = f.getAttribute('action') || '';
     actionLoader(true, 'complete');
+    axlProgressReset();
     try {
-      const res = await fetch(actionUrl, { method: 'POST', body: new FormData(f) });
-      const data = await res.json().catch(function () {
-        return { success: false, message: 'The server sent an unreadable response (HTTP ' + res.status + '). If you attached photos, try smaller ones; otherwise contact the PMO.' };
-      });
+      const data = await techPostWithProgress(actionUrl, new FormData(f));
       if (data.success) {
         if (f.dataset.reload) { window.location.reload(); return; }
       } else {
         techToast('err', data.message || 'Action failed. Please check the form and try again.');
       }
     } catch (err) {
-      techToast('err', 'Connection error. Please try again.');
+      techToast('err', 'Connection error — your photo and notes are still here. Please try again.');
     }
+    axlProgressReset();
     actionLoader(false);
     if (btn) { btn.disabled = false; btn.innerHTML = orig; }
   });
