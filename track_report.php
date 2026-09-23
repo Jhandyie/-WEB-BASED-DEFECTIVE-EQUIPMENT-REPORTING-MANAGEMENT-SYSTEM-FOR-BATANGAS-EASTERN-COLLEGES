@@ -672,7 +672,13 @@ html{scroll-behavior:smooth}
       <div class="sub">Your ticket number is in the confirmation email. An equipment ID or asset tag works too.</div>
       <form method="GET" action="">
         <div class="search-wrap">
-          <input class="input" id="track-search" type="text" name="q" placeholder="e.g. BEC-A1B2C3D4, EQ-001, or COMP-001" value="<?php echo htmlspecialchars($query); ?>" autocomplete="off" required>
+          <?php /* The example has to be the shape of a real ticket. It read
+                   "BEC-A1B2C3D4", a format this system has never issued — every
+                   ticket ever generated is BEC-<year>-<six digits> — so a
+                   reporter holding BEC-2026-000266 and comparing it to the
+                   example had reason to think they had the wrong thing, on the
+                   one page whose job is to reassure them. */ ?>
+          <input class="input" id="track-search" type="text" name="q" placeholder="e.g. BEC-<?php echo date('Y'); ?>-000123, or an asset tag like T-0825-0078" value="<?php echo htmlspecialchars($query); ?>" autocomplete="off" required>
           <div class="search-dd" id="track-dropdown"></div>
         </div>
         <button class="btn" type="submit">Track Report</button>

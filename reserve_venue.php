@@ -15,6 +15,37 @@
 require_once __DIR__ . '/config/features.php';
 if (!becVenueEnabled()) { header('Location: index.php'); exit; }
 require_once __DIR__ . '/includes/session_bootstrap.php';
+
+/*
+ * Who is asking, read from the reporter portal's own session before this page
+ * opens its own.
+ *
+ * This form used to prefill from $_SESSION['fullname'] / ['user_email'] /
+ * ['department'], which are written by the admin and technician logins — each
+ * on its own session cookie. This page is the only one in the codebase using
+ * the 'main' session, and nothing ever writes a name into it, so the prefill
+ * was always empty and every requester typed their name, email and department
+ * by hand — including a reporter who had signed in with their BEC address a
+ * moment earlier.
+ *
+ * The reporter portal runs on the default session name (startPublicSession()
+ * never renames it), so it has to be opened, read and closed before
+ * startRoleSession() claims the request. Only opened when its cookie is
+ * actually present: starting it unconditionally would hand a session cookie to
+ * every passer-by who never signs in.
+ */
+$becGuestName = ''; $becGuestMail = '';
+$becPublicCookie = session_name();
+if (!empty($_COOKIE[$becPublicCookie])) {
+    session_start();
+    if (!empty($_SESSION['guest_email']) && becGuestSessionActive()) {
+        // Stored html-escaped by the reporter sign-in; this is a form value now.
+        $becGuestName = trim(html_entity_decode((string)($_SESSION['guest_name'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        $becGuestMail = trim((string)$_SESSION['guest_email']);
+    }
+    session_write_close();
+}
+
 startRoleSession('main');
 require_once __DIR__ . '/config/database.php';
 require_once __DIR__ . '/includes/csrf.php';
@@ -25,10 +56,20 @@ $pdo = getPgsqlPdoConnection();
 function rq_e($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 
 $isWalkIn = isset($_GET['walkin']);   // PMO filing a counter request on someone's behalf
-$sessName = trim((string)($_SESSION['fullname'] ?? ''));
-$sessMail = trim((string)($_SESSION['user_email'] ?? ($_SESSION['email'] ?? '')));
+$sessName = trim((string)($_SESSION['fullname'] ?? '')) ?: $becGuestName;
+$sessMail = trim((string)($_SESSION['user_email'] ?? ($_SESSION['email'] ?? ''))) ?: $becGuestMail;
 $sessDept = trim((string)($_SESSION['department'] ?? ''));
 $sessUid  = trim((string)($_SESSION['user_id'] ?? ''));
+
+/* BEC holds a department for everyone on its roster, so a signed-in reporter
+   need not type theirs either. */
+if ($sessDept === '' && $sessMail !== '') {
+    require_once __DIR__ . '/includes/bec_directory_helper.php';
+    if (function_exists('becdir_lookup')) {
+        $becDir = becdir_lookup($sessMail);
+        $sessDept = trim((string)($becDir['department'] ?? ''));
+    }
+}
 
 $flash = null; $conflicts = []; $created = null;
 $fv = [
@@ -157,10 +198,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'participants'    => $fv['participants'],
                     ], 'submitted');
                 } catch (\Throwable $e) {
-                    // Two people submitting the same slot at the same moment: the
-                    // exclusion constraint decides, and this is the loser.
+                    /*
+                     * Two people submitting the same slot at the same moment is
+                     * one reason this can fail — the exclusion constraint decides
+                     * and this is the loser. It was assumed to be the ONLY
+                     * reason, so every other failure told the applicant their
+                     * slot had just been taken. Anyone hitting a real fault was
+                     * sent back to pick another time, over and over, and could
+                     * never succeed; the true error went to the log where they
+                     * could not see it and nobody was looking.
+                     *
+                     * Only a constraint violation is reported as a clash now.
+                     * Anything else says plainly that it did not save.
+                     */
                     error_log('vrf.submit failed: ' . $e->getMessage());
-                    $flash = ['err', 'That slot was taken while you were filling the form. Please choose another time.'];
+                    $isClash = ($e instanceof \PDOException)
+                        && in_array((string)($e->errorInfo[0] ?? ''), ['23P01', '23505'], true);
+                    $flash = $isClash
+                        ? ['err', 'That slot was taken while you were filling the form. Please choose another time.']
+                        : ['err', 'Sorry — your request could not be saved just now. Nothing was booked. '
+                                . 'Please try again, and if it keeps happening contact the Property Management Office.'];
                 }
             }
         }
