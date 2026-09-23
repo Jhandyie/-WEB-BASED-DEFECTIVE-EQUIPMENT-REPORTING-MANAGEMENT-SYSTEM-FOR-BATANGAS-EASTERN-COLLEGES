@@ -214,6 +214,8 @@ $checks = [
         ['select-all box',           '/id="selAll"/',               true],
         ['per-row checkboxes',       '/name="ids\[\]"/',            true],
         ['bulk action bar',          '/id="bulkBar"/',              true],
+        // "Which reports are late?" was not a question this page could ask.
+        ['overdue filter',           '/id="fov"/',                  true],
         ['origin filter',            '/id="fsk"/',                  true],
         ['follow-up filter',         '/id="fsn"/',                  true],
         ['filter bar',               '/id="fsq"/',                  true],
@@ -318,6 +320,9 @@ $checks = [
         ['charts vendored, not CDN', '/cdnjs|jsdelivr/',            false],
     ]],
     ['BEC directory', 'admin', 'admin_bec_directory.php', [
+        /* 3,587 people, paged 50 at a time in SQL — but no controls were ever
+           drawn, so rows 51 onward could only be reached by editing the URL. */
+        ['pager rendered',           '/class="pager"/',             true],
         ['renders',                  '/<\/html>/i',                 true],
     ]],
     /* Recovery is the feature nobody exercises until the worst possible day.

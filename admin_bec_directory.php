@@ -572,6 +572,51 @@ $hasFilter = ($search !== '' || $tf !== 'all' || $df !== 'all' || $yf !== 'all')
             </tbody>
           </table>
           </div>
+          <?php /* The list has been paged in SQL for a while, and $totalPages
+                   was being computed — but nothing ever drew the controls, so
+                   rows 51 onward could only be reached by typing ?page= into
+                   the address bar while the line above said "3,587 matches".
+                   Same markup and classes as the User Management pager, so
+                   both read and behave identically. */ ?>
+          <?php if ($totalPages > 1): ?>
+          <nav class="pager" aria-label="Directory pages">
+            <span class="pager-count">
+              <?php echo number_format($offset + 1); ?>&ndash;<?php echo number_format($offset + count($rows)); ?>
+              of <strong><?php echo number_format($matchCount); ?></strong>
+            </span>
+            <span class="pager-btns">
+              <?php if ($page > 1): ?>
+                <a class="pgb" href="<?php echo bd_e($pageQuery($page - 1)); ?>" rel="prev"><i class="fas fa-chevron-left"></i> Previous</a>
+              <?php else: ?>
+                <span class="pgb off"><i class="fas fa-chevron-left"></i> Previous</span>
+              <?php endif; ?>
+              <?php
+              // A window around the current page: 72 pages must not render 72 links.
+              $from = max(1, $page - 2);
+              $to   = min($totalPages, $page + 2);
+              if ($from > 1): ?>
+                <a class="pgb" href="<?php echo bd_e($pageQuery(1)); ?>">1</a>
+                <?php if ($from > 2): ?><span class="pg-gap">&hellip;</span><?php endif; ?>
+              <?php endif; ?>
+              <?php for ($i = $from; $i <= $to; $i++): ?>
+                <?php if ($i === $page): ?>
+                  <span class="pgb on" aria-current="page"><?php echo $i; ?></span>
+                <?php else: ?>
+                  <a class="pgb" href="<?php echo bd_e($pageQuery($i)); ?>"><?php echo $i; ?></a>
+                <?php endif; ?>
+              <?php endfor; ?>
+              <?php if ($to < $totalPages): ?>
+                <?php if ($to < $totalPages - 1): ?><span class="pg-gap">&hellip;</span><?php endif; ?>
+                <a class="pgb" href="<?php echo bd_e($pageQuery($totalPages)); ?>"><?php echo number_format($totalPages); ?></a>
+              <?php endif; ?>
+              <?php if ($page < $totalPages): ?>
+                <a class="pgb" href="<?php echo bd_e($pageQuery($page + 1)); ?>" rel="next">Next <i class="fas fa-chevron-right"></i></a>
+              <?php else: ?>
+                <span class="pgb off">Next <i class="fas fa-chevron-right"></i></span>
+              <?php endif; ?>
+            </span>
+          </nav>
+          <?php endif; ?>
         <?php endif; ?>
       </div>
     </div>

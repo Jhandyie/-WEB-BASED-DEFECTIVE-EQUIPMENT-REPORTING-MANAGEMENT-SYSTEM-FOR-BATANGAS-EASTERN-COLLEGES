@@ -449,8 +449,11 @@ $hasEqUnit  = isset($eqCols['unit']);
 $vw  = $_GET['view']       ?? 'table'; // table | grid
 $jc  = $_GET['jc']         ?? ''; // JSON category quick view
 $pg  = max(1, (int)($_GET['page'] ?? 1));
-$per = (int)($_GET['per_page'] ?? 10);
-if (!in_array($per, [10,20,50,100], true)) { $per = 10; }
+/* Ten rows over 1,331 items is 133 pages, and every page re-reads the whole
+   table twice — once for the list and once for the summary cards. Fifty is the
+   same default the other admin lists use; the selector still offers 10. */
+$per = (int)($_GET['per_page'] ?? 50);
+if (!in_array($per, [10,20,50,100], true)) { $per = 50; }
 
 /* --- DATA -------------------------------------------- */
 $openDefectsExpr = '0';

@@ -47,7 +47,7 @@ function adminWorkflowNotifyRole($conn, string $role, string $message, string $r
  */
 function becQueueReturn(): string {
     $keep = [];
-    foreach (['status', 'priority', 'dept', 'kind', 'search'] as $k) {
+    foreach (['status', 'priority', 'dept', 'kind', 'search', 'nudged', 'overdue'] as $k) {
         $v = trim((string)($_GET[$k] ?? ''));
         if ($v !== '' && $v !== 'all') { $keep[$k] = $v; }
     }
@@ -335,6 +335,11 @@ if (!in_array($kf, ['all', 'preventive', 'reported'], true)) { $kf = 'all'; }
 // actually waiting on this" never reached the admin working the queue.
 $nf = strtolower(trim((string)($_GET['nudged'] ?? 'all')));
 if (!in_array($nf, ['all', 'yes'], true)) { $nf = 'all'; }
+
+/* Still open and past its SLA window. "Which ITSO reports are late?" was not a
+   question this page could answer at all. */
+$of = strtolower(trim((string)($_GET['overdue'] ?? 'all')));
+if (!in_array($of, ['all', 'yes'], true)) { $of = 'all'; }
 $kindFilter = function ($r) use ($kf) {
     if ($kf === 'all') return true;
     $isPm = !empty($r['is_preventive']) && $r['is_preventive'] !== 'f';
@@ -363,6 +368,7 @@ if ($sf !== 'all') { $listOpts['statuses'] = $stages[$sf] ?? [$sf]; }
 if ($df !== 'all') { $listOpts['dept'] = $df; $listOpts['dept_untriaged'] = !$dfExplicit; }
 if ($kf !== 'all') { $listOpts['kind'] = $kf; }
 if ($nf === 'yes')  { $listOpts['followed_up'] = true; }
+if ($of === 'yes')  { $listOpts['overdue'] = true; }
 
 /* The cards count the same unit and kind scope but ignore the status stage,
    priority and search — so every stage keeps showing its own total while one of
@@ -1595,6 +1601,10 @@ textarea.fc{resize:vertical;min-height:70px;}
         <option value="all" <?php echo $nf==='all'?'selected':''; ?>>Any follow-up</option>
         <option value="yes" <?php echo $nf==='yes'?'selected':''; ?>>Chased by the reporter</option>
       </select>
+      <select class="fsel" id="fov" aria-label="Filter by overdue" onchange="go()">
+        <option value="all" <?php echo $of==='all'?'selected':''; ?>>Any age</option>
+        <option value="yes" <?php echo $of==='yes'?'selected':''; ?>>Overdue only</option>
+      </select>
       <span class="fcount"><?php echo $totalReports; ?> result<?php echo $totalReports != 1 ? 's' : ''; ?></span>
     </div>
 
@@ -1643,7 +1653,7 @@ textarea.fc{resize:vertical;min-height:70px;}
                  forms so acting on a report returns to this same view rather
                  than the bare, unfiltered page. */
               $drRowQS = '';
-              foreach (['status' => $sf, 'priority' => $pf, 'dept' => $df, 'kind' => $kf, 'search' => $sq] as $k => $v) {
+              foreach (['status' => $sf, 'priority' => $pf, 'dept' => $df, 'kind' => $kf, 'search' => $sq, 'nudged' => $nf, 'overdue' => $of] as $k => $v) {
                   $v = trim((string)$v);
                   if ($v !== '' && $v !== 'all') { $drRowQS .= '&' . $k . '=' . urlencode($v); }
               }
@@ -1818,7 +1828,7 @@ textarea.fc{resize:vertical;min-height:70px;}
      redirect afterwards can put them back. becQueueReturn() reads these same
      keys out of $_GET on the POST. */
   $drFormQS = '';
-  foreach (['status' => $sf, 'priority' => $pf, 'dept' => $df, 'kind' => $kf, 'search' => $sq] as $k => $v) {
+  foreach (['status' => $sf, 'priority' => $pf, 'dept' => $df, 'kind' => $kf, 'search' => $sq, 'nudged' => $nf, 'overdue' => $of] as $k => $v) {
       $v = trim((string)$v);
       if ($v !== '' && $v !== 'all') { $drFormQS .= '&' . $k . '=' . urlencode($v); }
   }
@@ -2361,6 +2371,7 @@ function go() {
   url.searchParams.set('dept',     document.getElementById('fsd').value);
   url.searchParams.set('kind',     document.getElementById('fsk').value);
   url.searchParams.set('nudged',   document.getElementById('fsn').value);
+  url.searchParams.set('overdue',  document.getElementById('fov').value);
   url.searchParams.set('search',   document.getElementById('fsq').value);
   url.searchParams.set('view',     '<?php echo $vw; ?>');
   // A new search starts at page 1; staying on page 5 of the old result set

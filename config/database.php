@@ -2041,6 +2041,34 @@ function becDefectFilterClauses(array $opts, bool $named): array {
         $sql .= ' AND COALESCE(dr.follow_up_count, 0) > 0';
     }
 
+    /*
+     * Still open, and past the SLA window for its priority.
+     *
+     * "Which reports are late?" could not be asked anywhere on the queue: the
+     * only overdue control in the admin was a client-side chip on the assign
+     * page, fixed at two days, unassigned reports only, with no unit filter.
+     *
+     * The cut-off per priority is computed here from config/sla.php and bound
+     * as a timestamp, rather than expressed as a SQL interval — intervals are
+     * spelled differently by the two drivers this codebase runs on, and a
+     * bound datetime is the same sentence to both. Editing config/sla.php
+     * still changes what "overdue" means, as it does everywhere else.
+     */
+    if (!empty($opts['overdue'])) {
+        if (!function_exists('becSlaHours')) { require_once __DIR__ . '/sla.php'; }
+        $hours = becSlaHours();
+        $cut = static fn(string $p): string =>
+            date('Y-m-d H:i:s', time() - (int) round(($hours[$p] ?? $hours['medium']) * 3600));
+
+        $sql .= " AND COALESCE(dr.status, '') NOT IN ('completed', 'verified', 'closed', 'rejected')";
+        $sql .= ' AND ('
+              . "    (LOWER(COALESCE(dr.priority, 'medium')) = 'critical' AND dr.report_date < " . $bind($cut('critical'), 'sla') . ')'
+              . " OR (LOWER(COALESCE(dr.priority, 'medium')) = 'high'     AND dr.report_date < " . $bind($cut('high'), 'sla') . ')'
+              . " OR (LOWER(COALESCE(dr.priority, 'medium')) = 'low'      AND dr.report_date < " . $bind($cut('low'), 'sla') . ')'
+              . " OR (LOWER(COALESCE(dr.priority, 'medium')) NOT IN ('critical', 'high', 'low') AND dr.report_date < " . $bind($cut('medium'), 'sla') . ')'
+              . ')';
+    }
+
     return ['sql' => $sql, 'params' => $params, 'types' => $types];
 }
 
