@@ -209,6 +209,11 @@ $checks = [
         ['no stray back button',     '/class="back"/',              false],
     ]],
     ['Defect reports', 'admin', 'admin_defect_reports.php', [
+        // Acting on several reports at once — the queue had no way to do
+        // anything in bulk, and 60 reports sat waiting to be acknowledged.
+        ['select-all box',           '/id="selAll"/',               true],
+        ['per-row checkboxes',       '/name="ids\[\]"/',            true],
+        ['bulk action bar',          '/id="bulkBar"/',              true],
         ['origin filter',            '/id="fsk"/',                  true],
         ['follow-up filter',         '/id="fsn"/',                  true],
         ['filter bar',               '/id="fsq"/',                  true],

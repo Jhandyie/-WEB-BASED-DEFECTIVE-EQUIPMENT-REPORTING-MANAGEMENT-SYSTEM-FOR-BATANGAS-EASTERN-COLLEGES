@@ -1832,9 +1832,7 @@ textarea.fc{resize:vertical;min-height:72px;}
             <form method="POST" action="admin_inventory.php" style="margin-top:.5rem;">
               <input type="hidden" name="action" value="delete">
               <input type="hidden" name="equipment_id" id="dEid">
-              <button type="submit" class="btn btn-red btn-sm" onclick="return confirm('Delete this item?
-
-It is removed from the inventory and from every list in the system. The record is kept in the database, so the PMO can have it restored, but nothing in this interface can bring it back.')"><i class="fas fa-trash"></i> Delete</button>
+              <button type="submit" class="btn btn-red btn-sm" onclick="return confirm('Delete this item?\n\nIt is removed from the inventory and from every list in the system. The record is kept in the database, so the PMO can have it restored, but nothing in this interface can bring it back.')"><i class="fas fa-trash"></i> Delete</button>
             </form>
           </div>
         </div>

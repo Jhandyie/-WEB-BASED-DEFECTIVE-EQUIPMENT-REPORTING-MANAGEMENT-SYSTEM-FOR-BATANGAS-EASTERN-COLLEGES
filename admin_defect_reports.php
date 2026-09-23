@@ -34,17 +34,126 @@ function adminWorkflowNotifyRole($conn, string $role, string $message, string $r
     }
 }
 
+/**
+ * The query string that puts the admin back where they were.
+ *
+ * The queue is driven entirely by the URL — status, priority, unit, kind,
+ * search term, page and table/kanban all live there. The action forms post to
+ * a URL carrying those same values, so PHP has them in $_GET even on a POST,
+ * and this rebuilds them for the redirect afterwards.
+ *
+ * Only known keys, and view is whitelisted: this string goes straight into a
+ * Location header.
+ */
+function becQueueReturn(): string {
+    $keep = [];
+    foreach (['status', 'priority', 'dept', 'kind', 'search'] as $k) {
+        $v = trim((string)($_GET[$k] ?? ''));
+        if ($v !== '' && $v !== 'all') { $keep[$k] = $v; }
+    }
+    $page = (int)($_GET['page'] ?? 1);
+    if ($page > 1) { $keep['page'] = $page; }
+    $view = (string)($_GET['view'] ?? '');
+    if ($view === 'kanban') { $keep['view'] = 'kanban'; }
+    return $keep ? '?' . http_build_query($keep) : '';
+}
+
 /* ─── POST ACTIONS ─────────────────────────────────────── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireCsrf();
     $act = $_POST['action'] ?? '';
+
+    /*
+     * Acting on several reports at once.
+     *
+     * Every action on this page was one report at a time: open it, confirm,
+     * wait for the page to come back, find your place again. Sixty reports
+     * waiting to be acknowledged is sixty of that. These two do the same work
+     * the single-report handlers below do, in one press and one page load.
+     *
+     * A report whose status does not allow the action is skipped rather than
+     * forced, and the count of each is reported — so selecting a whole page
+     * and pressing "Mark received" acknowledges the new ones and leaves the
+     * rest alone instead of refusing the lot.
+     */
+    if ($act === 'bulk_mark_received' || $act === 'bulk_approve') {
+        $ids = array_values(array_filter(array_map(
+            static fn($v) => trim((string)$v),
+            (array)($_POST['ids'] ?? [])
+        )));
+        $ids = array_slice(array_unique($ids), 0, 200);   // a page holds 25
+
+        $done = 0; $skipped = 0;
+        foreach ($ids as $rid) {
+            $rep = getDefectReportById($rid);
+            if (!$rep) { $skipped++; continue; }
+            $st = strtolower(trim((string)($rep['status'] ?? '')));
+
+            if ($act === 'bulk_mark_received') {
+                if ($st !== 'reported') { $skipped++; continue; }
+                updateDefectReport($rid, [
+                    'status'             => 'pmo_review',
+                    'pmo_review_status'  => 'received',
+                    'received_by_pmo_at' => date('Y-m-d H:i:s'),
+                    'received_by_pmo_id' => $admin_id,
+                ]);
+                $fresh = getDefectReportById($rid) ?: array_merge($rep, ['status' => 'pmo_review']);
+                notifyReporter(
+                    $fresh,
+                    'Your report ' . $rid . ' has been officially received by the PMO and is now under evaluation.',
+                    'Your Report Has Been Received',
+                    "The Property Management Office has officially received your report. It has entered the evaluation "
+                    . "stage and will be reviewed by our maintenance personnel.\n\nNo further action is required from "
+                    . "you at this time.",
+                    ['defer' => true]
+                );
+            } else {
+                // Approve as it stands: the unit and priority already on the
+                // report, or the admin's own unit when it has none. Anything
+                // needing a judgement call is opened individually.
+                if (!in_array($st, ['reported', 'pmo_review'], true)) { $skipped++; continue; }
+                $dept = trim((string)($rep['department_assigned'] ?? ''));
+                if ($dept === '') { $u = adminUnitForUser($admin_id); $dept = $u !== '' ? $u : 'PMO'; }
+                updateDefectReport($rid, [
+                    'admin_approval_status' => 'approved',
+                    'status'                => 'assigned',
+                    'department_assigned'   => $dept,
+                    'priority'              => $rep['priority'] ?? 'medium',
+                    'categorized_by'        => $admin_id,
+                    'categorized_date'      => date('Y-m-d H:i:s'),
+                ]);
+                $fresh = getDefectReportById($rid) ?: array_merge($rep, ['status' => 'assigned']);
+                notifyReporter(
+                    $fresh,
+                    'Your report ' . $rid . ' has been approved. A technician will be assigned shortly.',
+                    'Report Approved',
+                    'Your report has been approved by the Property Management Office. A technician will be assigned to '
+                    . 'handle the repair shortly.',
+                    ['defer' => true]
+                );
+            }
+            logActivity($admin_id, 'report.' . $act, 'Report ' . $rid . ' — ' . $act . ' by ' . $admin_name);
+            $done++;
+        }
+
+        $what = $act === 'bulk_mark_received' ? 'marked as received' : 'approved';
+        if ($done === 0) {
+            $_SESSION['flash'] = ['err', 'Nothing was ' . $what . ' — none of the reports you selected were at a stage that allows it.'];
+        } else {
+            $_SESSION['flash'] = ['ok', $done . ' report' . ($done === 1 ? '' : 's') . ' ' . $what
+                . ($skipped ? '. ' . $skipped . ' skipped — already past that stage.' : '.')];
+        }
+        header('Location: admin_defect_reports.php' . becQueueReturn());
+        exit();
+    }
+
     $reportId = trim((string)($_POST['report_id'] ?? ''));
     $conn = getDBConnection();
     $report = $reportId !== '' ? getDefectReportById($reportId) : null;
 
     if ($reportId === '' || !$report) {
         $_SESSION['flash'] = ['err', 'Report not found.'];
-        header('Location: admin_defect_reports.php');
+        header('Location: admin_defect_reports.php' . becQueueReturn());
         exit();
     }
 
@@ -68,7 +177,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             . "Your report has entered the evaluation stage and will now be reviewed by our maintenance personnel.\n\n"
             . "Current Status: Received by PMO\n\n"
             . "No further action is required from you at this time. You may monitor the progress of your maintenance request anytime on the Track Report page.\n\n"
-            . "Thank you for helping us maintain the facilities of Batangas Eastern Colleges."
+            . "Thank you for helping us maintain the facilities of Batangas Eastern Colleges.",
+            // Queued, not sent inline: the admin should not wait on an SMTP
+            // handshake to see the queue again. scripts/run_sweeps.php drains
+            // the outbox every fifteen minutes; the in-app notification above
+            // is immediate either way.
+            ['defer' => true],
         );
         $_SESSION['flash'] = ['ok', 'Report marked as received. The reporter has been notified.'];
     }
@@ -103,7 +217,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $fresh,
             'Your report ' . $reportId . ' has been approved. A technician will be assigned shortly.',
             'Report Approved',
-            'Your report has been approved by the Property Management Office. A technician will be assigned to handle the repair shortly.'
+            'Your report has been approved by the Property Management Office. A technician will be assigned to handle the repair shortly.',
+            // Queued, not sent inline: the admin should not wait on an SMTP
+            // handshake to see the queue again. scripts/run_sweeps.php drains
+            // the outbox every fifteen minutes; the in-app notification above
+            // is immediate either way.
+            ['defer' => true],
         );
 
         $_SESSION['flash'] = ['ok', 'Report approved and categorized.'];
@@ -120,7 +239,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $fresh,
             'Your report ' . $reportId . ' was reviewed and could not be approved.',
             'Report Not Approved',
-            'After review, your report could not be approved at this time.' . ($rejReason !== '' ? "\n\nReason: " . $rejReason : '')
+            'After review, your report could not be approved at this time.' . ($rejReason !== '' ? "\n\nReason: " . $rejReason : ''),
+            // Queued, not sent inline: the admin should not wait on an SMTP
+            // handshake to see the queue again. scripts/run_sweeps.php drains
+            // the outbox every fifteen minutes; the in-app notification above
+            // is immediate either way.
+            ['defer' => true],
         );
         $_SESSION['flash'] = ['err', 'Report rejected.'];
     }
@@ -151,7 +275,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $cur ?: $report,
             'Your report ' . $reportId . ' has been verified and resolved. Thank you!',
             'Repair Verified & Resolved',
-            'The repair on your reported equipment has been verified by the Property Management Office and your report is now resolved. Thank you for helping keep BEC facilities in good condition.'
+            'The repair on your reported equipment has been verified by the Property Management Office and your report is now resolved. Thank you for helping keep BEC facilities in good condition.',
+            // Queued, not sent inline: the admin should not wait on an SMTP
+            // handshake to see the queue again. scripts/run_sweeps.php drains
+            // the outbox every fifteen minutes; the in-app notification above
+            // is immediate either way.
+            ['defer' => true],
         );
         $_SESSION['flash'] = ['ok', 'Completion verified and report closed.'];
     }
@@ -164,8 +293,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['flash'] = ['ok', 'Report deleted.'];
     }
 
-    header('Location: admin_defect_reports.php' .
-           (isset($_POST['view_after']) ? '?view='.$_POST['view_after'] : ''));
+    // Back to the list the admin was actually looking at. Every action used to
+    // redirect to the bare page, so the status filter, the unit, the search
+    // term and the page number were thrown away each time — working through a
+    // filtered queue meant re-selecting the filter after every single report.
+    // The report itself is deliberately not reopened: it has just changed
+    // state, and the next one is what you want.
+    header('Location: admin_defect_reports.php' . becQueueReturn());
     exit();
 }
 
@@ -691,6 +825,15 @@ body{
 .tbl tbody tr:last-child td{border-bottom:none;}
 .tbl tbody tr{transition:background .1s,transform .1s;}
 .tbl tbody tr.rep-row{cursor:pointer;}
+/* ── selecting several reports ──────────────────────────────────────────── */
+.selcol{width:34px;text-align:center;}
+.selcol input{width:16px;height:16px;accent-color:var(--maroon,#7B1D1D);cursor:pointer;vertical-align:middle;}
+.bulkbar{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;margin:0 0 .6rem;
+  padding:.6rem .85rem;border-radius:12px;background:#FFFBEF;border:1px solid rgba(201,150,12,.4);
+  border-left:4px solid #C9960C;}
+.bulkbar .bulk-n{font-size:var(--fs-md,.82rem);color:#5C3838;margin-right:.2rem;}
+.bulkbar .bulk-n strong{font-size:var(--fs-lg,.88rem);color:#7B1D1D;}
+.bulkbar .bulk-note{font-size:var(--fs-sm,.68rem);color:#8A7060;margin-left:auto;}
 .tbl tbody tr:hover td{background:var(--s2);}
 .tbl tbody tr:hover{transform:none;}
 /* nowrap: the id is hyphenated, so on a 1366 or 1440 laptop - which is what
@@ -1457,6 +1600,25 @@ textarea.fc{resize:vertical;min-height:70px;}
 
     <!-- ════ TABLE VIEW ════════════════════════════════ -->
     <?php if ($vw === 'table'): ?>
+    <?php /* One press for a whole page of reports. Hidden until something is
+             ticked, so the toolbar above is unchanged when nothing is
+             selected. The form posts to the current filters so the list comes
+             back exactly as it was. */ ?>
+    <form method="POST" id="bulkForm" action="?<?php echo ltrim($drRowQS ?? '', '&'); ?>">
+      <?php echo csrf_field(); ?>
+      <input type="hidden" name="action" id="bulkAction" value="">
+      <div class="bulkbar" id="bulkBar" hidden>
+        <span class="bulk-n"><strong id="bulkCount">0</strong> selected</span>
+        <button type="button" class="btn btn-sm rv-amber" onclick="bulkGo('bulk_mark_received','mark as received')">
+          <i class="fas fa-inbox"></i> Mark as received
+        </button>
+        <button type="button" class="btn btn-sm btn-maroon" onclick="bulkGo('bulk_approve','approve')">
+          <i class="fas fa-check"></i> Approve
+        </button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="bulkClear()">Clear</button>
+        <span class="bulk-note">Reports already past that stage are skipped.</span>
+      </div>
+    </form>
     <div id="tableView">
       <div class="panel">
         <div class="ph3">
@@ -1469,18 +1631,39 @@ textarea.fc{resize:vertical;min-height:70px;}
         <table class="tbl" id="mainTbl">
           <thead>
             <tr>
+              <th class="selcol"><input type="checkbox" id="selAll" aria-label="Select every report on this page"></th>
               <th>Report ID</th><th>Equipment</th><th>Reporter</th>
               <th>Priority</th><th>Status</th><th>Department</th>
               <th>Date</th><th>Assigned To</th><th style="text-align:center;">Actions</th>
             </tr>
           </thead>
           <tbody>
+            <?php
+              /* The filters this list is showing, carried on the row action
+                 forms so acting on a report returns to this same view rather
+                 than the bare, unfiltered page. */
+              $drRowQS = '';
+              foreach (['status' => $sf, 'priority' => $pf, 'dept' => $df, 'kind' => $kf, 'search' => $sq] as $k => $v) {
+                  $v = trim((string)$v);
+                  if ($v !== '' && $v !== 'all') { $drRowQS .= '&' . $k . '=' . urlencode($v); }
+              }
+              if ($pageNum > 1)     { $drRowQS .= '&page=' . (int)$pageNum; }
+              if ($vw === 'kanban') { $drRowQS .= '&view=kanban'; }
+            ?>
             <?php if($totalReports === 0): ?>
-            <tr><td colspan="9"><div class="empty">
+            <tr><td colspan="10"><div class="empty">
               <i class="fas fa-folder-open"></i>No reports match your current filters.
             </div></td></tr>
             <?php else: foreach($reportsPage as $r): ?>
             <tr class="rep-row" tabindex="0" role="button" aria-label="Open report details" data-rid="<?php echo esc($r['report_id']); ?>" data-view-url="?view_id=<?php echo $r['report_id']; ?>&status=<?php echo $sf; ?>&priority=<?php echo $pf; ?>&dept=<?php echo $df; ?>&kind=<?php echo $kf; ?>&nudged=<?php echo $nf; ?>&search=<?php echo urlencode($sq); ?>&view=<?php echo $vw; ?>">
+              <?php /* The checkbox belongs to #bulkForm above, not to the row —
+                       a row click opens the report, so the cell stops the click
+                       before it gets there. */ ?>
+              <td class="selcol" onclick="event.stopPropagation();">
+                <input type="checkbox" class="rowsel" form="bulkForm" name="ids[]"
+                       value="<?php echo esc($r['report_id']); ?>"
+                       aria-label="Select report <?php echo esc($r['report_id']); ?>">
+              </td>
               <td><span class="rid"><?php echo esc($r['report_id']); ?></span>
                 <?php if(!empty($r['is_preventive']) && $r['is_preventive'] !== 'f'): ?>
                 <span class="pm-tag" title="Raised automatically by a preventive maintenance schedule"><i class="fas fa-calendar-check"></i> PM</span>
@@ -1511,7 +1694,7 @@ textarea.fc{resize:vertical;min-height:70px;}
                   <a href="?view_id=<?php echo $r['report_id']; ?>&status=<?php echo $sf; ?>&priority=<?php echo $pf; ?>&dept=<?php echo $df; ?>&kind=<?php echo $kf; ?>&nudged=<?php echo $nf; ?>&search=<?php echo urlencode($sq); ?>&view=<?php echo $vw; ?>"
                     class="btn bico bi-v" title="View Details"><i class="fas fa-eye"></i></a>
                   <?php if (($r['status'] ?? '') === 'reported'): ?>
-                  <form method="POST" style="display:inline;margin:0;" onsubmit="return confirm('Mark report <?php echo esc($r['report_id']); ?> as officially Received by the PMO?\n\nThe reporter will be notified by email and in-app, and this will be recorded in the audit log and tracking timeline.');">
+                  <form method="POST" action="?<?php echo ltrim($drRowQS, '&'); ?>" style="display:inline;margin:0;" onsubmit="return confirm('Mark report <?php echo esc($r['report_id']); ?> as officially Received by the PMO?\n\nThe reporter will be notified by email and in-app, and this will be recorded in the audit log and tracking timeline.');">
                     <input type="hidden" name="action" value="mark_received">
                     <input type="hidden" name="report_id" value="<?php echo esc($r['report_id']); ?>">
                     <button type="submit" class="btn bico" title="Mark as Received" style="background:#C9960C;color:#fff;"><i class="fas fa-inbox"></i></button>
@@ -1630,6 +1813,18 @@ textarea.fc{resize:vertical;min-height:70px;}
 </div><!-- /wrap -->
 
 <!-- ════ DETAIL / ACTION MODAL ════════════════════════ -->
+<?php
+  /* The filters the admin is looking at, carried on every action form so the
+     redirect afterwards can put them back. becQueueReturn() reads these same
+     keys out of $_GET on the POST. */
+  $drFormQS = '';
+  foreach (['status' => $sf, 'priority' => $pf, 'dept' => $df, 'kind' => $kf, 'search' => $sq] as $k => $v) {
+      $v = trim((string)$v);
+      if ($v !== '' && $v !== 'all') { $drFormQS .= '&' . $k . '=' . urlencode($v); }
+  }
+  if ($pageNum > 1)     { $drFormQS .= '&page=' . (int)$pageNum; }
+  if ($vw === 'kanban') { $drFormQS .= '&view=kanban'; }
+?>
 <?php if($vr): ?>
 <div class="mo open" id="detmo" onclick="if(event.target===this)closeDet()">
   <div class="dr-shell" role="dialog" aria-modal="true" aria-labelledby="drTitle">
@@ -1981,7 +2176,7 @@ textarea.fc{resize:vertical;min-height:70px;}
               <div class="rv-desc">Confirm the responsible unit and how urgent the repair is, then <strong>approve</strong> to send it for technician assignment — or reject it with a reason.</div>
             </div>
           </div>
-          <form method="POST" action="?view_id=<?php echo $vr['report_id'];?>&view=<?php echo $vw;?>" onsubmit="return rvValidate(this);">
+          <form method="POST" action="?view_id=<?php echo urlencode($vr['report_id']);?><?php echo $drFormQS;?>" onsubmit="return rvValidate(this);">
             <input type="hidden" name="report_id" value="<?php echo esc($vr['report_id']);?>">
             <div class="fg2">
               <div class="fg">
@@ -2035,7 +2230,7 @@ textarea.fc{resize:vertical;min-height:70px;}
         <!-- REJECT -->
         <div class="af af-reject" id="rejectAf" style="display:none;margin-top:.6rem;">
           <div class="af-title"><i class="fas fa-times-circle"></i> Reject Report</div>
-          <form method="POST" action="?view_id=<?php echo $vr['report_id'];?>&view=<?php echo $vw;?>">
+          <form method="POST" action="?view_id=<?php echo urlencode($vr['report_id']);?><?php echo $drFormQS;?>">
             <input type="hidden" name="action" value="reject">
             <input type="hidden" name="report_id" value="<?php echo esc($vr['report_id']);?>">
             <div class="fg">
@@ -2062,7 +2257,7 @@ textarea.fc{resize:vertical;min-height:70px;}
         <!-- VERIFY -->
         <div class="af af-verify">
           <div class="af-title"><i class="fas fa-shield-alt"></i> Verify Completion</div>
-          <form id="verifyForm" method="POST" action="?view_id=<?php echo $vr['report_id'];?>&view=<?php echo $vw;?>">
+          <form id="verifyForm" method="POST" action="?view_id=<?php echo urlencode($vr['report_id']);?><?php echo $drFormQS;?>">
             <input type="hidden" name="action" value="verify_completion">
             <input type="hidden" name="report_id" value="<?php echo esc($vr['report_id']);?>">
             <div class="fg">
@@ -2074,7 +2269,7 @@ textarea.fc{resize:vertical;min-height:70px;}
               <button type="button" class="btn btn-ghost btn-sm" onclick="retProg()"><i class="fas fa-undo"></i> Return to In Progress</button>
             </div>
           </form>
-          <form id="retFrm" method="POST" action="?view_id=<?php echo $vr['report_id'];?>&view=<?php echo $vw;?>" style="display:none;">
+          <form id="retFrm" method="POST" action="?view_id=<?php echo urlencode($vr['report_id']);?><?php echo $drFormQS;?>" style="display:none;">
             <input type="hidden" name="action" value="return_to_progress">
             <input type="hidden" name="report_id" value="<?php echo esc($vr['report_id']);?>">
           </form>
@@ -2286,6 +2481,43 @@ function dEsc(s){
   return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+
+/* ── selecting several reports ──────────────────────────────────────────
+   The checkboxes belong to #bulkForm through their form attribute, so they
+   submit with it wherever they sit in the table. This only keeps the count,
+   the select-all box and the bar's visibility in step. */
+(function () {
+  const bar   = document.getElementById('bulkBar');
+  const all   = document.getElementById('selAll');
+  const count = document.getElementById('bulkCount');
+  if (!bar) return;
+  const boxes = () => Array.from(document.querySelectorAll('.rowsel'));
+  const chosen = () => boxes().filter(b => b.checked);
+
+  function sync() {
+    const n = chosen().length;
+    count.textContent = n;
+    bar.hidden = n === 0;
+    if (all) {
+      const total = boxes().length;
+      all.checked = total > 0 && n === total;
+      all.indeterminate = n > 0 && n < total;
+    }
+  }
+  document.addEventListener('change', e => { if (e.target.classList?.contains('rowsel')) sync(); });
+  if (all) all.addEventListener('change', () => { boxes().forEach(b => { b.checked = all.checked; }); sync(); });
+
+  window.bulkClear = function () { boxes().forEach(b => { b.checked = false; }); sync(); };
+  window.bulkGo = function (action, label) {
+    const n = chosen().length;
+    if (!n) return;
+    if (!confirm('This will ' + label + ' ' + n + ' report' + (n === 1 ? '' : 's')
+               + '. Reports already past that stage are skipped, and each reporter is notified.')) return;
+    document.getElementById('bulkAction').value = action;
+    document.getElementById('bulkForm').submit();
+  };
+  sync();
+})();
 
 document.querySelectorAll('#mainTbl tbody tr.rep-row').forEach(tr => {
   /* Straight to the full record. There was a summary modal in front of this that

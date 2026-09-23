@@ -2584,9 +2584,7 @@ function submitReset(){
 
 /* ─── DELETE ──────────────────────────────────────────── */
 function delUser(uid,name){
-  if(!confirm('Delete user "'+name+'"?\n\nTheir account is removed permanently. If they are attached to existing reports it is deactivated instead, which keeps those records intact.
-
-This cannot be undone.'))return;
+  if(!confirm('Delete user "'+name+'"?\n\nTheir account is removed permanently. If they are attached to existing reports it is deactivated instead, which keeps those records intact.\n\nThis cannot be undone.'))return;
   document.getElementById('delUid').value=uid;
   document.getElementById('delFrm').submit();
 }

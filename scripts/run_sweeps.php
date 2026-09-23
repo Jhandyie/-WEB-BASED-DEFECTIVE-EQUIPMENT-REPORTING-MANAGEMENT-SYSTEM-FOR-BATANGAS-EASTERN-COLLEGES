@@ -30,15 +30,28 @@ $_SERVER['REQUEST_URI'] = $_SERVER['SCRIPT_NAME'];
 
 require_once __DIR__ . '/../includes/preventive_helper.php';
 require_once __DIR__ . '/../includes/sla_helper.php';
+require_once __DIR__ . '/../includes/mail_helper.php';
 
 $t0  = microtime(true);
-$pm  = 0; $sla = 0; $err = [];
+$pm  = 0; $sla = 0; $mail = 0; $err = [];
 try { $pm  = runPreventiveMaintenanceSweep(true); } catch (Throwable $e) { $err[] = 'pm: '  . $e->getMessage(); }
 try { $sla = runSlaEscalationSweep(true);         } catch (Throwable $e) { $err[] = 'sla: ' . $e->getMessage(); }
 
+/*
+ * Drain the mail outbox.
+ *
+ * The workflow actions an admin takes now queue their reporter email instead
+ * of holding the page open on an SMTP handshake. Nothing drained that queue on
+ * a clock: sendEmail() flushes two on its way past and the nightly backup
+ * fifty, so a busy morning could outrun its own drain and a reporter's "your
+ * report was approved" could sit for a day. Every fifteen minutes is well
+ * inside what a status email should take.
+ */
+try { $mail = flushMailOutbox(50); } catch (Throwable $e) { $err[] = 'mail: ' . $e->getMessage(); }
+
 // One line per run, only when something happened or failed - a quiet quarter
 // hour writes nothing, so the log stays readable.
-if ($pm || $sla || $err) {
-    printf("%s pm_tasks=%d sla_escalated=%d %.2fs%s\n", date('Y-m-d H:i:s'), $pm, $sla, microtime(true) - $t0, $err ? ' ERR ' . implode(' | ', $err) : '');
+if ($pm || $sla || $mail || $err) {
+    printf("%s pm_tasks=%d sla_escalated=%d mail_sent=%d %.2fs%s\n", date('Y-m-d H:i:s'), $pm, $sla, $mail, microtime(true) - $t0, $err ? ' ERR ' . implode(' | ', $err) : '');
 }
 exit($err ? 1 : 0);
