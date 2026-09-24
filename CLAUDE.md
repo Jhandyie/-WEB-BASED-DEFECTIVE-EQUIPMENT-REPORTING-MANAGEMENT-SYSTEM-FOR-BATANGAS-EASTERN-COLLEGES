@@ -148,6 +148,20 @@ notifications and branded email. `users.department` (PMO or ITSO) scopes which r
   screen, and do not add a stepper, filter chips or a second timeline.
 - **Admin pages are desktop-only by design.** Do not spend effort on admin mobile layouts; mobile
   work belongs to the reporter, public and technician surfaces.
+- **Phone type lives in `css/mobile.css`, linked LAST in `<head>`.** The whole system is drawn at
+  desktop sizes — the token scale bottoms out at `--fs-xs:.6rem` (9.6px on a phone) — so that one
+  sheet raises the scale, pins the root to 112.5% (pages disagreed: most set 106.25%,
+  `reserve_venue.php` set nothing, so one rule in `rem` rendered two sizes) and holds `input,
+  select, textarea` at 16px, **which is what stops iOS Safari zooming the page on every field
+  tap**. Two thresholds on purpose: content people read or fill in is >=16px, chrome they only
+  recognise (count badges, uppercase eyebrows, avatar initials) is >=13px. Linked before the
+  page's own `<style>` it silently does nothing — `ui_smoke.php` asserts both the link and its
+  order.
+- **A shared include's `<style>` outranks every stylesheet link.** `site_nav.php`,
+  `site_footer.php`, `becca_widget.php` and `technician_assistant.php` emit their CSS where they
+  render, which is inside `<body>`, so at equal specificity they beat anything in `<head>` on
+  source order. Fix their sizes in their own file; do not try to override them from a sheet.
+  Same for `.cam-trigger`, whose CSS is a string inside `assets/camera_capture.js`.
 - **`activity_log.action` is empty in every row** — it is dead. `logActivity()` writes
   `action_type` / `action_description`, and ~400 legacy rows are column-shifted, so any future
   reader of this table needs to resolve a row across several columns rather than trusting one.
