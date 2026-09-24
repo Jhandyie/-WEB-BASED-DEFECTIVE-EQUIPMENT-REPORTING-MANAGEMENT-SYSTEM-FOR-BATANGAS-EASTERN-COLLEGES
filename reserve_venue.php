@@ -292,6 +292,10 @@ $venues = vrVenueSuggestions($pdo);
   .done .acts{display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap;}
   @media(max-width:640px){.grid{grid-template-columns:1fr}.mrow{grid-template-columns:1fr 5rem 2.4rem}}
 </style>
+<!-- Last in <head> on purpose: these rules correct the desktop type scale for
+     phones, and a stylesheet placed before the page's own <style> would lose
+     to it on source order. See the file header for what was measured. -->
+<link rel="stylesheet" href="css/mobile.css">
 </head>
 <body>
 <div class="top">

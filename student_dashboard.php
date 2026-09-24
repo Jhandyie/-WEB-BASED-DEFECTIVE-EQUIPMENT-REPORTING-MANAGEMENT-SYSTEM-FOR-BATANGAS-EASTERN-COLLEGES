@@ -1320,6 +1320,12 @@ body::after {
 }
 
 @media(max-width:600px){
+  /* The header says whose portal this is and who is signed in. At 11.9px
+     and 13.6px on a phone the reporter could not read either. */
+  .logo-text strong { font-size:.9rem; }
+  .logo-text span   { font-size:.74rem; }
+  .user-chip        { font-size:.9rem; }
+  .chip-link        { min-height:44px; }
   .form-grid.cols-2,.form-grid.cols-3 { grid-template-columns:1fr; }
   .reporter-grid { grid-template-columns:1fr; }
   .page-title { font-size:1.55rem; }
@@ -1490,6 +1496,10 @@ html { scroll-behavior: smooth; }
 .err-btn2 { padding: .82rem; border: 1.5px solid var(--border); border-radius: 11px; background: #fff; color: var(--ink2); font-family: 'DM Sans', sans-serif; font-weight: 700; font-size: .9rem; cursor: pointer; transition: border-color .15s, color .15s; }
 .err-btn2:hover { border-color: var(--maroon); color: var(--maroon); }
 </style>
+<!-- Last in <head> on purpose: these rules correct the desktop type scale for
+     phones, and a stylesheet placed before the page's own <style> would lose
+     to it on source order. See the file header for what was measured. -->
+<link rel="stylesheet" href="css/mobile.css">
 </head>
 <body>
 <div class="bg-grid"></div>

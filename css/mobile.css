@@ -1,0 +1,106 @@
+/* css/mobile.css — the phone pass.
+ *
+ * Measured before writing this, by rendering each page in a 390px-wide frame
+ * (an iPhone's CSS width) and reading the *computed* font size of every text
+ * element on screen. The result was consistent and bad:
+ *
+ *     index.php             104 of 121 text elements below 16px
+ *     student_index.php      56 of  68
+ *     reserve_venue.php      54 of  56
+ *     technician_dashboard   43 of  48
+ *     track_report.php       33 of  37
+ *     student_dashboard.php  29 of  40
+ *
+ * with body copy landing at 11-13px. The layouts were never the problem — no
+ * page scrolls sideways and every one already fills the screen. The problem is
+ * that the whole system was drawn for a desktop monitor: the type scale bottoms
+ * out at --fs-xs:.6rem, which is 9.6px in a hand.
+ *
+ * Two thresholds are used here, and they are different on purpose:
+ *
+ *   CONTENT   >= 16px. Anything a person has to read or fill in: body copy,
+ *             field labels, help text, buttons, list rows. 16px is also the
+ *             point below which iOS Safari zooms the page when a field is
+ *             focused -- reserve_venue.php was serving 14.4px inputs, so every
+ *             tap on that form kicked the page sideways and the applicant had
+ *             to pinch back. That is the same class of defect the panel found
+ *             in the camera button: it works on a laptop, so nobody saw it.
+ *
+ *   CHROME    >= 13px. Decoration that carries no sentence: uppercase eyebrows,
+ *             count badges, avatar initials, the assistant's status dot. These
+ *             are recognised by shape and position, not read, and blowing them
+ *             up to 16px would crowd out the content beside them.
+ *
+ * Everything is in rem, and the root is pinned below so rem means the same
+ * thing on every page -- most set html{font-size:106.25%} and reserve_venue.php
+ * sets nothing, so an identical rule was rendering two different sizes.
+ *
+ * Load this LAST in <head>, after the page's own <style>, or the page's rules
+ * win on source order. Admin pages deliberately do not load it: they are
+ * desktop-only by design (see CLAUDE.md).
+ */
+
+@media (max-width: 820px) {
+
+  /* ---- one root, so a rem is one size everywhere -------------------------- */
+  html { font-size: 112.5%; }            /* 18px */
+
+  /* Nothing is scrolling sideways, so the reserved scrollbar channel is 15px
+     of a 390px screen given away for a bar that phones draw as an overlay. */
+  html { scrollbar-gutter: auto; }
+
+  /* ---- the type scale ----------------------------------------------------- */
+  /* The tokens do most of the work on the pages that use them (student_index
+     reads them 97 times). Raising the scale lifts those pages in one move;
+     the selectors further down are for pages that hard-code their sizes. */
+  :root {
+    --fs-xs:   .78rem;   /* 14.0px — chrome */
+    --fs-sm:   .89rem;   /* 16.0px - carries secondary labels and card meta
+                            lines (.sec-eyebrow, .rc-meta), which are read */
+    --fs-base: .92rem;   /* 16.6px — body copy clears the floor */
+    --fs-md:   .97rem;   /* 17.5px */
+    --fs-lg:  1.04rem;   /* 18.7px */
+    --fs-xl:  1.14rem;   /* 20.5px */
+    --fs-2xl: 1.28rem;   /* 23.0px */
+  }
+
+  /* ---- CONTENT: things that get read ------------------------------------- */
+  p, li, dd, dt, label, legend, small, blockquote { font-size: .9rem; line-height: 1.55; }
+
+  /* Field labels and the sentences under them. A label the size of a caption
+     is the single most common reason a form feels like paperwork. */
+  .fl, label.fl, .fi-hint, .section-sub, .panel-sub, .page-sub, .lede,
+  .photo-sub, .photo-title, .or-row, .footer-link, .note, .inp-meta,
+  .q-loc, .q-loc-sub, .q-id, .user-name,
+  .top a.back { font-size: .9rem; }   /* reserve_venue scopes this one */
+
+  /* Every control the thumb lands on. */
+  button, .btn, .action-btn, .cam-trigger, .btn-submit, .addmat, .back,
+  .lbtn, .tia-chip, .pwa-chip, .ni, .lout, .np-b,
+  .bsnav-link, .bsnav-cta, .bsnav-skip, .skip-link,
+  .bsfoot-col a, .bsfoot-contact li { font-size: .9rem; }
+
+  /* The iOS zoom floor. 1rem = 18px here, comfortably clear of it. */
+  input, select, textarea { font-size: 1rem; }
+
+  /* ---- CHROME: recognised, not read -------------------------------------- */
+  .page-eyebrow, .panel-eyebrow, .eyebrow, .brand-tag, .nav-sec, .req,
+  .badge, .nbadge, .tb-dot, .qcount, .user-avatar, .uav, .ch-status,
+  .bsnav-brand small, .bsfoot-brand small, .bsfoot-col h4,
+  .bsfoot-motto .est, .bsfoot-note { font-size: .74rem; }
+
+  .bsnav-brand b  { font-size: 1rem; }
+  .bsfoot-motto   { font-size: .92rem; }
+
+  /* ---- tap targets -------------------------------------------------------- */
+  /* 44px is the size a fingertip actually covers. Listed one by one rather
+     than applied to every button, because the assistant widget's own controls
+     are sized to its bubble and grow into it if forced. */
+  .btn, .btn-submit, .action-btn, .cam-trigger, .addmat, .lbtn, .pwa-chip,
+  .bsnav-link, .bsnav-cta, .ni, .lout, .nat {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+  .btn-submit, .action-btn, .cam-trigger { justify-content: center; }
+}

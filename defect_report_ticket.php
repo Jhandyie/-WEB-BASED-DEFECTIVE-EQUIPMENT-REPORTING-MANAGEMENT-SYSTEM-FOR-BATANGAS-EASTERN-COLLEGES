@@ -149,6 +149,10 @@ $today = date('F j, Y');
     .thumbs img{width:110px;height:88px;}
   }
 </style>
+<!-- Last in <head> on purpose: these rules correct the desktop type scale for
+     phones, and a stylesheet placed before the page's own <style> would lose
+     to it on source order. See the file header for what was measured. -->
+<link rel="stylesheet" href="css/mobile.css">
 </head>
 <body>
   <div class="toolbar no-print">

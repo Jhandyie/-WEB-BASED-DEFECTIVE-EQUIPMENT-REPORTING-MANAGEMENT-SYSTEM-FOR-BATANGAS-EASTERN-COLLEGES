@@ -255,9 +255,17 @@
      line under the name, the message timestamps and the meta line under the
      composer were 9.9-10.9px. This is the shared widget, so every portal that
      includes it gets the same floor. */
-  .ch-status { font-size: .7rem; }
+  .ch-name { font-size: .9rem; }
+  .ch-status { font-size: .74rem; }
   .mtime { font-size: .68rem; }
-  .inp-meta { font-size: .72rem; }
+  .inp-meta { font-size: .74rem; }
+  /* The language toggle sits under the composer and is a control, not a
+     caption: it was 11.9px with a 30px tap height. */
+  .lbar-lbl { font-size: .74rem; }
+  .lbtn { font-size: .84rem; min-height: 38px; }
+  /* On a phone the panel is full-bleed, so this X is the only way out of
+     it. It was a 29px target. */
+  .ch-btn { width: 44px; height: 44px; }
   .inp-meta i { font-size: .66rem; }
 }
 </style>

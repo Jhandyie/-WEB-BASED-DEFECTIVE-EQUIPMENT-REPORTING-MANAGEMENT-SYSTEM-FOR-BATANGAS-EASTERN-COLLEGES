@@ -55,6 +55,10 @@
   @keyframes tiaDot{0%,80%,100%{opacity:.2;}40%{opacity:1;}}
   @media(max-width:640px){.tia-overlay{padding:0;align-items:flex-end;justify-content:center;}.tia-panel{max-width:100%;border-radius:20px 20px 0 0;height:88vh;max-height:88vh;}}
   /* comfortable tap targets on phones (placed after the base rules so it wins) */
+  /* Type floor on phones: the suggestion chips are buttons at 13px and the
+     answers themselves were 15.1px. A technician reads these one-handed,
+     standing next to the equipment. */
+  @media(max-width:640px){.tia-chip{font-size:.85rem;}.tia-b{font-size:.9rem;}.tia-head .tia-t small{font-size:.76rem;}}
   @media(max-width:560px){.tia-x{width:46px;height:46px;}.tia-chip{min-height:46px;}.tia-send{width:46px;height:46px;}}
 </style>
 

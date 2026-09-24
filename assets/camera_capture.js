@@ -26,6 +26,9 @@
     + '.cam-trigger:hover{background:var(--maroon,#7B1D1D);color:#fff;transform:translateY(-1px);box-shadow:0 5px 14px rgba(123,29,29,.22);}'
     + '.cam-trigger:active{transform:translateY(0);box-shadow:none;}'
     + '.cam-trigger i{font-size:.9rem;}'
+    // "Take a photo" is the action this whole control exists for, and the one
+    // the defence panel found broken on a phone. It was 14.8px there.
+    + '@media(max-width:820px){.cam-trigger{font-size:.9rem;min-height:48px;}}'
     // "or" divider that separates the drop zone from the camera button
     + '.cam-sep{display:flex;align-items:center;gap:.7rem;margin:.75rem 0;color:var(--ink3,#8A7466);'
     +   'font-size:.66rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;}'

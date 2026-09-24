@@ -661,6 +661,10 @@ html{scroll-behavior:smooth}
 .item:hover{box-shadow:0 8px 22px rgba(123,29,29,.08);transform:none;border-color:rgba(201,150,12,.4)}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 </style>
+<!-- Last in <head> on purpose: these rules correct the desktop type scale for
+     phones, and a stylesheet placed before the page's own <style> would lose
+     to it on source order. See the file header for what was measured. -->
+<link rel="stylesheet" href="css/mobile.css">
 </head>
 <body>
 <?php $nav_active = 'track'; require __DIR__ . '/includes/site_nav.php'; ?>

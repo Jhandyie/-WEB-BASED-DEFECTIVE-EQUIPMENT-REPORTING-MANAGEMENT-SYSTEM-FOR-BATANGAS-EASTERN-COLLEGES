@@ -970,6 +970,16 @@ body.modal-open{overflow:hidden;}
   .ws-title{overflow-wrap:break-word;}   /* break long names at word bounds, not mid-word */
   .actions button{flex:1 1 100%;justify-content:center;min-height:48px;}
   .facts{grid-template-columns:1fr 1fr;}
+  /* The drawer identifies who is signed in and which office they belong to.
+     Measured on a 390px screen it was 11.2-14.8px — the technician's own
+     name was smaller than the caption under it. */
+  .sb-brand strong{font-size:1rem;}
+  .sb-brand em{font-size:.78rem;}
+  .sb-user .un b{font-size:.9rem;}
+  .sb-user .un span{font-size:.74rem;}
+  .ni .nbadge{font-size:.74rem;}
+  .axl-sub{font-size:.78rem;}
+
   /* Comfortable 44px+ tap targets for field technicians on phones */
   .tb-btn{width:44px;height:44px;}
   .pwa-chip{min-height:44px;}
@@ -1091,6 +1101,10 @@ body.modal-open{overflow:hidden;}
 .te-btn{width:100%;padding:.82rem;border:none;border-radius:11px;background:linear-gradient(135deg,var(--maroon-d),var(--maroon));color:#fff;font-family:'Outfit',sans-serif;font-weight:700;font-size:.9rem;cursor:pointer;transition:filter .15s;}
 .te-btn:hover{filter:brightness(1.08);}
 </style>
+<!-- Last in <head> on purpose: these rules correct the desktop type scale for
+     phones, and a stylesheet placed before the page's own <style> would lose
+     to it on source order. See the file header for what was measured. -->
+<link rel="stylesheet" href="css/mobile.css">
 </head>
 <body>
 

@@ -54,10 +54,16 @@ $bsfYear = date('Y');
      size better than body copy does, so this lifts them to ~11px rather than
      to 12 — enough to read on a phone without turning the footer into a wall
      of text. Shared footer, so all four public pages get it. */
-  .bsfoot-brand small{font-size:.65rem;}
-  .bsfoot-motto .est{font-size:.68rem;}
-  .bsfoot-col h4{font-size:.7rem;}
-  .bsfoot-note{font-size:.76rem;}
+  .bsfoot-brand small{font-size:.74rem;}
+  .bsfoot-motto .est{font-size:.74rem;}
+  .bsfoot-col h4{font-size:.74rem;}
+  .bsfoot-note{font-size:.78rem;}
+  /* The lines above are labels. These are the ones people actually read
+     and tap — the campus address, the phone number, the column links —
+     and they were sitting at 14.9-15.3px, under the floor. */
+  .bsfoot-col a{font-size:.9rem;}
+  .bsfoot-contact li{font-size:.9rem;}
+  .bsfoot-status{font-size:.85rem;}
 }
 </style>
 <footer class="bsfoot">

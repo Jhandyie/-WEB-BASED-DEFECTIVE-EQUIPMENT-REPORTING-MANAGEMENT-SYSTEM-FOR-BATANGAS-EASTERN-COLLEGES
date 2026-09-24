@@ -363,6 +363,13 @@ $checks = [
            shape of that screen, asserted so a "helpful" field cannot creep back
            in unnoticed: four questions, a camera that opens the camera, and
            none of the controls the panel rejected. */
+        /* The phone type pass. css/mobile.css is what lifts this page out of
+           11-13px body copy and holds form controls at 16px, which is also
+           what stops iOS Safari zooming the page on every field tap. It is
+           linked LAST in <head> on purpose — before the page's own <style>
+           it loses on source order and silently does nothing. */
+        ['mobile type sheet linked', '/href="css\/mobile\.css"/', true],
+        ['   and it loads after the page styles', '/<style[\s\S]*?href="css\/mobile\.css"/', true],
         ['equipment is plain text',  '/<input[^>]+id="equip-name"[^>]+name="equipment_name"/', true],
         ['location picker present',  '/id="location-search"/',      true],
         ['description present',      '/id="defectDesc"/',           true],
