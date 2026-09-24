@@ -2216,7 +2216,45 @@ function fetchDefectReportsWithFilters($status = 'all', $priority = 'all', $sear
     $limit  = isset($opts['limit'])  ? max(0, (int)$opts['limit'])  : 0;
     $offset = isset($opts['offset']) ? max(0, (int)$opts['offset']) : 0;
 
-    $sql = becDefectReportSelect($pg) . $base['sql'] . $extra['sql'] . ' ORDER BY dr.report_date DESC';
+    /*
+     * Sorting.
+     *
+     * The queue could only ever be newest-first, which answers "what just came
+     * in" and nothing else — not "what is most urgent", not "what has been
+     * sitting longest". Work Orders already had sortable headers; this is the
+     * same idea against the same query builder.
+     *
+     * A WHITELIST, not a string from the URL. This value is concatenated into
+     * SQL and cannot be a bound parameter (no driver allows a placeholder in
+     * ORDER BY), so anything not on this list becomes the default rather than
+     * reaching the database.
+     *
+     * Priority sorts by rank, not alphabetically: 'critical' < 'high' < 'low'
+     * as text puts critical first by accident and high last, which reads as
+     * working until someone trusts it.
+     */
+    $orderMap = [
+        'date'     => 'dr.report_date',
+        /* Ranked high-number-is-urgent so DESC means "most urgent first", which
+           is what someone clicking a Priority header expects on the first click.
+           Ranked at all because sorting the words puts critical before high by
+           accident and low before medium, which looks right until it matters. */
+        'priority' => "CASE LOWER(COALESCE(dr.priority,'')) WHEN 'critical' THEN 5 WHEN 'urgent' THEN 4"
+                    . " WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'low' THEN 1 ELSE 0 END",
+        'status'   => 'dr.status',
+        'equip'    => 'e.equipment_name',
+        'reporter' => 'dr.reporter_name',
+        'unit'     => 'dr.department_assigned',
+    ];
+    $orderKey = strtolower(trim((string) ($opts['order'] ?? 'date')));
+    $orderCol = $orderMap[$orderKey] ?? $orderMap['date'];
+    $orderDir = strtolower(trim((string) ($opts['dir'] ?? 'desc'))) === 'asc' ? 'ASC' : 'DESC';
+    /* NULLS LAST so rows missing the sorted field sink instead of forming a
+       block of blanks at the top, which reads as the sort being broken.
+       MySQL has no NULLS LAST, hence the driver check. */
+    $orderSql = ' ORDER BY ' . $orderCol . ' ' . $orderDir . ($pg ? ' NULLS LAST' : '')
+              . ($orderKey !== 'date' ? ', dr.report_date DESC' : '');
+    $sql = becDefectReportSelect($pg) . $base['sql'] . $extra['sql'] . $orderSql;
     // Cast to int above, so these are safe to inline — and both drivers refuse a
     // bound parameter in LIMIT under some configurations.
     if ($limit > 0) { $sql .= " LIMIT {$limit}" . ($offset > 0 ? " OFFSET {$offset}" : ''); }

@@ -244,6 +244,10 @@ $checks = [
         ['cross-reference links styled', '/\.dr-xref\{/',  true],
         ['filtered-list banner styled',  '/\.qfilt\{/',    true],
         ['filter bar',               '/id="fsq"/',                  true],
+          /* The queue could only ever be newest-first, which answers "what just
+             came in" and nothing else - not "what is most urgent", not "what has
+             been waiting longest". */
+          ['sortable column headers',  '/class="qsort/',               true],
     ]],
     /* The list pages in the database now, so a second page has to render on its
        own rather than being a slice JavaScript reveals. #repPager is the hook

@@ -255,6 +255,51 @@ $page    = max(1, (int)($_GET['page'] ?? 1));
 $cst = $pdo->prepare("SELECT COUNT(*) FROM public.venue_reservations{$sqlWhere}");
 $cst->execute($bind);
 $matchTotal = (int)$cst->fetchColumn();
+
+/*
+ * Export what you are looking at.
+ *
+ * Reports, Work Orders, Users and the Directory could all be exported; venue
+ * reservations and preventive schedules could not, so the one thing the PMO is
+ * actually asked for — "send us the list" — meant reading it off the screen.
+ *
+ * Deliberately uses the SAME $sqlWhere and $bind as the table below, minus the
+ * LIMIT: an export that quietly ignores the filters you set, or that gives you
+ * only the 25 rows of the page you happen to be on, is worse than none because
+ * you cannot tell by looking at the file.
+ */
+if (strtolower(trim((string) ($_GET['export'] ?? ''))) === 'csv') {
+    require_once __DIR__ . '/includes/csv_export.php';
+    $xst = $pdo->prepare("SELECT * FROM public.venue_reservations{$sqlWhere} ORDER BY starts_at DESC");
+    $xst->execute($bind);
+    $xRows = $xst->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    $out = becCsvOpen('BEC_PMO_Venue_Reservations');
+    becCsvLetterhead($out, 'Venue Reservations', ['Total Records' => number_format(count($xRows))]);
+    becCsvRow($out, ['VRF No', 'Applicant', 'Department / Org', 'Venue', 'Nature',
+                     'Starts', 'Ends', 'Participants', 'Status',
+                     'Assessment (PHP)', 'Amount Paid (PHP)', 'OR No']);
+    foreach ($xRows as $x) {
+        becCsvRow($out, [
+            $x['vrf_no'] ?? '',
+            $x['applicant_name'] ?? '',
+            $x['department_org'] ?? '',
+            $x['venue'] ?? '',
+            trim((string) ($x['nature'] ?? '')) === 'Other' ? (string) ($x['nature_other'] ?? 'Other') : (string) ($x['nature'] ?? ''),
+            !empty($x['starts_at']) ? date('Y-m-d H:i', strtotime((string) $x['starts_at'])) : '',
+            !empty($x['ends_at'])   ? date('Y-m-d H:i', strtotime((string) $x['ends_at']))   : '',
+            $x['participants'] ?? '',
+            ucwords(str_replace('_', ' ', (string) ($x['status'] ?? ''))),
+            $x['assessment_amount'] ?? '',
+            $x['amount_paid'] ?? '',
+            $x['or_no'] ?? '',
+        ]);
+    }
+    becCsvBlank($out);
+    becCsvFooter($out, 'End of Venue Reservations');
+    fclose($out);
+    exit;
+}
 $totalPages = max(1, (int)ceil($matchTotal / $perPage));
 if ($page > $totalPages) { $page = $totalPages; }
 $offset = ($page - 1) * $perPage;
@@ -413,6 +458,8 @@ $pageQuery = static function (int $p) use ($q, $sf, $wf): string {
              A venue already held for a time window cannot be booked twice.</p>
         </div>
         <div class="head-acts">
+          <?php /* Exports what the filters above are showing, not just this page. */ ?>
+          <a class="btn ghost" href="?<?php echo htmlspecialchars(http_build_query(array_merge($_GET, ['export' => 'csv'])), ENT_QUOTES); ?>"><i class="fas fa-file-csv"></i> Export CSV</a>
           <a class="btn m" href="reserve_venue.php?walkin=1"><i class="fas fa-plus"></i> File a Request</a>
         </div>
       </div>

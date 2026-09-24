@@ -192,6 +192,43 @@ try {
 
 $generatedTotal = (int)$pdo->query("SELECT COUNT(*) FROM defect_reports WHERE is_preventive = true")->fetchColumn();
 
+/*
+ * Export the schedule. Same reasoning as the venue list: this is the page
+ * someone is asked to hand over as a document, and it was the one that could
+ * not produce one. $schedules and $genMap are already in hand, so this costs
+ * no extra query — it writes what the table below is about to draw.
+ */
+if (strtolower(trim((string) ($_GET['export'] ?? ''))) === 'csv') {
+    require_once __DIR__ . '/includes/csv_export.php';
+    $out = becCsvOpen('BEC_PMO_Preventive_Schedules');
+    becCsvLetterhead($out, 'Preventive Maintenance Schedules',
+        ['Total Records' => number_format(count($schedules)),
+         'Tickets Generated' => number_format($generatedTotal)]);
+    becCsvRow($out, ['Title', 'Equipment', 'Asset Tag', 'Location', 'Unit',
+                     'Every (days)', 'Next Due', 'Priority', 'Status',
+                     'Tickets Generated', 'Last Generated']);
+    foreach ($schedules as $s) {
+        $g = $genMap[$s['id']] ?? ['c' => 0, 'last_at' => null];
+        becCsvRow($out, [
+            $s['title'] ?? '',
+            $s['equipment_name'] ?? '',
+            $s['asset_tag'] ?? '',
+            $s['location'] ?? '',
+            $s['unit'] ?? '',
+            $s['frequency_days'] ?? '',
+            !empty($s['next_due']) ? date('Y-m-d', strtotime((string) $s['next_due'])) : '',
+            ucfirst((string) ($s['priority'] ?? '')),
+            ucfirst((string) ($s['status'] ?? '')),
+            (int) ($g['c'] ?? 0),
+            !empty($g['last_at']) ? date('Y-m-d', strtotime((string) $g['last_at'])) : '',
+        ]);
+    }
+    becCsvBlank($out);
+    becCsvFooter($out, 'End of Preventive Maintenance Schedules');
+    fclose($out);
+    exit;
+}
+
 $equipAll = $pdo->query("SELECT equipment_id, equipment_name, asset_tag, location,
                                 UPPER(COALESCE(NULLIF(TRIM(unit),''),'')) AS unit
                          FROM equipment
@@ -485,6 +522,8 @@ $eqJson = json_encode($eqPayload, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_H
         </div>
         <div class="head-acts">
           <button class="btn ghost" type="submit" form="runForm"><i class="fas fa-bolt"></i> Generate Due Tickets</button>
+          <?php /* The schedule is the document the PMO is asked to hand over. */ ?>
+          <a class="btn ghost" href="?<?php echo htmlspecialchars(http_build_query(array_merge($_GET, ['export' => 'csv'])), ENT_QUOTES); ?>"><i class="fas fa-file-csv"></i> Export CSV</a>
           <button class="btn m" type="button" id="newBtn"><i class="fas fa-plus"></i> New Schedule</button>
         </div>
       </div>

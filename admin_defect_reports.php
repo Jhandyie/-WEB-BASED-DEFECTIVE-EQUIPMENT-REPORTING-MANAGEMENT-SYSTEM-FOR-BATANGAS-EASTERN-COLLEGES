@@ -47,7 +47,7 @@ function adminWorkflowNotifyRole($conn, string $role, string $message, string $r
  */
 function becQueueReturn(): string {
     $keep = [];
-    foreach (['status', 'priority', 'dept', 'kind', 'search', 'nudged', 'overdue', 'equipment', 'reporter'] as $k) {
+    foreach (['status', 'priority', 'dept', 'kind', 'search', 'nudged', 'overdue', 'equipment', 'reporter', 'sort', 'dir'] as $k) {
         $v = trim((string)($_GET[$k] ?? ''));
         if ($v !== '' && $v !== 'all') { $keep[$k] = $v; }
     }
@@ -348,6 +348,14 @@ $of = strtolower(trim((string)($_GET['overdue'] ?? 'all')));
 $eqf = trim((string)($_GET['equipment'] ?? ''));
 $rpf = trim((string)($_GET['reporter'] ?? ''));
 
+/* Sorting. Whitelisted here as well as in the query builder so a bad value
+   never reaches the header-rendering code either. Default is newest-first,
+   which is what the page has always done. */
+$sortKeys = ['date', 'priority', 'status', 'equip', 'reporter', 'unit'];
+$so  = strtolower(trim((string) ($_GET['sort'] ?? 'date')));
+if (!in_array($so, $sortKeys, true)) { $so = 'date'; }
+$sd  = strtolower(trim((string) ($_GET['dir'] ?? 'desc'))) === 'asc' ? 'asc' : 'desc';
+
 /* The banner says "reports for Air Conditioner", not "reports for EQ-0142".
    Only looked up when the filter is actually in use, so a normal page load
    does not pay for it. */
@@ -392,6 +400,8 @@ if ($nf === 'yes')  { $listOpts['followed_up'] = true; }
 if ($of === 'yes')  { $listOpts['overdue'] = true; }
 if ($eqf !== '')    { $listOpts['equipment_id']   = $eqf; }
 if ($rpf !== '')    { $listOpts['reporter_email'] = $rpf; }
+$listOpts['order'] = $so;
+$listOpts['dir']   = $sd;
 
 /* The cards count the same unit and kind scope but ignore the status stage,
    priority and search — so every stage keeps showing its own total while one of
@@ -1290,6 +1300,17 @@ textarea.fc{resize:vertical;min-height:70px;}
    one tap, and they only appear when there IS a history worth opening — an
    always-present link that usually leads to an empty list trains people to
    stop pressing it. */
+/* ── sortable column headers ──────────────────────────────────────────────
+   The queue could only ever be newest-first. The arrow is always drawn, not
+   only on hover: a header that becomes clickable when you happen to point at
+   it is a control most people never find. */
+.qsort{display:inline-flex;align-items:center;gap:.35rem;color:inherit;
+  text-decoration:none;white-space:nowrap;}
+.qsort i{font-size:.82em;opacity:.35;transition:opacity .15s;}
+.qsort:hover{color:var(--maroon,#7B1D1D);}
+.qsort:hover i{opacity:.7;}
+.qsort.on{color:var(--maroon,#7B1D1D);}
+.qsort.on i{opacity:1;}
 .dr-xref{display:inline-flex;align-items:center;gap:.34rem;margin-top:.3rem;
   padding:.2rem .5rem;border-radius:20px;text-decoration:none;
   border:1px solid var(--bdr);background:var(--s2);
@@ -1752,10 +1773,33 @@ textarea.fc{resize:vertical;min-height:70px;}
         <table class="tbl" id="mainTbl">
           <thead>
             <tr>
-              <th class="selcol"><input type="checkbox" id="selAll" aria-label="Select every report on this page"></th>
-              <th>Report ID</th><th>Equipment</th><th>Reporter</th>
-              <th>Priority</th><th>Status</th><th>Department</th>
-              <th>Date</th><th>Assigned To</th><th style="text-align:center;">Actions</th>
+                <th class="selcol"><input type="checkbox" id="selAll" aria-label="Select every report on this page"></th>
+                <?php
+                /* Clickable headers. Same behaviour as the Work Orders table so the
+                   two lists do not disagree about how sorting works: click to sort,
+                   click again to reverse, and the arrow shows which column is doing
+                   it. Every link carries the current filters, so sorting a filtered
+                   queue keeps the filter. */
+                $qth = function (string $key, string $label) use ($so, $sd) {
+                    $next = ($so === $key && $sd === 'desc') ? 'asc' : 'desc';
+                    $icon = $so !== $key ? 'fa-sort' : ($sd === 'desc' ? 'fa-sort-down' : 'fa-sort-up');
+                    $qs   = $_GET;
+                    $qs['sort'] = $key; $qs['dir'] = $next;
+                    unset($qs['view_id']);   // sorting should not reopen a report
+                    echo '<th><a class="qsort' . ($so === $key ? ' on' : '') . '" href="?'
+                       . htmlspecialchars(http_build_query($qs), ENT_QUOTES) . '">'
+                       . htmlspecialchars($label, ENT_QUOTES)
+                       . ' <i class="fas ' . $icon . '" aria-hidden="true"></i></a></th>';
+                };
+                ?>
+                <th>Report ID</th>
+                <?php $qth('equip', 'Equipment'); ?>
+                <?php $qth('reporter', 'Reporter'); ?>
+                <?php $qth('priority', 'Priority'); ?>
+                <?php $qth('status', 'Status'); ?>
+                <?php $qth('unit', 'Department'); ?>
+                <?php $qth('date', 'Date'); ?>
+                <th>Assigned To</th><th style="text-align:center;">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -1764,7 +1808,7 @@ textarea.fc{resize:vertical;min-height:70px;}
                  forms so acting on a report returns to this same view rather
                  than the bare, unfiltered page. */
               $drRowQS = '';
-              foreach (['status' => $sf, 'priority' => $pf, 'dept' => $df, 'kind' => $kf, 'search' => $sq, 'nudged' => $nf, 'overdue' => $of, 'equipment' => $eqf, 'reporter' => $rpf] as $k => $v) {
+              foreach (['status' => $sf, 'priority' => $pf, 'dept' => $df, 'kind' => $kf, 'search' => $sq, 'nudged' => $nf, 'overdue' => $of, 'equipment' => $eqf, 'reporter' => $rpf, 'sort' => $so, 'dir' => $sd] as $k => $v) {
                   $v = trim((string)$v);
                   if ($v !== '' && $v !== 'all') { $drRowQS .= '&' . $k . '=' . urlencode($v); }
               }
@@ -1939,7 +1983,7 @@ textarea.fc{resize:vertical;min-height:70px;}
      redirect afterwards can put them back. becQueueReturn() reads these same
      keys out of $_GET on the POST. */
   $drFormQS = '';
-  foreach (['status' => $sf, 'priority' => $pf, 'dept' => $df, 'kind' => $kf, 'search' => $sq, 'nudged' => $nf, 'overdue' => $of, 'equipment' => $eqf, 'reporter' => $rpf] as $k => $v) {
+  foreach (['status' => $sf, 'priority' => $pf, 'dept' => $df, 'kind' => $kf, 'search' => $sq, 'nudged' => $nf, 'overdue' => $of, 'equipment' => $eqf, 'reporter' => $rpf, 'sort' => $so, 'dir' => $sd] as $k => $v) {
       $v = trim((string)$v);
       if ($v !== '' && $v !== 'all') { $drFormQS .= '&' . $k . '=' . urlencode($v); }
   }
