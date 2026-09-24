@@ -85,9 +85,10 @@ Every transition notifies the right people **in-app and by branded email**
 
 > **Production note:** serve over **HTTPS** for PWA installation and secure cookies, and point
 > SMTP at institutional accounts.
-> See **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** for the full hosting guide — including a
-> 10-minute public HTTPS demo via Cloudflare Tunnel, shared-hosting requirements
-> (`pdo_pgsql`, SMTP), cron backups, and a post-launch verification checklist.
+> See **[docs/GO_LIVE.md](docs/GO_LIVE.md)** for the step-by-step: DNS records, the
+> provisioning script, HTTPS, and the checklist to run before you give anyone the address.
+> **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** covers the alternatives — a 10-minute public
+> HTTPS demo via Cloudflare Tunnel, and what to confirm before buying shared hosting.
 
 ## Project structure (key paths)
 
@@ -122,8 +123,9 @@ in the database and all notification emails delivered.
 
 - **[docs/ROI_ANALYSIS.md](docs/ROI_ANALYSIS.md)** — five-year cost–benefit and return-on-investment evaluation (NPV, BCR, IRR, payback, sensitivity, make-vs-buy)
 - **[docs/USER_MANUAL.md](docs/USER_MANUAL.md)** — role-by-role instructions (reporters, PMO admins, technicians)
-- **[docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)** — 15-minute defense/demo walkthrough with pre-flight checklist, Q&A prep, and fallbacks
-- **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** — hosting guide (instant HTTPS demo tunnel, shared hosting, VPS)
+- **[docs/GO_LIVE.md](docs/GO_LIVE.md)** — taking it live on your own domain: DNS, provisioning, HTTPS, the verification checklist, and the routine for pushing updates afterwards
+- **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** — the other two hosting routes (temporary HTTPS demo tunnel, shared hosting)
+- **[docs/VM_SETUP.md](docs/VM_SETUP.md)** — choosing a provider and creating the machine
 - **[docs/EMAIL_DELIVERABILITY.md](docs/EMAIL_DELIVERABILITY.md)** — SPF/DKIM/DMARC setup for institutional mail
 
 ## Academic context

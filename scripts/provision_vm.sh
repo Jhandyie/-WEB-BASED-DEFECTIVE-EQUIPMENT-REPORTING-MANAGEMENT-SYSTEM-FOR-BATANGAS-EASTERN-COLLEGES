@@ -145,11 +145,23 @@ if command -v ufw >/dev/null; then
 fi
 warn "your CLOUD firewall is separate - open 80 and 443 there too, or the site stays unreachable"
 
-say "Nightly backup"
+say "Scheduled jobs"
 CRON="0 18 * * * www-data /usr/bin/php $APP_DIR/scripts/backup_db.php >/dev/null 2>&1"
 echo "$CRON" > /etc/cron.d/bec-pmo-backup
 chmod 644 /etc/cron.d/bec-pmo-backup
-ok "backup_db.php scheduled daily at 18:00"
+ok "backup_db.php scheduled daily at 18:00 UTC (02:00 Manila)"
+
+# run_sweeps.php is not optional decoration: it escalates reports that have
+# passed their SLA window and drains data/mail_outbox/, which is where every
+# deferred notification sits. Without it the admin pages stay fast (they defer
+# the mail) but the mail is never actually sent - and nothing reports that,
+# because from the app's side the message was handed off successfully.
+# This was added to the live machine by hand and was missing here, so any new
+# server provisioned from this script would have silently swallowed its mail.
+SWEEP="*/15 * * * * www-data /usr/bin/php $APP_DIR/scripts/run_sweeps.php >>$APP_DIR/logs/sweeps.log 2>&1"
+echo "$SWEEP" > /etc/cron.d/bec-pmo-sweeps
+chmod 644 /etc/cron.d/bec-pmo-sweeps
+ok "run_sweeps.php scheduled every 15 minutes (SLA escalation + mail outbox)"
 
 # ---------------------------------------------------------------- checks ----
 say "Checks that matter"
