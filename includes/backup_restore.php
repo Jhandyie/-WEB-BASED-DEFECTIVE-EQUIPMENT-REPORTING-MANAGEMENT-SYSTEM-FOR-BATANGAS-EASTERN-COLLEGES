@@ -669,6 +669,12 @@ if (!function_exists('becRestoreFromBackup')) {
         $result = ['ok' => false, 'message' => '', 'restored' => [], 'skipped' => [],
                    'safety' => null, 'sequences' => [], 'preview' => []];
 
+        // A restore only writes rows, so it cannot change the shape of a table -
+        // but it is the moment someone is most likely to have moved the database
+        // between environments, and reading a cached schema that belongs to the
+        // other one would drop columns silently. Cheap insurance.
+        if (!$dryRun && function_exists('becClearSchemaCache')) { becClearSchemaCache(); }
+
         $entries = becArchiveEntries($zipPath)['entries'];
         if (!$entries) {
             $result['message'] = 'The backup archive could not be read or is empty.';

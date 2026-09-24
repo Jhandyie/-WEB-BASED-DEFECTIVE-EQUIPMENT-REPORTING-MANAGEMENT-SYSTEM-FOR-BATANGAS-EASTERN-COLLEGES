@@ -167,6 +167,18 @@ notifications and branded email. `users.department` (PMO or ITSO) scopes which r
   reader of this table needs to resolve a row across several columns rather than trusting one.
   (The `admin_audit_log.php` viewer was removed in Aug 2026; the *writing* side is untouched and
   every lifecycle action is still logged.)
+- **The table schema is cached across requests in `data/schema_cache.json`.** `getTableColumns()`
+  is asked several times per page (the code checks a column exists before reading it), and each
+  check was a real Supabase round trip at ~120 ms. The cache is read once per request, never
+  stores an empty result (that is what `tableExists()` means), is written atomically, and falls
+  through to a live query on any filesystem error. **Migrations here are SQL run by hand in the
+  Supabase editor, so nothing in PHP knows one happened** — the 10-minute TTL is what bounds how
+  long a page can be blind to a new column. Run `becClearSchemaCache()` to make it immediate.
+- **Admin pages are network-bound, not CPU-bound.** Measured: **317 ms to open the Supabase
+  connection, then ~108 ms per query**. A page costs roughly `317 + N x 108`. So the only thing
+  that makes an admin page faster is *issuing fewer queries* — micro-optimising PHP buys nothing,
+  and splitting one query into several costs 108 ms each time. Check the query count before
+  assuming a page is slow for any other reason.
 - **Keep `.ps1` files ASCII-only.** Windows PowerShell reads them as ANSI; an em-dash inside a
   string literal terminates the string and breaks the script.
 - **OPcache is deliberately off** in `C:\xampp\php\php.ini` — it was crashing Apache daily with

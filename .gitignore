@@ -124,3 +124,4 @@ _q_tmp*.php
 *_diag_*.php
 admin_diag_*.php
 student_diag_*.php
+data/schema_cache.json

@@ -307,11 +307,80 @@ function getDBConnection() {
     return Database::getInstance()->getConnection();
 }
 
+/**
+ * Where the cross-request copy of the schema lives, and how long it is trusted.
+ *
+ * `data/` already holds this kind of state (the rate limiter, the sweep
+ * timestamps), it is blocked from the web by .htaccess, and it is writable by
+ * the same user Apache runs as.
+ */
+// Ten minutes, not an hour. Migrations in this project are SQL files run by
+// hand in the Supabase editor, so nothing in PHP can know one happened; the
+// TTL is the only thing bounding how long a page can be blind to a new
+// column. Ten minutes costs one re-probe per table per ten minutes - noise
+// against a page load - and keeps that window short enough to be harmless.
+if (!defined('BEC_SCHEMA_CACHE_TTL')) { define('BEC_SCHEMA_CACHE_TTL', 600); }
+
+if (!function_exists('becSchemaCachePath')) {
+    function becSchemaCachePath(): string { return __DIR__ . '/../data/schema_cache.json'; }
+}
+
+if (!function_exists('becClearSchemaCache')) {
+    /** Call after a migration or a restore changes the shape of the database. */
+    function becClearSchemaCache(): void {
+        $p = becSchemaCachePath();
+        if (is_file($p)) { @unlink($p); }
+    }
+}
+
 if (!function_exists('getTableColumns')) {
+    /**
+     * The columns of a table, as column_name => information_schema row.
+     *
+     * Asked several times on every page load, because the code checks that a
+     * column exists before reading it — that is what lets the app keep working
+     * against an older database. Each of those checks was a real round trip to
+     * Supabase: **~120 ms each, measured**, to be told the same thing it was
+     * told on the previous request, about a schema that only changes when a
+     * migration runs. A page touching five tables paid roughly 600 ms for it,
+     * which on most admin pages was the single largest cost in the request.
+     *
+     * The answer is now also kept in data/schema_cache.json and read once per
+     * request. Three things about that cache are deliberate:
+     *
+     *   - **An empty result is never written to disk.** `tableExists()` is
+     *     defined as "the column list came back empty", so persisting that
+     *     would hide a table for a whole TTL after a migration creates it —
+     *     and the failure would look like the migration silently not working.
+     *   - **The file is written atomically**, temp file then rename. Two
+     *     requests can miss at the same moment, and a half-written JSON file
+     *     would be read as corrupt by every request after it.
+     *   - **Every filesystem failure falls through to the live query.** A
+     *     cache that cannot be read or written must cost correctness nothing;
+     *     the worst case is the speed the app had before this existed.
+     */
     function getTableColumns(string $tableName, string $schema = 'public'): array {
-        static $cache = [];
+        static $cache = null;   // null = not yet seeded from disk this request
+        static $seedAt = 0;     // when the file on disk was first written
+
         $driver = getDatabaseDriver();
         $cacheKey = strtolower($driver . ':' . $schema . '.' . $tableName);
+
+        if ($cache === null) {
+            $cache = [];
+            $raw = @file_get_contents(becSchemaCachePath());
+            if ($raw !== false && $raw !== '') {
+                $j = json_decode($raw, true);
+                if (is_array($j)
+                    && ($j['v'] ?? 0) === 1
+                    && is_array($j['tables'] ?? null)
+                    && (time() - (int)($j['at'] ?? 0)) < BEC_SCHEMA_CACHE_TTL) {
+                    $cache  = $j['tables'];
+                    $seedAt = (int) $j['at'];
+                }
+            }
+        }
+
         if (isset($cache[$cacheKey])) {
             return $cache[$cacheKey];
         }
@@ -350,6 +419,25 @@ if (!function_exists('getTableColumns')) {
         }
 
         $cache[$cacheKey] = $columns;
+
+        // Only a real answer is worth persisting - see the note above about
+        // empty results and tableExists().
+        if ($columns !== []) {
+            $payload = json_encode(
+                ['v' => 1, 'at' => $seedAt ?: time(), 'tables' => $cache],
+                JSON_UNESCAPED_SLASHES
+            );
+            if ($payload !== false) {
+                $path = becSchemaCachePath();
+                $tmp  = $path . '.' . getmypid() . '.tmp';
+                if (@file_put_contents($tmp, $payload, LOCK_EX) !== false) {
+                    if (!@rename($tmp, $path)) { @unlink($tmp); }
+                } else {
+                    @unlink($tmp);
+                }
+            }
+        }
+
         return $columns;
     }
 }
