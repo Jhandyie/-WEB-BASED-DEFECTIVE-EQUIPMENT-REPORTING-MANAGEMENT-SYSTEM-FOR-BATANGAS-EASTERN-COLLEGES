@@ -86,6 +86,12 @@ if (isset($_GET['template'])) {
 
 $flash = null;
 $report = null;   // per-import detail: what was cleaned, skipped, or shared
+/* Which row, if any, the edit form is open on. ?edit=<id> opens an existing
+   person, ?edit=new opens a blank one; a failed save re-opens with what was
+   typed rather than discarding the entry over one bad field. */
+$editId    = 0;
+$editNew   = false;
+$editDraft = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireCsrf();
     $act = $_POST['action'] ?? '';
@@ -112,11 +118,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         }
+      } elseif ($act === 'save_one' || $act === 'delete_one') {
+          /* One person at a time. The page could import a whole roster or
+             TRUNCATE the table and nothing in between, so a single wrong row
+             stayed wrong — see the note above becdir_save_one(). */
+          $rid = (int) ($_POST['id'] ?? 0);
+
+          if ($act === 'delete_one') {
+              $res = becdir_delete_one($rid);
+              $msg = $res['msg'];
+              if ($res['ok'] && $res['reports'] > 0) {
+                  /* Their reports are not deleted and are not orphaned - the name
+                     and address live on the report itself. Say so, because
+                     "removed" next to a reporter who still appears in the queue
+                     looks like the delete did not work. */
+                  $msg .= ' Their ' . $res['reports'] . ' existing report'
+                        . ($res['reports'] === 1 ? '' : 's') . ' are unaffected.';
+              }
+              $flash = [$res['ok'] ? 'ok' : 'err', $msg];
+              if ($res['ok'] && function_exists('logActivity')) {
+                  try { logActivity($admin_id, 'admin', 'directory.delete', 'Removed directory record #' . $rid); } catch (\Throwable $e) {}
+              }
+          } else {
+              $res = becdir_save_one($_POST, $rid > 0 ? $rid : null);
+              $msg = $res['msg'];
+              if ($res['ok'] && $res['moved_from'] !== '') {
+                  /* Changing the address does not move the reports filed under the
+                     old one, and silently rewriting history would be worse than
+                     saying this plainly. */
+                  $n = becdir_reports_for_email($res['moved_from']);
+                  if ($n > 0) {
+                      $msg .= ' Note: ' . $n . ' report' . ($n === 1 ? '' : 's')
+                            . ' already filed under ' . $res['moved_from']
+                            . ' stay attached to that address.';
+                  }
+              }
+              $flash = [$res['ok'] ? 'ok' : 'err', $msg];
+              if ($res['ok']) {
+                  $editId = 0;
+                  if (function_exists('logActivity')) {
+                      try { logActivity($admin_id, 'admin', 'directory.save', ($rid > 0 ? 'Edited' : 'Added') . ' directory record #' . $res['id']); } catch (\Throwable $e) {}
+                  }
+              } else {
+                  /* Keep the form open with what they typed, rather than throwing
+                     the whole entry away over one bad field. */
+                  $editId   = $rid;
+                  $editDraft = $_POST;
+              }
+          }
     } elseif ($act === 'clear_all') {
         try { getPgsqlPdoConnection()->exec("TRUNCATE public.bec_directory RESTART IDENTITY"); $flash = ['ok', 'Directory cleared.']; }
         catch (\Throwable $e) { $flash = ['err', 'Could not clear the directory.']; }
         if (function_exists('logActivity')) { try { logActivity($admin_id, 'admin', 'directory.clear', 'Cleared BEC directory'); } catch (\Throwable $e) {} }
     }
+}
+
+/* ?edit=new / ?edit=<id> - a GET so the form survives a reload and can be linked to. */
+if ($editId === 0 && empty($editDraft)) {
+    $eg = trim((string) ($_GET['edit'] ?? ''));
+    if ($eg === 'new')      { $editNew = true; }
+    elseif (ctype_digit($eg)) { $editId = (int) $eg; }
 }
 
 $total  = becdir_count();
@@ -345,6 +406,37 @@ $hasFilter = ($search !== '' || $tf !== 'all' || $df !== 'all' || $yf !== 'all')
   .empty{padding:2rem;}
   @media(max-width:860px){.sb{transform:translateX(-100%);}.main{margin-left:0;}.cards{grid-template-columns:1fr 1fr;}}
   @media(max-width:640px){ input,select,textarea,.fi,.fc,.input{ font-size:16px; } } /* prevent iOS zoom */
+/* ── one-person edit ──────────────────────────────────────────────────────
+   The directory could be imported wholesale or truncated, and nothing else,
+   so a single wrong row could not be corrected. */
+.dacts{text-align:center;white-space:nowrap;}
+.dbtn{display:inline-flex;align-items:center;justify-content:center;
+  width:30px;height:30px;border-radius:8px;border:1px solid var(--bdr,#E5D9C6);
+  background:var(--s2,#FAF7F0);color:var(--t2,#5C3838);cursor:pointer;
+  text-decoration:none;font-size:.72rem;margin:0 1px;transition:all .15s;}
+.dbtn:hover{border-color:var(--maroon,#7B1D1D);color:var(--maroon,#7B1D1D);background:#fff;}
+.dbtn.del:hover{border-color:#DC2626;color:#DC2626;}
+
+.dform{margin-bottom:1rem;}
+.dform-h{display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  padding:.85rem 1.1rem;border-bottom:1px solid var(--bdr,#E5D9C6);}
+.dform-h h3{font-size:.95rem;font-weight:700;display:flex;align-items:center;gap:.5rem;margin:0;}
+.dform-h h3 i{color:var(--gold,#C9960C);}
+.dform-note{margin:.85rem 1.1rem 0;padding:.6rem .8rem;border-radius:9px;
+  background:var(--info-bg,#EFF6FF);border:1px solid var(--info-bdr,#BFDBFE);
+  color:var(--info-tx,#1D4ED8);font-size:.78rem;line-height:1.5;}
+.dform-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));
+  gap:.85rem 1rem;padding:1.1rem;}
+.dform-g label{display:flex;flex-direction:column;gap:.3rem;
+  font-size:.76rem;font-weight:600;color:var(--t2,#5C3838);}
+.dform-g .req{color:#DC2626;}
+.dform-g input,.dform-g select{padding:.5rem .65rem;border-radius:8px;
+  border:1px solid var(--bdr,#E5D9C6);background:#fff;font:inherit;
+  font-size:.82rem;font-weight:400;color:var(--t1,#1A0808);outline:none;}
+.dform-g input:focus,.dform-g select:focus{border-color:var(--maroon,#7B1D1D);
+  box-shadow:0 0 0 3px rgba(123,29,29,.09);}
+.dform-g small{font-weight:400;color:var(--t3,#9C7A7A);font-size:.7rem;line-height:1.4;}
+.dform-a{grid-column:1/-1;display:flex;justify-content:flex-end;}
 </style>
 </head>
 <body>
@@ -488,12 +580,78 @@ $hasFilter = ($search !== '' || $tf !== 'all' || $df !== 'all' || $yf !== 'all')
           <a class="btn ghost" href="?template=xlsx"><i class="fas fa-file-excel"></i> Download Template</a>
           <a class="tmpl-alt" href="?template=csv" title="Plain CSV, no formatting">or CSV</a>
           <?php if ($total > 0): ?>
+          <?php /* Someone who is not on the imported roll - a new hire, a transferee -
+                   could not be put in the directory at all without re-importing the
+                   whole workbook, so their reports arrived with no department. */ ?>
+          <a class="btn ghost" href="?<?php echo bd_e(http_build_query(array_merge($_GET, ['edit' => 'new']))); ?>"><i class="fas fa-user-plus"></i> Add a Person</a>
           <button class="btn red" type="submit" form="clearForm" onclick="return confirm('Remove all <?php echo (int)$total; ?> directory records? This cannot be undone.');"><i class="fas fa-trash"></i> Clear All</button>
           <?php endif; ?>
         </form>
         <form method="POST" id="clearForm"><input type="hidden" name="action" value="clear_all"></form>
       </div>
 
+      <?php
+      /* The edit panel. Open only when asked for, above the list so it is
+         obviously about the list and not a separate screen. */
+      $edRow = $editId > 0 ? becdir_get_one($editId) : null;
+      if ($editNew || $edRow || !empty($editDraft)):
+          $v = static function (string $k, $fallback = '') use ($editDraft, $edRow) {
+              if (array_key_exists($k, $editDraft)) { return (string) $editDraft[$k]; }
+              return (string) ($edRow[$k] ?? $fallback);
+          };
+          $edReports = $edRow ? becdir_reports_for_email((string) $edRow['email']) : 0;
+      ?>
+      <div class="panel dform">
+        <div class="dform-h">
+          <h3><i class="fas <?php echo $edRow ? 'fa-pen' : 'fa-user-plus'; ?>"></i>
+            <?php echo $edRow ? 'Editing ' . bd_e(becdir_display_name((string) $edRow['full_name'])) : 'Add a person to the directory'; ?></h3>
+          <a class="btn ghost sm" href="?<?php echo bd_e(http_build_query(array_diff_key($_GET, ['edit' => 1]))); ?>"><i class="fas fa-xmark"></i> Cancel</a>
+        </div>
+        <?php if ($edRow && $edReports > 0): ?>
+          <?php /* Changing the address does not move reports already filed under the
+                   old one. Said before the edit, not after it. */ ?>
+          <p class="dform-note"><i class="fas fa-circle-info"></i>
+            <?php echo $edReports; ?> report<?php echo $edReports === 1 ? '' : 's'; ?> already filed
+            under <b><?php echo bd_e((string) $edRow['email']); ?></b>. Changing the address here will
+            not move them.</p>
+        <?php endif; ?>
+        <form method="POST" class="dform-g">
+          <?php echo csrf_field(); ?>
+          <input type="hidden" name="action" value="save_one">
+          <input type="hidden" name="id" value="<?php echo (int) ($edRow['id'] ?? 0); ?>">
+          <label>Full name <span class="req">*</span>
+            <input name="full_name" value="<?php echo bd_e($v('full_name')); ?>" required maxlength="160"></label>
+          <label>Email address <span class="req">*</span>
+            <input name="email" type="email" value="<?php echo bd_e($v('email')); ?>" required maxlength="160">
+            <small>This is what links a person to the reports they file.</small></label>
+          <label>Affiliation <span class="req">*</span>
+            <select name="user_type" id="dfType" required>
+              <?php $cur = becdir_canon_type($v('user_type')); ?>
+              <option value="">Choose…</option>
+              <?php foreach (['student' => 'Student', 'faculty' => 'Faculty', 'staff' => 'Staff'] as $k => $lbl): ?>
+                <option value="<?php echo $k; ?>" <?php echo $cur === $k ? 'selected' : ''; ?>><?php echo $lbl; ?></option>
+              <?php endforeach; ?>
+            </select></label>
+          <label>Department / Academic unit
+            <input name="department" value="<?php echo bd_e($v('department')); ?>" maxlength="160" list="dfDepts">
+            <datalist id="dfDepts"><?php foreach ($deptOptions as $o): ?><option value="<?php echo bd_e($o); ?>"><?php endforeach; ?></datalist></label>
+          <label>Program / Course
+            <input name="program" value="<?php echo bd_e($v('program')); ?>" maxlength="160"></label>
+          <label id="dfYearWrap">Year level
+            <input name="year_level" value="<?php echo bd_e($v('year_level')); ?>" maxlength="60" list="dfYears">
+            <datalist id="dfYears"><?php foreach (($yearOptions ?? []) as $o): ?><option value="<?php echo bd_e($o); ?>"><?php endforeach; ?></datalist>
+            <small>Students only — it is ignored for faculty and staff.</small></label>
+          <label>Employee number
+            <input name="employee_number" value="<?php echo bd_e($v('employee_number')); ?>" maxlength="60"></label>
+          <label>Student number
+            <input name="student_number" value="<?php echo bd_e($v('student_number')); ?>" maxlength="60"></label>
+          <div class="dform-a">
+            <button class="btn m" type="submit"><i class="fas fa-check"></i>
+              <?php echo $edRow ? 'Save changes' : 'Add to directory'; ?></button>
+          </div>
+        </form>
+      </div>
+      <?php endif; ?>
       <div class="panel">
         <?php // "(showing latest 200)" was left over from the old LIMIT 200. The
               // list is paged in SQL now — 50 a page, every record reachable —
@@ -554,9 +712,9 @@ $hasFilter = ($search !== '' || $tf !== 'all' || $df !== 'all' || $yf !== 'all')
             <colgroup>
               <col style="width:17%"><col style="width:21%"><col style="width:9%">
               <col style="width:15%"><col style="width:9%"><col style="width:18%">
-              <col style="width:11%">
+              <col style="width:9%"><col style="width:6%">
             </colgroup>
-            <thead><tr><th>Name</th><th>Email</th><th>Affiliation</th><th>Department</th><th>Year Level</th><th>Program</th><th>Emp/Student No.</th></tr></thead>
+            <thead><tr><th>Name</th><th>Email</th><th>Affiliation</th><th>Department</th><th>Year Level</th><th>Program</th><th>Emp/Student No.</th><th style="text-align:center;">Edit</th></tr></thead>
             <tbody>
               <?php foreach ($rows as $r): $ut = $r['user_type'] ?: 'x'; ?>
               <tr>
@@ -567,6 +725,15 @@ $hasFilter = ($search !== '' || $tf !== 'all' || $df !== 'all' || $yf !== 'all')
                 <td><?php echo bd_e($r['year_level'] ?? '' ?: '—'); ?></td>
                 <td title="<?php echo bd_e($r['program'] ?: ''); ?>"><?php echo bd_e($r['program'] ?: '—'); ?></td>
                 <td><?php echo bd_e($r['employee_number'] ?: ($r['student_number'] ?: '—')); ?></td>
+                  <td class="dacts">
+                    <?php /* The reason this column exists: a roster of 3,595 people
+                             had no way to correct one of them. */ ?>
+                    <a class="dbtn" href="?<?php echo bd_e(http_build_query(array_merge($_GET, ['edit' => (int) $r['id']]))); ?>"
+                       title="Edit this person"><i class="fas fa-pen"></i></a>
+                    <button type="button" class="dbtn del" title="Remove from the directory"
+                            data-del-id="<?php echo (int) $r['id']; ?>"
+                            data-del-name="<?php echo bd_e($r['full_name'] ?: $r['email']); ?>"><i class="fas fa-trash"></i></button>
+                  </td>
               </tr>
               <?php endforeach; ?>
             </tbody>
@@ -627,5 +794,30 @@ $hasFilter = ($search !== '' || $tf !== 'all' || $df !== 'all' || $yf !== 'all')
 <script src="assets/file_upload_premium.js"></script>
 <?php require_once __DIR__ . '/includes/admin_assistant.php'; ?>
 <?php require __DIR__ . '/includes/admin_ui.php'; ?>
+<form method="POST" id="dDelForm" style="display:none;">
+  <?php echo csrf_field(); ?>
+  <input type="hidden" name="action" value="delete_one">
+  <input type="hidden" name="id" id="dDelId">
+</form>
+<script>
+/* Delete goes through one hidden form rather than a form per row: 50 rows meant
+   50 forms, and a <form> cannot legally sit inside a <tr> anyway. */
+document.addEventListener('click', function (e) {
+  var b = e.target.closest('[data-del-id]');
+  if (!b) { return; }
+  var name = b.getAttribute('data-del-name') || 'this person';
+  if (!confirm('Remove ' + name + ' from the BEC directory?' + '\n\n'
+      + 'Reports they have already filed are kept — only the roster entry goes.')) { return; }
+  document.getElementById('dDelId').value = b.getAttribute('data-del-id');
+  document.getElementById('dDelForm').submit();
+});
+/* Year level only means something for a student. */
+(function () {
+  var t = document.getElementById('dfType'), w = document.getElementById('dfYearWrap');
+  if (!t || !w) { return; }
+  var sync = function () { w.style.display = t.value === 'student' ? '' : 'none'; };
+  t.addEventListener('change', sync); sync();
+})();
+</script>
 </body>
 </html>

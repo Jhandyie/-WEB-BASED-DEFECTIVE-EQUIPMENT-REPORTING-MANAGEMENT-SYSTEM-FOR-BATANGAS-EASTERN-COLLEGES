@@ -798,3 +798,186 @@ function becdir_lookup(string $email): ?array {
         return $row ?: null;
     } catch (\Throwable $e) { return null; }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Editing ONE person.
+ *
+ * Until now the directory supported exactly two operations: import a file, or
+ * TRUNCATE the whole table. 3,595 people, and no way to fix a single typo — a
+ * misspelt address or a wrong department had to be corrected in the source
+ * workbook and the entire roster re-imported, which nobody is going to do for
+ * one row. So wrong rows simply stayed wrong.
+ *
+ * They are not cosmetic. The directory is what silently supplies a reporter's
+ * name, department and course on the report form (becdir_lookup()), so a wrong
+ * email means the person is never matched and their department renders blank,
+ * and a wrong department files their report under the wrong academic unit.
+ * ────────────────────────────────────────────────────────────────────────────*/
+
+if (!function_exists('becdir_get_one')) {
+    /** One directory row by its primary key, or null. */
+    function becdir_get_one(int $id): ?array {
+        if ($id <= 0) { return null; }
+        try {
+            $st = getPgsqlPdoConnection()->prepare('SELECT * FROM public.bec_directory WHERE id = :id');
+            $st->execute(['id' => $id]);
+            return $st->fetch(PDO::FETCH_ASSOC) ?: null;
+        } catch (\Throwable $e) { return null; }
+    }
+}
+
+if (!function_exists('becdir_one_errors')) {
+    /**
+     * Everything wrong with a submitted row, in the order a person reads the form.
+     *
+     * $id is the row being edited, and is excluded from the duplicate-address
+     * check — otherwise saving a record without touching its email would report
+     * that the address is already taken, by itself.
+     */
+    function becdir_one_errors(array $in, ?int $id = null): array {
+        $e = [];
+        $name  = trim((string) ($in['full_name'] ?? ''));
+        $email = becdir_clean_email((string) ($in['email'] ?? ''));
+
+        if ($name === '')            { $e[] = 'A full name is required.'; }
+        elseif (mb_strlen($name) < 2) { $e[] = 'That name is too short to be a name.'; }
+
+        if ($email === '') {
+            $e[] = 'An email address is required — it is the only thing that links a person to the reports they file.';
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $e[] = 'That email address is not valid.';
+        } else {
+            try {
+                $sql = 'SELECT id FROM public.bec_directory WHERE LOWER(email) = :em'
+                     . ($id ? ' AND id <> :id' : '') . ' LIMIT 1';
+                $st  = getPgsqlPdoConnection()->prepare($sql);
+                $p   = ['em' => mb_strtolower($email)];
+                if ($id) { $p['id'] = $id; }
+                $st->execute($p);
+                if ($st->fetchColumn()) {
+                    $e[] = 'Someone else in the directory already has that email address. '
+                         . 'Addresses have to be unique here, because that is what the reporting '
+                         . 'form matches on.';
+                }
+            } catch (\Throwable $ex) { /* a failed check must not block the save path */ }
+        }
+
+        $type = becdir_canon_type((string) ($in['user_type'] ?? ''));
+        if ($type === '') { $e[] = 'Choose whether this person is a student, faculty or staff.'; }
+
+        return $e;
+    }
+}
+
+if (!function_exists('becdir_save_one')) {
+    /**
+     * Insert or update a single person.
+     *
+     * A real UPDATE by id, not becdir_upsert(). Upsert keys on the email, so
+     * correcting a misspelt address — the single most likely reason to open this
+     * form — would have inserted a second row and left the wrong one behind.
+     *
+     * Returns ['ok', 'msg', 'id', 'moved_from'] where moved_from is the previous
+     * address when the email changed, so the caller can say what that means for
+     * reports already filed under it.
+     */
+    function becdir_save_one(array $in, ?int $id = null): array {
+        $errs = becdir_one_errors($in, $id);
+        if ($errs) { return ['ok' => false, 'msg' => implode(' ', $errs), 'id' => $id, 'moved_from' => '']; }
+
+        $cols    = getTableColumns('bec_directory');
+        $hasYear = isset($cols['year_level']);
+        $hasPhone = isset($cols['phone']);
+
+        $type = becdir_canon_type((string) ($in['user_type'] ?? ''));
+        $row = [
+            'full_name'       => trim((string) ($in['full_name'] ?? '')),
+            'email'           => becdir_clean_email((string) ($in['email'] ?? '')),
+            'employee_number' => trim((string) ($in['employee_number'] ?? '')),
+            'student_number'  => trim((string) ($in['student_number'] ?? '')),
+            'department'      => trim((string) ($in['department'] ?? '')),
+            'program'         => trim((string) ($in['program'] ?? '')),
+            'user_type'       => $type,
+        ];
+        /* A year level on a staff member is meaningless and shows up in the
+           student filters as a phantom option, so it is dropped rather than
+           stored for anyone who is not a student. */
+        if ($hasYear) {
+            $row['year_level'] = $type === 'student' ? trim((string) ($in['year_level'] ?? '')) : '';
+        }
+        if ($hasPhone) { $row['phone'] = trim((string) ($in['phone'] ?? '')); }
+
+        $prev = $id ? becdir_get_one($id) : null;
+        $movedFrom = '';
+        if ($prev && mb_strtolower(trim((string) $prev['email'])) !== mb_strtolower($row['email'])) {
+            $movedFrom = (string) $prev['email'];
+        }
+
+        try {
+            $pdo = getPgsqlPdoConnection();
+            if ($id && $prev) {
+                $sets = [];
+                foreach (array_keys($row) as $c) { $sets[] = "{$c} = :{$c}"; }
+                $sets[] = 'imported_at = now()';
+                $st = $pdo->prepare('UPDATE public.bec_directory SET ' . implode(', ', $sets) . ' WHERE id = :id');
+                $st->execute($row + ['id' => $id]);
+                return ['ok' => true, 'msg' => 'Saved.', 'id' => $id, 'moved_from' => $movedFrom];
+            }
+
+            $names = array_keys($row);
+            $st = $pdo->prepare('INSERT INTO public.bec_directory (' . implode(',', $names) . ',imported_at) VALUES (:'
+                . implode(',:', $names) . ',now()) RETURNING id');
+            $st->execute($row);
+            return ['ok' => true, 'msg' => 'Added.', 'id' => (int) $st->fetchColumn(), 'moved_from' => ''];
+        } catch (\Throwable $ex) {
+            error_log('becdir_save_one failed: ' . $ex->getMessage());
+            /* 23505 is the unique violation on email. It should have been caught
+               above, but two admins saving the same address at the same moment
+               get here, and "could not be saved" tells them nothing they can act on. */
+            if (strpos((string) $ex->getCode(), '23505') !== false) {
+                return ['ok' => false, 'msg' => 'That email address was just taken by another record. Nothing was saved.', 'id' => $id, 'moved_from' => ''];
+            }
+            return ['ok' => false, 'msg' => 'The record could not be saved. Nothing was changed.', 'id' => $id, 'moved_from' => ''];
+        }
+    }
+}
+
+if (!function_exists('becdir_reports_for_email')) {
+    /** How many reports are filed under an address. Used to warn, never to block. */
+    function becdir_reports_for_email(string $email): int {
+        $email = mb_strtolower(trim($email));
+        if ($email === '') { return 0; }
+        try {
+            $st = getPgsqlPdoConnection()->prepare(
+                "SELECT COUNT(*) FROM public.defect_reports WHERE LOWER(COALESCE(reporter_email,'')) = :em");
+            $st->execute(['em' => $email]);
+            return (int) $st->fetchColumn();
+        } catch (\Throwable $e) { return 0; }
+    }
+}
+
+if (!function_exists('becdir_delete_one')) {
+    /**
+     * Remove one person from the roster.
+     *
+     * Deliberately a real DELETE: the directory is an imported roster, not a
+     * record of activity, and a "deleted" row nothing can see is what made the
+     * equipment table confusing. Reports already filed keep the reporter's name
+     * and email on the report itself, so nothing is orphaned by this — the
+     * report stops being able to fill in their department, which is the same
+     * position it is in for anyone who was never in the directory.
+     */
+    function becdir_delete_one(int $id): array {
+        $row = becdir_get_one($id);
+        if (!$row) { return ['ok' => false, 'msg' => 'That directory record no longer exists.', 'reports' => 0]; }
+        $n = becdir_reports_for_email((string) $row['email']);
+        try {
+            $st = getPgsqlPdoConnection()->prepare('DELETE FROM public.bec_directory WHERE id = :id');
+            $st->execute(['id' => $id]);
+            return ['ok' => true, 'msg' => 'Removed ' . becdir_display_name((string) $row['full_name']) . ' from the directory.', 'reports' => $n];
+        } catch (\Throwable $ex) {
+            error_log('becdir_delete_one failed: ' . $ex->getMessage());
+            return ['ok' => false, 'msg' => 'That record could not be removed. Nothing was changed.', 'reports' => 0];
+        }
+    }
+}

@@ -352,6 +352,13 @@ $checks = [
         /* 3,587 people, paged 50 at a time in SQL — but no controls were ever
            drawn, so rows 51 onward could only be reached by editing the URL. */
         ['pager rendered',           '/class="pager"/',             true],
+          /* The roster could be imported wholesale or TRUNCATEd and nothing in
+             between: 3,595 people and no way to fix one typo, so wrong rows stayed
+             wrong - and this table is what silently fills in a reporter's
+             department on the report form. */
+          ['per-row edit button',      '/class="dbtn"/',               true],
+          ['per-row delete button',    '/data-del-id=/',               true],
+          ['add-a-person offered',     '/edit=new/',                   true],
         ['renders',                  '/<\/html>/i',                 true],
     ]],
     /* Recovery is the feature nobody exercises until the worst possible day.
