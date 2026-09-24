@@ -179,6 +179,12 @@ notifications and branded email. `users.department` (PMO or ITSO) scopes which r
   that makes an admin page faster is *issuing fewer queries* — micro-optimising PHP buys nothing,
   and splitting one query into several costs 108 ms each time. Check the query count before
   assuming a page is slow for any other reason.
+- **`ui_smoke.php` cannot render a URL with a query string through the browser path.**
+  `renderDom()` passes the URL to `escapeshellarg()`, and on Windows that replaces every `%`
+  with a space — so a rawurlencoded `?q=air` reaches Apache as a filename containing spaces
+  and returns 404, which shows up as a page that "renders" but asserts nothing. Use the
+  `http:admin` / `http:tech` role for those: it fetches with `file_get_contents` and a session
+  cookie, never touching a shell. Only valid for server-rendered pages.
 - **Keep `.ps1` files ASCII-only.** Windows PowerShell reads them as ANSI; an em-dash inside a
   string literal terminates the string and breaks the script.
 - **OPcache is deliberately off** in `C:\xampp\php\php.ini` — it was crashing Apache daily with

@@ -67,6 +67,18 @@ if (function_exists('becVenueEnabled') && becVenueEnabled()) {
     <div class="uav"><?php echo htmlspecialchars(strtoupper(substr((string) $__adminName, 0, 2)), ENT_QUOTES); ?></div>
     <div><span class="uname"><?php echo htmlspecialchars((string) $__adminName, ENT_QUOTES); ?></span><span class="urole">Administrator</span></div>
   </div>
+
+    <?php /* One box for the whole system. Every admin screen had its own search
+             field and each looked only at its own table, so a report id or an
+             asset tag was useless unless you already knew which page to open.
+             It lives in the sidebar because the sidebar is the only thing all
+             twelve admin pages share — the topbar is written out per page. */ ?>
+    <form class="sb-find" method="GET" action="admin_search.php" role="search">
+      <i class="fas fa-magnifying-glass" aria-hidden="true"></i>
+      <input type="search" name="q" placeholder="Search everything…"
+             aria-label="Search reports, equipment and people"
+             value="<?php echo htmlspecialchars((string) (basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')) === 'admin_search.php' ? ($_GET['q'] ?? '') : ''), ENT_QUOTES); ?>">
+    </form>
   <nav class="sb-nav">
     <?php foreach ($__sections as $__sec => $__items): ?>
       <div class="nav-sec"><?php echo $__sec; ?></div>

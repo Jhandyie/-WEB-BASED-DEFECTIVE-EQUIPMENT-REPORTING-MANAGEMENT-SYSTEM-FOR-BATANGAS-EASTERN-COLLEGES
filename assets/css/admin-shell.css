@@ -268,6 +268,22 @@ body.is-nav::before{content:'';position:fixed;inset:0 0 auto 0;height:3px;z-inde
    scrollbar chrome is gone, so the sidebar never looks like a scroll area.
    (Two ::-webkit-scrollbar blocks used to be declared here, 6px then 3px, the
    second silently winning.) */
+
+/* ── the one search box ───────────────────────────────────────────────────
+   Sits above the nav because it is a way of navigating: with a report id or
+   an asset tag in hand it is faster than any of the links under it. Styled
+   to read as part of the dark sidebar rather than as a form dropped into it. */
+.sb-find{position:relative;margin:.5rem 1rem .35rem;display:block;}
+.sb-find i{position:absolute;left:.65rem;top:50%;transform:translateY(-50%);
+  font-size:.72rem;color:rgba(255,255,255,.34);pointer-events:none;}
+.sb-find input{width:100%;padding:.48rem .7rem .48rem 1.9rem;border-radius:9px;
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);
+  color:#fff;font-family:inherit;font-size:.76rem;outline:none;
+  transition:background .15s,border-color .15s;}
+.sb-find input::placeholder{color:rgba(255,255,255,.38);}
+.sb-find input:focus{background:rgba(255,255,255,.12);border-color:var(--gold-2,#C9960C);}
+/* Chrome draws its own clear button in a colour that vanishes on this dark background. */
+.sb-find input::-webkit-search-cancel-button{filter:invert(1);opacity:.45;cursor:pointer;}
 .sb-nav{flex:1;padding:.15rem 0;overflow-y:auto;position:relative;z-index:1;
   scrollbar-width:none;-ms-overflow-style:none;}
 .sb-nav::-webkit-scrollbar{width:0;height:0;display:none;}

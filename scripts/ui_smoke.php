@@ -208,6 +208,25 @@ $checks = [
         ['actions row',              '/class="actions"/',           true],
         ['no stray back button',     '/class="back"/',              false],
     ]],
+    /* One box for the whole system. Eight admin pages each had their own search
+       field scoped to their own table, so a report id or an asset tag was
+       useless unless you already knew which page to open. */
+    /* http:admin, not admin: renderDom() passes the URL through
+       escapeshellarg(), and on Windows that REPLACES every % with a space -
+       so a rawurlencoded query string arrives at Apache as a filename with
+       spaces in it and returns 404. Any page needing a query string has to
+       be fetched over HTTP instead. This one is fully server-rendered, so
+       HTTP sees exactly what the browser would. */
+    ['Global search', 'http:admin', 'admin_search.php?q=air', [
+        ['renders',                  '/<\/html>/i',                  true],
+        ['the search field is there', '/name="q"/',                  true],
+        ['results or a clear miss',  '/class="sr"|Nothing matched/',  true],
+    ]],
+    /* The box itself is in the shared sidebar, so it must reach every admin
+       page - a search you can only start from one screen is not a search. */
+    ['Search box in the sidebar', 'admin', 'admin_dashboard.php', [
+        ['sidebar search present',   '/class="sb-find"/',            true],
+    ]],
     ['Defect reports', 'admin', 'admin_defect_reports.php', [
         // Acting on several reports at once — the queue had no way to do
         // anything in bulk, and 60 reports sat waiting to be acknowledged.
