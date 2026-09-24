@@ -114,7 +114,18 @@ if (!isset($users) || !isset($pageQuery)) { return; }   // never reachable on it
               <?php echo !empty($u['year_level']) ? esc($u['year_level']) : '<span style="color:var(--t4);font-size:.72rem;">—</span>'; ?>
             </td>
             <td class="c num" style="color:var(--m3);">
-              <?php echo (int)($u['report_count']??0); ?>
+              <?php /* The count was already here; it just was not a way to get
+                       to the reports it counts. Seeing "9" and having to go to
+                       another screen and retype the address to read them is
+                       the dead end this removes. */ ?>
+              <?php $__rc = (int)($u['report_count'] ?? 0); $__em = trim((string)($u['email'] ?? '')); ?>
+              <?php if ($__rc > 0 && $__em !== ''): ?>
+                <a href="admin_defect_reports.php?reporter=<?php echo urlencode($__em); ?>"
+                   style="color:inherit;font-weight:700;text-decoration:underline;text-underline-offset:2px;"
+                   title="Show the <?php echo $__rc; ?> report<?php echo $__rc === 1 ? '' : 's'; ?> filed by this person"><?php echo $__rc; ?></a>
+              <?php else: ?>
+                <?php echo $__rc; ?>
+              <?php endif; ?>
             </td>
             <td class="c num">
               <?php $at=(int)($u['active_tasks']??0); ?>

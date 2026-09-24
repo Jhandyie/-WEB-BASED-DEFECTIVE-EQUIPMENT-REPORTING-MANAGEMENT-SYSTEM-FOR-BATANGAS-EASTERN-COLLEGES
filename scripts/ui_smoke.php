@@ -218,6 +218,12 @@ $checks = [
         ['overdue filter',           '/id="fov"/',                  true],
         ['origin filter',            '/id="fsk"/',                  true],
         ['follow-up filter',         '/id="fsn"/',                  true],
+        // Cross-references. A report used to be a dead end: answering "has this
+        // unit broken before?" meant leaving it and retyping a name elsewhere.
+        // The links themselves need a report id, so what is asserted here is
+        // that the feature shipped: its styling is in every render of the page.
+        ['cross-reference links styled', '/\.dr-xref\{/',  true],
+        ['filtered-list banner styled',  '/\.qfilt\{/',    true],
         ['filter bar',               '/id="fsq"/',                  true],
     ]],
     /* The list pages in the database now, so a second page has to render on its

@@ -47,7 +47,7 @@ function adminWorkflowNotifyRole($conn, string $role, string $message, string $r
  */
 function becQueueReturn(): string {
     $keep = [];
-    foreach (['status', 'priority', 'dept', 'kind', 'search', 'nudged', 'overdue'] as $k) {
+    foreach (['status', 'priority', 'dept', 'kind', 'search', 'nudged', 'overdue', 'equipment', 'reporter'] as $k) {
         $v = trim((string)($_GET[$k] ?? ''));
         if ($v !== '' && $v !== 'all') { $keep[$k] = $v; }
     }
@@ -339,6 +339,27 @@ if (!in_array($nf, ['all', 'yes'], true)) { $nf = 'all'; }
 /* Still open and past its SLA window. "Which ITSO reports are late?" was not a
    question this page could answer at all. */
 $of = strtolower(trim((string)($_GET['overdue'] ?? 'all')));
+
+/* Arriving from a report: "every other report for this unit" and "everything
+   this person has reported". These are identity matches, not searches - see
+   becDefectFilterClauses(). The banner below names what is being filtered,
+   because a queue that is suddenly three rows long with no explanation reads
+   as the page being broken. */
+$eqf = trim((string)($_GET['equipment'] ?? ''));
+$rpf = trim((string)($_GET['reporter'] ?? ''));
+
+/* The banner says "reports for Air Conditioner", not "reports for EQ-0142".
+   Only looked up when the filter is actually in use, so a normal page load
+   does not pay for it. */
+$drFiltEqName = '';
+if ($eqf !== '') {
+    try {
+        $__e = getEquipmentById($eqf);
+        $drFiltEqName = trim((string) ($__e['equipment_name'] ?? ''));
+        $__tag = trim((string) ($__e['asset_tag'] ?? ''));
+        if ($drFiltEqName !== '' && $__tag !== '') { $drFiltEqName .= ' (' . $__tag . ')'; }
+    } catch (\Throwable $e) { $drFiltEqName = ''; }
+}
 if (!in_array($of, ['all', 'yes'], true)) { $of = 'all'; }
 $kindFilter = function ($r) use ($kf) {
     if ($kf === 'all') return true;
@@ -369,6 +390,8 @@ if ($df !== 'all') { $listOpts['dept'] = $df; $listOpts['dept_untriaged'] = !$df
 if ($kf !== 'all') { $listOpts['kind'] = $kf; }
 if ($nf === 'yes')  { $listOpts['followed_up'] = true; }
 if ($of === 'yes')  { $listOpts['overdue'] = true; }
+if ($eqf !== '')    { $listOpts['equipment_id']   = $eqf; }
+if ($rpf !== '')    { $listOpts['reporter_email'] = $rpf; }
 
 /* The cards count the same unit and kind scope but ignore the status stage,
    priority and search — so every stage keeps showing its own total while one of
@@ -377,6 +400,8 @@ $cardOpts = ['exclude_statuses' => ['deleted']];
 if ($df !== 'all') { $cardOpts['dept'] = $df; $cardOpts['dept_untriaged'] = !$dfExplicit; }
 if ($kf !== 'all') { $cardOpts['kind'] = $kf; }
 if ($nf === 'yes')  { $cardOpts['followed_up'] = true; }
+if ($eqf !== '')    { $cardOpts['equipment_id']   = $eqf; }
+if ($rpf !== '')    { $cardOpts['reporter_email'] = $rpf; }
 
 // The pager's total, and the empty-state test, without fetching a single row.
 $totalReports = countDefectReportsWithFilters('all', $pf, $sq, $listOpts);
@@ -565,6 +590,31 @@ if (isset($_GET['view_id'])) {
         // so the one screen built to show the evidence was the one screen that
         // could not: the template fell back to the raw photo_url column, which
         // holds an unresolved path, and rendered nothing.
+        /* "Has this unit broken before?" and "does this person report a lot?"
+           were both unanswerable without leaving the page and retyping a name
+           into another screen's search box. Both counts come back in ONE query:
+           at ~108 ms per Supabase round trip, two separate COUNTs would be a
+           fifth of a second for two numbers. */
+        $drHistEq = 0; $drHistRep = 0;
+        try {
+            $__eqId  = trim((string)($vr['equipment_id'] ?? ''));
+            $__repEm = strtolower(trim((string)($vr['reporter_email'] ?? '')));
+            if ($__eqId !== '' || $__repEm !== '') {
+                $__h = getPgsqlPdoConnection()->prepare(
+                    "SELECT
+                       COUNT(*) FILTER (WHERE equipment_id = :eq AND :eq <> '')                       AS eq_n,
+                       COUNT(*) FILTER (WHERE LOWER(COALESCE(reporter_email,'')) = :rp AND :rp <> '') AS rp_n
+                     FROM defect_reports
+                     WHERE COALESCE(status,'') NOT IN ('deleted')"
+                );
+                $__h->execute(['eq' => $__eqId, 'rp' => $__repEm]);
+                $__r = $__h->fetch(PDO::FETCH_ASSOC) ?: [];
+                // minus this report itself, so the link reads "3 others", not "4"
+                $drHistEq  = max(0, (int)($__r['eq_n'] ?? 0) - ($__eqId  !== '' ? 1 : 0));
+                $drHistRep = max(0, (int)($__r['rp_n'] ?? 0) - ($__repEm !== '' ? 1 : 0));
+            }
+        } catch (\Throwable $e) { /* a missing count must never cost the page */ }
+
         $vr['photo_urls']      = photoListFromRow($vr);
         $vr['video_urls']      = videoListFromRow($vr);
     }
@@ -1232,6 +1282,40 @@ textarea.fc{resize:vertical;min-height:70px;}
 .dr-sum-l i{font-size:var(--fs-xs);color:#C9960C;}
 .dr-sum-v{font-size:var(--fs-md);font-weight:700;color:#1C1008;line-height:1.3;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* ── cross-reference links ────────────────────────────────────────────────
+   "Has this unit broken before?" and "does this person report a lot?" were
+   both unanswerable from the report in front of you: you had to remember a
+   name, open another screen and retype it. These two links answer them in
+   one tap, and they only appear when there IS a history worth opening — an
+   always-present link that usually leads to an empty list trains people to
+   stop pressing it. */
+.dr-xref{display:inline-flex;align-items:center;gap:.34rem;margin-top:.3rem;
+  padding:.2rem .5rem;border-radius:20px;text-decoration:none;
+  border:1px solid var(--bdr);background:var(--s2);
+  color:var(--maroon,#7B1D1D);font-size:var(--fs-sm);font-weight:600;
+  line-height:1.3;white-space:nowrap;max-width:100%;
+  overflow:hidden;text-overflow:ellipsis;
+  transition:background .15s,border-color .15s;}
+.dr-xref:hover{background:#fff;border-color:var(--maroon,#7B1D1D);}
+.dr-xref i{font-size:.78em;opacity:.75;}
+/* Three or more previous reports on the same unit is the point at which
+   "repair it again" stops being the obvious answer. */
+.dr-xref.hot{border-color:#F0B4B4;background:var(--bad-bg,#FEF2F2);color:var(--bad-tx,#991B1B);}
+.dr-xref.hot:hover{background:#fff;border-color:var(--bad,#DC2626);}
+
+/* ── "you are looking at a filtered list" ─────────────────────────────────
+   Arriving from a cross-reference link leaves the queue showing three rows
+   out of seventy-nine. Without a line saying why, that reads as the page
+   being broken, and the filter is invisible because it is not one of the
+   dropdowns above. */
+.qfilt{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;
+  margin:0 0 .7rem;padding:.55rem .8rem;border-radius:10px;
+  background:var(--info-bg,#EFF6FF);border:1px solid var(--info-bdr,#BFDBFE);
+  color:var(--info-tx,#1D4ED8);font-size:var(--fs-sm);}
+.qfilt i{opacity:.8;}
+.qfilt b{font-weight:700;}
+.qfilt a{margin-left:auto;color:inherit;font-weight:700;text-decoration:underline;}
 .dr-sum-s{font-size:var(--fs-sm);color:#8A7060;margin-top:var(--sp-0);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 /* Student / Teacher / Staff — what the reporter said they are at sign-in,
@@ -1617,6 +1701,24 @@ textarea.fc{resize:vertical;min-height:70px;}
       <span class="fcount"><?php echo $totalReports; ?> result<?php echo $totalReports != 1 ? 's' : ''; ?></span>
     </div>
 
+    <?php /* Arriving from a cross-reference link narrows the queue to one unit
+             or one person. That filter is not one of the dropdowns above, so
+             without this line a three-row list reads as the page being broken
+             rather than as the answer to the question just asked. */ ?>
+    <?php if ($eqf !== '' || $rpf !== ''): ?>
+      <div class="qfilt">
+        <i class="fas fa-filter" aria-hidden="true"></i>
+        <span>
+          Showing only
+          <?php if ($eqf !== ''): ?>
+            reports for <b><?php echo esc($drFiltEqName !== '' ? $drFiltEqName : $eqf); ?></b>
+          <?php else: ?>
+            reports from <b><?php echo esc($rpf); ?></b>
+          <?php endif; ?>
+        </span>
+        <a href="admin_defect_reports.php">Show every report</a>
+      </div>
+    <?php endif; ?>
     <!-- ════ TABLE VIEW ════════════════════════════════ -->
     <?php if ($vw === 'table'): ?>
     <?php /* One press for a whole page of reports. Hidden until something is
@@ -1662,7 +1764,7 @@ textarea.fc{resize:vertical;min-height:70px;}
                  forms so acting on a report returns to this same view rather
                  than the bare, unfiltered page. */
               $drRowQS = '';
-              foreach (['status' => $sf, 'priority' => $pf, 'dept' => $df, 'kind' => $kf, 'search' => $sq, 'nudged' => $nf, 'overdue' => $of] as $k => $v) {
+              foreach (['status' => $sf, 'priority' => $pf, 'dept' => $df, 'kind' => $kf, 'search' => $sq, 'nudged' => $nf, 'overdue' => $of, 'equipment' => $eqf, 'reporter' => $rpf] as $k => $v) {
                   $v = trim((string)$v);
                   if ($v !== '' && $v !== 'all') { $drRowQS .= '&' . $k . '=' . urlencode($v); }
               }
@@ -1837,7 +1939,7 @@ textarea.fc{resize:vertical;min-height:70px;}
      redirect afterwards can put them back. becQueueReturn() reads these same
      keys out of $_GET on the POST. */
   $drFormQS = '';
-  foreach (['status' => $sf, 'priority' => $pf, 'dept' => $df, 'kind' => $kf, 'search' => $sq, 'nudged' => $nf, 'overdue' => $of] as $k => $v) {
+  foreach (['status' => $sf, 'priority' => $pf, 'dept' => $df, 'kind' => $kf, 'search' => $sq, 'nudged' => $nf, 'overdue' => $of, 'equipment' => $eqf, 'reporter' => $rpf] as $k => $v) {
       $v = trim((string)$v);
       if ($v !== '' && $v !== 'all') { $drFormQS .= '&' . $k . '=' . urlencode($v); }
   }
@@ -1944,6 +2046,12 @@ textarea.fc{resize:vertical;min-height:70px;}
         <?php if (!empty($vr['reporter_email'])): ?>
         <div class="dr-sum-s" title="<?php echo esc($vr['reporter_email']); ?>"><?php echo esc($vr['reporter_email']); ?></div>
         <?php endif; ?>
+          <?php if ($drHistRep > 0): ?>
+          <a class="dr-xref" href="admin_defect_reports.php?reporter=<?php echo urlencode((string) $vr['reporter_email']); ?>">
+            <i class="fas fa-clock-rotate-left" aria-hidden="true"></i>
+            <?php echo $drHistRep; ?> other report<?php echo $drHistRep === 1 ? '' : 's'; ?> from this person
+          </a>
+          <?php endif; ?>
       </div>
       <div class="dr-sum">
         <div class="dr-sum-l"><i class="fas fa-location-dot" aria-hidden="true"></i> Location</div>
@@ -1967,6 +2075,15 @@ textarea.fc{resize:vertical;min-height:70px;}
         <div class="dr-sum-l"><i class="fas fa-screwdriver-wrench" aria-hidden="true"></i> Equipment</div>
         <div class="dr-sum-v" title="<?php echo esc($vr['equipment_name']); ?>"><?php echo esc($vr['equipment_name']); ?></div>
         <div class="dr-sum-s"><?php echo esc($vr['asset_tag'] ?: 'No asset tag'); ?></div>
+          <?php if ($drHistEq > 0): ?>
+          <?php /* A unit that keeps breaking is the most useful thing to know
+                   before approving another repair on it, and it was invisible:
+                   answering it meant leaving the report and searching elsewhere. */ ?>
+          <a class="dr-xref<?php echo $drHistEq >= 3 ? ' hot' : ''; ?>" href="admin_defect_reports.php?equipment=<?php echo urlencode((string) ($vr['equipment_id'] ?? '')); ?>">
+            <i class="fas fa-clock-rotate-left" aria-hidden="true"></i>
+            <?php echo $drHistEq; ?> earlier report<?php echo $drHistEq === 1 ? '' : 's'; ?> for this unit
+          </a>
+          <?php endif; ?>
       </div>
     </div>
 

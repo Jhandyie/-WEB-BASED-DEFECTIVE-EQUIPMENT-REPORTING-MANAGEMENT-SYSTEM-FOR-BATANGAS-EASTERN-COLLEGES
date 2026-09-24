@@ -2102,6 +2102,28 @@ function becDefectFilterClauses(array $opts, bool $named): array {
         }
     }
 
+    // "Everything for this one piece of equipment" and "everything this one
+    // person has reported".
+    //
+    // Both questions came up constantly and neither was answerable: the free-text
+    // search matches report_id, equipment_name, category and description, so
+    // searching a reporter's email found nothing, and searching an equipment name
+    // found every report whose description happened to mention it. These match the
+    // identity, not the spelling, which is what makes the answer trustworthy
+    // enough to act on.
+    $eq = trim((string)($opts['equipment_id'] ?? ''));
+    if ($eq !== '') {
+        $sql .= ' AND dr.equipment_id = ' . $bind($eq, 'eq');
+    }
+
+    // Compared case-insensitively: the same person reaches the system as
+    // Juan.DelaCruz@bec.edu.ph from Outlook and juan.delacruz@bec.edu.ph from the
+    // phone, and a case-sensitive match would quietly split their history in two.
+    $rep = trim((string)($opts['reporter_email'] ?? ''));
+    if ($rep !== '') {
+        $sql .= ' AND LOWER(COALESCE(dr.reporter_email, \'\')) = ' . $bind(strtolower($rep), 'rep');
+    }
+
     // Unit scope. A chosen unit is strict; the admin's DEFAULT view also surfaces
     // reports not yet triaged (no department_assigned), so a pending item is never
     // hidden from both offices at once. Same rule the PHP closure applied.
