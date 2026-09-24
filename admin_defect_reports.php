@@ -1076,6 +1076,15 @@ body:has(.mo.open){overflow:hidden;}
 .af-reject  .af-title{color:var(--bad);}
 .af-verify  .af-title{color:#1D4ED8;}
 .fg{display:flex;flex-direction:column;gap:.28rem;margin-bottom:.68rem;}
+/* ── note presets ───────────────────────────────────────────────────────
+   The three note boxes on this page start blank every time and get the same
+   few sentences typed into them. These fill the box; they never replace what
+   is already in it without asking. */
+.np{display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.1rem;}
+.np-b{padding:.26rem .6rem;border-radius:20px;border:1px solid var(--bdr);background:var(--s2);
+  color:var(--t2,#5C3838);font:inherit;font-size:var(--fs-sm,.72rem);line-height:1.35;
+  cursor:pointer;text-align:left;transition:border-color .15s,color .15s,background .15s;}
+.np-b:hover{border-color:var(--maroon,#7B1D1D);color:var(--maroon,#7B1D1D);background:#fff;}
 .fl{font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.65px;color:var(--t2);}
 .fl span{color:var(--m3);}
 .fc{padding:.48rem .78rem;background:var(--s2);border:1.5px solid var(--bdr);
@@ -2226,6 +2235,15 @@ textarea.fc{resize:vertical;min-height:70px;}
             </div>
             <div class="fg">
               <label class="fl">Admin Notes <span class="opt">optional</span></label>
+              <?php /* The same handful of sentences get typed over and over.
+                       These fill the box, they do not replace it — tap one and
+                       edit, or ignore them and write your own. */ ?>
+              <div class="np" data-np-for="admin_notes">
+                <button type="button" class="np-b">Check the unit is safe to use before starting.</button>
+                <button type="button" class="np-b">Coordinate with the room occupant before the visit.</button>
+                <button type="button" class="np-b">Bring a replacement unit in case it cannot be repaired on site.</button>
+                <button type="button" class="np-b">Photograph the serial plate and report it back.</button>
+              </div>
               <textarea name="admin_notes" class="fc" placeholder="Instructions for the technician, observations, or context…"></textarea>
             </div>
             <div class="rv-actions">
@@ -2245,6 +2263,12 @@ textarea.fc{resize:vertical;min-height:70px;}
             <input type="hidden" name="report_id" value="<?php echo esc($vr['report_id']);?>">
             <div class="fg">
               <label class="fl">Rejection Reason <span>*</span></label>
+              <div class="np" data-np-for="rejection_reason">
+                <button type="button" class="np-b">Duplicate of an existing report for the same unit.</button>
+                <button type="button" class="np-b">Not a PMO matter — please raise this with the office concerned.</button>
+                <button type="button" class="np-b">Not enough detail to act on. Please file again with a photo and the room.</button>
+                <button type="button" class="np-b">The equipment is already scheduled for replacement.</button>
+              </div>
               <textarea name="rejection_reason" class="fc" placeholder="Explain why this report is rejected…" required></textarea>
             </div>
             <div class="af-actions">
@@ -2272,6 +2296,12 @@ textarea.fc{resize:vertical;min-height:70px;}
             <input type="hidden" name="report_id" value="<?php echo esc($vr['report_id']);?>">
             <div class="fg">
               <label class="fl">Verification Notes</label>
+              <div class="np" data-np-for="verification_notes">
+                <button type="button" class="np-b">Checked on site — working normally.</button>
+                <button type="button" class="np-b">Confirmed with the reporter that it is resolved.</button>
+                <button type="button" class="np-b">Repaired; the unit should be watched over the next few weeks.</button>
+                <button type="button" class="np-b">Temporary fix — a replacement has been requested.</button>
+              </div>
               <textarea name="verification_notes" class="fc" placeholder="Confirm the repair outcome…"></textarea>
             </div>
             <div class="af-actions">
@@ -2492,6 +2522,23 @@ function dEsc(s){
   return String(s == null ? '' : s).replace(/[&<>"']/g, c =>
     ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+
+/* ── note presets ──────────────────────────────────────────────────────
+   Tapping a chip puts its sentence in the box. If the box already has text the
+   chip appends on a new line rather than discarding what was typed — losing a
+   half-written note to a mis-tap would be worse than the typing it saves. */
+document.addEventListener('click', function (e) {
+  const b = e.target.closest('.np-b');
+  if (!b) return;
+  const wrap = b.closest('.np');
+  const ta = wrap && wrap.parentElement
+    ? wrap.parentElement.querySelector('[name="' + wrap.dataset.npFor + '"]') : null;
+  if (!ta) return;
+  const cur = ta.value.trim();
+  ta.value = cur === '' ? b.textContent.trim() : cur + '\n' + b.textContent.trim();
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+});
 
 /* ── selecting several reports ──────────────────────────────────────────
    The checkboxes belong to #bulkForm through their form attribute, so they

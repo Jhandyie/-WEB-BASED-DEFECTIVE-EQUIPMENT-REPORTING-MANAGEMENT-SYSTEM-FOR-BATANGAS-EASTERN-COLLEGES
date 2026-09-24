@@ -64,9 +64,12 @@ function runPreventiveMaintenanceSweep(bool $force = false): int {
     while ($r = $res->fetch_assoc()) { $due[] = $r; }
     if (!$due) return 0;
 
-    $admins = [];
+    /* Resolved per schedule below, from the unit that owns the equipment —
+       a PM task on a computer is not the property office's to action. Kept as
+       a fallback for the case where the unit cannot be determined. */
+    $allAdmins = [];
     $ar = $conn->query("SELECT user_id FROM users WHERE role = 'admin' AND status = 'active' AND user_id IS NOT NULL AND user_id <> ''");
-    if ($ar) { while ($a = $ar->fetch_assoc()) { $admins[] = (string)$a['user_id']; } }
+    if ($ar) { while ($a = $ar->fetch_assoc()) { $allAdmins[] = (string)$a['user_id']; } }
 
     $made = 0;
     foreach ($due as $s) {
@@ -100,7 +103,10 @@ function runPreventiveMaintenanceSweep(bool $force = false): int {
         $conn->query("UPDATE preventive_schedules SET last_generated = CURRENT_DATE, next_due = CURRENT_DATE + {$freq} WHERE id = {$sid}");
 
         $msg = 'Preventive maintenance task created: ' . (string)$s['title'] . ' (' . $ticket . ').';
-        foreach ($admins as $aid) {
+        $pmUnit   = function_exists('equipmentUnit') ? equipmentUnit($eqId) : '';
+        $pmAdmins = function_exists('adminIdsForReportUnit') ? adminIdsForReportUnit($pmUnit) : [];
+        if (!$pmAdmins) { $pmAdmins = $allAdmins; }
+        foreach ($pmAdmins as $aid) {
             if (function_exists('addNotification')) { try { addNotification($aid, $msg, 'preventive', $ticket); } catch (\Throwable $e) {} }
         }
 

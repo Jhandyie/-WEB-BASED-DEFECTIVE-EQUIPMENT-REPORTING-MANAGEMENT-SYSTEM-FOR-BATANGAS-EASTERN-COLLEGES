@@ -301,12 +301,7 @@ function inferReportPriority(string $description): string {
     return 'medium';
 }
 
-function notifyAdminsOfStudentReport($conn, string $reportId, string $equipmentName, string $location, string $studentName): void {
-    $adminResult = $conn->query("SELECT user_id FROM users WHERE role = 'admin' AND status = 'active' AND user_id IS NOT NULL AND user_id != ''");
-    if (!$adminResult) {
-        return;
-    }
-
+function notifyAdminsOfStudentReport($conn, string $reportId, string $equipmentName, string $location, string $studentName, string $equipmentId = ''): void {
     $message = sprintf(
         'New student report %s submitted by %s for %s%s.',
         $reportId,
@@ -315,11 +310,35 @@ function notifyAdminsOfStudentReport($conn, string $reportId, string $equipmentN
         $location !== '' ? ' at ' . $location : ''
     );
 
-    while ($admin = $adminResult->fetch_assoc()) {
-        $adminId = trim((string)($admin['user_id'] ?? ''));
-        if ($adminId === '') {
-            continue;
+    /*
+     * The office that owns the equipment, not all ten administrators.
+     *
+     * This went to every active admin, and at 540 rows it is the second
+     * largest source of notifications in the system. Most of them cannot act
+     * on a report belonging to the other unit, so they learn to ignore the
+     * bell — and then the one who did need to see it misses it too.
+     *
+     * adminIdsForReportUnit() already scopes the SLA escalations this way, and
+     * is deliberately forgiving: an admin with no unit on file is included in
+     * everything, and equipment with no unit goes to everyone rather than to
+     * nobody.
+     */
+    $unit   = ($equipmentId !== '' && function_exists('equipmentUnit')) ? equipmentUnit($equipmentId) : '';
+    $admins = function_exists('adminIdsForReportUnit') ? adminIdsForReportUnit($unit) : [];
+
+    if (!$admins) {
+        // Helper unavailable: fall back to the old behaviour rather than
+        // telling nobody that a report came in.
+        $adminResult = $conn->query("SELECT user_id FROM users WHERE role = 'admin' AND status = 'active' AND user_id IS NOT NULL AND user_id != ''");
+        while ($adminResult && ($admin = $adminResult->fetch_assoc())) {
+            $id = trim((string)($admin['user_id'] ?? ''));
+            if ($id !== '') { $admins[] = $id; }
         }
+    }
+
+    foreach ($admins as $adminId) {
+        $adminId = trim((string)$adminId);
+        if ($adminId === '') { continue; }
         addNotification($adminId, $message, 'new_defect_report', $reportId);
     }
 }
@@ -741,7 +760,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $ticket,
                     trim((string)($_POST['equipment_name'] ?? 'Equipment')),
                     trim((string)($_POST['location'] ?? '')),
-                    $student_name
+                    $student_name,
+                    trim((string)($_POST['equipment_id'] ?? ''))
                 );
 
                 $subject = "BEC Equipment Report Received - Ticket $ticket";

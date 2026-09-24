@@ -164,13 +164,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'confi
         }
         // If not fixed, alert admins so they can re-open / follow through.
         if ($verdict === 'unsatisfied') {
-            $adminRes = $conn->query("SELECT user_id FROM users WHERE role = 'admin' AND status = 'active' AND user_id IS NOT NULL AND user_id != ''");
-            if ($adminRes) {
-                $msg = 'Reporter marked Ticket ' . $sid . ' as NOT resolved' . ($note !== '' ? ': ' . $note : '.');
-                while ($a = $adminRes->fetch_assoc()) {
-                    $aid = trim((string)($a['user_id'] ?? ''));
-                    if ($aid !== '' && function_exists('addNotification')) { try { addNotification($aid, $msg, 'satisfaction', $sid); } catch (\Throwable $e) {} }
-                }
+            // The office that owns the equipment, the same as the follow-up
+            // notice above. This one still went to all ten administrators.
+            $satUnit = function_exists('equipmentUnit') ? equipmentUnit((string)($rep['equipment_id'] ?? '')) : '';
+            $satIds  = function_exists('adminIdsForReportUnit') ? adminIdsForReportUnit($satUnit) : [];
+            $msg = 'Reporter marked Ticket ' . $sid . ' as NOT resolved' . ($note !== '' ? ': ' . $note : '.');
+            foreach ($satIds as $aid) {
+                $aid = trim((string)$aid);
+                if ($aid !== '' && function_exists('addNotification')) { try { addNotification($aid, $msg, 'satisfaction', $sid); } catch (\Throwable $e) {} }
             }
         }
         if (function_exists('logActivity')) { try { logActivity($viewerEmail, 'reporter', 'report.satisfaction', $verdict . ' on ' . $sid . ' by ' . ($viewerName !== '' ? $viewerName : $viewerEmail)); } catch (\Throwable $e) {} }
