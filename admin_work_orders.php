@@ -123,6 +123,41 @@ $sql = "SELECT r.report_id, r.work_order_id, r.status, r.priority, r.category,
          WHERE " . implode(' AND ', $where) . "
          ORDER BY {$orderBy} " . strtoupper($dir) . " NULLS LAST";
 
+/*
+ * Paging.
+ *
+ * This list is every job ever finished and it only grows, so fetching all of
+ * it was a slow leak: fine at eight rows, and the same shape that made the
+ * admin pages 500 past ~2,000 reports before. The page already told the truth
+ * about being a subset — it printed "N of M finished" — it just never was one.
+ *
+ * The EXPORT deliberately skips the LIMIT. An export that hands you only the
+ * page you were looking at is worse than no export, because nothing in the
+ * file says so. That is the same rule the venue and preventive exports follow.
+ */
+$woExporting = strtolower(trim((string) ($_GET['export'] ?? ''))) === 'csv';
+const WO_PER_PAGE = 25;
+$woPage    = max(1, (int) ($_GET['page'] ?? 1));
+$woMatched = 0;
+if (!$woExporting) {
+    try {
+        $nst = $pdo->prepare("SELECT COUNT(*)
+                                FROM public.defect_reports r
+                                LEFT JOIN public.equipment e ON e.equipment_id = r.equipment_id
+                                LEFT JOIN public.users u     ON u.user_id      = r.assigned_to
+                                LEFT JOIN public.maintenance_technicians mt ON mt.technician_id = r.assigned_to
+                               WHERE " . implode(' AND ', $where));
+        $nst->execute($params);
+        $woMatched = (int) $nst->fetchColumn();
+    } catch (\Throwable $ex) { error_log('admin_work_orders count failed: ' . $ex->getMessage()); }
+    $woPages = max(1, (int) ceil($woMatched / WO_PER_PAGE));
+    if ($woPage > $woPages) { $woPage = $woPages; }
+    /* Cast to int above, so safe to inline - and the driver will not bind a
+       placeholder in LIMIT. */
+    $sql .= ' LIMIT ' . WO_PER_PAGE . ' OFFSET ' . (($woPage - 1) * WO_PER_PAGE);
+} else {
+    $woPages = 1;
+}
 $rows = [];
 $loadError = '';
 try {
@@ -392,6 +427,16 @@ if (strtolower(trim((string)($_GET['export'] ?? ''))) === 'csv') {
   .wacts .btn{text-decoration:none;display:inline-flex;align-items:center;gap:.35rem;}
   /* One legend for the three states, so "Completed" and "Awaiting verification"
      stop looking like two different things on the same screen. */
+/* pager — the list is every job ever finished, so it has pages now */
+.wopg{display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  flex-wrap:wrap;padding:.85rem 1rem;border-top:1px solid var(--border,#E5D9C6);
+  font-size:.8rem;color:var(--ink3,#9C7A7A);}
+.wopg-b{display:flex;align-items:center;gap:.5rem;}
+.wopg-b a{display:inline-flex;align-items:center;gap:.35rem;padding:.35rem .8rem;
+  border-radius:8px;border:1px solid var(--border,#E5D9C6);background:#fff;
+  color:var(--ink2,#5C3838);text-decoration:none;font-weight:600;}
+.wopg-b a:hover{border-color:var(--maroon,#7B1D1D);color:var(--maroon,#7B1D1D);}
+.wopg-n{font-weight:700;color:var(--ink2,#5C3838);}
   .legend{display:flex;gap:1.1rem;flex-wrap:wrap;margin:0 0 14px;padding:.6rem .85rem;
     background:var(--surface);border:1px solid var(--border);border-radius:10px;font-size:.74rem;color:var(--ink2);}
   .legend span{display:inline-flex;align-items:center;gap:.35rem;}
@@ -477,7 +522,7 @@ if (strtolower(trim((string)($_GET['export'] ?? ''))) === 'csv') {
           <?php if ($filtersOn): ?>
             <a class="btn sm" href="admin_work_orders.php"><i class="fas fa-xmark"></i> Clear</a>
           <?php endif; ?>
-          <span class="cnt"><?php echo count($rows); ?> of <?php echo (int)$totalDone; ?> finished</span>
+            <span class="cnt"><?php echo number_format($woExporting ? count($rows) : $woMatched); ?> of <?php echo (int)$totalDone; ?> finished</span>
         </form>
 
         <div class="legend">
@@ -592,6 +637,23 @@ if (strtolower(trim((string)($_GET['export'] ?? ''))) === 'csv') {
             <?php endforeach; ?>
             </tbody>
           </table>
+          <?php if ($woPages > 1): ?>
+          <?php /* Rows past the first page used to be unreachable because there
+                   were no pages - the whole list was drawn at once. */ ?>
+          <div class="wopg">
+            <span>Showing <?php echo (($woPage - 1) * WO_PER_PAGE) + 1; ?>–<?php
+              echo min($woPage * WO_PER_PAGE, $woMatched); ?> of <?php echo number_format($woMatched); ?></span>
+            <div class="wopg-b">
+              <?php if ($woPage > 1): ?>
+                <a href="<?php echo wo_e($keep(['page' => $woPage - 1])); ?>"><i class="fas fa-chevron-left"></i> Previous</a>
+              <?php endif; ?>
+              <span class="wopg-n">Page <?php echo $woPage; ?> of <?php echo $woPages; ?></span>
+              <?php if ($woPage < $woPages): ?>
+                <a href="<?php echo wo_e($keep(['page' => $woPage + 1])); ?>">Next <i class="fas fa-chevron-right"></i></a>
+              <?php endif; ?>
+            </div>
+          </div>
+          <?php endif; ?>
           </div>
         <?php endif; ?>
       </div>
