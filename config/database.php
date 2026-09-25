@@ -313,8 +313,27 @@ class PgsqlDatabase {
             throw new RuntimeException('PostgreSQL/Supabase connection variables are incomplete.');
         }
 
+        /*
+         * connect_timeout bounds how long a page waits on a database that has
+         * stopped answering. Without it the wait is whatever the operating
+         * system's TCP retry takes, which on Linux is around two minutes — two
+         * minutes of a blank browser tab before becServiceUnavailable() can even
+         * run and say what is wrong.
+         *
+         * Ten seconds is roughly thirty times the normal connect (measured at
+         * ~317 ms to Supabase), so it cannot trip on an ordinary slow moment.
+         *
+         * MEASURED CAVEAT: this has no effect on the Windows development
+         * machine. Tested at 2, 5 and 10 seconds against a black-holed address
+         * and every one took 21.0 s — Windows' own TCP SYN retry finishes first
+         * and libpq never gets to apply its timer. libpq honours it on Linux,
+         * which is what the VPS runs, so this is a production fix that cannot be
+         * demonstrated locally. A connection that is REFUSED rather than
+         * black-holed fails in ~2 s on both, which is the common case when the
+         * server is up but Postgres is not.
+         */
         $dsn = sprintf(
-            'pgsql:host=%s;port=%d;dbname=%s;sslmode=%s',
+            'pgsql:host=%s;port=%d;dbname=%s;sslmode=%s;connect_timeout=10',
             $host,
             $port,
             $database,
