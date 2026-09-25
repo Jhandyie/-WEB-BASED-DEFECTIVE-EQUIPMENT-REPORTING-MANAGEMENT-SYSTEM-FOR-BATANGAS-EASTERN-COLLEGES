@@ -163,6 +163,123 @@ if (!function_exists('isPgSqlDriver')) {
     }
 }
 
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * What a person sees when the database cannot be reached.
+ *
+ * There were two different answers to this, and both were wrong.
+ *
+ *   - Pages going through Database::getInstance() got `die("Database connection
+ *     failed. Please contact support.")` — 51 bytes of unstyled text, **served
+ *     with HTTP 200**. To a browser, to a monitor, and to a search engine that
+ *     is a perfectly successful page. To a student it looks like the site has
+ *     been hacked, and "contact support" names nobody they could contact.
+ *   - Pages calling getPgsqlPdoConnection() directly — the admin screens and the
+ *     newer helpers — got an uncaught PDOException, which with display_errors
+ *     off is a blank white page.
+ *
+ * Both now end here: one honest 503 that says what is happening, that it is
+ * temporary, and who to tell if it is not.
+ *
+ * The page is deliberately self-contained — no stylesheet, no font, no image,
+ * no database. Everything it might have depended on is exactly what may be
+ * unavailable at the moment it is needed.
+ * ────────────────────────────────────────────────────────────────────────────*/
+if (!function_exists('becServiceUnavailable')) {
+    function becServiceUnavailable(string $internal = ''): void {
+        if ($internal !== '') { error_log('Service unavailable: ' . $internal); }
+
+        /* A script is not a visitor. Scripts get a line and a failing exit code,
+           so cron and the smoke tests can tell that something broke. */
+        if (PHP_SAPI === 'cli') {
+            fwrite(STDERR, "The database could not be reached. " . $internal . "\n");
+            exit(1);
+        }
+
+        if (!headers_sent()) {
+            /* 503, not 200. A total outage reported as success is how an outage
+               goes unnoticed for a day: uptime monitors believe the 200. */
+            header('HTTP/1.1 503 Service Unavailable');
+            header('Retry-After: 120');
+            header('Cache-Control: no-store, no-cache, must-revalidate');
+        }
+
+        /* An endpoint that asked for JSON must not be handed a web page: the
+           caller parses the reply, and an HTML body becomes a confusing parse
+           error instead of a legible failure. */
+        $accept = strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? ''));
+        $script = strtolower(basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')));
+        $wantsJson = str_contains($accept, 'application/json')
+            || str_contains($script, 'proxy')
+            || str_contains($script, 'api')
+            || strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
+
+        if ($wantsJson) {
+            if (!headers_sent()) { header('Content-Type: application/json; charset=utf-8'); }
+            echo json_encode([
+                'ok'    => false,
+                'error' => 'service_unavailable',
+                'message' => 'The system is temporarily unavailable. Please try again in a few minutes.',
+            ]);
+            exit;
+        }
+
+        if (!headers_sent()) { header('Content-Type: text/html; charset=utf-8'); }
+        $year = date('Y');
+        echo <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Temporarily unavailable — BEC PMO</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{min-height:100vh;display:flex;align-items:center;justify-content:center;
+    padding:1.5rem;background:#F4EFE6;color:#1A0808;
+    font-family:'DM Sans','Segoe UI',system-ui,-apple-system,Arial,sans-serif;
+    line-height:1.6;}
+  .c{max-width:32rem;width:100%;background:#fff;border:1px solid #E5D9C6;
+    border-radius:18px;padding:2rem 1.75rem;text-align:center;
+    box-shadow:0 10px 40px rgba(44,10,10,.08);}
+  .i{width:56px;height:56px;border-radius:50%;margin:0 auto 1.1rem;
+    display:flex;align-items:center;justify-content:center;font-size:1.6rem;
+    background:#FFFBEB;border:1px solid #FDE68A;color:#B45309;}
+  h1{font-size:1.25rem;font-weight:700;margin-bottom:.6rem;letter-spacing:-.01em;}
+  p{font-size:1rem;color:#5C3838;margin-bottom:.9rem;}
+  .t{display:inline-block;margin-top:.3rem;padding:.6rem 1.4rem;border-radius:10px;
+    background:#7B1D1D;color:#fff;text-decoration:none;font-weight:700;font-size:1rem;}
+  .t:hover{background:#4A0E0E;}
+  .f{margin-top:1.5rem;padding-top:1.1rem;border-top:1px solid #EFE7DA;
+    font-size:.88rem;color:#9C7A7A;}
+  .f a{color:#7B1D1D;}
+  @media (prefers-color-scheme: dark){
+    body{background:#1A0808;color:#F4EFE6;}
+    .c{background:#2D1414;border-color:#4A2A2A;}
+    p{color:#D8C3C3;} .f{color:#B09393;border-top-color:#4A2A2A;} .f a{color:#E8B4B4;}
+  }
+</style>
+</head>
+<body>
+  <div class="c">
+    <div class="i">&#9888;</div>
+    <h1>The system is temporarily unavailable</h1>
+    <p>We cannot reach the database right now. This is on our side, not yours &mdash;
+       nothing you submitted has been lost.</p>
+    <p>Please try again in a few minutes.</p>
+    <a class="t" href="javascript:location.reload()">Try again</a>
+    <div class="f">
+      If this keeps happening, tell the Property Management Office:<br>
+      <a href="mailto:info@bec.edu.ph">info@bec.edu.ph</a> &middot; 043-575-3616<br>
+      Batangas Eastern Colleges &middot; {$year}
+    </div>
+  </div>
+</body>
+</html>
+HTML;
+        exit;
+    }
+}
 class PgsqlDatabase {
     private static $instance = null;
     private ?PDO $connection = null;
@@ -204,11 +321,18 @@ class PgsqlDatabase {
             $sslmode !== '' ? $sslmode : 'require'
         );
 
-        $this->connection = new PDO($dsn, $username, $password, [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES => false,
-        ]);
+        try {
+            $this->connection = new PDO($dsn, $username, $password, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false,
+            ]);
+        } catch (\Throwable $e) {
+            /* Uncaught, this was a blank white page on every admin screen and
+               every newer helper - they call getPgsqlPdoConnection() directly
+               rather than going through Database::getInstance(). */
+            becServiceUnavailable('Supabase connection failed: ' . $e->getMessage());
+        }
 
         // NOTE: Postgres does not allow bound parameters in SET commands, and it
         // interprets a bare numeric offset like '+08:00' POSIX-style (sign inverted).
@@ -272,8 +396,7 @@ class Database {
             $this->connection->query("SET time_zone = '" . $this->connection->real_escape_string((string)$mysql['timezone']) . "';");
             $this->is_connected = true;
         } catch (Exception $e) {
-            error_log("Database connection error: " . $e->getMessage());
-            die("Database connection failed. Please contact support.");
+            becServiceUnavailable("Database connection error: " . $e->getMessage());
         }
     }
 
