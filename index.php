@@ -84,7 +84,7 @@ try {
 }
 
 /* Absolute base URL for social-share meta — works in any deployment (localhost or live host) */
-$lpScheme  = (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off') ? 'https' : 'http';
+$lpScheme  = becRequestScheme();   // honours a TLS-terminating proxy - see the note in config/database.php
 $lpHost    = $_SERVER['HTTP_HOST'] ?? 'localhost';
 $lpDir     = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
 $lpBaseUrl = $lpScheme . '://' . $lpHost . $lpDir;

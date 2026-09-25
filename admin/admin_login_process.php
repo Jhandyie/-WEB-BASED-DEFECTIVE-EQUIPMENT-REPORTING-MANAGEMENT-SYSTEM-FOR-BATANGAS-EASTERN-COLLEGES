@@ -412,7 +412,7 @@ function forgotPassword() {
         'Password reset link issued for ' . $email);
 
     // Build an absolute reset link from the actual request (works on any host/path).
-    $__scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $__scheme = becRequestScheme();
     $__appBase = $__scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirname(dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/\\');
     $reset_link = $__appBase . "/admin/reset_password.php?token=" . $token;
     error_log("Admin password reset link for {$email}: " . $reset_link);

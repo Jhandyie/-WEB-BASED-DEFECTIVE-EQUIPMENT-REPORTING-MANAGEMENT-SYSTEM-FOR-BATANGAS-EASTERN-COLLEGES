@@ -247,7 +247,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($ok) {
                 if (!function_exists('sendEmail')) { @require_once __DIR__ . '/includes/mail_helper.php'; }
-                $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+                $scheme = becRequestScheme();
                 $baseUrl = $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/\\');
                 $link = $baseUrl . '/technician/verify_account.php?token=' . $token;
                 $emailSent = false;

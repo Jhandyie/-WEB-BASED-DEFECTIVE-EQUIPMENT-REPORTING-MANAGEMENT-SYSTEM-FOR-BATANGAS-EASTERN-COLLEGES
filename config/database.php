@@ -280,6 +280,62 @@ HTML;
         exit;
     }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Is this request actually running over HTTPS?
+ *
+ * Eight places asked $_SERVER['HTTPS'] directly. That is correct on the live
+ * server, where Apache terminates TLS itself and sets it — but it is wrong
+ * behind anything that terminates TLS in FRONT of Apache: a Cloudflare Tunnel,
+ * Cloudflare's proxy, or a load balancer. There the browser is on HTTPS while
+ * Apache only ever sees plain HTTP, so the app writes http:// links into the
+ * emails it sends and tells people to visit an address one redirect short of
+ * where they are.
+ *
+ * Two rules keep this from becoming a way to lie to the app:
+ *
+ *   - It can only ever say "yes, HTTPS". Nothing here can downgrade a request
+ *     that really is direct TLS, so the worst a forged header achieves is a
+ *     link that is more secure than it needed to be.
+ *   - A forwarded header is believed only when the request also carries proof
+ *     it came through Cloudflare (CF-Connecting-IP, which Cloudflare sets and
+ *     strips from client input). includes/rate_limiter.php already trusts that
+ *     same header to identify the caller, so this adds no new trust.
+ *
+ * NOT used for the Secure flag on cookies. Those three call sites
+ * (session_bootstrap.php, reporter_otp.php, admin_trust.php) are deliberately
+ * left reading $_SERVER['HTTPS']: marking a cookie Secure when the browser is
+ * genuinely on plain HTTP means the browser stops sending it, which logs
+ * everybody out. That failure is worse than an http:// link, and the live
+ * server gets it right already.
+ * ────────────────────────────────────────────────────────────────────────────*/
+if (!function_exists('becRequestIsHttps')) {
+    function becRequestIsHttps(): bool {
+        // Direct TLS at this Apache — the live server's normal case.
+        if (!empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off') {
+            return true;
+        }
+        // Behind Cloudflare only: CF-Visitor carries the browser's real scheme.
+        $viaCloudflare = !empty($_SERVER['HTTP_CF_CONNECTING_IP']);
+        if ($viaCloudflare) {
+            $visitor = (string) ($_SERVER['HTTP_CF_VISITOR'] ?? '');
+            if (str_contains($visitor, '"scheme":"https"')) {
+                return true;
+            }
+            if (strtolower(trim((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''))) === 'https') {
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
+if (!function_exists('becRequestScheme')) {
+    /** 'https' or 'http', for building a link back to this installation. */
+    function becRequestScheme(): string {
+        return becRequestIsHttps() ? 'https' : 'http';
+    }
+}
 class PgsqlDatabase {
     private static $instance = null;
     private ?PDO $connection = null;
@@ -3072,7 +3128,7 @@ function notifyTechnicianAssignment($conn, string $technicianId, string $reportI
 
     require_once __DIR__ . '/../includes/mail_helper.php';
 
-    $scheme = (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off') ? 'https' : 'http';
+    $scheme = becRequestScheme();
     $host   = $_SERVER['HTTP_HOST'] ?? 'localhost';
     $dir    = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
     $link   = $scheme . '://' . $host . $dir . '/technician_dashboard.php?tab=my_tasks&report=' . urlencode($reportId);
