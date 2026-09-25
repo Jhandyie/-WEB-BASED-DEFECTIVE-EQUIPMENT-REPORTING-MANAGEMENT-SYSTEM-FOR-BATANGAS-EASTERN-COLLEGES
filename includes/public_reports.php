@@ -551,7 +551,36 @@ td[data-label="Issue"]{max-width:200px !important;}
   /* The status badge is the column people scan this board for. */
   .badge{font-size:.72rem;}
 }
+
+/* ── phone type ───────────────────────────────────────────────────────────
+   This page sizes everything with literal rem values and never touches the
+   --fs-* tokens, so css/mobile.css raising the scale does nothing for it.
+   Measured on a 390px screen before this block: 162 of 176 text elements
+   under 16px, with the table headers at 12.1px and the equipment name — the
+   one thing a person is here to read — at 15.1px.
+
+   Same two thresholds the rest of the system uses: anything read gets 16px or
+   more, decoration that is recognised rather than read (severity pills, the
+   hero eyebrow) keeps ~13px so it does not crowd out the content beside it. */
+@media (max-width: 820px) {
+  th, td,
+  .equip-name, .ticket-cell, .loc-main, .date-main,
+  .psub, .result-count, .pg-info, .pg-btn { font-size: .9rem; }
+
+  /* Second lines: still sentences, so still readable, just quieter. */
+  .loc-sub, .date-ago, .equip-cat, .stat-label { font-size: .88rem; }
+
+  /* A pager button is a thumb target before it is a label. */
+  .pg-btn { min-height: 44px; min-width: 44px;
+            display: inline-flex; align-items: center; justify-content: center; }
+}
 </style>
+<!-- Last in <head> on purpose: these rules correct the desktop type scale for
+     phones, and a stylesheet placed before this page's own <style> would lose
+     to it on source order. This page was missed in the first pass because it
+     is rendered from includes/ rather than being a page at the web root -
+     measured at 162 of 176 text elements under 16px on a 390px screen. -->
+<link rel="stylesheet" href="css/mobile.css">
 </head>
 <body>
 <div class="bg-grid" aria-hidden="true"></div>

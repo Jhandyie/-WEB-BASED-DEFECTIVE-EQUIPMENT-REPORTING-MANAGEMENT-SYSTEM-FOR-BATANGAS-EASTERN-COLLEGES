@@ -1100,6 +1100,17 @@ body.modal-open{overflow:hidden;}
 .te-list li i{color:var(--bad-tx);font-size:.72rem;flex-shrink:0;}
 .te-btn{width:100%;padding:.82rem;border:none;border-radius:11px;background:linear-gradient(135deg,var(--maroon-d),var(--maroon));color:#fff;font-family:'Outfit',sans-serif;font-weight:700;font-size:.9rem;cursor:pointer;transition:filter .15s;}
 .te-btn:hover{filter:brightness(1.08);}
+/* ── tap-to-fill chips on the finish form ────────────────────────────────
+   The technicians are not typists and the panel said so. These are the
+   sentences they have actually written in this box, offered as taps. */
+.tp{display:flex;flex-wrap:wrap;gap:.35rem;margin:0 0 .45rem;}
+.tp-b{padding:.34rem .7rem;border-radius:20px;cursor:pointer;
+  border:1px solid rgba(123,29,29,.2);background:rgba(123,29,29,.05);
+  color:#7B1D1D;font:inherit;font-size:.82rem;font-weight:600;
+  line-height:1.4;text-align:left;transition:all .15s;min-height:38px;}
+.tp-b:hover{background:#7B1D1D;color:#fff;border-color:#7B1D1D;}
+.tp-b:active{transform:translateY(1px);}
+@media(max-width:640px){ .tp-b{font-size:.85rem;min-height:44px;} }
 </style>
 <!-- Last in <head> on purpose: these rules correct the desktop type scale for
      phones, and a stylesheet placed before the page's own <style> would lose
@@ -1411,9 +1422,26 @@ body.modal-open{overflow:hidden;}
                 <?php /* The example is Taglish on purpose. BEC technicians write
                          the way they speak, and an English-only prompt is what
                          turns a full answer into three words. */ ?>
+                  <?php /* Taps instead of typing. Taken from what technicians have
+                           actually written in this box, not invented: short
+                           sentences describing the fix. They FILL the box and can
+                           then be edited - they are a starting point, not a fixed
+                           vocabulary, and the Taglish placeholder above still
+                           stands for anything they do not cover. */ ?>
+                  <div class="tp" data-tp-for="work_performed">
+                    <button type="button" class="tp-b">Nilinis at inayos ang koneksyon, tested na — okay na.</button>
+                    <button type="button" class="tp-b">Pinalitan ang sirang parte mula sa stock at tested.</button>
+                    <button type="button" class="tp-b">Hinigpitan at ni-anchor muli — matibay na.</button>
+                    <button type="button" class="tp-b">Nilinis ang barado — hindi na tumutulo.</button>
+                  </div>
                 <textarea name="work_performed" placeholder="Hal. Pinalitan ang capacitor at nilinis ang filter — malamig na ulit." data-req="What you did"></textarea>
                 <div class="fhint">English or Filipino — kahit alin ang mas madali.</div>
                 <label>Parts used <span class="opt">(if any)</span></label>
+                  <div class="tp" data-tp-for="parts_replaced">
+                    <button type="button" class="tp-b">Wala — hindi nangailangan ng parte.</button>
+                    <button type="button" class="tp-b">1 x (galing sa stock)</button>
+                    <button type="button" class="tp-b">Pandikit / tape / turnilyo lang.</button>
+                  </div>
                 <input type="text" name="parts_replaced" placeholder="Hal. capacitor, 2 turnilyo" maxlength="300" autocomplete="off">
                 <label>Photo of the finished work <em class="req">*</em></label>
                 <div class="photo-field" data-req-photo="A photo of the finished work">
@@ -1993,6 +2021,28 @@ document.querySelectorAll('form.tech-ajax').forEach(function (f) {
     if (inp && e.dataTransfer && e.dataTransfer.files) addFiles(inp, e.dataTransfer.files);
   });
 })();
+/* Tap-to-fill for the finish form. Appends rather than replaces, so tapping a
+   second chip adds to the first instead of wiping what is already typed - the
+   same rule the admin note presets follow. Delegated, because the form is
+   rendered once per task and there can be several on screen. */
+document.addEventListener('click', function (e) {
+  var b = e.target.closest('.tp-b');
+  if (!b) { return; }
+  var box = b.parentElement;
+  var name = box.getAttribute('data-tp-for');
+  var form = b.closest('form');
+  if (!form || !name) { return; }
+  var fld = form.querySelector('[name="' + name + '"]');
+  if (!fld) { return; }
+  var cur = (fld.value || '').trim();
+  var add = b.textContent.trim();
+  if (cur === '') { fld.value = add; }
+  else if (cur.indexOf(add) === -1) {
+    fld.value = cur + (fld.tagName === 'TEXTAREA' ? '\n' : ', ') + add;
+  }
+  fld.focus();
+  fld.dispatchEvent(new Event('input', { bubbles: true }));
+});
 </script>
 <script>
 /* PWA: register the service worker (installable technician app) */

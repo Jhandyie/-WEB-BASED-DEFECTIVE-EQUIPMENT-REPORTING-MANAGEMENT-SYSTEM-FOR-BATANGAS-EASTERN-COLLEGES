@@ -198,6 +198,8 @@ $checks = [
         ['recurrence preview ran',   '/id="cPreview"[^>]*>\s*<i/',  true],
         ['equipment combobox',       '/id="eqList"/',               true],
         ['CSRF token injected',      '/name="csrf_token"/',         true],
+        /* The technicians are not typists - that is the panel's own objection.
+           These offer the sentences they have actually written, as taps. */
     ]],
     ['Venue reservations queue', 'admin', 'admin_reservations.php', [
         ['filter bar',               '/id="fq"/',                   true],
@@ -287,6 +289,7 @@ $checks = [
         ['dispatch drawer',          '/id="asgDw"/',                true],
     ]],
     ['Technician dashboard', 'tech', 'technician_dashboard.php', [
+        ['tap-to-fill chips',        '/class="tp-b"/',              true],
         ['renders',                  '/<\/html>/i',                 true],
         ['CSRF token injected',      '/name="csrf_token"/',         true],
         /* The one-button workspace the defense panel asked for. The finish
