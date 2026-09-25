@@ -335,6 +335,11 @@ $checks = [
     /* The rest of the admin surface. These carry the heaviest queries and the
        most markup, so a fatal here is both likely and loud. */
     ['User management', 'admin', 'admin_users.php', [
+          /* $c_noUnit was counted and never selectable. An admin whose department
+             names neither office receives every report and every notification for
+             both, which is invisible until you can list those accounts. */
+          ['neither-office filter',    '/value="none"/',               true],
+          ['department consequence spelt out', '/receive every report and every notification/', true],
         ['roster renders',           '/<table|urow/',               true],
         ['search present',           '/id="fsq"/',                  true],
     ]],

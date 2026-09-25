@@ -506,7 +506,12 @@ $df = trim((string)($_GET['dept'] ?? 'all'));
 // role of that name: it held nobody, so it always showed an empty list while
 // the six real PMO and ITSO administrators sat under "Admins".
 $uf = strtolower(trim((string)($_GET['unit'] ?? 'all')));
-if (!in_array($uf, ['all', 'pmo', 'itso'], true)) { $uf = 'all'; }
+/* 'none' was computable but never selectable: $c_noUnit has always been counted
+   and there was no option to show the accounts behind it. A staff account in
+   neither office is not a harmless blank — adminUnitForUser() returns '' for it,
+   and '' means "sees every report and receives every notification for BOTH
+   offices". Those are exactly the accounts worth being able to list. */
+if (!in_array($uf, ['all', 'pmo', 'itso', 'none'], true)) { $uf = 'all'; }
 
 // Year level — the third question the roster is asked ("the Grade 12s", "the
 // 1st years"), and the one the BEC Directory page already answers. Stored as
@@ -519,6 +524,11 @@ if ($yl === '') { $yl = 'all'; }
 if ($yl !== 'all' && !becdir_is_operational_year_level($yl)) { $yl = 'all'; }
 // ITSO is tested first so a department naming both lands where adminUnitForUser() puts it.
 $unitSql = static function (string $unit): string {
+    if ($unit === 'none') {
+        /* Neither office named in the department. */
+        return "POSITION('ITSO' IN UPPER(COALESCE(u.department,''))) = 0
+                AND POSITION('PMO' IN UPPER(COALESCE(u.department,''))) = 0";
+    }
     return $unit === 'itso'
         ? "POSITION('ITSO' IN UPPER(COALESCE(u.department,''))) > 0"
         : "POSITION('ITSO' IN UPPER(COALESCE(u.department,''))) = 0
@@ -1708,6 +1718,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
           ['all',  'PMO and ITSO', $c_pmoUnit + $c_itsoUnit],
           ['pmo',  'PMO only',     $c_pmoUnit],
           ['itso', 'ITSO only',    $c_itsoUnit],
+            ['none', 'Neither office', $c_noUnit],
         ] as [$uval,$ulbl,$unum]): ?>
         <option value="<?php echo esc($uval); ?>"<?php echo $uf===$uval?' selected':''; ?>><?php
           echo esc($ulbl) . ' (' . number_format((int)$unum) . ')'; ?></option>
@@ -1837,7 +1848,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
               <option value="__other">Other…</option>
             </select>
             <input type="text" name="department" id="cuDeptTxt" class="fc" placeholder="Type the department…" maxlength="100" style="margin-top:.4rem;display:none;">
-            <p id="cuDeptHint" class="fhint" hidden><i class="fas fa-circle-info"></i> For an <strong>Administrator</strong> this sets which dashboard they oversee — pick <strong>PMO</strong> or <strong>ITSO</strong>.</p>
+            <p id="cuDeptHint" class="fhint" hidden><i class="fas fa-circle-info"></i> For an <strong>Administrator</strong> this is the only thing that decides what they see. A department naming <strong>PMO</strong> or <strong>ITSO</strong> scopes their reports and notifications to that office. <strong>Anything else — including an academic department — means they receive every report and every notification for both offices.</strong></p>
           </div>
         </div>
         <?php if($hasUserTypeCol): /* hidden until scripts/2026_08_reporter_user_type.sql has run */ ?>
@@ -1999,7 +2010,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);
               <option value="__other">Other…</option>
             </select>
             <input type="text" name="department" id="eDept" class="fc" placeholder="Type the department…" maxlength="100" style="margin-top:.4rem;display:none;">
-            <p id="eDeptHint" class="fhint" hidden><i class="fas fa-circle-info"></i> For an <strong>Administrator</strong> this sets which dashboard they oversee — pick <strong>PMO</strong> or <strong>ITSO</strong>.</p>
+            <p id="eDeptHint" class="fhint" hidden><i class="fas fa-circle-info"></i> For an <strong>Administrator</strong> this is the only thing that decides what they see. A department naming <strong>PMO</strong> or <strong>ITSO</strong> scopes their reports and notifications to that office. <strong>Anything else — including an academic department — means they receive every report and every notification for both offices.</strong></p>
           </div>
           <div class="fg">
             <label class="fl">Phone</label>
