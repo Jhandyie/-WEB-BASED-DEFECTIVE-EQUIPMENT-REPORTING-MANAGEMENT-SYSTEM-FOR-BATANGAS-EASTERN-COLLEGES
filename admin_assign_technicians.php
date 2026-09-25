@@ -39,7 +39,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $fresh,
                     'A technician has been assigned to your report ' . $rid . '.',
                     'Technician Assigned',
-                    'A technician has been assigned to handle your reported equipment issue. You will be notified once they begin the repair.'
+                    'A technician has been assigned to handle your reported equipment issue. You will be notified once they begin the repair.',
+                    /* Deferred, like every other workflow mail. This was the last
+                       synchronous notifyReporter() in the codebase: pressing Assign
+                       made the admin wait for flushMailOutbox(2), then a live SMTP
+                       handshake, and on a failure two attempts per account with a
+                       1.5-second sleep between them — before the page came back.
+                       scripts/run_sweeps.php drains the outbox every 15 minutes. */
+                    ['defer' => true]
                 );
             }
         }
@@ -53,12 +60,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($act === 'unassign') {
         $rid = $_POST['report_id'] ?? '';
+
+        /*
+         * Take the technician's clock off with them.
+         *
+         * Unassign is offered on accepted, in_progress, waiting_for_materials and
+         * for_replacement — not just on freshly assigned work — so it can and does
+         * land on a task somebody has already started. It used to clear only
+         * assigned_to, status and assigned_date, leaving accepted_at and started_at
+         * behind, and the report went back to the pool still claiming it had been
+         * accepted and started.
+         *
+         * Two things went wrong with that. The next technician inherited a task that
+         * said work had already begun, and admin_work_orders.php measures the repair
+         * as started_at -> completion_date, so the ledger and its export reported the
+         * first technician's time plus every idle hour in between as if one person
+         * had spent it on the repair.
+         *
+         * technician_notes are deliberately kept: they are information about the
+         * equipment ("needs a compressor, none in stock"), not state belonging to the
+         * assignment, and the next technician is better off reading them.
+         */
+        $prevReport = getDefectReportById($rid);
+        $hadStarted = $prevReport
+            && (!empty($prevReport['started_at']) || !empty($prevReport['accepted_at']));
+
         updateDefectReport($rid, [
-            'assigned_to'  => null,
-            'status'       => 'ready_for_assignment',
-            'assigned_date'=> null,
+            'assigned_to'   => null,
+            'status'        => 'ready_for_assignment',
+            'assigned_date' => null,
+            'accepted_at'   => null,
+            'started_at'    => null,
         ]);
-        $_SESSION['flash'] = ['ok', "Report #$rid unassigned."];
+
+        $_SESSION['flash'] = ['ok', "Report #$rid unassigned."
+            . ($hadStarted ? ' The previous technician\'s start time was cleared, so the next one begins from zero.' : '')];
     }
 
     header('Location: admin_assign_technicians.php');
@@ -1731,7 +1767,7 @@ textarea.fc{resize:vertical;min-height:80px;}
                 </td>
                 <td style="text-align:center;">
                   <button class="btn bico bi-d btn-sm" title="Unassign"
-                    onclick="openUnassign('<?php echo esc($r['report_id']); ?>','<?php echo esc($r['equipment_name']??'Equipment'); ?>')">
+                    onclick="openUnassign('<?php echo esc($r['report_id']); ?>','<?php echo esc($r['equipment_name']??'Equipment'); ?>',<?php echo (!empty($r['started_at']) || !empty($r['accepted_at'])) ? 'true' : 'false'; ?>)">
                     <i class="fas fa-user-minus"></i>
                   </button>
                 </td>
@@ -1836,7 +1872,9 @@ textarea.fc{resize:vertical;min-height:80px;}
     <div class="mhd">
       <div class="mhd-t">
         <h2><i class="fas fa-user-minus" style="margin-right:.3rem;opacity:.8;"></i> Unassign Technician</h2>
-        <p>This will return the report to &ldquo;Pending Verification&rdquo; status.</p>
+        <?php /* The handler sets ready_for_assignment. This line used to say
+                   "Pending Verification", which is a different stage entirely. */ ?>
+          <p>This returns the report to <strong>Ready for Assignment</strong> so another technician can be chosen.</p>
       </div>
       <button class="mx" onclick="document.getElementById('unMo').classList.remove('open')"><i class="fas fa-times"></i></button>
     </div>
@@ -1849,6 +1887,15 @@ textarea.fc{resize:vertical;min-height:80px;}
           </div>
           <div style="font-size:var(--fs-base);color:var(--t2);line-height:1.5;">
             <strong id="unEq">-</strong> will be returned to the unassigned queue.
+            <?php /* Shown only when the task has actually been accepted or started -
+                     a warning that is always on screen stops being read. */ ?>
+            <div id="unStarted" hidden style="margin-top:.55rem;padding:.55rem .7rem;border-radius:9px;
+                 background:var(--warn-bg,#FFFBEB);border:1px solid var(--warn-bdr,#FDE68A);
+                 color:var(--warn-tx,#92600A);font-size:var(--fs-sm);line-height:1.5;">
+              <i class="fas fa-clock" aria-hidden="true"></i>
+              This technician has already started. Their start time is cleared, so the
+              next technician&rsquo;s repair time is measured from when <em>they</em> begin.
+            </div>
             The assigned technician will lose access to this task.
           </div>
         </div>
@@ -2457,7 +2504,12 @@ function confirmAssign() {
 }
 
 /* --- UNASSIGN MODAL ------------------------------- */
-function openUnassign(rid, eq) {
+function openUnassign(rid, eq, started) {
+    /* Say it before the press, not after. Unassigning a task somebody has
+       already accepted or started throws that clock away, and the next
+       technician begins from zero. */
+    var w = document.getElementById('unStarted');
+    if (w) { w.hidden = !started; }
   document.getElementById('unRid').textContent = rid;
   document.getElementById('unEq').textContent  = eq;
   document.getElementById('unRidInput').value  = rid;
