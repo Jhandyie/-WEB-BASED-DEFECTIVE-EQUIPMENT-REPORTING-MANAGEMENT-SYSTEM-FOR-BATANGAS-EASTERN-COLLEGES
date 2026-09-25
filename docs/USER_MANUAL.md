@@ -1,116 +1,169 @@
 # User Manual — BEC PMO Equipment Reporting System
 
-Quick, role-by-role instructions for everyday use.
-*(URLs are relative to the site root, e.g. `https://your-site/…` or `http://localhost/bec-pmo/…`)*
+**Batangas Eastern Colleges · Property Management Office**
+
+How to use the system, by role. Nothing here needs to be installed; everything is a web page.
+
+> This manual was rewritten in September 2026 after the reporter form and the technician
+> workspace were rebuilt. If anything below does not match what is on your screen, the screen
+> is right and this file is out of date — tell the PMO.
 
 ---
 
-## 1. Reporters (students, faculty & staff)
+## 1. Reporters — students, faculty and staff
 
-**You don't need an account** — just your official BEC email, which we confirm with a short code
-instead of a password.
+**You do not need an account.** Your official BEC email is your identity, confirmed by a short
+code instead of a password.
 
-### File a defect report
-1. Open the site → **Report defective equipment** (or scan the QR sticker on the equipment —
-   the form opens with that equipment already selected).
-2. Enter your **full name** and **BEC email**, tick the privacy consent → Continue.
-3. Check your inbox for a **6-digit code** and enter it. The code is valid for **3 minutes**; you can
-   ask for another after 25 seconds. This browser then remembers you for **30 days**, so next time you
-   go straight in with one tap.
-4. Pick the equipment (type to search, or add it manually), choose the location, describe the
-   problem, attach photos if you can, and **Submit**.
-5. You receive a **ticket number** on screen and by email. Keep it.
+### Filing a report
 
-> Codes are only sent to addresses on the official BEC directory. If nothing arrives, check your spam
-> folder first, then ask the PMO to confirm your address is on file.
+1. Open the site and choose **Report defective equipment** — or scan the QR sticker on the
+   equipment, which opens the form with that unit already filled in.
+2. Enter your **BEC email** and tap whether you are a **Student**, **Teacher** or **Staff**.
+   That one tap is the only thing the system asks about you.
+3. Check your inbox for a **6-digit code**. It is valid for **3 minutes**, and you can request
+   another after **25 seconds**.
+4. First time only: if your name is not already on the BEC directory, you are asked for it once.
+5. You land on **one screen with four questions**:
+   - **What is broken?** — type the equipment name in your own words.
+   - **Where is it?** — pick the room from the list.
+   - **What is wrong with it?** — describe it plainly. English or Filipino, whichever is easier.
+   - **A photo or a video** — **this is required.** Tap **Take a photo** or **Record a video** to
+     use your camera, or choose a file from your gallery. At least one photo *or* one video;
+     the form will not submit without it.
+6. Press **Submit Report**. You get a **ticket number** on screen and by email. Keep it.
 
-### Follow your report
-- Open **Track Report** and enter your ticket number (or the equipment/asset tag). Reading the status
-  needs no sign-in.
-- You'll see the live status timeline. While you're **signed in as the reporter**, you can also send a
-  **follow-up** if it stalls (up to 3), and once it's repaired you'll be asked to confirm
-  **"Was your issue resolved?"** — that answer can only be given once, so it's reserved to you.
-- You also get an email at every major step: received, approved, technician assigned,
-  repair completed.
+**What the system works out by itself**, so you are not asked: the equipment category, which
+office handles it (PMO or ITSO), the priority, and your department or course. There is no
+category to choose, no asset tag to find, no "is it still usable?" question.
+
+**This phone remembers you for 30 days**, so next time you go straight in.
+
+> Codes are only sent to addresses on the official BEC directory. If nothing arrives, check
+> your spam folder, then ask the PMO to confirm your address is on file.
+
+### Following your report
+
+- Open **Track Report** and enter your **ticket number**. An equipment ID or an asset tag works
+  too.
+- You see the live status timeline.
+- While signed in as the reporter you can send a **follow-up** if it stalls — **up to 3 times**.
+- Once it is repaired you are asked **"Was your issue resolved?"** That answer can be given
+  **once**, and only by you.
+
+### Seeing what else is broken
+
+**Public Reports** lists every report in the system with its status, so you can check whether
+something has already been reported before filing it again. No sign-in needed.
 
 ---
 
 ## 2. PMO Administrators
 
-**Login:** `admin/admin_login_otp.html` — email + password, then enter the **6-digit code
-emailed to you** (valid 3 minutes).
+**Sign in** at `admin/admin_login_otp.html` — email and password, then the **6-digit code emailed
+to you** (valid 3 minutes). Accounts are created by an existing administrator in User
+Management; nobody can register themselves.
 
-### Daily flow
-1. **Dashboard** — open reports, priorities, overdue items, Asset Health, live activity.
+### The daily flow
+
+1. **Dashboard** — open reports, priorities, overdue items, live activity. The stat cards link
+   into the queue already filtered.
 2. **Defect Reports** — for each new report:
-   - **Mark as Received** (reporter is notified) →
-   - **Approve** — set department (PMO/ITSO) and priority; the report moves straight to
-     **Ready for Assignment** →
+   - **Mark as Received** — the reporter is notified.
+   - **Approve** — set the office (PMO or ITSO) and the priority. It moves to *Ready for
+     Assignment*.
    - or **Reject** with a reason.
-3. **Assign Technicians** — pick a report, click a technician card (workloads shown).
-   The technician gets an in-app alert **and an email deep-linking to the task**.
-4. When a technician completes a repair → open the report → **Verify & Close**
-   (the reporter is asked to confirm satisfaction).
+   - **Several at once:** tick the rows and use **Mark as received** or **Approve** in the bar
+     that appears. Reports already past that stage are skipped, not forced.
+3. **Assign Technicians** — pick a report, click a technician card. Workloads are shown. The
+   technician gets an in-app alert and an email that links straight to the task.
+4. When a technician finishes → open the report → **Verify & Close**. The reporter is then asked
+   to confirm they are satisfied.
 
-### Other tools
-- **Preventive Maintenance** — recurring schedules that generate tasks when due.
-- **Inventory** — upload the official PMO Excel workbook to populate totals; print a
-  **QR code** for any equipment (stick it on the unit — scans open a pre-filled report).
-- **User Management** — create/edit users, **Invite Technician** (emailed activation link,
-  3-day expiry), reset passwords. **Export** produces the official BEC letterhead
-  User List (PDF / Excel / CSV).
-- **Activity record** — every lifecycle action (who, what, when) is written server-side.
-  There is no browsable Audit Log page in this version; the viewer was removed in
-  August 2026 and the manual should not send you looking for a menu item that is
-  not there. The record itself is unaffected.
-- **Backup & Recovery** — back up the whole database on demand, download any snapshot, and
-  restore/recover records if data is ever deleted; a nightly backup also runs automatically.
-- **BECCA AI** (floating orb) — ask for summaries, overdue items, busiest technician,
-  or how any workflow works. Read-only.
+### Finding things
+
+- **The search box at the top of the sidebar** searches reports, equipment, staff accounts and
+  the BEC directory at once. A whole ticket number or a whole asset tag jumps straight to that
+  record.
+- **Sort any column** in the queue by clicking its header; click again to reverse.
+- **Filters** for stage, office, origin, follow-ups and **overdue**. They survive every action,
+  so working through a filtered queue does not reset it.
+- **From a report** you can jump to every other report for that same unit, or everything that
+  person has reported. A unit with three or more earlier reports is flagged in red.
+- **From User Management** the report count beside a person links to their reports.
+
+### The other tools
+
+- **Preventive Maintenance** — recurring schedules that raise tasks when due. Exports to CSV.
+- **Inventory** — upload the official PMO Excel workbook; print a **QR code** for any unit to
+  stick on it, which opens a pre-filled report when scanned.
+- **User Management** — create and edit accounts, **Invite Technician** (emailed activation
+  link, 3-day expiry), reset passwords, export the branded User List.
+  - **For an administrator, the department decides what they see.** A department naming **PMO**
+    or **ITSO** limits their reports and notifications to that office. Anything else — including
+    an academic department — means they receive **everything for both offices**. The
+    *Neither office* filter lists those accounts.
+- **BEC Directory** — import the roster from a file, and **edit, add or remove one person** when
+  a single record is wrong. The directory is what fills in a reporter's department
+  automatically, so a wrong email or department there shows up on their reports.
+- **Venue Reservations** — the VRF workflow, including assessment and payment. Exports to CSV.
+- **Work Orders** — the ledger of finished jobs, sortable and paged, with its own export.
+- **Backup & Recovery** — back up on demand, download any snapshot, preview a restore before
+  running it. A nightly backup runs automatically at 02:00.
+- **BECCA AI** (floating orb) — ask for summaries, overdue items, or how a workflow works.
+  Read-only; it cannot change anything.
+
+Every lifecycle action is recorded server-side with who, what and when. There is **no browsable
+Audit Log page** in this version — the viewer was removed in August 2026. The record itself is
+unaffected; do not go looking for a menu item that is not there.
 
 ---
 
 ## 3. Maintenance Technicians
 
-**First time:** open the **invitation email** from the PMO → verify your details and set a
-password (link valid 3 days).
-**Login:** `technician/login.html`.
-
-### Install the app (optional)
-The technician portal is an installable app (PWA). When you log in, a banner at the top offers
-**Install the Technician app** and shows the right steps for your device. Installing gives a
-full-screen, home-screen app that works offline for viewing your last-loaded tasks.
-
-- **On a computer (Chrome or Edge):** click the **install icon** in the address bar, or the
-  banner's **Install app** button.
-- **On a phone:** app install only works over a **secure `https://` address**. Reaching the
-  system by its plain `http://<computer-ip>` LAN address will **not** offer install — the banner
-  will say so.
-  - **For a thesis demo/defense:** on the computer running XAMPP, double-click
-    **`start-demo.bat`** (on the Desktop). It checks the system, then opens the public
-    `https://…` address and prints it, including the direct technician link to open on the
-    phone. On the phone: **Android Chrome** → menu **⋮** → *Install app*; **iPhone Safari** →
-    **Share** → *Add to Home Screen*. Keep that window open during the demo; close it to stop.
+**Sign in** with the account the PMO created for you. On a phone, use **Install app** to add it
+to your home screen and **Enable alerts** to get task notifications.
 
 ### Working a task
-1. New assignments arrive by email (**Open Repair Workspace** button) and in **My Tasks**.
-2. Open the task — you'll see the workflow stepper, deadline chip, issue details, PMO
-   instructions, and photos.
-3. **Receive Task** → **Start Repair** (your repair timer starts).
-4. If blocked: **Waiting for Materials** (with a note) → later **Materials Received — Resume**.
-   If the unit isn't worth fixing: **Recommend Replacement**.
-5. Finish with the **Completion Report** — timing & cost, diagnosis, actions, parts/tools/
-   materials (add each item with **Enter**), findings, recommendations, and
-   **before/during/after photos**. Submit → the task moves to *Awaiting PMO Verification*.
-6. The **bell icon** (top-right / Alerts tab) holds all your notifications.
-7. **BECCA** (floating orb) can tell you what's next in your queue and walk you through any step.
+
+The workspace shows **one briefing and one button**. You are not asked to fill in a report.
+
+1. New assignments arrive by email (**Open Repair Workspace**) and in **My Tasks**.
+2. Open the task. You see what is broken, where it is, who reported it, the PMO's instructions
+   and the reporter's photos.
+3. Press the one button for where the task is: **Receive** → **Start the repair** → **Mark as
+   fixed**.
+4. **Finishing** asks four things, and no more:
+   - **What did you do?** — English or Filipino, whichever is easier. Tap one of the suggested
+     sentences to fill the box, then edit it.
+   - **Parts used** — if any.
+   - **A photo of the finished work** — **required.**
+   - **Cost** — PMO technicians only, and only if you spent something.
+5. Submit. The task moves to *Awaiting PMO Verification*.
+
+**If you are stuck**, open **Having a problem?** under the main button:
+- **Need parts first** — the task waits, and you resume it with **Parts arrived** later.
+- **Can't be fixed** — recommends the unit for replacement.
+
+The **bell** holds your notifications. **BECCA** can tell you what is next in your queue.
 
 ---
 
 ## Common questions
 
-**I didn't get the email.** Check Spam. OTP codes expire in 3 minutes — request a new one.
-**Wrong equipment on a QR scan?** You can still change the equipment field before submitting.
-**Photo won't upload?** Max **10 MB per photo, 40 MB per submission** — the form tells you
-which file is too big before uploading.
-**Forgot admin password?** Click "Forgot password?" on `admin/admin_login_otp.html` → reset link by email.
+**I didn't get the email.** Check Spam. Codes expire in 3 minutes — ask for a new one.
+
+**The form won't let me submit.** It needs a photo or a video. That is deliberate: a report
+without evidence cannot be triaged without someone walking to the room to look.
+
+**The camera button opens my files instead of the camera.** Use the **Take a photo** button
+rather than the file area — that one opens the camera directly on iPhone and Android.
+
+**I reported the wrong thing.** Send a follow-up on the Track Report page; the PMO reads them.
+
+**Can I report without a BEC email?** No. Codes only go to addresses on the official directory.
+Ask the PMO to add you.
+
+---
+
+*Batangas Eastern Colleges · Property Management Office*
