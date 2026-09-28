@@ -34,22 +34,58 @@ $tmpDir  = sys_get_temp_dir() . '/bec_ui_smoke';
 $seeder  = $root . '/_ui_smoke_session.php';   // deleted in the finally below
 @mkdir($tmpDir, 0777, true);
 
-/** Locate headless Edge, then Chrome — whichever this machine has. */
-function findBrowser(): ?string {
-    foreach ([
+/**
+ * Locate a headless browser that ACTUALLY WORKS, not merely one that is installed.
+ *
+ * This used to return the first of Edge/Chrome whose .exe existed. On 28 Sep 2026
+ * Edge updated itself to 154.0.4258.37 across a restart, and from then on every
+ * `--dump-dom` returned zero bytes with exit code 0 — even for a bare
+ * `data:text/html,<p>hello</p>`. The launcher exits immediately and leaves the
+ * real browser running detached, holding the profile lock, so the DOM never
+ * reaches stdout. Nothing is printed to stderr either.
+ *
+ * The cost of that was not an error message. It was 21 assertions failing as
+ * "page rendered nothing" on pages that were perfectly healthy, which reads
+ * exactly like the application being broken. Chrome, on the same machine and the
+ * same flags, rendered the landing page at 137 KB.
+ *
+ * So each candidate now has to render a trivial page before it is trusted, and
+ * one that answers with nothing is skipped. A browser update can take a browser
+ * out of service; it can no longer take the test suite with it.
+ */
+function browserWorks(string $exe, string $tmpBase): bool {
+    $dir = $tmpBase . '/probe_' . md5($exe);
+    $cmd = '"' . $exe . '"'
+         . ' --headless=new --disable-gpu --no-sandbox --no-first-run'
+         . ' --user-data-dir=' . escapeshellarg($dir)
+         . ' --dump-dom "data:text/html,<p id=probe>ok</p>" 2>NUL';
+    $out = (string) shell_exec($cmd);
+    return strpos($out, 'id="probe"') !== false || strpos($out, 'id=probe') !== false;
+}
+
+function findBrowser(string $tmpBase): ?string {
+    $installed = array_values(array_filter([
         'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
         'C:\Program Files\Microsoft\Edge\Application\msedge.exe',
         'C:\Program Files\Google\Chrome\Application\chrome.exe',
         'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe',
-    ] as $p) { if (is_file($p)) return $p; }
+    ], 'is_file'));
+    foreach ($installed as $p) {
+        if (browserWorks($p, $tmpBase)) { return $p; }
+        fwrite(STDERR, "  (skipping " . basename($p) . ": installed, but its headless mode returned nothing)\n");
+    }
     return null;
 }
 
-$browser = findBrowser();
+if (!is_dir($tmpDir)) { @mkdir($tmpDir, 0777, true); }
+$browser = findBrowser($tmpDir);
 if ($browser === null) {
-    fwrite(STDERR, "No headless browser found (looked for Edge and Chrome).\n");
+    fwrite(STDERR, "No WORKING headless browser found. Edge and Chrome were tried; each was either\n"
+                 . "missing or returned an empty document for a trivial page. A recent browser update\n"
+                 . "is the usual cause - see findBrowser() in this file.\n");
     exit(1);
 }
+echo "  browser: " . basename($browser) . "\n";
 
 /**
  * Render a URL with scripts executed and return the resulting DOM.

@@ -192,6 +192,12 @@ notifications and branded email. `users.department` (PMO or ITSO) scopes which r
   all, purely from a second run in the background. If you see a sudden crop of "page rendered
   nothing" or unrelated failures: check for other php.exe and msedge.exe processes, delete
   `%TEMP%/bec_ui_smoke`, and run it once on its own before believing a single failure.
+- **`ui_smoke.php` tests each browser before trusting it.** It tries Edge then Chrome, and each must
+  render a trivial `data:` page first. On 28 Sep 2026 Edge updated to 154.0.4258.37 across a restart and
+  from then on returned zero bytes for every `--dump-dom`, exit 0, nothing on stderr — the launcher exits
+  and leaves the real browser detached. That surfaced as 21 "page rendered nothing" failures on healthy
+  pages. The run now prints which browser it chose (`browser: chrome.exe`) and why it skipped one; if both
+  fail it says a browser update is the likely cause rather than reporting the app as broken.
 - **Keep `.ps1` files ASCII-only.** Windows PowerShell reads them as ANSI; an em-dash inside a
   string literal terminates the string and breaks the script.
 - **OPcache is deliberately off** in `C:\xampp\php\php.ini` — it was crashing Apache daily with

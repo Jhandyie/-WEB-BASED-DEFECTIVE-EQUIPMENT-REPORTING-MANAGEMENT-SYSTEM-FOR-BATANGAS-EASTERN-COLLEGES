@@ -131,3 +131,41 @@
     padding-block: .25rem;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * NOT mobile-specific — deliberately outside every media query.
+ *
+ * This file is the only stylesheet linked last in <head> on all ten
+ * user-facing pages, which makes it the one place a baseline can be set
+ * without adding a tenth <link> to ten files. Keyboard focus is that baseline.
+ *
+ * Measured: assets/css/admin-shell.css was the ONLY shared stylesheet defining
+ * :focus-visible, and it reaches admin pages only. On the public side each page
+ * had its own scattered rules — student_index.php seven, index.php three — and
+ * student_dashboard.php, the reporter form the defence panel scrutinised, and
+ * reserve_venue.php had NONE. Tabbing through either one moved an invisible
+ * cursor.
+ *
+ * :focus-visible, not :focus, is the whole point: the browser shows this to
+ * someone navigating by keyboard and withholds it from someone who clicked, so
+ * nothing about the mouse experience changes. Two layers so it survives any
+ * background: a dark ring, then a light halo outside it.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--maroon, #7B1D1D);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, .85);
+  border-radius: 4px;
+}
+/* On the dark surfaces — the technician sidebar, the footer, the assistant
+   header — a maroon ring on near-black is invisible. Invert there. */
+.sb :where(a, button):focus-visible,
+.bsfoot :where(a, button):focus-visible,
+.ch :where(a, button):focus-visible,
+.tia-head :where(a, button):focus-visible {
+  outline-color: #F0C040;
+  box-shadow: 0 0 0 4px rgba(0, 0, 0, .45);
+}
+/* Never remove it silently. A rule that sets outline:none on a focusable
+   element must replace it, and this is the replacement of last resort. */
+:where(a, button, input, select, textarea):focus-visible { outline-style: solid; }
