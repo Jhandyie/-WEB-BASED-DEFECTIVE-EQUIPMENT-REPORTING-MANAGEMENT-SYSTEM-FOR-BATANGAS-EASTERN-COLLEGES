@@ -104,3 +104,30 @@
   }
   .btn-submit, .action-btn, .cam-trigger { justify-content: center; }
 }
+
+/* ── touch targets, decided by the pointer and not by the width ────────────
+   The 44px minimums above live in a max-width block, and the footer had its
+   own at 640px. Both guess "touch" from how wide the screen is, which gets a
+   tablet wrong: measured on index.php at 768px, fifteen of thirty-two
+   controls were under 44px — the footer links at 20px, "Track Report" at
+   25px — because an iPad portrait is wider than every phone breakpoint while
+   being just as much a finger.
+
+   (hover: none) and (pointer: coarse) asks the question directly: is the
+   primary input a finger? A mouse never matches it, so this cannot inflate a
+   desktop layout at any width. */
+@media (hover: none) and (pointer: coarse) {
+  .bsfoot-col ul a, .bsfoot-contact a, .bsfoot-social a,
+  .bsnav-link, .bsnav-cta, .bsnav-skip,
+  .btn, .btn-submit, .action-btn, .cam-trigger, .addmat, .lbtn, .pwa-chip,
+  .ni, .lout, .nat, .pg-btn, .np-b, .tp-b {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+  /* Prose links inside a paragraph are not buttons — padding them to 44px
+     would tear the line apart. Given room around them instead. */
+  main a:not([class]), .sec a:not([class]), footer a:not([class]) {
+    padding-block: .25rem;
+  }
+}

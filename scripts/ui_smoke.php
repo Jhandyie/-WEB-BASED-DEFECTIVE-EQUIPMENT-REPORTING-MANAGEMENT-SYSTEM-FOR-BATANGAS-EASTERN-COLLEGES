@@ -182,6 +182,13 @@ if (is_file($__featFile)) {
 
 $checks = [
     ['Landing', 'admin', 'index.php', [
+          /* A stray closing brace lived in the landing page scripts from 9 Aug to
+             28 Sep. ONE SyntaxError kills every function the block defines, so the
+             scroll bar, back-to-top and card tilt were all dead for seven weeks
+             while php -l and the server stayed perfectly happy - the failure is
+             only visible in a browser. The .tilt class is added by code inside
+             that block, so its presence is proof the block executed. */
+          ['landing scripts actually ran', '/portal-card[^"]*tilt|tilt[^"]*portal-card/', true],
         ['renders',                  '/<\/html>/i',                 true],
         // With venue reservation excluded from the study, the landing page must
         // offer no way into it. With the flag on, the entry point must be there.

@@ -185,6 +185,13 @@ notifications and branded email. `users.department` (PMO or ITSO) scopes which r
   and returns 404, which shows up as a page that "renders" but asserts nothing. Use the
   `http:admin` / `http:tech` role for those: it fetches with `file_get_contents` and a session
   cookie, never touching a shell. Only valid for server-rendered pages.
+- **Never run `ui_smoke.php` twice at once.** It launches headless Edge with a profile directory
+  named from the page (`%TEMP%/bec_ui_smoke/p<md5>`), so two concurrent runs fight over the same
+  directories and Edge returns an empty document. That presents as *real* assertion failures on
+  pages that are perfectly fine — it went 147 pass / 0 fail to 119 / 28 with no code change at
+  all, purely from a second run in the background. If you see a sudden crop of "page rendered
+  nothing" or unrelated failures: check for other php.exe and msedge.exe processes, delete
+  `%TEMP%/bec_ui_smoke`, and run it once on its own before believing a single failure.
 - **Keep `.ps1` files ASCII-only.** Windows PowerShell reads them as ANSI; an em-dash inside a
   string literal terminates the string and breaks the script.
 - **OPcache is deliberately off** in `C:\xampp\php\php.ini` — it was crashing Apache daily with

@@ -768,7 +768,6 @@ a { text-decoration: none; color: inherit; }
       });
     }
 
-    }
   }
 
   /* ── 3. Scroll effects — one listener, batched into an animation frame ── */
@@ -803,8 +802,6 @@ a { text-decoration: none; color: inherit; }
     });
   }
 
-    });
-  }
 
   // Click ripple on every CTA
   document.querySelectorAll('.btn').forEach(function (btn) {

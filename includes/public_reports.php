@@ -509,6 +509,14 @@ td[data-label="Issue"]{max-width:200px !important;}
   /* Height was already 44; the arrows were only 32-34px wide, which is the
      dimension a thumb actually misses on a paginator. */
   .pg-btn{min-height:44px;min-width:44px;display:inline-flex;align-items:center;justify-content:center;}
+  /* The pager has to be allowed to wrap.
+     Giving .pg-btn a 44px minimum tap target (correct, and added in the phone
+     type pass) made this row wider than a 320px screen — an iPhone SE scrolled
+     36px sideways. The buttons were never the problem; a single non-wrapping
+     flex row holding them was. Measured: nav.pg-btns was 249px starting at
+     x=108, so it ended at 356 on a 320px viewport. */
+  .pg{flex-wrap:wrap;justify-content:center;gap:.5rem;}
+  .pg-btns{flex-wrap:wrap;justify-content:center;}
 
   /* ── turn the 8-column table into tappable cards (no sideways scroll) ── */
   .table-wrap{background:transparent;border:none;box-shadow:none;border-radius:0;overflow:visible;}
