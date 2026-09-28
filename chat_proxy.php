@@ -106,14 +106,12 @@ function chatDetectMood(string $text): string
     return 'neutral';
 }
 
+/* The system's own status names — the ones the Track Report page shows the
+   same person. This used to keep a private list that said "Open" and
+   "Resolved" and turned pmo_review into "Pmo Review". */
 function chatStatusLabel(string $status): string
 {
-    return match (strtolower(trim($status))) {
-        'reported' => 'Open',
-        'assigned', 'in_progress' => 'In Progress',
-        'completed', 'verified', 'closed' => 'Resolved',
-        default => ucwords(str_replace('_', ' ', trim($status))),
-    };
+    return defectStatusLabel(trim($status));
 }
 
 function chatEquipmentStatusLabel(string $status): string
@@ -123,6 +121,7 @@ function chatEquipmentStatusLabel(string $status): string
         'maintenance', 'under_maintenance' => 'Under Maintenance',
         'reserved', 'in_use', 'in use', 'borrowed' => 'In Use',
         'defective', 'faulty', 'damaged' => 'Needs Attention',
+        'deleted', 'retired', 'disposed', 'archived' => 'Retired from inventory',
         default => $status !== '' ? ucwords(str_replace('_', ' ', trim($status))) : 'Unknown',
     };
 }
@@ -395,7 +394,7 @@ function chatBuildTrackingReply(array $report, string $lang): array
             . "- Equipment status: **{$equipmentStatus}**\n"
             . "- Priority: **{$priority}**\n"
             . "- Location: **{$locationText}**\n"
-            . "Para sa buong detalye, buksan ang `track_report.php` at ilagay ang ticket, equipment ID, o asset tag.";
+            . "Para sa buong detalye, buksan ang **Track Report** at ilagay ang ticket number.";
         $chips = chatChipSet($lang, ['track', 'timeline', 'submit']);
     } else {
         $message = "I found report **{$report['report_id']}** for **{$report['equipment_name']}**.\n"
@@ -403,7 +402,7 @@ function chatBuildTrackingReply(array $report, string $lang): array
             . "- Equipment status: **{$equipmentStatus}**\n"
             . "- Priority: **{$priority}**\n"
             . "- Location: **{$locationText}**\n"
-            . "For full details, open `track_report.php` and enter the ticket, equipment ID, or asset tag.";
+            . "For full details, open **Track Report** and enter the ticket number.";
         $chips = chatChipSet($lang, ['track', 'timeline', 'submit']);
     }
 
@@ -461,7 +460,7 @@ function chatBuildActions(string $text, string $lang, bool $suggest = false, boo
 
     if ($hasReport || preg_match('/\b(track|ticket|status|report id|asset tag|equipment id)\b/i', $q)) {
         $actions[] = [
-            'label' => $lang === 'fil' ? 'Buksan ang Tracker' : 'Open Tracker',
+            'label' => $lang === 'fil' ? 'Buksan ang Track Report' : 'Open Track Report',
             'href' => 'track_report.php',
             'icon' => 'fa-search',
         ];
@@ -617,13 +616,13 @@ function chatBuildLocalReply(string $text, string $lang, array $snapshot, ?array
     if (preg_match('/\b(track|ticket|status|report id|asset tag|equipment id)\b/i', $text)) {
         if ($lang === 'fil') {
             return [
-                'reply' => "Maaari kitang tulungan mag-track. Ilagay ang **ticket number**, **equipment ID**, o **asset tag** dito, o buksan ang `track_report.php` para makita ang report status at equipment status.",
+                'reply' => "Maaari kitang tulungan mag-track. Ilagay ang **ticket number**, **equipment ID**, o **asset tag** dito, o buksan ang **Track Report** sa itaas na menu para makita ang report status at equipment status.",
                 'suggest' => false,
                 'chips' => chatChipSet($lang, ['track', 'timeline', 'submit']),
             ];
         }
         return [
-            'reply' => "I can help you track a report. Send the **ticket number**, **equipment ID**, or **asset tag** here, or open `track_report.php` to view both the report status and equipment status.",
+            'reply' => "I can help you track a report. Send the **ticket number**, **equipment ID**, or **asset tag** here, or open **Track Report** in the top menu to see both the report status and the equipment status.",
             'suggest' => false,
             'chips' => chatChipSet($lang, ['track', 'timeline', 'submit']),
         ];
@@ -740,13 +739,13 @@ function chatBuildLocalReply(string $text, string $lang, array $snapshot, ?array
     if (preg_match('/\b(submit|report|file a report|paano mag-report)\b/i', $text)) {
         if ($lang === 'fil') {
             return [
-                'reply' => "Para mag-submit ng report:\n- Ilagay ang pangalan at email sa reporter portal\n- Piliin ang tamang equipment mula sa live list\n- Ilagay ang location at malinaw na description\n- I-submit para makuha ang ticket number sa screen at email\n[SUGGEST_REPORT]",
+                'reply' => "Para mag-submit ng report:\n- Mag-sign in gamit ang @bec.edu.ph email at piliin kung Student, Teacher o Staff\n- Isulat kung ano ang sira at saan ito\n- Sabihin ang problema sa isa o dalawang pangungusap\n- Kumuha ng litrato o maikling video (kailangan ng kahit isa)\n- Pindutin ang Submit Report — lalabas ang ticket number sa screen at sa email\n[SUGGEST_REPORT]",
                 'suggest' => true,
                 'chips' => chatChipSet($lang, ['submit', 'track', 'timeline']),
             ];
         }
         return [
-            'reply' => "To submit a report:\n- Enter your name and email in the reporter portal\n- Pick the correct equipment from the live list\n- Fill in the location and a clear description\n- Submit to get the ticket number on screen and by email\n[SUGGEST_REPORT]",
+            'reply' => "To submit a report:\n- Sign in with your @bec.edu.ph email and tap Student, Teacher or Staff\n- Say what is broken and where it is\n- Say what is wrong in a sentence or two\n- Take a photo or a short video (at least one is required)\n- Press Submit Report — your ticket number appears on screen and by email\n[SUGGEST_REPORT]",
             'suggest' => true,
             'chips' => chatChipSet($lang, ['submit', 'track', 'timeline']),
         ];
@@ -871,28 +870,28 @@ $localReply = chatBuildLocalReply($lastUserMessage, $lang, $snapshot, $matchedRe
 
 $knowledge_base = [
     "Projector not working: Check the power cable and HDMI connection. Press the Source or Input button on the remote. Allow 30 seconds for lamp warm-up. Power cycle by turning off, waiting 10 seconds, then back on. Note the room number and submit a defect report if it persists.",
-    "How to submit a report: Enter your full name and email on the portal, click Continue, then fill in equipment type, room/location, and problem description. You'll get a ticket confirmation email.",
+    "How to submit a report: tap Report defect, sign in with your @bec.edu.ph email and tap Student, Teacher or Staff. Then fill in one short form: what is broken, where it is (pick the room or type it), what is wrong in a sentence or two, and a photo or short video of it — at least one is required. Press Submit Report: the ticket number appears on screen and is emailed to you.",
     "AC not cooling / aircon issue: Check thermostat settings and ensure vents are unobstructed. Set to Cool mode, not Fan only. AC units are serviced every 2 months. Submit a defect report if warm air persists or there's strange noise/water leak.",
     "Computer won't start: Check that the power strip is on. Hold the power button 10 seconds to force restart. Check cable connections. Submit a report with the PC tag number and room number if it still won't boot.",
-    "Track my report: Visit track_report.php and enter your ticket ID from the confirmation email. Status: Pending → Assigned → In Progress → Resolved.",
+    "Track my report: open Track Report in the top menu and enter the ticket number from your confirmation email (an equipment ID or asset tag works too). If you are signed in, it also lists your own reports.",
     "Repair timeline: Minor issues (cables, bulbs) fixed within 1-2 working days. Major repairs (motherboard, compressor) may take 3-7 days.",
-    "Network or WiFi issues: Forget and reconnect to BEC-WiFi. If whole room is affected, submit a defect report tagged as Network Equipment with your room number.",
+    "Network or WiFi issues: Forget and reconnect to BEC-WiFi. If the whole room is affected, submit a report that says WiFi and gives your room number.",
     "Printer not working: Check power, clear paper jams, ensure paper and ink are available. Submit a report with printer model and room number if it continues.",
     "Equipment that can be reported: Projectors, computers, monitors, printers, scanners, AC units, electric fans, sound systems, TVs, networking equipment, lights.",
     "Emergency contact: Call extension 215 or email facilities@bec.edu. Available Monday-Friday 7AM-6PM.",
-    "Report status meanings: Pending=received, Assigned=technician assigned, In Progress=repair started, Resolved=fixed.",
+    "Report status names (the ones Track Report shows): Submitted = the PMO has not opened it yet; Received by PMO = the PMO is reviewing it; Technician Assigned = a technician has it; Received by Technician / In Progress = the repair is being done; Waiting for Materials = waiting for parts; For Replacement = it cannot be repaired; Completed = fixed, the PMO is checking the work; Verified / Closed = done; Rejected = the PMO turned it down.",
     "Mga kagamitang pwedeng i-report: Proyektor, computer, monitor, printer, aircon, electric fan, sound system, TV, networking equipment, ilaw.",
-    "Paano mag-report (Filipino): Ilagay ang pangalan at email sa portal, i-click ang Continue, punan ang form. Makakatanggap ng ticket confirmation sa email.",
-    "Paano mag-track ng report: Pumunta sa track_report.php, ilagay ang ticket ID mula sa email. Status: Pending → In Progress → Resolved.",
-    "Report lifecycle: After you submit, a report is Reported (Pending). The Property Management Office (PMO) marks it Received, then Approves it, a technician is Assigned, then it goes In Progress, then Completed, and finally Verified/Closed by the PMO. You can follow each step anytime on track_report.php.",
+    "Paano mag-report: pindutin ang Report defect, mag-sign in gamit ang @bec.edu.ph email, at piliin kung Student, Teacher o Staff. Isang maikling form lang: ano ang sira, saan ito, ano ang problema (isa o dalawang pangungusap), at isang litrato o maikling video — kailangan ng kahit isa. Pindutin ang Submit Report: lalabas ang ticket number sa screen at ipapadala sa email mo.",
+    "Paano mag-track ng report: buksan ang Track Report sa itaas na menu at ilagay ang ticket number mula sa email mo.",
+    "Report lifecycle, as the Track Report timeline shows it: Submitted → Received by PMO → Technician Assigned → Received by Technician → Repair In Progress → PMO Verification → Closed. A report can also be Rejected, or wait for parts. Follow each step anytime on the Track Report page.",
     "Right after submitting: you get a ticket number on screen and by email immediately. Keep it — you'll use it to track progress and to confirm whether your issue was resolved.",
     "Confirming resolution: once a report is Completed, the tracking page asks 'Was your issue resolved?'. Tap 'Yes, resolved' if it's fixed, or 'Not fixed' to alert the PMO so they can re-check it.",
-    "Photo evidence: attaching clear 'before' photos when you submit helps technicians diagnose faster. It's optional but recommended — JPG, PNG, or WEBP, up to 10 photos, 10MB each.",
+    "Photo or video: every report needs at least one photo or short video of the problem — the form will not submit without it. Use Take a photo or Record a video on the form. Up to 10 photos or 2 videos; a few seconds of video is enough.",
     "Who can report: only official BEC accounts can submit reports — a Batangas Eastern Colleges email ending in @bec.edu.ph, or an account listed in the official BEC directory.",
     "Overdue reports: if a report isn't resolved within the target time for its priority, the system automatically escalates it to the PMO for priority attention — you don't need to do anything extra.",
     "Preventive maintenance: the PMO also schedules recurring upkeep (for example, aircon servicing every couple of months) so equipment is maintained before it breaks down.",
     "Safety emergencies: if you see smoke, sparks, a burning smell, water near electricity, or get an electric shock — stop using the equipment, unplug it only if it's safe to do so, and call extension 215 immediately. File a report afterward.",
-    "Takbo ng report: Pagka-submit, ito ay Reported (Pending). I-mamark ng PMO na Received, saka Approve, mag-aassign ng technician, magiging In Progress, Completed, tapos Verified/Closed. Masusubaybayan ito sa track_report.php.",
+    "Takbo ng report (tulad ng nasa Track Report): Submitted → Received by PMO → Technician Assigned → Received by Technician → Repair In Progress → PMO Verification → Closed. Maaari rin itong Rejected o maghintay ng piyesa. Masusubaybayan ito sa Track Report.",
     "Kumpirmahin kung ayos na: kapag Completed na ang report, may tatanong sa tracking page na 'Naayos ba ang isyu?' — pindutin ang 'Oo' kung ayos na, o 'Hindi pa' para ma-alerto ang PMO.",
     "Monitor / display has no image: confirm the monitor's power light is on, reseat the video cable (HDMI/VGA/DisplayPort) at both ends, and select the correct Input/Source. Try a different cable or port if possible. If it stays blank, report it with the monitor or PC tag and room.",
     "Scanner not working: check power and the USB cable, make sure the scanning software/driver is open, clear any paper jam, and wipe the glass. If the computer doesn't detect it after that, submit a report with the scanner model and room.",
@@ -967,8 +966,9 @@ IMPORTANT RULES:
 3. When an issue clearly needs physical repair (hardware failure, AC broken, won't boot after troubleshooting), suggest filing a report and append exactly this token on its own line: [SUGGEST_REPORT]
 4. For safety emergencies (sparks, smoke, flooding, fire hazard, electric shock): stop using the equipment, call extension 215 immediately.
 5. Never make up ticket IDs, room numbers, or equipment-specific data. If you don't know, say so and point to facilities@bec.edu.
-6. Know the report lifecycle (Reported → Received by PMO → Approved → Assigned → In Progress → Completed → Verified/Closed) and say where a report sits, not a vague status. After completion, users can confirm 'Yes, resolved' or 'Not fixed' on the tracking page.
-7. Most users are on phones — short lines, skimmable, no long paragraphs.
+6. Know the report lifecycle (Submitted → Received by PMO → Technician Assigned → Received by Technician → Repair In Progress → PMO Verification → Closed, or Rejected) and say where a report sits using those exact names, not a vague status. After completion, users can confirm 'Yes, resolved' or 'Not fixed' on the Track Report page.
+7. Name pages the way the screen does — Report defect, Track Report, Public Reports — never by a file name such as track_report.php. A photo or video is required on every report; never call it optional.
+8. Most users are on phones — short lines, skimmable, no long paragraphs.
 
 LIVE CAMPUS DATA RIGHT NOW (real, from the database — use it to answer analytical questions with real numbers):
 - Reports: {$snapshot['total_reports']} total · {$snapshot['open_reports']} open · {$snapshot['in_progress_reports']} in progress · {$snapshot['resolved_reports']} resolved

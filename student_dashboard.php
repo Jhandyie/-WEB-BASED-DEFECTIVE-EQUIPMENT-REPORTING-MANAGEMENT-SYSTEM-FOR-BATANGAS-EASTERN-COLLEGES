@@ -654,7 +654,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($count >= $max_count) { $error = 'You can upload up to ' . $max_count . ' photos per report.'; break; }
                 if (!is_uploaded_file($tmp)) { continue; }
                 $size = (int)($_FILES['photos']['size'][$i] ?? 0);
-                if ($size <= 0 || $size > $max_size) { $error = 'Each photo must be a valid image under 10MB.'; break; }
+                if ($size <= 0 || $size > $max_size) { $error = 'One photo is too large or could not be read. Please take it again.'; break; }
                 $info = @getimagesize($tmp);
                 if ($info === false || !isset($allowedImg[$info[2]])) { $error = 'Photos must be JPG, PNG or WEBP. An iPhone HEIC photo will not upload — screenshot it and attach that, or set Settings › Camera › Formats › Most Compatible.'; break; }
                 $safeExt = $allowedImg[$info[2]];
@@ -685,9 +685,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($vcount >= $vmax_count) { $error = 'You can upload up to ' . $vmax_count . ' videos per report.'; break; }
                 if (!is_uploaded_file($tmp)) { continue; }
                 $size = (int)($_FILES['videos']['size'][$i] ?? 0);
-                if ($size <= 0 || $size > $vmax_size) { $error = 'Each video must be a valid clip under 20MB.'; break; }
+                if ($size <= 0 || $size > $vmax_size) { $error = 'One video is too long or could not be read. Please record a shorter one — a few seconds is enough.'; break; }
                 $mime = $finfo ? finfo_file($finfo, $tmp) : (string)($_FILES['videos']['type'][$i] ?? '');
-                if (!isset($allowedVid[$mime])) { $error = 'Videos must be MP4, WEBM, or MOV files.'; break; }
+                if (!isset($allowedVid[$mime])) { $error = 'One video could not be used. Please record it with the Record a video button.'; break; }
                 $safeExt = $allowedVid[$mime];
                 $rel  = 'uploads/reports/' . $ticket . '_v' . ($vcount + 1) . '.' . $safeExt;
                 $dest = __DIR__ . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $rel);
@@ -1511,7 +1511,11 @@ html { scroll-behavior: smooth; }
   <div class="modal">
     <div class="modal-check"><i class="fas fa-check"></i></div>
     <h2 class="modal-title">Report Submitted!</h2>
-    <p class="modal-sub">Your equipment defect report has been received. An email confirmation has been sent to <strong><?php echo htmlspecialchars($student_email); ?></strong>.</p>
+    <?php /* Whether the email went is said once, below, by the note that
+             actually knows. This line used to promise it unconditionally, so
+             when the send failed the modal said "sent" and "could not send"
+             one above the other. */ ?>
+    <p class="modal-sub">The Property Management Office has your report.</p>
     <div class="ticket-box">
       <div class="ticket-label">Your Ticket Number</div>
       <div class="ticket-num"><?php echo $ticket; ?></div>
@@ -1727,7 +1731,7 @@ html { scroll-behavior: smooth; }
                accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime" multiple>
         <div class="photo-icon"><i class="fas fa-images"></i></div>
         <div class="photo-title">or choose from your gallery / files</div>
-        <div class="photo-sub">Photos: up to <strong>10</strong>, 10MB each &middot; Video: up to <strong>2</strong>, 20MB each</div>
+        <div class="photo-sub">Up to 10 photos or 2 videos. A few seconds of video is enough.</div>
         <div class="photo-meta" id="media-meta"></div>
       </div>
 
@@ -2112,7 +2116,7 @@ function renderPhotos(){
 function addFiles(fileList){
   const errs = [];
   Array.from(fileList).forEach(file => {
-    if (photoStore.length >= MAX_PHOTOS){ errs.push('Maximum '+MAX_PHOTOS+' photos.'); return; }
+    if (photoStore.length >= MAX_PHOTOS){ errs.push('You can add up to '+MAX_PHOTOS+' photos.'); return; }
     if (!OK_TYPES.includes(file.type)){
       // HEIC is what an iPhone stores by default. iOS converts it to JPEG on
       // upload as long as the accept list does not mention HEIC - which is why
@@ -2122,10 +2126,10 @@ function addFiles(fileList){
       const heic = /hei[cf]/i.test(file.type) || /\.hei[cf]$/i.test(file.name);
       errs.push(heic
         ? file.name + ' is an iPhone HEIC photo. Take a screenshot of it and attach that, or set Settings › Camera › Formats › Most Compatible.'
-        : file.name + ' is not a JPG, PNG or WEBP photo.');
+        : file.name + ' cannot be used. Please pick a photo, or press Take a photo.');
       return;
     }
-    if (file.size > MAX_BYTES){ errs.push(file.name+': over 10MB'); return; }
+    if (file.size > MAX_BYTES){ errs.push('That photo is too large to send. Please press Take a photo instead.'); return; }
     if (photoStore.some(p => p.file.name===file.name && p.file.size===file.size)) return; // dedupe
     photoStore.push({ file, url: URL.createObjectURL(file) });
   });
@@ -2169,9 +2173,9 @@ function renderVideos(){
 function addVideoFiles(fileList){
   const errs = [];
   Array.from(fileList).forEach(file => {
-    if (videoStore.length >= MAX_VIDEOS){ errs.push('Maximum '+MAX_VIDEOS+' videos.'); return; }
-    if (!OK_VTYPES.includes(file.type)){ errs.push(file.name+' is not an MP4, WEBM or MOV video.'); return; }
-    if (file.size > MAX_VBYTES){ errs.push(file.name+': over 20MB'); return; }
+    if (videoStore.length >= MAX_VIDEOS){ errs.push('You can add up to '+MAX_VIDEOS+' videos.'); return; }
+    if (!OK_VTYPES.includes(file.type)){ errs.push(file.name+' cannot be used. Please press Record a video instead.'); return; }
+    if (file.size > MAX_VBYTES){ errs.push('That video is too long. Please record a shorter one — a few seconds is enough.'); return; }
     if (videoStore.some(v => v.file.name===file.name && v.file.size===file.size)) return;
     videoStore.push({ file, url: URL.createObjectURL(file) });
   });
@@ -2550,8 +2554,8 @@ window.addEventListener('DOMContentLoaded', function () {
     <h3 id="exitTitle">Do you really want to exit?</h3>
     <p>You haven't submitted this report yet. If you leave now and go back to sign-in, the details you've entered will be lost.</p>
     <div class="exit-actions">
-      <button type="button" class="err-btn2" id="exitNo">No</button>
-      <button type="button" class="err-btn" id="exitYes">Yes</button>
+      <button type="button" class="err-btn2" id="exitNo">No, stay</button>
+      <button type="button" class="err-btn" id="exitYes">Yes, leave</button>
     </div>
   </div>
 </div>

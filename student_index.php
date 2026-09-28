@@ -897,7 +897,7 @@ body::after {
       <summary><i aria-hidden="true" class="fas fa-circle-info"></i> A few things to know<i aria-hidden="true" class="fas fa-chevron-down intro-chev"></i></summary>
       <ul class="intro-list">
         <li><i aria-hidden="true" class="fas fa-id-card"></i><span><b>Who may report.</b> Any Batangas Eastern Colleges student, faculty, or staff member with an official <b>@bec.edu.ph</b> email account may file a report.</span></li>
-        <li><i aria-hidden="true" class="fas fa-clipboard-list"></i><span><b>What to prepare.</b> Identify the equipment, where it is located, and a short description of the problem. Adding a photo helps the technicians assess it faster.</span></li>
+        <li><i aria-hidden="true" class="fas fa-clipboard-list"></i><span><b>What to prepare.</b> Know what is broken and where it is, and be ready to take a photo or a short video of it — every report needs one, so the technician sees the problem before arriving.</span></li>
         <li><i aria-hidden="true" class="fas fa-route"></i><span><b>What happens after you submit.</b> The PMO reviews your report, assigns a technician, and carries out the repair. You are updated by email at every key stage and can track the status online at any time.</span></li>
         <li><i aria-hidden="true" class="fas fa-user-shield"></i><span><b>How your information is used.</b> Your details are used only to process and deliver your report, kept confidential in line with the Data Privacy Act of 2012 (RA 10173).</span></li>
       </ul>
@@ -1092,7 +1092,7 @@ body::after {
         <div class="fi-hint"><i aria-hidden="true" class="fas fa-id-card"></i> This is the name the PMO will see on the reports you file.</div>
       </div>
       <button type="submit" class="btn-submit">
-        Continue to Report Submission
+        Continue to the report form
         <span class="btn-arrow"><i aria-hidden="true" class="fas fa-arrow-right"></i></span>
       </button>
     </form>
@@ -1158,7 +1158,7 @@ body::after {
         <div class="pv-panel" id="pvPanel" role="region" aria-labelledby="pvToggle">
           <dl class="pv-inner">
             <dt>What we collect</dt>
-            <dd>Your full name, your official <strong>@bec.edu.ph</strong> email address, your department or course, an optional contact number, and the details and photos you attach to a report.</dd>
+            <dd>Your official <strong>@bec.edu.ph</strong> email address and whether you are a student, teacher or staff; your name, department or course and contact number as they appear in the BEC directory; and the details, photos and videos you attach to a report.</dd>
 
             <dt>Why we collect it</dt>
             <dd>To identify the reporter, verify the report against the official BEC directory, assign a technician, send you status updates and your ticket number, and keep the Property Management Office's maintenance records.</dd>
@@ -1175,7 +1175,7 @@ body::after {
         </div>
       </div>
       <button type="submit" class="btn-submit">
-        Continue to Report Submission
+        Continue to the report form
         <span class="btn-arrow"><i aria-hidden="true" class="fas fa-arrow-right"></i></span>
       </button>
     </form>

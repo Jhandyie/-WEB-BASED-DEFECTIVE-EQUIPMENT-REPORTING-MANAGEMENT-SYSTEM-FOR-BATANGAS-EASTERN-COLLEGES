@@ -492,7 +492,7 @@ function chipSet(keys, currentLang = lang) {
 function actionLabel(type, currentLang = lang) {
   const labels = {
     create: { en: 'Create Report', fil: 'Gumawa ng Report' },
-    tracker: { en: 'Open Tracker', fil: 'Buksan ang Tracker' },
+    tracker: { en: 'Open Track Report', fil: 'Buksan ang Track Report' },
     public: { en: 'Public Reports', fil: 'Mga Public Report' }
   };
   return labels[type]?.[currentLang] || labels[type]?.en || type;
@@ -553,7 +553,10 @@ function addMsg(role, text, chips, suggest, actions = []) {
   row.className = 'mrow ' + (role === 'u' ? 'u' : 'b');
   const detectedLang = role === 'u' ? detectInputLang(text) : lang;
 
-  const safe = esc(text).replace(/\n/g, '<br>');
+  // **bold** is how both the model and the canned replies mark the words to
+  // look for ("send the **ticket number**"); unconverted, reporters saw the
+  // asterisks. Escaped first, so only the markers become markup.
+  const safe = esc(text).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
 
   let extra = '';
   if (chips && chips.length) {
@@ -734,8 +737,8 @@ function fallbackReply(text) {
   if (/\b(track|ticket|report id|status)\b/i.test(q)) {
     return wrap(
       isFil
-        ? 'Maaari mong i-track ang report gamit ang ticket number, equipment ID, o asset tag sa `track_report.php`. Makikita roon ang report status at equipment status.'
-        : 'You can track a report using the ticket number, equipment ID, or asset tag in `track_report.php`. It will show both the report status and the equipment status.',
+        ? 'Buksan ang **Track Report** sa itaas na menu at ilagay ang ticket number mula sa email mo. Makikita roon ang report status at equipment status.'
+        : 'Open **Track Report** in the top menu and enter the ticket number from your email. It shows both the report status and the equipment status.',
       chipSet(['track', 'timeline', 'submit'], isFil ? 'fil' : 'en'),
       false, 'track'
     );
@@ -744,8 +747,8 @@ function fallbackReply(text) {
   if (/\b(submit|report|paano mag-report|how to report|file a report)\b/i.test(q)) {
     return wrap(
       isFil
-        ? 'Para mag-submit ng report:\n- Ilagay ang pangalan at email sa reporter portal\n- Piliin ang tamang equipment mula sa listahan\n- Ilagay ang location at malinaw na description\n- I-submit para makakuha ng ticket number sa screen at email'
-        : 'To submit a report:\n- Enter your name and email in the reporter portal\n- Choose the correct equipment from the list\n- Fill in the location and a clear description\n- Submit to get your ticket number on screen and by email',
+        ? 'Para mag-submit ng report:\n- Mag-sign in gamit ang @bec.edu.ph email at piliin kung Student, Teacher o Staff\n- Isulat kung ano ang sira at saan ito\n- Sabihin ang problema sa isa o dalawang pangungusap\n- Kumuha ng litrato o maikling video (kailangan ng kahit isa)\n- Pindutin ang Submit Report para makuha ang ticket number'
+        : 'To submit a report:\n- Sign in with your @bec.edu.ph email and tap Student, Teacher or Staff\n- Say what is broken and where it is\n- Say what is wrong in a sentence or two\n- Take a photo or a short video (at least one is required)\n- Press Submit Report to get your ticket number',
       chipSet(['submit', 'report_projector', 'track'], isFil ? 'fil' : 'en'),
       true, 'submit'
     );

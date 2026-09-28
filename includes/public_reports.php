@@ -651,7 +651,7 @@ td[data-label="Issue"]{max-width:200px !important;}
         <?php endforeach; ?>
       </select>
       <select name="sev" class="filter-sel" onchange="this.form.submit()">
-        <option value="">All severities</option>
+        <option value="">All priorities</option>
         <option value="Low"      <?= $severity==='Low'      ?'selected':'' ?>>Low</option>
         <option value="Medium"   <?= $severity==='Medium'   ?'selected':'' ?>>Medium</option>
         <option value="High"     <?= $severity==='High'     ?'selected':'' ?>>High</option>
@@ -774,7 +774,7 @@ td[data-label="Issue"]{max-width:200px !important;}
           <div class="di-value" id="m-submitted"></div>
         </div>
         <div class="detail-item">
-          <div class="di-label"><i aria-hidden="true" class="fas fa-microchip" style="margin-right:.3rem;font-size:.6rem"></i>Inventory record</div>
+          <div class="di-label"><i aria-hidden="true" class="fas fa-microchip" style="margin-right:.3rem;font-size:.6rem"></i>Equipment status</div>
           <div class="di-value" id="m-eq-status"></div>
         </div>
         <div class="detail-item full">

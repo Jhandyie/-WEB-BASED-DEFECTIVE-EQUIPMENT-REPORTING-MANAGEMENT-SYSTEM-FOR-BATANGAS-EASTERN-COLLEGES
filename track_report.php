@@ -362,6 +362,9 @@ function tr_equipment_status_label(string $status): string {
         'maintenance', 'under_maintenance' => 'Under Maintenance',
         'reserved', 'in_use', 'in use', 'borrowed' => 'In Use',
         'defective', 'faulty', 'damaged' => 'Needs Attention',
+        // Same wording as the public board (includes/public_reports.php). Shown
+        // raw it read "Deleted", which sounds like the report was thrown away.
+        'deleted', 'retired', 'disposed', 'archived' => 'Retired from inventory',
         default => $status !== '' ? ucwords(str_replace('_', ' ', $status)) : 'Unknown',
     };
 }
@@ -855,9 +858,9 @@ html{scroll-behavior:smooth}
             <div class="value"><?php echo htmlspecialchars((string)($report['location'] ?: 'Unspecified')); ?></div>
           </div>
           <div class="item full">
-            <div class="label">Inventory record</div>
+            <div class="label">Equipment status</div>
             <div class="value"><?php echo htmlspecialchars(tr_equipment_status_label((string)$report['equipment_status'])); ?><?php echo $report['equipment_condition'] !== '' ? ' · ' . htmlspecialchars(ucwords(str_replace('_', ' ', (string)$report['equipment_condition']))) . ' condition' : ''; ?>
-              <span class="value-note"><?php echo in_array(strtolower((string)$report['status']), ['verified', 'closed'], true) ? 'As recorded by the PMO after the repair was verified.' : 'What the PMO inventory says about this unit; it is updated when the repair is verified, not when a report is filed.'; ?></span></div>
+              <span class="value-note"><?php echo in_array(strtolower((string)$report['status']), ['verified', 'closed'], true) ? 'As recorded by the PMO after it checked the repair.' : 'From the PMO\'s equipment list. It changes once the PMO checks the repair, not when a report is filed.'; ?></span></div>
           </div>
           <div class="item full">
             <div class="label">Description</div>
@@ -1027,7 +1030,7 @@ html{scroll-behavior:smooth}
           </div>
           <?php if (!empty($relatedReports)): ?>
           <div class="item full">
-            <div class="label">Recent Logs For This Equipment</div>
+            <div class="label">Other reports on this equipment</div>
             <div class="mini-table">
               <?php foreach ($relatedReports as $entry): ?>
               <div class="mini-row">
