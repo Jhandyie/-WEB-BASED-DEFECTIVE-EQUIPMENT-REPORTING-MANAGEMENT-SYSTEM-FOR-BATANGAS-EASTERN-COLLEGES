@@ -96,6 +96,13 @@ echo ============================================================
 echo   Public URL ^(same every time^):
 echo     https://%DEMO_URL%/bec-pmo/
 echo.
+echo   Same Wi-Fi ^(phones and laptops on this network - faster, as it
+echo   skips the tunnel; still needs internet, the database is online^):
+REM The laptop gets its address from the router and it changes, so it is
+REM read fresh every run rather than written here. Two nested loops because
+REM ipconfig pads the value with a leading space.
+for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4 Address"') do for /f "tokens=1" %%b in ("%%a") do echo     http://%%b/bec-pmo/
+echo.
 echo   Printable QR sheet:
 echo     Desktop\BEC-demo-QR.html
 echo     ^(rebuild it with: php scripts\make_demo_qr.php^)
