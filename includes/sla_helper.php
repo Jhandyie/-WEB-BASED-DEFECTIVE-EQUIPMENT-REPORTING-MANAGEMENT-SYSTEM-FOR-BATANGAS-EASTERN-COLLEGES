@@ -106,7 +106,9 @@ function runSlaEscalationSweep(bool $force = false): int {
     $count = 0;
     foreach ($rows as $r) {
         $rid = (string)$r['report_id'];
-        $msg = 'SLA breach: Ticket ' . $rid . ' (' . ucfirst((string)$r['priority']) . ' priority) is overdue and needs attention.';
+        // Plain words: "SLA breach: Ticket …" meant nothing to the PMO staff who
+        // read it, and the rest of the system calls these "reports".
+        $msg = 'Overdue: report ' . $rid . ' (' . ucfirst((string)$r['priority']) . ' priority) has passed its time limit and needs attention.';
         // The office that owns the equipment, not every admin. Escalations were
         // the single largest source of notifications (706 rows against 612 new
         // reports) because each one went to all ten admins - seven of whom could

@@ -262,7 +262,7 @@ function typeBg($t){
     return $m[$t]??'#FDECEA';
 }
 function typeLbl($t){
-    $m=['new_defect_report'=>'New Defect Report','sla_escalation'=>'SLA Escalation',
+    $m=['new_defect_report'=>'New Defect Report','sla_escalation'=>'Overdue',
         'report_status'=>'Status Update','follow_up'=>'Follow Up',
         'task_assigned'=>'Task Assigned','task_completed'=>'Task Completed',
         'registration'=>'Registration','budget_request'=>'Budget Request',
@@ -869,8 +869,28 @@ textarea.fc{resize:vertical;min-height:88px;}
             </select>
           </div>
           <div class="fg">
-            <label class="fl">Link (optional)</label>
-            <input type="text" name="link" class="fc" placeholder="e.g. admin_defect_reports.php">
+            <?php /* A list, not a text box. The box asked PMO staff to type a PHP
+                     file name, and its own example was an admin page — which a
+                     reporter receiving the broadcast cannot open. Each choice says
+                     who can open it. The server still refuses any link that
+                     leaves this system (see the POST handler). */
+            if (!function_exists('becVenueEnabled') && is_file(__DIR__ . '/config/features.php')) { require_once __DIR__ . '/config/features.php'; }
+            $bcLinks = [
+                ''                         => 'No link',
+                'student_index.php'        => 'Report a problem (for everyone)',
+                'track_report.php'         => 'Track a report (for everyone)',
+                'public_reports.php'       => 'Public reports list (for everyone)',
+            ];
+            if (function_exists('becVenueEnabled') && becVenueEnabled()) { $bcLinks['reserve_venue.php'] = 'Reserve a venue (for everyone)'; }
+            $bcLinks['technician_dashboard.php'] = 'My Tasks (technicians only)';
+            $bcLinks['admin_defect_reports.php'] = 'Defect Reports (admins only)';
+            ?>
+            <label class="fl" for="bcLink">Open this page when tapped <span style="font-weight:400;color:var(--t3);">(optional)</span></label>
+            <select name="link" id="bcLink" class="fc">
+              <?php foreach ($bcLinks as $lv => $ll): ?>
+                <option value="<?php echo htmlspecialchars($lv, ENT_QUOTES); ?>"><?php echo htmlspecialchars($ll, ENT_QUOTES); ?></option>
+              <?php endforeach; ?>
+            </select>
           </div>
         </div>
 

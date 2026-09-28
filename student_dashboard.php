@@ -303,7 +303,8 @@ function inferReportPriority(string $description): string {
 
 function notifyAdminsOfStudentReport($conn, string $reportId, string $equipmentName, string $location, string $studentName, string $equipmentId = ''): void {
     $message = sprintf(
-        'New student report %s submitted by %s for %s%s.',
+        // Not "student report": teachers and staff report through this form too.
+        'New report %s submitted by %s for %s%s.',
         $reportId,
         $studentName,
         $equipmentName,

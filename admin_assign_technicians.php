@@ -269,7 +269,10 @@ $totalInProgress = count($inprogress);
 /* --- HELPERS ----------------------------------------- */
 function prCls($p){return['critical'=>'crit','high'=>'hi','medium'=>'med','low'=>'lo'][$p]??'lo';}
 function prLbl($p){return ucfirst($p??'-');}
-function stLbl($s){return['ready_for_assignment'=>'Ready','assigned'=>'Assigned','in_progress'=>'In Progress','for_replacement'=>'For Replacement'][$s]??ucfirst(str_replace('_',' ',$s));}
+/* The system's own status names. This page kept a private list that said
+   "Assigned" and "Accepted" where every other screen, and the spreadsheet
+   handed to management, says "Technician Assigned" and "Received by Technician". */
+function stLbl($s){return defectStatusLabel((string)$s);}
 function stCls($s){return['ready_for_assignment'=>'pend','assigned'=>'prog','in_progress'=>'prog2','for_replacement'=>'rej'][$s]??'pend';}
 function esc($s){return htmlspecialchars((string)($s??'-'),ENT_QUOTES,'UTF-8');}
 /* wlClass/wlLabel/wlColor lived here and had no callers. Availability comes
@@ -1246,7 +1249,7 @@ textarea.fc{resize:vertical;min-height:80px;}
               ?>
               <tr id="row-<?php echo esc($r['report_id']); ?>"
                   class="pick-row" role="button" tabindex="0"
-                  aria-label="Dispatch report <?php echo esc($r['report_id']); ?> — <?php echo esc($r['equipment_name'] ?? 'equipment'); ?>"
+                  aria-label="Assign report <?php echo esc($r['report_id']); ?> — <?php echo esc($r['equipment_name'] ?? 'equipment'); ?>"
                   data-rep="<?php echo $rowRep; ?>"
                   data-hay="<?php echo esc($rowHay); ?>"
                   data-prio="<?php echo esc(strtolower((string)($r['priority'] ?? ''))); ?>"
@@ -1345,8 +1348,8 @@ textarea.fc{resize:vertical;min-height:80px;}
       <aside class="dw-panel" role="dialog" aria-modal="true" aria-labelledby="dwTitle">
         <div class="dw-hd">
           <div class="dw-hd-t">
-            <h2 id="dwTitle"><i class="fas fa-user-plus"></i> Dispatch a repair</h2>
-            <p>Choose who takes it, set how urgent it is, then send.</p>
+            <h2 id="dwTitle"><i class="fas fa-user-plus"></i> Assign a technician</h2>
+            <p>Choose who fixes it, set how urgent it is, then assign.</p>
           </div>
           <button type="button" class="dw-x" onclick="closeDispatch()" aria-label="Close">
             <i class="fas fa-times"></i>
@@ -1356,7 +1359,7 @@ textarea.fc{resize:vertical;min-height:80px;}
       <div class="assign-panel">
         <div class="ap-head">
           <h3><i class="fas fa-user-plus"></i> Assignment Workspace</h3>
-          <p>Pick a report, choose who takes it, set how urgent it is — then dispatch.</p>
+          <p>Pick a report, choose who fixes it, set how urgent it is — then assign.</p>
         </div>
 
         <!-- Where you are, in four words. Driven by what has actually been
@@ -1365,7 +1368,7 @@ textarea.fc{resize:vertical;min-height:80px;}
           <div class="asg-step now" data-step="1"><span>1</span>Report</div>
           <div class="asg-step"     data-step="2"><span>2</span>Technician</div>
           <div class="asg-step"     data-step="3"><span>3</span>Details</div>
-          <div class="asg-step"     data-step="4"><span>4</span>Dispatch</div>
+          <div class="asg-step"     data-step="4"><span>4</span>Assign</div>
         </div>
 
         <div class="ap-body">
@@ -1596,7 +1599,7 @@ textarea.fc{resize:vertical;min-height:80px;}
 
             <!-- Instructions -->
             <div class="fg">
-              <label class="fl">Handler Instructions</label>
+              <label class="fl">Instructions for the technician</label>
               <textarea name="instructions" id="fInstr" class="fc"
                 placeholder="Provide specific instructions for the technician (tools needed, safety notes, access info)..."></textarea>
             </div>
@@ -1661,7 +1664,7 @@ textarea.fc{resize:vertical;min-height:80px;}
             <h3><i class="fas fa-tasks"></i> Active Assignments</h3>
             <div class="ph3-r">
               <?php if ($actUnaccepted > 0): ?>
-              <span class="ph3-warn" title="Dispatched, but the technician has not accepted yet">
+              <span class="ph3-warn" title="Assigned, but the technician has not accepted it yet">
                 <i class="fas fa-hourglass-half"></i> <?php echo $actUnaccepted; ?> not yet accepted
               </span>
               <?php endif; ?>
@@ -1695,7 +1698,7 @@ textarea.fc{resize:vertical;min-height:80px;}
               <?php endforeach; ?>
             </select>
             <?php if ($actUnaccepted > 0): ?>
-            <label class="qchip" title="Dispatched but not yet picked up by the technician">
+            <label class="qchip" title="Assigned, but not yet picked up by the technician">
               <input type="checkbox" id="aPending">
               <span><i class="fas fa-hourglass-half"></i> Not yet accepted</span>
             </label>
@@ -1810,7 +1813,7 @@ textarea.fc{resize:vertical;min-height:80px;}
   <div class="mw">
     <div class="mhd">
       <div class="mhd-t">
-        <h2><i class="fas fa-paper-plane" style="margin-right:.3rem;opacity:.8;"></i> Dispatch this repair?</h2>
+        <h2><i class="fas fa-paper-plane" style="margin-right:.3rem;opacity:.8;"></i> Assign this repair?</h2>
         <p>The technician is notified by email and the report moves into their queue.</p>
       </div>
       <button class="mx" onclick="document.getElementById('asgMo').classList.remove('open')" aria-label="Cancel"><i class="fas fa-times"></i></button>
@@ -2497,7 +2500,7 @@ function confirmAssign() {
   document.getElementById('asgMo').classList.remove('open');
   const btn = document.getElementById('asgGo');
   btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Dispatching…';
+  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Assigning…';
   document.getElementById('assignForm').requestSubmit
     ? document.getElementById('assignForm').requestSubmit()
     : document.getElementById('assignForm').submit();
