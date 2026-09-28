@@ -89,9 +89,17 @@ if (!function_exists('requireCsrf')) {
         http_response_code(403);
         if ($json) {
             header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'message' => 'Security token invalid or expired. Please refresh and try again.']);
+            echo json_encode(['success' => false, 'message' => 'This page was open too long, so nothing was sent. Please reload the page and try again.']);
         } else {
-            echo 'Security token invalid or expired. Please go back, refresh the page, and try again.';
+            // Plain words and a way back: the usual cause is a page left open
+            // overnight, and "security token" meant nothing to the people who
+            // hit it. Still a 403, still nothing saved.
+            echo '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+               . '<title>Please try again</title>'
+               . '<div style="font:16px/1.5 system-ui,sans-serif;max-width:32rem;margin:15vh auto;padding:0 16px;color:#2b1a1a">'
+               . '<p><strong>This page was open too long, so nothing was sent.</strong></p>'
+               . '<p>Go back, reload the page, and try again.</p>'
+               . '<p><a href="javascript:history.back()" style="color:#7B1D1D">&larr; Go back</a></p></div>';
         }
         exit();
     }

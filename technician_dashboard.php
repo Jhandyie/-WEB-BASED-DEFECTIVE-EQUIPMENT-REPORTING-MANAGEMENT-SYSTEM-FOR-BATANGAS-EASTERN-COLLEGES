@@ -32,15 +32,19 @@ function initials(string $name): string {
     $parts = preg_split('/\s+/', trim($name)) ?: [];
     return count($parts) >= 2 ? strtoupper(substr($parts[0], 0, 1) . substr($parts[count($parts)-1], 0, 1)) : strtoupper(substr($name ?: 'T', 0, 2));
 }
+/* Written from the technician's side and in the buttons' own words: a task
+   shows "Waiting for parts" because the button that put it there says "Need
+   parts first". Assigned and received are both "Not started" — one button,
+   Start the repair, covers the two. */
 function slabel(string $s): string {
     return [
-        'assigned' => 'Assigned',
-        'accepted' => 'Received',
-        'in_progress' => 'In Progress',
-        'waiting_for_materials' => 'Waiting for Materials',
-        'for_replacement' => 'Replacement Recommended',
-        'completed' => 'Awaiting PMO Verification',
-        'verified' => 'Verified',
+        'assigned' => 'Not started',
+        'accepted' => 'Not started',
+        'in_progress' => 'In progress',
+        'waiting_for_materials' => 'Waiting for parts',
+        'for_replacement' => 'Needs replacement',
+        'completed' => 'Fixed — PMO to check',
+        'verified' => 'Checked by PMO',
         'closed' => 'Closed',
     ][strtolower(trim($s))] ?? ucwords(str_replace('_', ' ', $s));
 }
@@ -263,7 +267,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $tab = 'my_tasks';
     $selectedId = $reportId;
     $report = $reportId !== '' ? getDefectReportById($reportId) : null;
-    $message = 'Unable to update the task.';
+    $message = 'The task could not be updated. Please try again.';
     $type = 'err';
     if ($report) {
         $assignedValue = (string)($report['assigned_to'] ?? ($report['assigned_technician'] ?? ''));
@@ -284,43 +288,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($current === 'assigned' && isset($drCols['accepted_at'])) $updates['accepted_at'] = date('Y-m-d H:i:s');
                 if (isset($drCols['started_at'])) $updates['started_at'] = date('Y-m-d H:i:s');
                 if ($notes !== '' && $notesField !== '') $updates[$notesField] = $notes;
-                $message = 'Repair in progress.';
+                $message = 'Repair started. Press Mark as fixed when you are done.';
                 $type = 'ok';
             } elseif ($action === 'save' && in_array($current, ['assigned','accepted','in_progress','waiting_for_materials','for_replacement','completed'], true) && $notes !== '' && $notesField !== '') {
                 $updates[$notesField] = $notes;
-                $message = 'Technician notes saved.';
+                $message = 'Your note is saved.';
                 $type = 'ok';
             } elseif ($action === 'waiting' && in_array($current, ['assigned','accepted','in_progress'], true)) {
                 $updates['status'] = 'waiting_for_materials';
                 if ($notes !== '' && $notesField !== '') $updates[$notesField] = $notes;
-                $message = 'Marked as waiting for materials.';
+                $message = 'Marked as waiting for parts. Press Parts arrived when you have them.';
                 $type = 'ok';
             } elseif ($action === 'resume_materials' && $current === 'waiting_for_materials') {
                 $updates['status'] = 'in_progress';
                 if ($notes !== '' && $notesField !== '') $updates[$notesField] = $notes;
-                $message = 'Materials received — repair resumed.';
+                $message = 'Parts arrived — back to the repair.';
                 $type = 'ok';
             } elseif ($action === 'replace' && in_array($current, ['assigned','accepted','in_progress','waiting_for_materials'], true) && $notes !== '' && $notesField !== '') {
                 $updates['status'] = 'for_replacement';
                 $updates[$notesField] = $notes;
-                $message = 'Replacement recommendation submitted.';
+                $message = 'Sent to the PMO: this one needs replacing.';
                 $type = 'ok';
             } elseif ($action === 'resume' && $current === 'for_replacement') {
                 $updates['status'] = 'in_progress';
                 if ($notes !== '' && $notesField !== '') $updates[$notesField] = $notes;
-                $message = 'Task returned to repair in progress.';
+                $message = 'Back to the repair.';
                 $type = 'ok';
             } elseif ($action === 'complete' && in_array($current, ['in_progress','for_replacement','waiting_for_materials'], true) && $notes !== '' && $notesField !== '') {
                 $updates['status'] = 'completed';
                 if (isset($drCols['completion_date'])) $updates['completion_date'] = date('Y-m-d H:i:s');
                 $updates[$notesField] = $notes;
-                $message = 'Task submitted for PMO verification.';
+                $message = 'Marked as fixed. The PMO will check it.';
                 $type = 'ok';
             } else {
-                $message = 'Please complete the required technician notes for this action.';
+                // Reached with a note missing, or when the task has already moved
+                // on (a double tap, or Back and press again) - which used to be
+                // reported as a missing note too.
+                $message = ($notes === '' && in_array($action, ['save','replace','complete'], true))
+                    ? 'Please write a short note for the PMO first.'
+                    : 'Nothing was changed — this task has already moved on.';
             }
             if ($updates && !updateDefectReport($reportId, $updates)) {
-                $message = 'Unable to save the task update.';
+                $message = 'The task could not be saved. Please try again.';
                 $type = 'err';
             } elseif ($updates && $type === 'ok') {
                 // The workflow steps a technician takes are as much a part of the
@@ -340,7 +349,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         } else {
-            $message = 'That task is not assigned to your account.';
+            $message = 'That task is not assigned to you.';
         }
     } else {
         $message = 'Task not found.';
@@ -1243,7 +1252,7 @@ body.modal-open{overflow:hidden;}
             <?php if ($qLoc['rest'] !== ''): ?><span class="q-loc-sub"><?php echo e($qLoc['rest']); ?></span><?php endif; ?>
             <span class="q-badges">
               <span class="badge <?php echo e(stone($st)); ?>"><i class="fas <?php echo e(sicon($st)); ?>"></i><?php echo e(slabel($st)); ?></span>
-              <span class="badge <?php echo e(ptone($pr)); ?>"><i class="fas <?php echo e(picon($pr)); ?>"></i><?php echo e(ucfirst($pr)); ?></span>
+              <span class="badge <?php echo e(ptone($pr)); ?>"><i class="fas <?php echo e(picon($pr)); ?>"></i><?php echo e(ucfirst($pr)); ?> priority</span>
               <?php if ($isPm): ?><span class="badge pm" title="Scheduled preventive maintenance, not a reported defect"><i class="fas fa-calendar-check"></i>Preventive</span><?php endif; ?>
               <?php if ($due !== null): ?><span class="badge sla sla-chip" data-due="<?php echo $due; ?>"><i class="fas fa-gauge-high"></i> —</span><?php endif; ?>
             </span>
@@ -1714,12 +1723,15 @@ if (new URLSearchParams(location.search).get('notif') === '1') {
 }
 
 /* Live repair timer + SLA countdown */
+/* Words, not "13d 1h": the chip is read at a glance by people who do not
+   read abbreviations as units. The largest unit is precise enough to act on. */
 function fmtDur(sec) {
   sec = Math.max(0, Math.floor(sec));
   const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600), m = Math.floor((sec % 3600) / 60);
-  if (d > 0) return d + 'd ' + h + 'h';
-  if (h > 0) return h + 'h ' + m + 'm';
-  return m + 'm';
+  const n = function (v, w) { return v + ' ' + w + (v === 1 ? '' : 's'); };
+  if (d > 0) return n(d, 'day');
+  if (h > 0) return n(h, 'hour');
+  return n(Math.max(1, m), 'minute');
 }
 function tickTimers() {
   const now = Date.now() / 1000;
@@ -1729,7 +1741,7 @@ function tickTimers() {
     const diff = due - now;
     if (diff <= 0) {
       el.classList.add('overdue');
-      el.innerHTML = '<i class="fas fa-triangle-exclamation"></i> Overdue ' + fmtDur(-diff);
+      el.innerHTML = '<i class="fas fa-triangle-exclamation"></i> ' + fmtDur(-diff) + ' overdue';
     } else {
       el.classList.toggle('soon', diff < 86400);
       el.innerHTML = '<i class="fas fa-gauge-high"></i> Due in ' + fmtDur(diff);
@@ -1742,13 +1754,13 @@ setInterval(tickTimers, 30000);
 /* ── Contextual loading — every action shows ITS OWN animation ── */
 const AXL_KINDS = {
   accept:           { cls: 'ax-receive',  icon: 'fa-hand',             label: 'Receiving task…',              sub: 'Confirming the assignment' },
-  start:            { cls: 'ax-start',    icon: 'fa-screwdriver-wrench', label: 'Starting repair…',           sub: 'Your repair timer begins' },
-  save:             { cls: 'ax-save',     icon: 'fa-floppy-disk',      label: 'Saving your note…',            sub: 'Recording progress' },
-  waiting:          { cls: 'ax-wait',     icon: 'fa-hourglass-half',   label: 'Marking as waiting…',          sub: 'The PMO will see the hold' },
-  resume_materials: { cls: 'ax-resume',   icon: 'fa-box-open',         label: 'Materials received…',          sub: 'Resuming the repair' },
-  resume:           { cls: 'ax-resume',   icon: 'fa-play',             label: 'Resuming repair…',             sub: 'Back in progress' },
-  replace:          { cls: 'ax-replace',  icon: 'fa-rotate',           label: 'Recommending replacement…',    sub: 'Forwarding to the PMO' },
-  complete:         { cls: 'ax-complete', icon: 'fa-clipboard-check',  label: 'Submitting completion report…', sub: 'Uploading photos & details' },
+  start:            { cls: 'ax-start',    icon: 'fa-screwdriver-wrench', label: 'Starting the repair…',       sub: 'Telling the PMO you are on it' },
+  save:             { cls: 'ax-save',     icon: 'fa-floppy-disk',      label: 'Saving your note…',            sub: 'Please wait' },
+  waiting:          { cls: 'ax-wait',     icon: 'fa-hourglass-half',   label: 'Waiting for parts…',           sub: 'Telling the PMO what you need' },
+  resume_materials: { cls: 'ax-resume',   icon: 'fa-box-open',         label: 'Parts arrived…',               sub: 'Back to the repair' },
+  resume:           { cls: 'ax-resume',   icon: 'fa-play',             label: 'Continuing the repair…',       sub: 'Back to the repair' },
+  replace:          { cls: 'ax-replace',  icon: 'fa-rotate',           label: 'Telling the PMO…',             sub: 'This one needs replacing' },
+  complete:         { cls: 'ax-complete', icon: 'fa-clipboard-check',  label: 'Marking as fixed…',            sub: 'Sending your photo' },
   mark_read:        { cls: 'ax-notif',    icon: 'fa-bell',             label: 'Updating notifications…',      sub: 'Marking as read' },
   mark_all_read:    { cls: 'ax-notif',    icon: 'fa-bell',             label: 'Updating notifications…',      sub: 'Marking everything read' },
   default:          { cls: 'ax-replace',  icon: 'fa-gear',             label: 'Working…',                     sub: 'Please wait' }
@@ -1858,7 +1870,7 @@ function axlProgress(loaded, total) {
   bar.hidden = false;
   const pct = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0;
   fill.style.width = pct + '%';
-  if (sub) sub.textContent = pct < 100 ? 'Sending photo — ' + pct + '%' : 'Saving your report';
+  if (sub) sub.textContent = pct < 100 ? 'Sending photo — ' + pct + '%' : 'Saving…';
 }
 function axlProgressReset() {
   const bar = document.getElementById('axlBar');
@@ -1876,7 +1888,8 @@ function techPostWithProgress(url, formData) {
     xhr.addEventListener('load', function () {
       let data = null;
       try { data = JSON.parse(xhr.responseText); } catch (err) { /* not JSON */ }
-      resolve(data || { success: false, message: 'The server sent an unreadable response (HTTP ' + xhr.status + '). If you attached photos, try smaller ones; otherwise contact the PMO.' });
+      if (!data && window.console) console.warn('technician_complete_task.php answered HTTP ' + xhr.status + ' with no JSON');
+      resolve(data || { success: false, message: 'Something went wrong on our side. Please try again, or tell the PMO if it keeps happening.' });
     });
     xhr.addEventListener('error', function () { reject(new Error('network')); });
     xhr.addEventListener('abort', function () { reject(new Error('abort')); });
@@ -1903,17 +1916,17 @@ document.querySelectorAll('form.tech-ajax').forEach(function (f) {
       });
     });
     if (tooBig.length) {
-      techToast('err', 'These photos are over the 10 MB per-photo limit:\n• ' + tooBig.join('\n• ') + '\nPlease retake or resize them and try again.');
+      techToast('err', tooBig.length === 1 ? 'That photo is too large to send. Please take it again.' : tooBig.length + ' photos are too large to send. Please take them again.');
       return;
     }
     if (totalBytes > 38 * 1024 * 1024) {
-      techToast('err', 'Your photos total ' + (totalBytes / 1048576).toFixed(1) + ' MB — over the 40 MB upload limit. Please use fewer or smaller photos.');
+      techToast('err', 'Too many photos to send at once. Please keep one or two.');
       return;
     }
 
     const btn = f.querySelector('button[type=submit]');
     const orig = btn ? btn.innerHTML : '';
-    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Submitting…'; }
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Sending…'; }
     const actionUrl = f.getAttribute('action') || '';
     actionLoader(true, 'complete');
     axlProgressReset();
@@ -1922,7 +1935,7 @@ document.querySelectorAll('form.tech-ajax').forEach(function (f) {
       if (data.success) {
         if (f.dataset.reload) { window.location.reload(); return; }
       } else {
-        techToast('err', data.message || 'Action failed. Please check the form and try again.');
+        techToast('err', data.message || 'That did not go through. Please try again.');
       }
     } catch (err) {
       techToast('err', 'Connection error — your photo and notes are still here. Please try again.');
@@ -2200,9 +2213,9 @@ if ('serviceWorker' in navigator) {
   <div class="te-box" role="dialog" aria-modal="true" aria-labelledby="teErrTitle">
     <div class="te-ic"><i class="fas fa-triangle-exclamation"></i></div>
     <h3 id="teErrTitle">Some details are missing</h3>
-    <p id="teErrMsg">Please complete the following before submitting your report.</p>
+    <p id="teErrMsg">Please add these first:</p>
     <ul class="te-list" id="teErrList"></ul>
-    <button type="button" class="te-btn" id="teErrClose">Review the form</button>
+    <button type="button" class="te-btn" id="teErrClose">OK, show me</button>
   </div>
 </div>
 <script>
@@ -2260,12 +2273,27 @@ if ('serviceWorker' in navigator) {
       open(link.getAttribute('href'));
     }, true);
   });
-  // Trap the browser / phone Back gesture.
+  // Trap the browser / phone Back gesture. Back undoes the last thing opened
+  // first - a pop-up, the photo viewer, the menu, or the task a technician
+  // tapped into on a phone - and only asks about logging out when there is
+  // nothing left to close. It used to ask straight away, so the Android Back
+  // button on an open task offered to log out instead of returning to the list.
+  function closeTopLayer() {
+    var b = document.body, el;
+    if ((el = document.getElementById('teErrModal')) && el.classList.contains('show')) { document.getElementById('teErrClose').click(); return true; }
+    if ((el = document.getElementById('lbOv')) && el.classList.contains('open')) { document.getElementById('lbClose').click(); return true; }
+    if ((el = document.getElementById('tiaOverlay')) && el.classList.contains('open')) { document.getElementById('tiaClose').click(); return true; }
+    if ((el = document.querySelector('.modal.open [data-modal-close]'))) { el.click(); return true; }
+    if (b.classList.contains('sb-open')) { b.classList.remove('sb-open'); return true; }
+    if (b.classList.contains('ws-open')) { b.classList.remove('ws-open'); window.scrollTo(0, 0); return true; }
+    return false;
+  }
   try {
     history.pushState(null, document.title, location.href);
     window.addEventListener('popstate', function () {
       history.pushState(null, document.title, location.href);
-      if (!modal.classList.contains('show')) open(LOGOUT);
+      if (modal.classList.contains('show')) { close(); return; }
+      if (!closeTopLayer()) open(LOGOUT);
     });
   } catch (e) {}
   document.getElementById('tExitYes').addEventListener('click', function () { var u = pending; close(); window.location.href = u || LOGOUT; });

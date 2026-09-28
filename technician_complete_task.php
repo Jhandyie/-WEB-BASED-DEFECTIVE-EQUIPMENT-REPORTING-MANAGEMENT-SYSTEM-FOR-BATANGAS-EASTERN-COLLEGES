@@ -12,7 +12,7 @@ ini_set('display_errors', '0');
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'technician') {
     http_response_code(403);
-    echo json_encode(['success' => false, 'message' => 'Unauthorized.']);
+    echo json_encode(['success' => false, 'message' => 'You have been signed out. Please sign in again — what you typed is still on the screen.']);
     exit();
 }
 
@@ -21,7 +21,7 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'technician') {
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST'
     && (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 0
     && empty($_POST) && empty($_FILES)) {
-    echo json_encode(['success' => false, 'message' => 'Your photos are too large — the total upload exceeds the 40 MB server limit. Please use fewer or smaller photos and try again.']);
+    echo json_encode(['success' => false, 'message' => 'Your photos are too large to send. Please keep one or two and try again.']);
     exit();
 }
 
@@ -140,7 +140,7 @@ $after_photos   = tcSavePhotoStage('after_photos',  $base_dir . '/after');
 $work_photos    = tcSavePhotoStage('work_photos', $base_dir);
 if (!$before_photos && !$during_photos && !$after_photos && !$work_photos) {
     // Offered but not a usable image (too large, not a JPG/PNG/WEBP).
-    echo json_encode(['success' => false, 'message' => 'That photo could not be used — please take it again, as a JPG or PNG under 10 MB.']);
+    echo json_encode(['success' => false, 'message' => 'That photo could not be used. Please take it again with the Take a photo button.']);
     exit();
 }
 
@@ -236,11 +236,11 @@ try {
 
     logActivity($technician_id, 'task.complete', 'Completed repair for report ' . $report_id);
 
-    echo json_encode(['success' => true, 'message' => 'Task marked as completed successfully.']);
+    echo json_encode(['success' => true, 'message' => 'Marked as fixed. The PMO will check it.']);
 } catch (Exception $e) {
     $conn->rollback();
     error_log('technician_complete_task error: ' . $e->getMessage());
     // Already logged above — the driver's text stays out of the response.
-    echo json_encode(['success' => false, 'message' => 'The completion report could not be saved. Please try again, or contact the PMO if it keeps failing.']);
+    echo json_encode(['success' => false, 'message' => 'This could not be saved. Please try again, or tell the PMO if it keeps happening.']);
 }
 exit();

@@ -3,8 +3,8 @@
  * technician_chat_proxy.php — "BECCA AI" for the technician portal.
  *
  * Read-only helper for maintenance technicians: knows the technician's own
- * task queue (live), explains the repair workflow (receive → start → materials
- * → complete), and gives practical troubleshooting guidance. Falls back
+ * task queue (live), explains the repair workflow (start → mark as fixed, or
+ * need parts / can't be fixed), and gives practical troubleshooting guidance. Falls back
  * to a built-in brain when the AI service is unavailable, so it always answers.
  *
  * Technician-session gated. Shares the model client and key with the other assistants.
@@ -73,14 +73,22 @@ function techBuildData(string $techId): array
 
 function techDataText(array $d): string
 {
+    // The words the technician's own screen shows for each status, so the
+    // assistant never says "assigned" or "accepted" about a task the screen
+    // calls "Not started".
+    $said = [
+        'assigned' => 'not started', 'accepted' => 'not started', 'in_progress' => 'in progress',
+        'waiting_for_materials' => 'waiting for parts', 'for_replacement' => 'needs replacement',
+    ];
     $lines = [];
     foreach ($d['open_tasks'] as $t) {
+        $st = strtolower((string)$t['status']);
         $lines[] = '  • ' . $t['report_id'] . ' — ' . $t['equipment_name'] . ' @ ' . $t['location']
-            . ' [' . ($t['priority'] ?: 'medium') . ' / ' . str_replace('_', ' ', (string)$t['status']) . ']';
+            . ' [' . ($t['priority'] ?: 'medium') . ' priority / ' . ($said[$st] ?? str_replace('_', ' ', $st)) . ']';
     }
     return "LIVE TECHNICIAN DATA (this technician only, read-only, current):\n"
-        . "- To receive/start: {$d['to_receive']} | In progress: {$d['in_progress']} | Waiting (materials/replacement): {$d['waiting']}\n"
-        . "- Completed awaiting PMO verification: {$d['awaiting_pmo']} | Verified/closed all-time: {$d['done_total']}\n"
+        . "- Not started yet: {$d['to_receive']} | In progress: {$d['in_progress']} | Stalled (waiting for parts / needs replacement): {$d['waiting']}\n"
+        . "- Marked as fixed, waiting for the PMO to check: {$d['awaiting_pmo']} | Checked and closed all-time: {$d['done_total']}\n"
         . "- Unread notifications: {$d['unread']}\n"
         . "- Open tasks (priority order):\n" . ($lines ? implode("\n", $lines) : '  • none — queue is clear');
 }
@@ -96,22 +104,26 @@ function techLocalReply(string $text, array $d): string
         : "Your queue is clear right now.";
 
     if ($q === '' || $has('/\b(hi|hello|hey|kumusta|good (morning|afternoon|evening))\b/')) {
-        return "Hi! I'm BECCA, your technician assistant. I can tell you what's in your queue, what to do next, and walk you through receiving, repairing, and completing a task. {$nextLine}";
+        return "Hi! I'm BECCA, your technician assistant. I can tell you what's in your queue, what to do next, and how to start a task and mark it as fixed. {$nextLine}";
     }
     if ($has('/\b(next|priority|first|start with|what should i)\b/')) {
-        return $nextLine . ($d['to_receive'] > 0 ? " You also have {$d['to_receive']} task(s) waiting to be received." : '');
+        return $nextLine . ($d['to_receive'] > 0 ? " You also have {$d['to_receive']} task(s) you have not started yet." : '');
     }
     if ($has('/\b(queue|tasks|workload|assigned|how many|summary|status)\b/')) {
-        return "Your workload right now:\n• To receive/start: {$d['to_receive']}\n• In progress: {$d['in_progress']}\n• Waiting for materials/replacement: {$d['waiting']}\n• Awaiting PMO verification: {$d['awaiting_pmo']}\n\n{$nextLine}";
+        return "Your workload right now:\n• Not started yet: {$d['to_receive']}\n• In progress: {$d['in_progress']}\n• Waiting for parts / needs replacement: {$d['waiting']}\n• Marked as fixed, PMO to check: {$d['awaiting_pmo']}\n\n{$nextLine}";
     }
-    if ($has('/\b(receive|accept)\b/')) {
-        return "Open the task from My Tasks, then press \"Receive Task\" in the Repair Progress section. That confirms the job is in your hands; the button then changes to \"Start Repair\".";
+    // These three describe the screen as it is now: one button per task, a
+    // short finish form, and the problem options folded under "Having a
+    // problem?". They used to describe a Receive button and an eleven-field
+    // completion report, both removed after the September defense.
+    if ($has('/\b(receive|accept|start|begin|umpisa|simula)\b/')) {
+        return "Tap the task in My Tasks, then press \"Start the repair\" when you begin. That one button tells the PMO and the reporter that you are on it.";
     }
-    if ($has('/\b(complete|finish|completion|report done|submit)\b/')) {
-        return "Use the Completion Report at the bottom of the task workspace: timing & cost, diagnosis, actions performed, parts/tools/materials, findings and recommendations, plus before/during/after photos. Submitting moves the task to \"Awaiting PMO Verification\".";
+    if ($has('/(mark(ed)? (it |this |the task |a task )?(as )?fixed|\b(complete|finish|completion|done|tapos|submit)\b)/')) {
+        return "When the job is done, fill in the short form under \"Finish this task\":\n• What did you do? — tap a ready sentence or type your own, English or Filipino\n• Parts used, if any\n• A photo of the finished work (required)\n• Cost, if you spent anything (PMO technicians only)\nThen press \"Mark as fixed\". The PMO checks it and closes the task, and the repair form is written up for you to print.";
     }
-    if ($has('/\b(waiting|stuck|no parts|unavailable)\b/')) {
-        return "If you can't proceed, press \"Waiting for Materials\" (with a note) — the PMO sees the hold. When parts arrive, press \"Materials Received — Resume\". If the unit isn't worth repairing, use \"Recommend Replacement\".";
+    if ($has('/\b(waiting|stuck|no parts|need parts|unavailable|replace|replacement|cannot|can\'t|walang)\b/')) {
+        return "Open \"Having a problem with this task?\" under the task, write one sentence for the PMO, then press \"Need parts first\" or \"Can't be fixed — needs replacement\". When the parts arrive, press \"Parts arrived — continue\".";
     }
     if ($has('/\b(notification|alert|unread)\b/')) {
         return "You have {$d['unread']} unread notification(s). Open them from the bell icon in the sidebar or the Alerts tab on mobile.";
@@ -120,9 +132,9 @@ function techLocalReply(string $text, array $d): string
         return "Each task shows a live \"Due in / Overdue\" chip based on its priority (" . becSlaSummaryText() . "). Start with anything marked Overdue or due soonest.";
     }
     if ($has('/\b(what can you|help|who are you|capabilities)\b/')) {
-        return "I can: report your live queue and what to do next; explain each workspace action (Receive, Start, Waiting for Materials, Recommend Replacement, Resume); and guide you through the Completion Report. Try \"what's next?\" or \"how do I complete a task?\".";
+        return "I can tell you what is in your queue and what to do next, and explain the buttons: Start the repair, Mark as fixed, and the two options under \"Having a problem?\". Try \"what's next?\" or \"how do I mark a task as fixed?\".";
     }
-    return "I can help with your queue and the repair workflow. Try: \"what's next?\", \"summarize my tasks\", or \"how do I complete a task?\". {$nextLine}";
+    return "I can help with your queue and the repair workflow. Try: \"what's next?\", \"summarize my tasks\", or \"how do I mark a task as fixed?\". {$nextLine}";
 }
 
 // ── Read request ──
@@ -163,21 +175,28 @@ You are BECCA AI, the field assistant for maintenance technicians of the Batanga
 
 You are talking to technician {$techName}. Be a practical, friendly senior-colleague voice: direct answers first, short and skimmable, hands-on.
 
+LANGUAGE: answer in English when the technician writes in English, and in Filipino only when they write in Filipino or Taglish. Their name is not a signal of language.
+
 CORE ROLE
 - Tell the technician what is in THEIR queue and what to work on next (use the live data below).
-- Walk them through the workspace actions: Receive Task -> Start Repair -> (Waiting for Materials / Recommend Replacement / Resume) -> Completion Report.
-- Explain the Completion Report fields (timing/cost, diagnosis, work done, parts/tools/materials, findings, recommendations, before/during/after photos).
+- Explain the technician screen exactly as it is. Each task shows what is broken, where, who reported it and their photos, then ONE button:
+  * A new task: "Start the repair". Once started, the "Finish this task" form appears with the "Mark as fixed" button.
+  * The finish form asks only: What did you do? (required; ready sentences to tap, English or Filipino), Parts used (if any), a photo of the finished work (required), and Cost (only PMO technicians see it).
+  * Stuck: open "Having a problem with this task?", write one sentence, then press "Need parts first" or "Can't be fixed — needs replacement". When parts arrive: "Parts arrived — continue".
+  * After "Mark as fixed" the PMO checks and closes the task, and a printable repair form is written automatically ("Open the repair form").
+- There is NO Receive button, NO completion report with diagnosis, procedures, tools, findings or before/during photos, and NO cost worksheet any more. Never mention them.
+- Use plain words: say "time limit" or "due", never "SLA".
 - Offer sensible general troubleshooting directions for common campus equipment (projectors, computers, aircon, printers) — clearly as suggestions; safety first, and defer to school procedures.
 
 SECURITY & HONESTY
-- READ-ONLY: you never change data. Point to the exact button/section in the technician portal instead.
+- READ-ONLY: you never change data. Point to the exact button instead, in the button's own words above.
 - NEVER fabricate: base every factual claim on the LIVE TECHNICIAN DATA below or what the technician says. If unknown, say it isn't available to you. Never invent report IDs, rooms, or counts.
 - This technician can only see their own tasks; do not speculate about other technicians or admin data.
 
 {$dataText}
 
-SLA reference: {$slaSummary}.
-Language: reply in the language the technician uses (English or Filipino).
+Time limits by priority: {$slaSummary}.
+Language: reply in the same language as the technician's latest message — English if they wrote in English, Filipino if they wrote in Filipino.
 SYS;
 
 $ai = aiChatComplete($system_prompt, $messages, ['max_tokens' => 1024, 'timeout' => 45]);

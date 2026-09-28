@@ -70,14 +70,14 @@
   <div class="tia-panel" role="dialog" aria-label="BECCA AI">
     <div class="tia-head">
       <div class="tia-av"><img src="assets/becca-mascot.svg" alt="AI"></div>
-      <div class="tia-t"><b>BECCA AI</b><small>Technician assistant · read-only</small></div>
+      <div class="tia-t"><b>BECCA AI</b><small>Answers questions about your tasks</small></div>
       <button class="tia-x" id="tiaClose" type="button" aria-label="Close"><i class="fas fa-xmark"></i></button>
     </div>
     <div class="tia-msgs" id="tiaMsgs"></div>
     <div class="tia-chips" id="tiaChips">
       <button class="tia-chip" type="button">What's next?</button>
       <button class="tia-chip" type="button">Summarize my tasks</button>
-      <button class="tia-chip" type="button">How do I complete a task?</button>
+      <button class="tia-chip" type="button">How do I mark a task as fixed?</button>
     </div>
     <div class="tia-inp">
       <textarea id="tiaInput" rows="1" placeholder="Ask about your tasks or the repair workflow…" aria-label="Message"></textarea>
@@ -108,7 +108,7 @@
   }
   function untype(){ const t=document.getElementById('tiaTyping'); if(t) t.remove(); }
 
-  function open(){ ov.classList.add('open'); if(!greeted){greeted=true; add('bot',"Hi! I'm **BECCA**, your technician assistant. I can tell you what's in your queue, what to work on next, and walk you through completion reports. How can I help?");} setTimeout(()=>input.focus(),250); }
+  function open(){ ov.classList.add('open'); if(!greeted){greeted=true; add('bot',"Hi! I'm **BECCA**, your technician assistant. I can tell you what's in your queue, what to work on next, and how to mark a task as fixed. How can I help?");} setTimeout(()=>input.focus(),250); }
   function close(){ ov.classList.remove('open'); }
   fab.addEventListener('click',open); closeBtn.addEventListener('click',close);
   ov.addEventListener('click',e=>{ if(e.target===ov) close(); });
