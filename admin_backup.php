@@ -133,7 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     logActivity($admin_id, 'backup.import', $note);
                     $flash = ['ok', 'Imported as ' . $res['file'] . ' — ' . $chk['message']
                                   . ($chk['created_at'] ? ', taken ' . bdt($chk['created_at']) : '') . '.' . $scope
-                                  . ' It is now on the snapshot list and can be recovered from. Nothing in the database has changed.'];
+                                  . ' It is now on the list of backup copies and can be recovered from. Nothing in the database has changed.'];
                 }
             }
         }
@@ -160,7 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             } catch (Throwable $e) {
                 error_log('backup.preview failed: ' . $e->getMessage());
-                $flash = ['err', 'The snapshot could not be examined. The details were written to the server log.'];
+                $flash = ['err', 'That backup copy could not be read. The details were written to the server log.'];
             }
         }
     } elseif ($action === 'restore') {
@@ -197,7 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // the id sequences is not a green tick — the next insert into
                     // those tables can still fail. Report it as what it is.
                     $tone  = empty($res['sequences']) ? 'ok' : 'err';
-                    $flash = [$tone, $res['message'] . ' Safety snapshot: ' . ($res['safety'] ?? 'n/a') . '. Tables: ' . (implode(', ', $detail) ?: 'none') . '.'];
+                    $flash = [$tone, $res['message'] . ' Safety copy: ' . ($res['safety'] ?? 'n/a') . '. Tables: ' . (implode(', ', $detail) ?: 'none') . '.'];
                 } else {
                     logActivity($admin_id, 'backup.restore_fail', 'Restore from ' . basename($path) . ' failed: ' . $res['message']);
                     $flash = ['err', $res['message']];
@@ -342,7 +342,7 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
   <div class="wrap">
     <div class="head">
       <h2><span class="h2-ic"><i class="fas fa-shield-halved"></i></span> Backup &amp; Data Recovery</h2>
-      <p>Protects the system against data loss. An automated daily backup produces a compressed snapshot of every database table; you can also back up on demand, download any snapshot, and recover records from one if data is accidentally deleted or corrupted.</p>
+      <p>Protects the system against data loss. An automated daily backup makes a compressed copy of every database table; you can also back up on demand, download any backup copy, and recover records from one if data is accidentally deleted or corrupted.</p>
     </div>
 
     <?php if ($flash): ?>
@@ -353,8 +353,8 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
     <?php endif; ?>
 
     <div class="stats">
-      <div class="stat s-m"><div class="s-ic"><i class="fas fa-database"></i></div><div class="s-tx"><div class="lbl">Snapshots stored</div><div class="val"><?php echo count($backups); ?></div><div class="sub"><?php echo bsize($totalBytes); ?> on disk</div></div></div>
-      <div class="stat s-a"><div class="s-ic"><i class="fas fa-clock-rotate-left"></i></div><div class="s-tx"><div class="lbl">Latest snapshot</div><div class="val txt"><?php echo $lastRun ? bdt($lastRun) : '—'; ?></div><div class="sub"><?php echo $lastRun ? 'Most recent backup' : 'No backups yet'; ?></div></div></div>
+      <div class="stat s-m"><div class="s-ic"><i class="fas fa-database"></i></div><div class="s-tx"><div class="lbl">Backup copies stored</div><div class="val"><?php echo count($backups); ?></div><div class="sub"><?php echo bsize($totalBytes); ?> on disk</div></div></div>
+      <div class="stat s-a"><div class="s-ic"><i class="fas fa-clock-rotate-left"></i></div><div class="s-tx"><div class="lbl">Latest backup</div><div class="val txt"><?php echo $lastRun ? bdt($lastRun) : '—'; ?></div><div class="sub"><?php echo $lastRun ? 'Most recent backup' : 'No backups yet'; ?></div></div></div>
       <div class="stat s-g"><div class="s-ic"><i class="fas fa-calendar-check"></i></div><div class="s-tx"><div class="lbl">Automated schedule</div><div class="val txt">Daily</div><div class="sub">Windows Task Scheduler</div></div></div>
     </div>
 
@@ -363,7 +363,7 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
         <div class="card act">
           <div class="ch"><div class="ci"><i class="fas fa-cloud-arrow-up"></i></div><h3>Back Up Now</h3></div>
           <div class="cb">
-            <p>Create an immediate snapshot of the entire database. Snapshots are compressed, and the newest 14 are kept automatically.</p>
+            <p>Make a backup copy of the entire database right now. Copies are compressed, and the newest 14 are kept automatically.</p>
             <form method="post">
               <?php echo csrf_field(); ?>
               <input type="hidden" name="action" value="backup">
@@ -375,7 +375,7 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
         <!-- The other half of Download: an archive kept off-site, or made on a
              different machine, has to be able to come back. -->
         <div class="card act">
-          <div class="ch"><div class="ci"><i class="fas fa-file-import"></i></div><h3>Import a Snapshot</h3></div>
+          <div class="ch"><div class="ci"><i class="fas fa-file-import"></i></div><h3>Import a Backup Copy</h3></div>
           <div class="cb">
             <p>Upload a backup <code style="font-family:inherit;">.zip</code> produced by this system — one you downloaded earlier, or one taken on another machine. It is checked before it is accepted and then joins the list above, ready to recover from.</p>
             <form method="post" enctype="multipart/form-data" id="importForm">
@@ -384,7 +384,7 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
               <label class="fl" for="archive">Backup archive (.zip)</label>
               <input type="file" name="archive" id="archive" accept=".zip,application/zip" required>
               <div class="imp-pick" id="impPick" hidden></div>
-              <button class="btn" type="submit"><i class="fas fa-file-import"></i> Import Snapshot</button>
+              <button class="btn" type="submit"><i class="fas fa-file-import"></i> Import Backup Copy</button>
             </form>
             <div class="warn" style="margin-top:12px;">
               <i class="fas fa-circle-info"></i> Importing only stores the archive — <strong>no data is changed</strong>.
@@ -398,17 +398,17 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
           <div class="ch"><div class="ci"><i class="fas fa-clock-rotate-left"></i></div><h3>Recover Data</h3></div>
           <div class="cb">
             <?php if (!$backups): ?>
-              <p>No snapshot is available to recover from yet.</p>
+              <p>There is no backup copy to recover from yet.</p>
             <?php else: ?>
-            <p>Restore records from a chosen snapshot. Missing records are recovered and changed records are reverted to the backed-up version; <strong>records newer than the snapshot are kept</strong> and nothing is deleted.</p>
-            <div class="warn"><i class="fas fa-shield-halved"></i> A safety snapshot of the current database is taken automatically <em>before</em> the restore. The whole restore runs in one transaction — if anything fails, no changes are applied.</div>
+            <p>Restore records from a chosen backup copy. Missing records are recovered and changed records are reverted to the backed-up version; <strong>records newer than the backup copy are kept</strong> and nothing is deleted.</p>
+            <div class="warn"><i class="fas fa-shield-halved"></i> A safety copy of the current database is made automatically <em>before</em> the restore. It is all or nothing: if anything fails, nothing is changed.</div>
             <?php /* Step one asks the database what a recovery would actually do
                      and writes nothing. Typing RESTORE used to be the first point
                      at which anyone learned the answer. */ ?>
             <form method="post">
               <?php echo csrf_field(); ?>
               <input type="hidden" name="action" value="restore_preview">
-              <label class="fl">Snapshot to recover from</label>
+              <label class="fl">Backup copy to recover from</label>
               <select name="file" required>
                 <?php foreach ($backups as $b): ?>
                 <option value="<?php echo be($b['file']); ?>" <?php echo ($preview && $preview['file'] === $b['file']) ? 'selected' : ''; ?>><?php echo be($b['file']); ?> — <?php echo bdt($b['created_at'] ?: $b['mtime']); ?><?php echo $b['rows'] !== null ? ' (' . number_format((int)$b['rows']) . ' rows)' : ''; ?></option>
@@ -437,7 +437,7 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
         <table>
           <thead><tr>
             <th style="width:36px;"></th><th>Table</th>
-            <th style="text-align:right;">In snapshot</th>
+            <th style="text-align:right;">In backup copy</th>
             <th style="text-align:right;">Recovered</th>
             <th style="text-align:right;">Reverted</th>
           </tr></thead>
@@ -459,8 +459,8 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
         </div>
         <div class="note" style="margin-top:12px;">
           <strong>Recovered</strong> means the record is missing from the database now and would be put back.
-          <strong>Reverted</strong> means it still exists and would be set back to how it looked in the snapshot —
-          any edit made since would be lost. Records created after the snapshot are never touched, and nothing is deleted.
+          <strong>Reverted</strong> means it still exists and would be set back to how it looked in the backup copy —
+          any edit made since would be lost. Records created after the backup copy are never touched, and nothing is deleted.
           <?php if (!empty($preview['skipped'])): ?>
           <br><br><strong>Not offered:</strong>
           <?php $sk = []; foreach ($preview['skipped'] as $t => $why) { $sk[] = $t . ' (' . $why . ')'; } echo be(implode('; ', $sk)); ?>.
@@ -484,9 +484,9 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
 
     <!-- Snapshots list -->
     <div class="card">
-        <div class="ch"><div class="ci"><i class="fas fa-database"></i></div><h3>Snapshots</h3></div>
+        <div class="ch"><div class="ci"><i class="fas fa-database"></i></div><h3>Backup Copies</h3></div>
         <?php if (!$backups): ?>
-          <div class="empty"><i class="fas fa-box-open"></i><strong>No backups yet.</strong><div>Use “Back up now” to create the first snapshot.</div></div>
+          <div class="empty"><i class="fas fa-box-open"></i><strong>No backups yet.</strong><div>Use “Back up now” to make the first backup copy.</div></div>
         <?php else: ?>
         <div style="overflow-x:auto;">
         <table>
@@ -499,7 +499,7 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
               ?></span></td>
               <td style="white-space:nowrap;"><?php echo bdt($b['created_at'] ?: $b['mtime']); ?></td>
               <td style="white-space:nowrap;"><?php echo $b['tables'] !== null ? (int)$b['tables'] . ' tables · ' . number_format((int)$b['rows']) . ' rows' : '—'; ?>
-                <?php if (!empty($b['sha'])): ?><br><span class="sha" title="Fingerprint of this snapshot's data, recorded when it was written. Checked in full if the archive is ever imported back."><?php echo be($b['sha']); ?></span><?php endif; ?></td>
+                <?php if (!empty($b['sha'])): ?><br><span class="sha" title="A check code for this backup copy, recorded when it was made. If the file is ever imported back, it must match exactly, so a damaged or edited copy is refused."><?php echo be($b['sha']); ?></span><?php endif; ?></td>
               <td style="white-space:nowrap;"><?php echo bsize($b['size']); ?></td>
               <td>
                 <div class="rowact">
@@ -521,11 +521,11 @@ foreach ($backups as $b) { if ($b['kind'] === 'backup') { $scheduledLikely = tru
       </div>
 
     <div class="note">
-      <strong>Taking a snapshot off the server and back.</strong> Download an archive and it can be re-imported later — from a USB stick, from another machine, from wherever it was kept. Import it as the <code>.zip</code> that was downloaded; if it has been unpacked and re-zipped along the way that is fine too, and the page will say so. Every import is checked against the fingerprint the snapshot recorded when it was created, so an archive that has been edited or damaged is refused rather than quietly restored.
+      <strong>Taking a backup copy off the server and back.</strong> Download an archive and it can be re-imported later — from a USB stick, from another machine, from wherever it was kept. Import it as the <code>.zip</code> that was downloaded; if it has been unpacked and re-zipped along the way that is fine too, and the page will say so. Every import is checked against the check code recorded when the copy was made, so an archive that has been edited or damaged is refused rather than quietly restored.
     </div>
 
     <div class="note">
-      <strong>How the automated backup runs.</strong> A Windows Task Scheduler job runs <code>php scripts\backup_db.php</code> nightly, producing rotating compressed archives of every database table (the same snapshots listed above), then rotating logs and flushing the mail outbox. To (re)create the scheduled task, run in an elevated PowerShell:
+      <strong>How the automated backup runs.</strong> A Windows Task Scheduler job runs <code>php scripts\backup_db.php</code> nightly, producing rotating compressed archives of every database table (the same backup copies listed above), then rotating logs and flushing the mail outbox. To (re)create the scheduled task, run in an elevated PowerShell:
       <br><br>
       <code>schtasks /Create /SC DAILY /ST 01:30 /TN "BEC PMO DB Backup" /TR "\"C:\xampp\php\php.exe\" \"C:\xampp\htdocs\bec-pmo\scripts\backup_db.php\""</code>
     </div>

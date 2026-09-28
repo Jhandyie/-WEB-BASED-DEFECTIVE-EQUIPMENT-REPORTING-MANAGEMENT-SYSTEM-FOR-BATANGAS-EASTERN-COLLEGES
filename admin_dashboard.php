@@ -118,7 +118,10 @@ function dashboardInferReportPhotos(array $row): array
 $totalReports    = count($allReports);
 $pendingReports  = count(array_filter($allReports, fn($r) => $r['status'] === 'reported'));
 $approvedReports = count(array_filter($allReports, fn($r) => $r['status'] === 'assigned'));
-$inProgReports   = count(array_filter($allReports, fn($r) => $r['status'] === 'in_progress'));
+// Everything a technician is working on — the same four statuses the queue's
+// "in progress" stage shows when this card is clicked. Counting only the literal
+// 'in_progress' status made the card's number smaller than the list it opens.
+$inProgReports   = count(array_filter($allReports, fn($r) => in_array($r['status'], ['accepted', 'in_progress', 'waiting_for_materials', 'for_replacement'], true)));
 $completedRep    = count(array_filter($allReports, fn($r) => in_array($r['status'], ['completed', 'verified', 'closed'])));
 $rejectedRep     = count(array_filter($allReports, fn($r) => $r['status'] === 'rejected'));
 $criticalRep     = count(array_filter($allReports, fn($r) => $r['priority'] === 'critical' && !in_array($r['status'], ['completed','verified','closed'])));
@@ -710,7 +713,7 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .nav-item:focus-visib
           <a onclick="openExport('reservations','xlsx')"><i class="fas fa-file-excel"></i> Reservations — Excel</a>
 <?php endif; ?>
           <div class="exp-menu-sep"></div>
-          <a onclick="exportReport()"><i class="fas fa-table"></i> Dashboard Summary — CSV</a>
+          <a onclick="exportReport()"><i class="fas fa-table"></i> Dashboard Summary — Excel</a>
         </div>
       </div>
     </div>
@@ -781,10 +784,12 @@ a:focus-visible, button:focus-visible, .btn:focus-visible, .nav-item:focus-visib
         <div style="font-size:1.7rem;font-weight:800;color:var(--t1);margin-top:.3rem;line-height:1;"><?php echo $activeRepairs; ?></div>
         <div style="font-size:.66rem;color:var(--t3);margin-top:.3rem;">Assigned + in progress now</div>
       </div>
-      <a href="admin_defect_reports.php?status=reported" style="text-decoration:none;background:var(--s1);border:1px solid <?php echo $overdueReports>0?'#FCA5A5':'var(--bdr)'; ?>;border-left:4px solid <?php echo $overdueReports>0?'#DC2626':'#9CA3AF'; ?>;border-radius:14px;padding:.95rem 1.05rem;box-shadow:none;display:block;">
-        <div style="display:flex;align-items:center;gap:.45rem;color:var(--t3);font-size:.66rem;text-transform:uppercase;letter-spacing:.6px;font-weight:700;"><i class="fas fa-triangle-exclamation" style="color:<?php echo $overdueReports>0?'#DC2626':'#9CA3AF'; ?>;"></i> SLA Overdue</div>
+      <?php /* Opened the list of NEW reports (?status=reported) while showing the
+               overdue count, so the number and the list never agreed. */ ?>
+      <a href="admin_defect_reports.php?overdue=yes" style="text-decoration:none;background:var(--s1);border:1px solid <?php echo $overdueReports>0?'#FCA5A5':'var(--bdr)'; ?>;border-left:4px solid <?php echo $overdueReports>0?'#DC2626':'#9CA3AF'; ?>;border-radius:14px;padding:.95rem 1.05rem;box-shadow:none;display:block;">
+        <div style="display:flex;align-items:center;gap:.45rem;color:var(--t3);font-size:.66rem;text-transform:uppercase;letter-spacing:.6px;font-weight:700;"><i class="fas fa-triangle-exclamation" style="color:<?php echo $overdueReports>0?'#DC2626':'#9CA3AF'; ?>;"></i> Overdue</div>
         <div style="font-size:1.7rem;font-weight:800;color:<?php echo $overdueReports>0?'#DC2626':'var(--t1)'; ?>;margin-top:.3rem;line-height:1;"><?php echo $overdueReports; ?></div>
-        <div style="font-size:.66rem;color:var(--t3);margin-top:.3rem;">Open past priority target</div>
+        <div style="font-size:.66rem;color:var(--t3);margin-top:.3rem;">Open longer than its time limit</div>
       </a>
     </div>
 

@@ -444,7 +444,10 @@ if (in_array($exportFmt, ['csv', 'xlsx', 'pdf'], true)) {
             $dash($r1['location'] ?? ''),
             $flat($r1['issue_description'] ?? ''),
             ucfirst((string)($r1['priority'] ?? '')),
-            ucwords(str_replace('_', ' ', (string)($r1['status'] ?? ''))),
+            /* The name the admin sees on screen. Title-casing the raw code
+               turned pmo_review into "Pmo Review" in the file handed to
+               management, where the screen says "Received by PMO". */
+            defectStatusLabel((string)($r1['status'] ?? '')),
             $dash($r1['department_assigned'] ?? ''),
             $dash($r1['reporter_name'] ?? ($r1['reported_by'] ?? '')),
             $dash($r1['technician_name'] ?? ''),
@@ -1629,7 +1632,7 @@ textarea.fc{resize:vertical;min-height:70px;}
             <i class="fas fa-list"></i> Table
           </button>
           <button class="vt-btn <?php echo $vw==='kanban'?'on':''; ?>" onclick="switchView('kanban')">
-            <i class="fas fa-columns"></i> Kanban
+            <i class="fas fa-columns"></i> Board
           </button>
         </div>
         <button class="btn btn-maroon btn-sm" onclick="location.reload()">
@@ -1767,7 +1770,7 @@ textarea.fc{resize:vertical;min-height:70px;}
           <h3><i class="fas fa-list-alt"></i> Report Records</h3>
           <div style="display:flex;gap:.4rem;">
             <button class="btn btn-ghost btn-sm" onclick="exportCSV()"><i class="fas fa-file-csv"></i> CSV</button>
-            <button class="btn btn-ghost btn-sm" onclick="exportExcel()"><i class="fas fa-file-excel"></i> XLS</button>
+            <button class="btn btn-ghost btn-sm" onclick="exportExcel()"><i class="fas fa-file-excel"></i> Excel</button>
           </div>
         </div>
         <table class="tbl" id="mainTbl">
@@ -2409,7 +2412,7 @@ textarea.fc{resize:vertical;min-height:70px;}
             </div>
             <div class="rv-actions">
               <?php if($rvNew): ?>
-              <button type="submit" name="action" value="mark_received" class="btn btn-sm rv-amber" onclick="return confirm('Confirm Report Receipt\n\nYou are about to acknowledge that the Property Management Office has officially received this maintenance report for evaluation.\n\nThis will:\n• Update the report status to Received by PMO\n• Record the acknowledgement timestamp and your name\n• Notify the reporter by email and in-app\n• Update the tracking timeline and audit log\n\nProceed?');"><i class="fas fa-inbox"></i> Mark as Received</button>
+              <button type="submit" name="action" value="mark_received" class="btn btn-sm rv-amber" onclick="return confirm('Mark this report as received?\n\nThe reporter will be told by email.');"><i class="fas fa-inbox"></i> Mark as Received</button>
               <?php endif; ?>
               <button type="submit" name="action" value="approve" class="btn btn-green btn-sm"><i class="fas fa-check"></i> <?php echo $rvNew ? 'Approve Directly' : 'Approve'; ?></button>
               <button type="button" class="btn btn-ghost btn-sm rv-rejbtn" onclick="toggleReject()"><i class="fas fa-ban"></i> Reject…</button>

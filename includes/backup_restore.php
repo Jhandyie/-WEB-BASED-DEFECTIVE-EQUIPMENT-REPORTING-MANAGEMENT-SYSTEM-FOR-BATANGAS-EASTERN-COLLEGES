@@ -392,7 +392,7 @@ if (!function_exists('becInspectBackupArchive')) {
         if (!$entries) {
             // A readable ZIP with no usable entries is almost always a download
             // that stopped early, not an empty archive somebody made on purpose.
-            $out['message'] = 'The ZIP could not be read to the end — most likely an incomplete download. Download the snapshot again and upload the new copy.';
+            $out['message'] = 'The ZIP could not be read to the end — most likely an incomplete download. Download the backup copy again and upload the new file.';
             return $out;
         }
 
@@ -407,8 +407,8 @@ if (!function_exists('becInspectBackupArchive')) {
             }
             $sample = array_slice(array_keys($entries), 0, 4);
             $out['message'] = $tableFiles > 0
-                ? 'This ZIP holds ' . $tableFiles . ' table file(s) but no manifest.json, so it cannot be trusted as a complete snapshot. It looks like a BEC backup that was unpacked and rebuilt by hand — import the original .zip instead.'
-                : 'This is not a BEC database snapshot: it has no manifest.json. It contains ' . count($entries) . ' file(s), starting with '
+                ? 'This ZIP holds ' . $tableFiles . ' table file(s) but no manifest.json, so it cannot be trusted as a complete backup copy. It looks like a BEC backup that was unpacked and rebuilt by hand — import the original .zip instead.'
+                : 'This is not a BEC backup copy: it has no manifest.json. It contains ' . count($entries) . ' file(s), starting with '
                   . implode(', ', array_map(static fn($n) => '"' . $n . '"', $sample))
                   . '. Only archives produced by this system can be imported.';
             return $out;
@@ -472,7 +472,7 @@ if (!function_exists('becInspectBackupArchive')) {
                 $bits[] = $out['known'] === $total
                     ? 'All ' . $total . ' tables match this database.'
                     : $out['known'] . ' of ' . $total . ' tables match this database.';
-                if ($out['empty'])   { $bits[] = count($out['empty']) . ' held no rows when the snapshot was taken (' . implode(', ', array_slice($out['empty'], 0, 8)) . (count($out['empty']) > 8 ? ', …' : '') . ').'; }
+                if ($out['empty'])   { $bits[] = count($out['empty']) . ' held no rows when the backup copy was made (' . implode(', ', array_slice($out['empty'], 0, 8)) . (count($out['empty']) > 8 ? ', …' : '') . ').'; }
                 if ($out['no_pk'])   { $bits[] = count($out['no_pk']) . ' have no primary key, so they cannot be recovered safely (' . implode(', ', $out['no_pk']) . ').'; }
                 if ($out['unknown']) { $bits[] = count($out['unknown']) . ' are not in this schema (' . implode(', ', array_slice($out['unknown'], 0, 6)) . (count($out['unknown']) > 6 ? ', …' : '') . ').'; }
                 $bits[] = $out['restorable'] . ' hold data that can be recovered.';
@@ -757,7 +757,7 @@ if (!function_exists('becRestoreFromBackup')) {
             $safety = becCreateDatabaseBackup($pdo, 'bec_pre_restore', 8);
             $result['safety'] = $safety['file'];
         } catch (Throwable $e) {
-            $result['message'] = 'Aborted: could not take a safety snapshot before restoring (' . $e->getMessage() . ').';
+            $result['message'] = 'Stopped before changing anything: a safety copy could not be made first (' . $e->getMessage() . ').';
             return $result;
         }
 
@@ -804,7 +804,7 @@ if (!function_exists('becRestoreFromBackup')) {
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) { $pdo->rollBack(); }
             $result['message'] = 'Restore failed and was rolled back — no changes were applied. ' . $e->getMessage()
-                               . ' (A safety snapshot "' . ($result['safety'] ?? '?') . '" is available.)';
+                               . ' (A safety copy "' . ($result['safety'] ?? '?') . '" is available.)';
             $result['restored'] = [];
             return $result;
         }

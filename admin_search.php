@@ -295,7 +295,9 @@ body.becSbHide .topbar, body.becSbHide .wrap{margin-left:0 !important;}
               }
               $subLine = trim((string) $r['sub']);
               if ($kind === 'report') {
-                  $subLine = ($r['extra'] !== '' ? ucwords(str_replace('_', ' ', (string) $r['extra'])) . ' · ' : '')
+                  /* defectStatusLabel(), not title-cased raw codes: this read
+                     "Pmo Review" where every other screen says "Received by PMO". */
+                  $subLine = ($r['extra'] !== '' ? defectStatusLabel((string) $r['extra']) . ' · ' : '')
                            . ($r['extra2'] !== '' ? 'Reported by ' . $r['extra2'] : '')
                            . ($subLine !== '' ? ' — ' . mb_substr($subLine, 0, 90) : '');
               } elseif ($kind === 'person' || $kind === 'account') {

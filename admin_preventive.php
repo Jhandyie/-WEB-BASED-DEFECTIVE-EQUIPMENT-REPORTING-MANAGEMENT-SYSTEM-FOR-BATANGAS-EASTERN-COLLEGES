@@ -523,7 +523,7 @@ $eqJson = json_encode($eqPayload, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_H
         <div class="head-acts">
           <button class="btn ghost" type="submit" form="runForm"><i class="fas fa-bolt"></i> Generate Due Tickets</button>
           <?php /* The schedule is the document the PMO is asked to hand over. */ ?>
-          <a class="btn ghost" href="?<?php echo htmlspecialchars(http_build_query(array_merge($_GET, ['export' => 'csv'])), ENT_QUOTES); ?>"><i class="fas fa-file-csv"></i> Export CSV</a>
+          <a class="btn ghost" href="?<?php echo htmlspecialchars(http_build_query(array_merge($_GET, ['export' => 'csv'])), ENT_QUOTES); ?>"><i class="fas fa-file-excel"></i> Download for Excel</a>
           <button class="btn m" type="button" id="newBtn"><i class="fas fa-plus"></i> New Schedule</button>
         </div>
       </div>

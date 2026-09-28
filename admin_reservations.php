@@ -285,11 +285,15 @@ if (strtolower(trim((string) ($_GET['export'] ?? ''))) === 'csv') {
             $x['applicant_name'] ?? '',
             $x['department_org'] ?? '',
             $x['venue'] ?? '',
-            trim((string) ($x['nature'] ?? '')) === 'Other' ? (string) ($x['nature_other'] ?? 'Other') : (string) ($x['nature'] ?? ''),
+            /* The same helper the table on this page uses. The hand-written
+               version compared against 'Other' when the stored key is 'others',
+               so it never matched: raw codes like film_showing went out, and
+               whatever the applicant typed as their activity was lost. */
+            vrNatureLabel((string) ($x['nature'] ?? ''), (string) ($x['nature_other'] ?? '')),
             !empty($x['starts_at']) ? date('Y-m-d H:i', strtotime((string) $x['starts_at'])) : '',
             !empty($x['ends_at'])   ? date('Y-m-d H:i', strtotime((string) $x['ends_at']))   : '',
             $x['participants'] ?? '',
-            ucwords(str_replace('_', ' ', (string) ($x['status'] ?? ''))),
+            vrStatusLabel((string) ($x['status'] ?? '')),   // "Endorsed by adviser", not "Endorsed"
             $x['assessment_amount'] ?? '',
             $x['amount_paid'] ?? '',
             $x['or_no'] ?? '',
@@ -459,7 +463,7 @@ $pageQuery = static function (int $p) use ($q, $sf, $wf): string {
         </div>
         <div class="head-acts">
           <?php /* Exports what the filters above are showing, not just this page. */ ?>
-          <a class="btn ghost" href="?<?php echo htmlspecialchars(http_build_query(array_merge($_GET, ['export' => 'csv'])), ENT_QUOTES); ?>"><i class="fas fa-file-csv"></i> Export CSV</a>
+          <a class="btn ghost" href="?<?php echo htmlspecialchars(http_build_query(array_merge($_GET, ['export' => 'csv'])), ENT_QUOTES); ?>"><i class="fas fa-file-excel"></i> Download for Excel</a>
           <a class="btn m" href="reserve_venue.php?walkin=1"><i class="fas fa-plus"></i> File a Request</a>
         </div>
       </div>
