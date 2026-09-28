@@ -587,8 +587,14 @@ if (isset($_GET['view_id'])) {
         // Opening the report is reading the notification about it. Without this
         // the bell sat at 99+ for every admin, because nothing they did in the
         // course of actually handling reports ever cleared it.
+        //
+        // This never worked until Sep 2026. It used $conn, which only exists
+        // inside the POST handler above - on a GET it is undefined, the call
+        // threw, and the catch below swallowed it. So opening a report never
+        // cleared anything, and the bell kept climbing. Proved on live data: an
+        // admin opened a report holding 3 unread notices and 3 stayed unread.
         try {
-            $rd = $conn->prepare("UPDATE notifications SET is_read = true, read_at = NOW()
+            $rd = getDBConnection()->prepare("UPDATE notifications SET is_read = true, read_at = NOW()
                                    WHERE user_id = ? AND related_id = ? AND is_read = false");
             if ($rd) { $rd->bind_param('ss', $admin_id, $vr['report_id']); $rd->execute(); $rd->close(); }
         } catch (\Throwable $e) { /* a notification that will not clear is not worth failing the page for */ }
