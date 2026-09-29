@@ -2297,6 +2297,58 @@ textarea.fc{resize:vertical;min-height:70px;}
           <?php endif; ?>
         </section>
 
+        <?php
+          /* What the technician did. technician_complete_task.php saves it on
+             the report - the sentence, the parts, the cost, the photo of the
+             finished work - but this view never showed any of it, so the
+             office was asked to "Verify & Close" a repair it could not see.
+             Shown once the job is marked fixed. Older completions used the
+             retired fields, so those stand in when the new ones are empty. */
+          $drDoneSt = in_array(strtolower((string)$vr['status']), ['completed','verified','closed'], true);
+          $drWork   = trim((string)($vr['work_performed'] ?? ''));
+          if ($drWork === '') { $drWork = trim((string)($vr['actions_performed'] ?? '')); }
+          if ($drWork === '') { $drWork = trim((string)($vr['diagnosis'] ?? '')); }
+          $drParts  = trim((string)($vr['parts_replaced'] ?? ''));
+          $drCostV  = $vr['repair_cost'] ?? null;
+          if ($drCostV === null || $drCostV === '') { $drCostV = $vr['estimated_cost'] ?? null; }
+          $drAfter  = [];
+          foreach (['after_photos', 'work_photos'] as $__col) {
+              $__dec = json_decode((string)($vr[$__col] ?? ''), true);
+              if (is_array($__dec)) {
+                  foreach ($__dec as $__p) { $__p = trim((string)$__p); if ($__p !== '' && !in_array($__p, $drAfter, true)) { $drAfter[] = $__p; } }
+              }
+              if ($drAfter) { break; }
+          }
+        ?>
+        <?php if ($drDoneSt && ($drWork !== '' || $drParts !== '' || $drAfter)): ?>
+        <!-- RepairDone -->
+        <section class="dr-card">
+          <div class="dr-card-h"><i class="fas fa-screwdriver-wrench" aria-hidden="true"></i><h3>What the technician did</h3></div>
+          <dl class="dr-rows">
+            <div class="dr-row"><dt>Work done</dt><dd><?php echo $drWork !== '' ? nl2br(esc($drWork)) : '—'; ?></dd></div>
+            <?php if ($drParts !== ''): ?>
+            <div class="dr-row"><dt>Parts used</dt><dd><?php echo esc($drParts); ?></dd></div>
+            <?php endif; ?>
+            <?php if ($drCostV !== null && $drCostV !== ''): ?>
+            <div class="dr-row"><dt>Cost</dt><dd>₱<?php echo esc(number_format((float)$drCostV, 2)); ?></dd></div>
+            <?php endif; ?>
+            <?php if (!empty($vr['completion_date'])): ?>
+            <div class="dr-row"><dt>Marked fixed</dt><dd><?php echo esc(date('M j, Y · g:i A', strtotime((string)$vr['completion_date']))); ?> by <?php echo esc($vr['technician_name']); ?></dd></div>
+            <?php endif; ?>
+          </dl>
+          <?php if ($drAfter): ?>
+          <div class="dr-ev" style="margin-top:.75rem;">
+            <?php foreach ($drAfter as $drA): ?>
+            <button type="button" class="dr-ev-item" onclick="openLb('<?php echo esc($drA); ?>')" aria-label="View the photo of the finished work">
+              <img src="<?php echo esc($drA); ?>" alt="Finished work" decoding="async">
+            </button>
+            <?php endforeach; ?>
+          </div>
+          <?php endif; ?>
+          <p style="margin:.75rem 0 0;"><a href="technician_service_report.php?report=<?php echo urlencode((string)$vr['report_id']); ?>" target="_blank" rel="noopener" style="font-weight:700;color:#7B1D1D;"><i class="fas fa-print" aria-hidden="true"></i> Open the repair form</a></p>
+        </section>
+        <?php endif; ?>
+
         <!-- ActivityLog -->
         <details class="dr-card dr-log">
           <summary>
