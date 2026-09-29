@@ -150,13 +150,16 @@ notifications and branded email. `users.department` (PMO or ITSO) scopes which r
   work belongs to the reporter, public and technician surfaces.
 - **Phone type lives in `css/mobile.css`, linked LAST in `<head>`.** The whole system is drawn at
   desktop sizes — the token scale bottoms out at `--fs-xs:.6rem` (9.6px on a phone) — so that one
-  sheet raises the scale, pins the root to 112.5% (pages disagreed: most set 106.25%,
+  sheet raises the scale, pins the root to 100% (pages disagreed: most set 106.25%,
   `reserve_venue.php` set nothing, so one rule in `rem` rendered two sizes) and holds `input,
   select, textarea` at 16px, **which is what stops iOS Safari zooming the page on every field
-  tap**. Two thresholds on purpose: content people read or fill in is >=16px, chrome they only
-  recognise (count badges, uppercase eyebrows, avatar initials) is >=13px. Linked before the
-  page's own `<style>` it silently does nothing — `ui_smoke.php` asserts both the link and its
-  order.
+  tap**. The scale is the common mobile standard: content 15px, secondary 14px, chrome
+  (count badges, uppercase eyebrows, avatar initials) 12px, nothing below 12px. **Do not push it
+  back up**: an earlier pass pinned the root at 18px with 16-18.7px body copy, and the user
+  rejected it on a real phone as too big and too much scrolling (Sep 2026); bringing it down
+  made pages 13-17% shorter. Measure in a 390px frame before and after any change here. Linked
+  before the page's own `<style>` it silently does nothing — `ui_smoke.php` asserts both the
+  link and its order.
 - **A shared include's `<style>` outranks every stylesheet link.** `site_nav.php`,
   `site_footer.php`, `becca_widget.php` and `technician_assistant.php` emit their CSS where they
   render, which is inside `<body>`, so at equal specificity they beat anything in `<head>` on

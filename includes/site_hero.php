@@ -19,9 +19,10 @@ $__he = isset($hero_eyebrow) ? $hero_eyebrow : 'Property Management Office';
 .sbhero-eyebrow{display:inline-flex;align-items:center;gap:.45rem;font-size:.62rem;font-weight:800;text-transform:uppercase;letter-spacing:1.6px;color:#F0C040;margin-bottom:.6rem;}
 .sbhero h1{font-family:'Fraunces',serif;font-weight:700;font-size:2.05rem;line-height:1.15;letter-spacing:-.02em;color:#fff;text-shadow:0 2px 20px rgba(0,0,0,.4);margin:0;}
 .sbhero p{font-size:.92rem;line-height:1.6;color:rgba(255,255,255,.9);margin:.55rem auto 0;max-width:62ch;text-shadow:0 1px 10px rgba(0,0,0,.35);}
-/* The eyebrow measured 10.5px on a 390px phone; .68rem puts it just over 11
-   without disturbing the hero's proportions. */
-@media(max-width:640px){.sbhero{padding:2.3rem 1.1rem;}.sbhero h1{font-size:1.55rem;}.sbhero-eyebrow{font-size:.68rem;}}
+/* Phones run a 16px root (css/mobile.css); .75rem is the 12px floor for an
+   eyebrow. This <style> sits in <body>, so it has to be set here - a sheet in
+   <head> cannot outrank it. */
+@media(max-width:640px){.sbhero{padding:2.3rem 1.1rem;}.sbhero h1{font-size:1.55rem;}.sbhero-eyebrow{font-size:.75rem;}}
 </style>
 <section class="sbhero">
   <div class="sbhero-in">
