@@ -95,6 +95,23 @@
   .bsnav-brand b  { font-size: 1rem; }
   .bsfoot-motto   { font-size: .875rem; }
 
+  /* ---- titles ------------------------------------------------------------- */
+  /* 20-24px, the usual size for a heading on a phone. They were 25-27px, which
+     on a 390px screen is two or three lines and a third of the first screen
+     before anything is said. Each page names its own title, hence the list. */
+  .hero h1 { font-size: 1.5rem; }                                     /* 24px landing hero */
+  .card > h1, .page-header > h1, .page-head h1,
+  .sec-title, .ticket { font-size: 1.25rem; }                         /* 20px */
+  .stat-num { font-size: 1.375rem; }                                  /* 22px */
+  .pc-title { font-size: 1.125rem; }                                  /* 18px */
+  /* Questions, step names and card titles: a line you read, not a heading. */
+  .faq-item summary, .intro-card > summary, .rt-title, .th-main strong,
+  .cs-tx b, .rc-eq { font-size: 1rem; }                               /* 16px */
+
+  /* The landing page drew its body copy with --fs-lg, a size larger than every
+     other page (17px against 15px). Same 15px as the rest of the site. */
+  .hero-sub, .sec-sub, .pc-desc, .faq-a, .rep-all a { font-size: .9375rem; }
+
   /* Eyebrows set with two classes or a class and an element outrank the
      single-class chrome rule above, and were measured at 9.6-11.5px once the
      root came down to 16px: the technician task's "WHEN THE JOB IS DONE" /

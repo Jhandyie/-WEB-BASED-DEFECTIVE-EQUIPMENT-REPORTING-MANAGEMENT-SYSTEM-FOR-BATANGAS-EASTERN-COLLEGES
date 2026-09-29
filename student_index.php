@@ -646,27 +646,24 @@ body::after {
    The full notice used to sit open above the submit button, pushing it off
    screen on a phone. The summary carries the consent; the panel holds the
    detail for anyone who wants it. */
-.pv-block {
-  margin:var(--sp-4) 0 var(--sp-4); border-radius: 12px;
-  background: #FBF8F1; border: 1px solid var(--border); overflow: hidden;
-}
+.pv-block { margin:var(--sp-4) 0 var(--sp-4); }
+.pv-row { display: flex; align-items: center; gap:var(--sp-2); }
 .pv-consent {
-  display: flex; align-items: flex-start; gap:var(--sp-2);
-  padding:var(--sp-3) var(--sp-4) var(--sp-2);
-  font-size:var(--fs-base); color: var(--ink2); line-height: 1.6; cursor: pointer;
+  flex: 1; display: flex; align-items: center; gap:var(--sp-2);
+  font-size:var(--fs-base); color: var(--ink2); line-height: 1.5; cursor: pointer;
 }
 .pv-consent input {
-  width: 16px; height: 16px; flex-shrink: 0; margin-top:var(--sp-0); accent-color: #7B1D1D;
+  width: 18px; height: 18px; flex-shrink: 0; margin: 0; accent-color: #7B1D1D;
 }
 .pv-consent strong { color: var(--ink); }
 .pv-toggle {
-  display: flex; align-items: center; gap:var(--sp-2); width: 100%;
-  padding:var(--sp-2) var(--sp-4) var(--sp-3); background: none; border: none;
+  display: inline-flex; align-items: center; gap:var(--sp-1); flex-shrink: 0;
+  padding:var(--sp-1) var(--sp-2); background: none; border: none; border-radius: 8px;
   font-family: 'DM Sans', sans-serif; font-size:var(--fs-sm); font-weight: 700;
-  letter-spacing: .04em; text-transform: uppercase;
-  color: var(--maroon); cursor: pointer; text-align: left;
+  color: var(--maroon); cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
 }
-.pv-toggle .chev { margin-left:auto; font-size:var(--fs-sm); transition: transform .28s ease; }
+.pv-toggle .chev { font-size:var(--fs-xs); transition: transform .28s ease; }
+.pv-lead { margin:var(--sp-3) 0 0; font-size:var(--fs-sm); color: var(--ink2); line-height: 1.6; }
 .pv-toggle[aria-expanded="true"] .chev { transform: rotate(180deg); }
 .pv-toggle:hover { color: var(--maroon-d); }
 .pv-toggle:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; border-radius: 8px; }
@@ -1158,19 +1155,26 @@ body::after {
           <?php endforeach; ?>
         </div>
       </div>
+      <?php /* One line: the box and what it agrees to. The sentence spelling the
+               consent out used to sit here in full — four lines on a phone
+               before the button — and is now the first thing the notice says.
+               The notice itself stays one tap away: consent has to be to
+               something the reporter can read. */ ?>
       <div class="pv-block">
-        <label class="pv-consent">
-          <input type="checkbox" name="privacy_consent" value="1" required <?php echo !empty($_POST['privacy_consent']) ? 'checked' : ''; ?>>
-          <span><strong>Data Privacy Notice.</strong> I agree that Batangas Eastern Colleges — Property Management Office may collect and process my <strong>name, email address, and report details</strong> for equipment maintenance and record-keeping, under the <strong>Data Privacy Act of 2012 (RA 10173)</strong>.</span>
-        </label>
-        <!-- Kept outside the <label> on purpose: inside it, every click would
-             also toggle the consent checkbox. -->
-        <button type="button" class="pv-toggle" id="pvToggle" aria-expanded="false" aria-controls="pvPanel">
-          <i aria-hidden="true" class="fas fa-shield-halved"></i>
-          <span id="pvToggleText">Read the full notice</span>
-          <i aria-hidden="true" class="fas fa-chevron-down chev"></i>
-        </button>
+        <div class="pv-row">
+          <label class="pv-consent">
+            <input type="checkbox" name="privacy_consent" value="1" required <?php echo !empty($_POST['privacy_consent']) ? 'checked' : ''; ?>>
+            <span>I agree to the <strong>Data Privacy Notice</strong></span>
+          </label>
+          <!-- Kept outside the <label> on purpose: inside it, every click would
+               also toggle the consent checkbox. -->
+          <button type="button" class="pv-toggle" id="pvToggle" aria-expanded="false" aria-controls="pvPanel">
+            <span id="pvToggleText">Read</span>
+            <i aria-hidden="true" class="fas fa-chevron-down chev"></i>
+          </button>
+        </div>
         <div class="pv-panel" id="pvPanel" role="region" aria-labelledby="pvToggle">
+          <p class="pv-lead">By ticking the box you agree that Batangas Eastern Colleges — Property Management Office may collect and process your <strong>name, email address and report details</strong> for equipment maintenance and record-keeping, under the <strong>Data Privacy Act of 2012 (RA 10173)</strong>.</p>
           <dl class="pv-inner">
             <dt>What we collect</dt>
             <dd>Your official <strong>@bec.edu.ph</strong> email address and whether you are a student, teacher or staff; your name, department or course and contact number as they appear in the BEC directory; and the details, photos and videos you attach to a report.</dd>
@@ -1206,7 +1210,7 @@ body::after {
     </div>
     <div class="safety-note">
       <i aria-hidden="true" class="fas fa-triangle-exclamation"></i>
-      <span><strong>Safety first.</strong> For urgent hazards that put people at risk — live electrical faults, fire, gas, or water leaks — contact the PMO or campus security in person or by phone <em>immediately</em>. Use this portal for non-emergency equipment concerns.</span>
+      <span><strong>Emergency?</strong> Fire, sparks, gas or flooding — call the PMO or campus security now, not this form.</span>
     </div>
     <div class="footer-link">
       Need help?<a onclick="openChat()" role="button" tabindex="0">Contact support</a>
@@ -1291,7 +1295,7 @@ body::after {
   btn.addEventListener('click', function () {
     var open = panel.classList.toggle('open');
     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    if (label) label.textContent = open ? 'Hide the full notice' : 'Read the full notice';
+    if (label) label.textContent = open ? 'Hide' : 'Read';
   });
 })();
 

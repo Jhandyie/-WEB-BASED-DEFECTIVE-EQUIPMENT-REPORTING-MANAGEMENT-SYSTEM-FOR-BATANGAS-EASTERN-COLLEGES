@@ -22,7 +22,7 @@ $__he = isset($hero_eyebrow) ? $hero_eyebrow : 'Property Management Office';
 /* Phones run a 16px root (css/mobile.css); .75rem is the 12px floor for an
    eyebrow. This <style> sits in <body>, so it has to be set here - a sheet in
    <head> cannot outrank it. */
-@media(max-width:640px){.sbhero{padding:2.3rem 1.1rem;}.sbhero h1{font-size:1.55rem;}.sbhero-eyebrow{font-size:.75rem;}}
+@media(max-width:640px){.sbhero{padding:2.3rem 1.1rem;}.sbhero h1{font-size:1.375rem;}.sbhero-eyebrow{font-size:.75rem;}}
 </style>
 <section class="sbhero">
   <div class="sbhero-in">
