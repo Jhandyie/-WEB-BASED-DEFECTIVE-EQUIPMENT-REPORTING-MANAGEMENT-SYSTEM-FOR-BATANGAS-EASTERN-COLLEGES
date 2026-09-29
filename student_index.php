@@ -650,7 +650,7 @@ body::after {
 .pv-row { display: flex; align-items: center; gap:var(--sp-2); }
 .pv-consent {
   flex: 1; display: flex; align-items: center; gap:var(--sp-2);
-  font-size:var(--fs-base); color: var(--ink2); line-height: 1.5; cursor: pointer;
+  font-size:var(--fs-base); font-weight: 400; color: var(--ink2); line-height: 1.5; cursor: pointer;
 }
 .pv-consent input {
   width: 18px; height: 18px; flex-shrink: 0; margin: 0; accent-color: #7B1D1D;
