@@ -136,7 +136,7 @@ function adminLocalReply(string $text, array $d): string
             . ($d['p_critical'] > 0 ? "\nRecommendation: review the {$d['p_critical']} Critical open report(s) first." : "");
     }
     if ($has('/\b(overdue|sla|escalat|late|breach)\b/')) {
-        return "There are {$d['overdue']} open report(s) past their SLA target. The system auto-escalates these to the PMO, but it's worth reviewing them and reassigning if a technician is overloaded.";
+        return "There are {$d['overdue']} open report(s) past their time limit. The system auto-escalates these to the PMO, but it's worth reviewing them and reassigning if a technician is overloaded.";
     }
     if ($has('/\b(technician|tekniko|workload|busiest|assignee|who.*assigned|staff)\b/')) {
         $busiest = $d['busiest'] ? implode(', ', array_map(fn($r) => trim((string) $r['name']) . ' (' . (int) $r['n'] . ')', $d['busiest'])) : 'no one currently has active tasks';
@@ -169,7 +169,7 @@ function adminLocalReply(string $text, array $d): string
         return "To assign: open Assign Technicians. Received/approved reports appear in the queue — pick a report on the left, then click a technician card to assign (it confirms first). The technician is notified and the report moves to their dashboard.";
     }
     if ($has('/\b(work order|workorder)\b/')) {
-        return "There is no separate work order in this system — the report itself carries the whole job. Once you assign a technician, the report moves through Technician Assigned → Received by Technician → In Progress → Completed, and you track it in Defect Reports.";
+        return "Work Orders, in the sidebar, lists every job a technician has finished — what was done, the parts, the cost, and whether an admin has verified it yet. It is a view of finished reports, not a separate thing to create: the report itself carries the job from submission to closing, and you act on it in Defect Reports.";
     }
     if ($has('/\b(verify|verification|close|closing)\b/')) {
         return "When a technician marks a repair Completed, open the report and click Verify to confirm the fix and close it. The reporter is asked to confirm whether their issue was resolved.";
@@ -233,7 +233,7 @@ CORE ROLE
 
 COMMUNICATION
 - Give the direct answer first, then supporting detail, then a recommendation or next step when useful.
-- Be concise; use short bullet lists or headings when they help. Avoid jargon.
+- Be concise; use short bullet lists or headings when they help. Avoid jargon: say "time limit" or "overdue", never "SLA"; say "assign", never "dispatch".
 - Maintain conversation context; understand references like "that report" or "this technician".
 
 SECURITY & HONESTY
@@ -243,7 +243,7 @@ SECURITY & HONESTY
 
 WORKFLOW REFERENCE (for how-to questions)
 - Report lifecycle (labels from defectWorkflowStatuses()): Submitted -> Received by PMO -> Ready for Assignment -> Technician Assigned -> Received by Technician -> In Progress -> Completed -> Verified -> Closed. Branches: Waiting for Materials, For Replacement, Rejected.
-- There are no work orders in this system. The defect report itself is the unit of work from submission through closure; never tell an admin to open, create, or look up a work order.
+- The defect report itself is the unit of work from submission through closure; nothing called a work order is ever created. The sidebar's "Work Orders" page is a list of FINISHED jobs (what was done, parts, cost, verified or not) - point admins there for that, and to Defect Reports to act on a report.
 - Receive: Defect Reports -> "Mark as Received". Approve: report detail -> Approve (sets department/priority, moves it to Ready for Assignment). Assign: Assign Technicians -> pick report -> click a technician card. Verify: report detail -> Verify when the technician marks it Completed.
 - Preventive Maintenance: recurring schedules that auto-generate tasks when due. Overdue open reports are auto-escalated to the PMO.
 

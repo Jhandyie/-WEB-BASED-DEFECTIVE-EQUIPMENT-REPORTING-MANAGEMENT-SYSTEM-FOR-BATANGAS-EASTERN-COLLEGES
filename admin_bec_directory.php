@@ -533,7 +533,10 @@ $hasFilter = ($search !== '' || $tf !== 'all' || $df !== 'all' || $yf !== 'all')
       ?>
       <div class="cards">
         <div class="stat"><div class="n"><?php echo (int)$total; ?></div><div class="l">Total Records</div></div>
-        <div class="stat"><div class="n"><?php echo $nStudent; ?></div><div class="l">Students</div></div>
+        <?php /* Counted over the levels the system serves (Grade 11 up - see
+                 becdir_operational_year_sql()), while Total Records counts every
+                 row, so the three did not add up and nothing said why. */ ?>
+        <div class="stat"><div class="n"><?php echo $nStudent; ?></div><div class="l">Students, Grade 11 up</div></div>
         <div class="stat"><div class="n"><?php echo $nFaculty; ?></div><div class="l">Faculty</div></div>
         <div class="stat"><div class="n"><?php echo $nStaff; ?></div><div class="l">Staff</div></div>
       </div>

@@ -189,7 +189,7 @@ try {
   <div class="aia-panel" role="dialog" aria-label="BECCA AI">
     <div class="aia-head">
       <div class="aia-av"><img src="assets/becca-mascot.svg" alt="AI"></div>
-      <div class="aia-t"><b>BECCA AI</b><small>Administrative assistant · read-only</small></div>
+      <div class="aia-t"><b>BECCA AI</b><small>Answers questions about reports and data</small></div>
       <button class="aia-x" id="aiaClose" type="button" aria-label="Close"><i class="fas fa-xmark"></i></button>
     </div>
     <div class="aia-msgs" id="aiaMsgs"></div>

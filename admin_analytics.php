@@ -87,8 +87,12 @@ $kpi_total_tech  = (int)($us['technicians'] ?? 0);
 $dr = row1($conn,
     "SELECT SUM(CASE WHEN report_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS in_range,
             SUM(CASE WHEN status IN('completed','verified','closed') AND report_date BETWEEN ? AND ? THEN 1 ELSE 0 END) AS resolved,
-            SUM(CASE WHEN status='reported' THEN 1 ELSE 0 END) AS pending,
-            SUM(CASE WHEN status IN('assigned','accepted','in_progress') THEN 1 ELSE 0 END) AS in_progress,
+            -- \"Right now\" counts, grouped as Defect Reports' stage cards and the
+            -- dashboard group them, so the same question gets the same number
+            -- on every page: waiting for the PMO = Submitted + Received by PMO;
+            -- being repaired = received by the technician through to a stall.
+            SUM(CASE WHEN status IN('reported','pmo_review') THEN 1 ELSE 0 END) AS pending,
+            SUM(CASE WHEN status IN('accepted','in_progress','waiting_for_materials','for_replacement') THEN 1 ELSE 0 END) AS in_progress,
             SUM(CASE WHEN priority='critical' AND status NOT IN('completed','verified','closed','rejected','deleted') THEN 1 ELSE 0 END) AS critical,
             SUM(CASE WHEN status IN('pmo_review','ready_for_assignment') THEN 1 ELSE 0 END) AS unassigned
      FROM defect_reports", "ssss", $df_ts, $dt_ts, $df_ts, $dt_ts);
@@ -378,7 +382,9 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
 .date-range-lbl{font-size:.72rem;color:var(--t3);margin-left:auto;font-style:italic;}
 
 /* ── KPI STRIP ────────────────────────────────────── */
-.kpis{display:grid;grid-template-columns:repeat(8,1fr);gap:.65rem;margin-bottom:1.375rem;}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:.65rem;margin-bottom:1rem;}
+.kgroup-lbl{font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.7px;color:var(--t2);margin:0 0 .45rem .1rem;}
+.kgroup-lbl span{font-weight:600;text-transform:none;letter-spacing:0;color:var(--t3);}
 .kcard{background:var(--s1);border-radius:var(--r3);padding:.9rem 1rem;border:1px solid var(--bdr);
   position:relative;overflow:hidden;transition:all .26s cubic-bezier(.4,0,.2,1);box-shadow:var(--sh0);}
 .kcard::after{content:'';position:absolute;bottom:0;left:0;width:100%;height:3px;background:var(--kc,var(--m3));
@@ -607,46 +613,59 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
     </div>
 
     <!-- ── KPI STRIP ───────────────────────────────── -->
+    <?php /* Two rows that say which question they answer. The eight cards used
+             to sit together, four following the date range and four counting
+             everything open today, with nothing to tell them apart - so on
+             "Last 7 days" the page showed 11 reports filed beside 61 "Pending
+             Verify", and the 61 did not move. That card was also misnamed: it
+             counted reports the PMO had not opened, not work awaiting
+             verification. */ ?>
+    <div class="kgroup-lbl">In this period <span>· <?php echo date('M j', strtotime($df)); ?> – <?php echo date('M j, Y', strtotime($dt)); ?></span></div>
     <div class="kpis">
       <div class="kcard" style="--kc:var(--m3);--kb:#FDECEA;">
         <div class="kico"><i class="fas fa-file-alt"></i></div>
         <div class="knum" id="kn0"><?php echo $kpi_reports;?></div>
-        <div class="klbl">Reports Filed</div>
+        <div class="klbl">Reports filed</div>
       </div>
       <div class="kcard" style="--kc:var(--ok);--kb:#F0FDF4;">
         <div class="kico"><i class="fas fa-check-circle"></i></div>
         <div class="knum" id="kn1"><?php echo $kpi_resolved;?></div>
-        <div class="klbl">Resolved</div>
-      </div>
-      <div class="kcard" style="--kc:#D97706;--kb:#FFFBEB;">
-        <div class="kico"><i class="fas fa-hourglass-half"></i></div>
-        <div class="knum" id="kn2"><?php echo $kpi_pending;?></div>
-        <div class="klbl">Pending Verify</div>
-      </div>
-      <div class="kcard" style="--kc:#2563EB;--kb:#EFF6FF;">
-        <div class="kico"><i class="fas fa-clipboard-check"></i></div>
-        <div class="knum" id="kn3"><?php echo $kpi_inprog;?></div>
-        <div class="klbl">In Progress</div>
+        <div class="klbl">Of those, fixed</div>
       </div>
       <div class="kcard" style="--kc:var(--m3);--kb:#FEF9E7;">
         <div class="kico"><i class="fas fa-percentage"></i></div>
         <div class="knum" id="kn4"><?php echo $resolution_rate;?>%</div>
-        <div class="klbl">Resolution Rate</div>
+        <div class="klbl">Fixed so far</div>
       </div>
       <div class="kcard" style="--kc:#7C3AED;--kb:#F5F3FF;">
         <div class="kico"><i class="fas fa-clock"></i></div>
-        <div class="knum" id="kn5"><?php echo $avg_resolution_days;?>d</div>
-        <div class="klbl">Avg Resolution</div>
+        <?php /* DATEDIFF gives whole days, so 0 is a same-day fix, and with
+                 nothing fixed there is no average to show. */ ?>
+        <div class="knum" id="kn5"><?php echo $kpi_resolved === 0 ? '—' : ($avg_resolution_days < 1 ? 'Same day' : $avg_resolution_days . ' d'); ?></div>
+        <div class="klbl">Average time to fix</div>
+      </div>
+    </div>
+    <div class="kgroup-lbl">Right now <span>· open today, whatever the dates above</span></div>
+    <div class="kpis">
+      <div class="kcard" style="--kc:#D97706;--kb:#FFFBEB;">
+        <div class="kico"><i class="fas fa-hourglass-half"></i></div>
+        <div class="knum" id="kn2"><?php echo $kpi_pending;?></div>
+        <div class="klbl">Waiting for the PMO</div>
+      </div>
+      <div class="kcard" style="--kc:#2563EB;--kb:#EFF6FF;">
+        <div class="kico"><i class="fas fa-clipboard-check"></i></div>
+        <div class="knum" id="kn3"><?php echo $kpi_inprog;?></div>
+        <div class="klbl">Being repaired</div>
       </div>
       <div class="kcard" style="--kc:var(--bad);--kb:#FFF1F2;">
         <div class="kico" style="animation:critGlow 2s ease-in-out infinite;"><i class="fas fa-radiation-alt"></i></div>
         <div class="knum" id="kn6"><?php echo $kpi_crit;?></div>
-        <div class="klbl">Critical Active</div>
+        <div class="klbl">Critical, still open</div>
       </div>
       <div class="kcard" style="--kc:#0891B2;--kb:#ECFEFF;">
         <div class="kico"><i class="fas fa-desktop"></i></div>
         <div class="knum" id="kn7"><?php echo $kpi_op_eq;?></div>
-        <div class="klbl">Operational Equip.</div>
+        <div class="klbl">Equipment working</div>
       </div>
     </div>
     <style>@keyframes critGlow{0%,100%{box-shadow:none;}50%{box-shadow:0 0 14px rgba(220,38,38,.4);}}</style>
@@ -657,7 +676,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--t1);min-h
         <div class="cp-head">
           <div>
             <h3><i class="fas fa-chart-line"></i> Defect Reports Over Time</h3>
-            <div class="cp-sub">Submitted vs Resolved — <?php echo ucfirst($interval);?>ly breakdown</div>
+            <div class="cp-sub">Submitted vs Resolved — <?php echo ['day' => 'Daily', 'week' => 'Weekly', 'month' => 'Monthly'][$interval] ?? 'Daily'; ?> breakdown</div>
           </div>
         </div>
         <div class="cp-body" style="padding:.75rem 1rem 1rem;">
@@ -1123,7 +1142,8 @@ document.addEventListener('DOMContentLoaded', () => {
   animN('kn2', <?php echo $kpi_pending;?>);
   animN('kn3', <?php echo $kpi_inprog;?>);
   animN('kn4', <?php echo $resolution_rate;?>, '%');
-  animN('kn5', <?php echo $avg_resolution_days;?>, 'd');
+  <?php if ($kpi_resolved > 0 && $avg_resolution_days >= 1): ?>animN('kn5', <?php echo $avg_resolution_days;?>, ' d');<?php endif; ?>
+
   animN('kn6', <?php echo $kpi_crit;?>);
   animN('kn7', <?php echo $kpi_op_eq;?>);
 });

@@ -465,13 +465,13 @@ if (strtolower(trim((string)($_GET['export'] ?? ''))) === 'csv') {
         </div>
         <div class="head-acts">
           <a class="btn" href="<?php echo wo_e($keep(['export' => 'csv'])); ?>"><i class="fas fa-file-csv"></i> Export</a>
-          <a class="btn m" href="admin_defect_reports.php"><i class="fas fa-list-check"></i> Open Queue</a>
+          <a class="btn m" href="admin_defect_reports.php"><i class="fas fa-list-check"></i> Go to Defect Reports</a>
         </div>
       </div>
 
       <?php if ($loadError !== ''): ?>
         <div class="panel" style="padding:1rem 1.1rem;margin-bottom:1.2rem;border-color:#FECACA;background:#FEF2F2;color:var(--danger);font-size:.85rem;font-weight:600;">
-          <i class="fas fa-circle-exclamation"></i> The ledger could not be loaded. The error is in <code>logs/</code>.
+          <i class="fas fa-circle-exclamation"></i> The work orders could not be loaded just now. Please reload the page.
         </div>
       <?php endif; ?>
 

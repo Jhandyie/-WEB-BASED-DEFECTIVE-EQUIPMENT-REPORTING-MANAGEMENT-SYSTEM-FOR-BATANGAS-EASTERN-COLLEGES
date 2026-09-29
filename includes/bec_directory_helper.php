@@ -103,7 +103,24 @@ function becdir_split_year_level(string $raw): array {
     $raw = trim(preg_replace('/\s+/', ' ', $raw));
     if ($raw === '') { return ['', '']; }
     $parts = preg_split('/\s+-\s+/', $raw, 2);
-    return [trim($parts[0]), trim($parts[1] ?? '')];
+    return [becdir_canon_year_level(trim($parts[0])), trim($parts[1] ?? '')];
+}
+
+/**
+ * One spelling per standing: "4TH YEAR" and "4th year" become "4th Year",
+ * "GRADE 11" becomes "Grade 11". The registrar's file is not consistent about
+ * case, and every spelling became its own entry in the year filters - the
+ * Users page offered "4th Year" (311 people) and "4TH Year" (1) side by side.
+ * Anything that is not one of those two shapes is kept as written.
+ */
+function becdir_canon_year_level(string $level): string {
+    if (preg_match('/^(\d{1,2})\s*(st|nd|rd|th)\s+year$/i', $level, $m)) {
+        return $m[1] . strtolower($m[2]) . ' Year';
+    }
+    if (preg_match('/^grade\s+(\d{1,2})$/i', $level, $m)) {
+        return 'Grade ' . $m[1];
+    }
+    return $level;
 }
 
 /**
