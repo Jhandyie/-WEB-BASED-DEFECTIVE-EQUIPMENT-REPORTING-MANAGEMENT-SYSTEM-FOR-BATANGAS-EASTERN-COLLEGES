@@ -85,6 +85,10 @@ $unitName = ['PMO' => 'Property Management Office', 'ITSO' => 'IT Services Offic
 $techName = (string)$g('technician_name');
 if (strcasecmp($techName, 'Unassigned') === 0) $techName = '';
 $rpName   = (string)$g('reporter_name');
+// A scheduled maintenance task has no reporter; its text is the checklist.
+// Same test as isPmRow() on the technician dashboard.
+$srPm = in_array($g('is_preventive'), [true, 't', 1, '1'], true)
+     || stripos((string)$g('issue_description'), '[Preventive Maintenance]') === 0;
 $rpWho    = reporterTypeLabel($g('reporter_type'));
 $rpDept   = (string)$g('reporter_department');
 $rpLine   = implode(', ', array_filter([$rpWho, $rpDept]));
@@ -323,7 +327,7 @@ $today = date('F j, Y');
         <div class="kv"><span class="k">Reported by</span><span class="v"><?php echo sr_has($rpName)?sr_e($rpName):'<span class="muted">—</span>'; ?><?php if ($rpLine !== ''): ?> <span class="muted" style="font-weight:500">(<?php echo sr_e($rpLine); ?>)</span><?php endif; ?></span></div>
         <div class="kv"><span class="k">Date reported</span><span class="v"><?php $d=$fmtDate($reported,true); echo $d?sr_e($d):'<span class="muted">—</span>'; ?></span></div>
       </div>
-      <div class="kv"><span class="k">What the reporter said</span><span class="v prose"><?php echo sr_has($g('issue_description'))?nl2br(sr_e($g('issue_description'))):'<span class="muted">—</span>'; ?></span></div>
+      <div class="kv"><span class="k"><?php echo $srPm ? 'What to check' : 'What the reporter said'; ?></span><span class="v prose"><?php echo sr_has($g('issue_description'))?nl2br(sr_e($g('issue_description'))):'<span class="muted">—</span>'; ?></span></div>
     </div>
 
     <!-- The repair -->

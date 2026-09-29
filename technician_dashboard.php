@@ -768,7 +768,12 @@ body.modal-open .bell-fab{display:none;}
 .ws-title{font-size:1.22rem;color:#fff;}
 .ws-head-tags{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
 .ws-head-tags .badge{background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.2);}
-.ws-head-tags .badge.sla.overdue{background:rgba(220,38,38,.35);border-color:rgba(255,255,255,.3);}
+/* On the dark task header the chip's own colour rules (.badge.sla.soon /
+   .overdue, three classes) outranked the white text above (two), so "3 days
+   overdue" was dark red on dark maroon - about 1.2:1, unreadable - and "due
+   soon" dark amber on the same. White text on a solid colour: 4.8:1. */
+.ws-head-tags .badge.sla.soon{color:#fff;background:#A16207;border-color:rgba(255,255,255,.3);}
+.ws-head-tags .badge.sla.overdue{color:#fff;background:#DC2626;border-color:rgba(255,255,255,.35);}
 .ws-head-tags .ws-srv{background:var(--gold);color:#3a2600;border-color:transparent;text-decoration:none;cursor:pointer;font-weight:800;min-height:44px;display:inline-flex;align-items:center;gap:.4rem;transition:filter .15s,transform .12s;}
 .ws-head-tags .ws-srv:hover{filter:brightness(1.08);transform:none;}
 
@@ -1310,7 +1315,10 @@ body.modal-open{overflow:hidden;}
                 <span class="badge <?php echo e(ptone((string)($row['priority'] ?? 'medium'))); ?>"><i class="fas <?php echo e(picon((string)($row['priority'] ?? 'medium'))); ?>"></i><?php echo e(ucfirst((string)($row['priority'] ?? 'medium'))); ?> priority</span>
                 <?php if (isPmRow($row)): ?><span class="badge pm" title="Scheduled preventive maintenance, not a reported defect"><i class="fas fa-calendar-check"></i>Preventive maintenance</span><?php endif; ?>
               </div>
-              <div class="copy-label">What the reporter said</div>
+              <?php /* A scheduled maintenance task has no reporter - its text is
+                       the checklist admin_preventive.php wrote - so it is
+                       introduced as what to check, not as something said. */ ?>
+              <div class="copy-label"><?php echo isPmRow($row) ? 'What to check' : 'What the reporter said'; ?></div>
               <div class="copy"><?php echo nl2br(e((string)($row['issue_description'] ?? 'No description was given.'))); ?></div>
               <?php if ($photos): ?>
               <div class="photos" style="margin-top:12px">
@@ -1438,6 +1446,10 @@ body.modal-open{overflow:hidden;}
                            vocabulary, and the Taglish placeholder above still
                            stands for anything they do not cover. */ ?>
                   <div class="tp" data-tp-for="work_performed">
+                    <?php /* A scheduled check usually finds nothing wrong, and
+                             every sentence below describes a repair. Offered
+                             first on those tasks only. */ ?>
+                    <?php if (isPmRow($row)): ?><button type="button" class="tp-b">Na-check na — maayos lahat, walang sira.</button><?php endif; ?>
                     <button type="button" class="tp-b">Nilinis at inayos ang koneksyon, tested na — okay na.</button>
                     <button type="button" class="tp-b">Pinalitan ang sirang parte mula sa stock at tested.</button>
                     <button type="button" class="tp-b">Hinigpitan at ni-anchor muli — matibay na.</button>
