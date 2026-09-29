@@ -491,7 +491,7 @@ body::after {
   outline: none; -webkit-appearance: none;
 }
 .fi:focus { border-color: var(--maroon); box-shadow: 0 0 0 3.5px rgba(123,29,29,.09); }
-.fi::placeholder { color: #C4AFA8; font-size:var(--fs-xl); }
+.fi::placeholder { color: #C4AFA8; font-size: inherit; }   /* was fs-xl: the example text sat larger than what you type */
 .fi-hint { font-size:var(--fs-sm); color: var(--ink3); margin-top:var(--sp-1); display: block; line-height: 1.55; }
 /* ── "I am a…" ────────────────────────────────────────────────────────
    Three buttons, one tap. This replaced the department / course / year
@@ -805,6 +805,45 @@ body::after {
   body { align-items: flex-start; padding-top:var(--sp-4); padding-bottom:var(--sp-4); }
 }
 
+/* ── Phone: one column, one rhythm ──────────────────────────────────────────
+   Asked for by the user, who found "hanging spaces" on a phone. Measured at
+   390px: the email box started 711px down, below the first screen, after a
+   header that said "Property Management Office" three times, wrapped the
+   college name onto four lines beside the Home button, and repeated in five
+   lines what the form's own intro says. The gaps between blocks ran 16, 24
+   and 40px with no pattern — 40 between the privacy line and Continue.
+
+   So on a phone the brand panel is a header bar (seal, college, office, a
+   Home icon), the form keeps one 16px step between blocks, and the email
+   field is 16px like every input (the 390px rule above had it at 19px).
+   Placed after every other max-width rule so it is the one that holds. */
+@media (max-width: 520px) {
+  .brand { padding:var(--sp-4) var(--sp-5); }
+  .brand-hero { display: none; }
+  .brand-top { gap:var(--sp-2); }
+  .brand-top strong { font-size: .9375rem; line-height: 1.25; }   /* one line from a 375px phone up */
+  .brand-top span { font-size: .8125rem; text-transform: none; letter-spacing: 0; color: rgba(255,255,255,.78); }
+  .brand-home { width: 44px; height: 44px; padding: 0; justify-content: center; border-radius: 12px; }
+  .brand-home .bh-txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  .panel { padding:var(--sp-5); }
+  .panel-eyebrow { margin-bottom:var(--sp-2); }
+  .panel-title { margin-bottom:var(--sp-2); }
+  .panel-sub { margin-bottom:var(--sp-4); }
+  .intro-card { margin-bottom:var(--sp-4); }
+  .fi { font-size: 1rem; }
+  .pv-block { margin:var(--sp-3) 0 var(--sp-4); }
+  .pv-consent { font-size: .875rem; }
+  /* One line down to a 360px phone: the arrow and the padding around "Read"
+     were the width the consent sentence was short of. */
+  .pv-toggle { padding:var(--sp-1); }
+  .pv-toggle .chev { display: none; }
+  .btn-submit { margin-top: 0; }
+  .or-row { margin:var(--sp-4) 0; }
+  .action-row { margin-bottom:var(--sp-4); }
+  .safety-note { margin-bottom:var(--sp-3); }
+}
+
 /* ── DESKTOP / LAPTOP FULL-BLEED ──
    min-width rules only: these never touch the mobile view (<=860px). They make
    the layout fill the ENTIRE screen edge-to-edge (no side gaps, full height). */
@@ -875,7 +914,7 @@ body::after {
         <strong>Batangas Eastern Colleges</strong>
         <span>Property Management Office</span>
       </div>
-      <a class="brand-home" href="index.php"><i aria-hidden="true" class="fas fa-house"></i> Home</a>
+      <a class="brand-home" href="index.php" aria-label="Home"><i aria-hidden="true" class="fas fa-house"></i> <span class="bh-txt">Home</span></a>
     </div>
     <div class="brand-hero">
       <span class="brand-tag"><i aria-hidden="true" class="fas fa-building-shield"></i> Property Management Office · Official Portal</span>
@@ -900,7 +939,7 @@ body::after {
     <h1 class="panel-title">Report <em>defective campus equipment</em></h1>
     <?php /* The panel beside this already introduces the office and the system,
              so this said the same thing a second time in five lines. */ ?>
-    <p class="panel-sub">Sign in with your official BEC details to report damaged or malfunctioning equipment. You will receive a ticket reference by email and can follow your report through to its repair.</p>
+    <p class="panel-sub">Sign in with your BEC email to report broken equipment. Your ticket number is emailed to you, and you can follow the repair from there.</p>
     <?php /* Collapsed by default. Open, this guidance ran to four paragraphs and
              pushed the Full Name field off the bottom of a laptop screen, so the
              first thing a reporter met on a sign-in page was a wall of text.
@@ -1143,7 +1182,7 @@ body::after {
             pattern="[a-zA-Z0-9._%+\-]+@[Bb][Ee][Cc]\.[Ee][Dd][Uu]\.[Pp][Hh]"
             title="Use your official BEC email ending in @bec.edu.ph">
         </div>
-        <div class="fi-hint"><i aria-hidden="true" class="fas fa-id-badge"></i> Use your official BEC account (<strong>@bec.edu.ph</strong>). Your ticket confirmation will be sent here.</div>
+        <div class="fi-hint"><i aria-hidden="true" class="fas fa-id-badge"></i> Use your <strong>@bec.edu.ph</strong> email.</div>
       </div>
       <div class="fg">
         <span class="fl" id="whoLbl">I am a <span class="req">*</span></span>
@@ -1164,7 +1203,7 @@ body::after {
         <div class="pv-row">
           <label class="pv-consent">
             <input type="checkbox" name="privacy_consent" value="1" required <?php echo !empty($_POST['privacy_consent']) ? 'checked' : ''; ?>>
-            <span>I agree to the <strong>Data Privacy Notice</strong></span>
+            <span>I agree to the <strong>Privacy Notice</strong></span>
           </label>
           <!-- Kept outside the <label> on purpose: inside it, every click would
                also toggle the consent checkbox. -->
