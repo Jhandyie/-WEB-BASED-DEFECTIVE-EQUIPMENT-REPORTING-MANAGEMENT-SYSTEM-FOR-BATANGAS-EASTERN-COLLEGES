@@ -2342,6 +2342,16 @@ function becDefectFilterClauses(array $opts, bool $named): array {
         $sql .= $named ? ' AND COALESCE(dr.is_preventive, FALSE) IS NOT TRUE' : ' AND COALESCE(dr.is_preventive, 0) = 0';
     }
 
+    // Who filed it: student / teacher / staff, as stored on the report. "unknown"
+    // is the reports filed before the sign-in asked (22 Sept 2026) and anyone
+    // the question could not place.
+    $who = strtolower(trim((string)($opts['reporter_type'] ?? '')));
+    if ($who === 'unknown') {
+        $sql .= " AND COALESCE(dr.reporter_type, '') = ''";
+    } elseif ($who !== '' && isset(REPORTER_TYPES[$who])) {
+        $sql .= ' AND dr.reporter_type = ' . $bind($who, 'who');
+    }
+
     // Reports the reporter has come back to chase. follow_up_count was written
     // on every nudge and read by nothing, so a report chased three times looked
     // exactly like one nobody had asked about.

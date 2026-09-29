@@ -47,7 +47,7 @@ function adminWorkflowNotifyRole($conn, string $role, string $message, string $r
  */
 function becQueueReturn(): string {
     $keep = [];
-    foreach (['status', 'priority', 'dept', 'kind', 'search', 'nudged', 'overdue', 'equipment', 'reporter', 'sort', 'dir'] as $k) {
+    foreach (['status', 'priority', 'dept', 'kind', 'who', 'search', 'nudged', 'overdue', 'equipment', 'reporter', 'sort', 'dir'] as $k) {
         $v = trim((string)($_GET[$k] ?? ''));
         if ($v !== '' && $v !== 'all') { $keep[$k] = $v; }
     }
@@ -335,6 +335,10 @@ if (!in_array($kf, ['all', 'preventive', 'reported'], true)) { $kf = 'all'; }
 // actually waiting on this" never reached the admin working the queue.
 $nf = strtolower(trim((string)($_GET['nudged'] ?? 'all')));
 if (!in_array($nf, ['all', 'yes'], true)) { $nf = 'all'; }
+// Who filed it - Student / Teacher / Staff, one tap at sign-in and stored on
+// every report since 22 Sept. "unknown" is everything filed before that.
+$wf = strtolower(trim((string)($_GET['who'] ?? 'all')));
+if (!in_array($wf, ['all', 'student', 'teacher', 'staff', 'unknown'], true)) { $wf = 'all'; }
 
 /* Still open and past its SLA window. "Which ITSO reports are late?" was not a
    question this page could answer at all. */
@@ -396,6 +400,7 @@ $listOpts = ['exclude_statuses' => ['deleted']];
 if ($sf !== 'all') { $listOpts['statuses'] = $stages[$sf] ?? [$sf]; }
 if ($df !== 'all') { $listOpts['dept'] = $df; $listOpts['dept_untriaged'] = !$dfExplicit; }
 if ($kf !== 'all') { $listOpts['kind'] = $kf; }
+if ($wf !== 'all') { $listOpts['reporter_type'] = $wf; }
 if ($nf === 'yes')  { $listOpts['followed_up'] = true; }
 if ($of === 'yes')  { $listOpts['overdue'] = true; }
 if ($eqf !== '')    { $listOpts['equipment_id']   = $eqf; }
@@ -409,6 +414,7 @@ $listOpts['dir']   = $sd;
 $cardOpts = ['exclude_statuses' => ['deleted']];
 if ($df !== 'all') { $cardOpts['dept'] = $df; $cardOpts['dept_untriaged'] = !$dfExplicit; }
 if ($kf !== 'all') { $cardOpts['kind'] = $kf; }
+if ($wf !== 'all') { $cardOpts['reporter_type'] = $wf; }
 if ($nf === 'yes')  { $cardOpts['followed_up'] = true; }
 if ($eqf !== '')    { $cardOpts['equipment_id']   = $eqf; }
 if ($rpf !== '')    { $cardOpts['reporter_email'] = $rpf; }
@@ -431,7 +437,7 @@ if (in_array($exportFmt, ['csv', 'xlsx', 'pdf'], true)) {
     // so it is the one request that pays for it. The page render below never does.
     $reports = getDefectReportsWithFilters('all', $pf, $sq, $listOpts);
     $dHeaders = ['Ticket', 'Equipment', 'Asset Tag', 'Location', 'Issue', 'Priority', 'Status',
-                 'Unit', 'Reporter', 'Technician', 'Reported', 'Completed'];
+                 'Unit', 'Reporter', 'Reporter Type', 'Technician', 'Reported', 'Completed'];
     $flat = static fn($v) => trim(preg_replace('/\s+/u', ' ', (string)$v));
     $dash = static fn($v) => trim((string)$v) !== '' ? trim((string)$v) : '—';
     $day  = static fn($v) => !empty($v) ? date('Y-m-d', strtotime((string)$v)) : '—';
@@ -450,6 +456,7 @@ if (in_array($exportFmt, ['csv', 'xlsx', 'pdf'], true)) {
             defectStatusLabel((string)($r1['status'] ?? '')),
             $dash($r1['department_assigned'] ?? ''),
             $dash($r1['reporter_name'] ?? ($r1['reported_by'] ?? '')),
+            $dash(reporterTypeLabel($r1['reporter_type'] ?? '')),
             $dash($r1['technician_name'] ?? ''),
             $day($r1['report_date'] ?? ''),
             $day($r1['completion_date'] ?? ''),
@@ -472,6 +479,7 @@ if (in_array($exportFmt, ['csv', 'xlsx', 'pdf'], true)) {
         'Priority Filter' => $pf !== 'all' ? ucfirst($pf) : '',
         'Unit Filter'     => $df !== 'all' ? $df : '',
         'Origin Filter'   => $kf !== 'all' ? ($kf === 'preventive' ? 'Preventive (scheduled)' : 'Reported by a person') : '',
+        'Reporter Filter' => $wf !== 'all' ? ($wf === 'unknown' ? 'Not recorded' : reporterTypeLabel($wf)) : '',
         'Search'          => $sq !== '' ? $sq : '',
     ]);
 
@@ -1353,6 +1361,11 @@ textarea.fc{resize:vertical;min-height:70px;}
 .dr-who{display:inline-block;vertical-align:1px;margin-left:var(--sp-1);padding:1px var(--sp-2);border-radius:20px;
   font-size:var(--fs-xs);font-weight:700;letter-spacing:.04em;text-transform:uppercase;
   background:rgba(123,29,29,.08);color:#7B1D1D;border:1px solid rgba(123,29,29,.16);}
+/* The same tag in the queue, on its own line under the name so a long name
+   does not push it out of the column. */
+.rq-who{display:table;margin-top:2px;padding:0 var(--sp-2);border-radius:20px;
+  font-size:var(--fs-xs);font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  background:rgba(123,29,29,.08);color:#7B1D1D;border:1px solid rgba(123,29,29,.16);}
 
 /* ── body ───────────────────────────────────────────────────────────────── */
 .dr-body{flex:1;min-height:0;overflow-y:auto;display:grid;
@@ -1720,6 +1733,13 @@ textarea.fc{resize:vertical;min-height:70px;}
         <option value="reported"   <?php echo $kf==='reported'?'selected':''; ?>>Reported by a person</option>
         <option value="preventive" <?php echo $kf==='preventive'?'selected':''; ?>>Preventive (scheduled)</option>
       </select>
+      <select class="fsel" id="fsw" aria-label="Filter by who reported it" onchange="go()">
+        <option value="all"     <?php echo $wf==='all'?'selected':''; ?>>All Reporters</option>
+        <option value="student" <?php echo $wf==='student'?'selected':''; ?>>Students</option>
+        <option value="teacher" <?php echo $wf==='teacher'?'selected':''; ?>>Teachers</option>
+        <option value="staff"   <?php echo $wf==='staff'?'selected':''; ?>>Staff</option>
+        <option value="unknown" <?php echo $wf==='unknown'?'selected':''; ?>>Not recorded</option>
+      </select>
       <select class="fsel" id="fsn" aria-label="Filter by reporter follow-ups" onchange="go()">
         <option value="all" <?php echo $nf==='all'?'selected':''; ?>>Any follow-up</option>
         <option value="yes" <?php echo $nf==='yes'?'selected':''; ?>>Chased by the reporter</option>
@@ -1817,7 +1837,7 @@ textarea.fc{resize:vertical;min-height:70px;}
                  forms so acting on a report returns to this same view rather
                  than the bare, unfiltered page. */
               $drRowQS = '';
-              foreach (['status' => $sf, 'priority' => $pf, 'dept' => $df, 'kind' => $kf, 'search' => $sq, 'nudged' => $nf, 'overdue' => $of, 'equipment' => $eqf, 'reporter' => $rpf, 'sort' => $so, 'dir' => $sd] as $k => $v) {
+              foreach (['status' => $sf, 'priority' => $pf, 'dept' => $df, 'kind' => $kf, 'who' => $wf, 'search' => $sq, 'nudged' => $nf, 'overdue' => $of, 'equipment' => $eqf, 'reporter' => $rpf, 'sort' => $so, 'dir' => $sd] as $k => $v) {
                   $v = trim((string)$v);
                   if ($v !== '' && $v !== 'all') { $drRowQS .= '&' . $k . '=' . urlencode($v); }
               }
@@ -1829,7 +1849,7 @@ textarea.fc{resize:vertical;min-height:70px;}
               <i class="fas fa-folder-open"></i>No reports match your current filters.
             </div></td></tr>
             <?php else: foreach($reportsPage as $r): ?>
-            <tr class="rep-row" tabindex="0" role="button" aria-label="Open report details" data-rid="<?php echo esc($r['report_id']); ?>" data-view-url="?view_id=<?php echo $r['report_id']; ?>&status=<?php echo $sf; ?>&priority=<?php echo $pf; ?>&dept=<?php echo $df; ?>&kind=<?php echo $kf; ?>&nudged=<?php echo $nf; ?>&search=<?php echo urlencode($sq); ?>&view=<?php echo $vw; ?>">
+            <tr class="rep-row" tabindex="0" role="button" aria-label="Open report details" data-rid="<?php echo esc($r['report_id']); ?>" data-view-url="?view_id=<?php echo $r['report_id']; ?>&status=<?php echo $sf; ?>&priority=<?php echo $pf; ?>&dept=<?php echo $df; ?>&kind=<?php echo $kf; ?>&who=<?php echo $wf; ?>&nudged=<?php echo $nf; ?>&search=<?php echo urlencode($sq); ?>&view=<?php echo $vw; ?>">
               <?php /* The checkbox belongs to #bulkForm above, not to the row —
                        a row click opens the report, so the cell stops the click
                        before it gets there. */ ?>
@@ -1852,7 +1872,8 @@ textarea.fc{resize:vertical;min-height:70px;}
                 <div class="esl"><?php echo esc($r['asset_tag']); ?></div>
                 <?php endif; ?>
               </td>
-              <td style="font-size:.77rem;"><?php echo esc($r['reporter_name']??'—'); ?></td>
+              <?php $rqWho = reporterTypeLabel($r['reporter_type'] ?? ''); ?>
+              <td style="font-size:.77rem;"><?php echo esc($r['reporter_name']??'—'); ?><?php if ($rqWho !== ''): ?><span class="rq-who"><?php echo esc($rqWho); ?></span><?php endif; ?></td>
               <td><span class="bdg b-<?php echo prCls($r['priority']); ?>"><?php echo prLbl($r['priority']); ?></span></td>
               <td><span class="bdg b-<?php echo stCls($r['status']); ?>"><?php echo stLbl($r['status']); ?></span></td>
               <td>
@@ -1865,7 +1886,7 @@ textarea.fc{resize:vertical;min-height:70px;}
               <td style="font-size:.73rem;"><?php echo esc($r['technician_name']??'Unassigned'); ?></td>
               <td style="text-align:center;">
                 <div style="display:flex;gap:.25rem;justify-content:center;">
-                  <a href="?view_id=<?php echo $r['report_id']; ?>&status=<?php echo $sf; ?>&priority=<?php echo $pf; ?>&dept=<?php echo $df; ?>&kind=<?php echo $kf; ?>&nudged=<?php echo $nf; ?>&search=<?php echo urlencode($sq); ?>&view=<?php echo $vw; ?>"
+                  <a href="?view_id=<?php echo $r['report_id']; ?>&status=<?php echo $sf; ?>&priority=<?php echo $pf; ?>&dept=<?php echo $df; ?>&kind=<?php echo $kf; ?>&who=<?php echo $wf; ?>&nudged=<?php echo $nf; ?>&search=<?php echo urlencode($sq); ?>&view=<?php echo $vw; ?>"
                     class="btn bico bi-v" title="View Details"><i class="fas fa-eye"></i></a>
                   <?php if (($r['status'] ?? '') === 'reported'): ?>
                   <form method="POST" action="?<?php echo ltrim($drRowQS, '&'); ?>" style="display:inline;margin:0;" onsubmit="return confirm('Mark report <?php echo esc($r['report_id']); ?> as officially Received by the PMO?\n\nThe reporter will be notified by email and in-app, and this will be recorded in the audit log and tracking timeline.');">
@@ -1992,7 +2013,7 @@ textarea.fc{resize:vertical;min-height:70px;}
      redirect afterwards can put them back. becQueueReturn() reads these same
      keys out of $_GET on the POST. */
   $drFormQS = '';
-  foreach (['status' => $sf, 'priority' => $pf, 'dept' => $df, 'kind' => $kf, 'search' => $sq, 'nudged' => $nf, 'overdue' => $of, 'equipment' => $eqf, 'reporter' => $rpf, 'sort' => $so, 'dir' => $sd] as $k => $v) {
+  foreach (['status' => $sf, 'priority' => $pf, 'dept' => $df, 'kind' => $kf, 'who' => $wf, 'search' => $sq, 'nudged' => $nf, 'overdue' => $of, 'equipment' => $eqf, 'reporter' => $rpf, 'sort' => $so, 'dir' => $sd] as $k => $v) {
       $v = trim((string)$v);
       if ($v !== '' && $v !== 'all') { $drFormQS .= '&' . $k . '=' . urlencode($v); }
   }
@@ -2570,6 +2591,7 @@ function go() {
   url.searchParams.set('priority', document.getElementById('fsp').value);
   url.searchParams.set('dept',     document.getElementById('fsd').value);
   url.searchParams.set('kind',     document.getElementById('fsk').value);
+  url.searchParams.set('who',      document.getElementById('fsw').value);
   url.searchParams.set('nudged',   document.getElementById('fsn').value);
   url.searchParams.set('overdue',  document.getElementById('fov').value);
   url.searchParams.set('search',   document.getElementById('fsq').value);

@@ -205,11 +205,15 @@ $prefill = becdir_form_prefill($reporterProfile, $becPrograms, $becLevels);
 $preDept   = $prefill['department'];
 $preCourse = $prefill['course'];
 $preLevel  = $prefill['level'];
-$reporterType = reporterCanonType((string)($_SESSION['guest_role'] ?? ''));
+// The registrar's record outranks the tap. The directory lists every enrolled
+// student (and a handful of faculty and staff); when it knows who this is, that
+// is what the report says, so a student who taps "Teacher" is still filed as a
+// student. The tap decides only for people the directory does not list — most
+// teachers and staff — and a session that predates the question falls back to
+// the directory alone.
+$reporterType = reporterCanonType((string)($reporterProfile['user_type'] ?? ''));
 if ($reporterType === '') {
-    // A session that predates the sign-in question. The directory knows every
-    // student; anyone else simply goes unlabelled rather than being blocked.
-    $reporterType = reporterCanonType((string)($reporterProfile['user_type'] ?? ''));
+    $reporterType = reporterCanonType((string)($_SESSION['guest_role'] ?? ''));
 }
 
 // Pre-fill equipment from a scanned QR code (?eq=EQUIPMENT_ID)
