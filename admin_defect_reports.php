@@ -671,13 +671,30 @@ $c_done = $stageTotal($stages['completed']);
 $c_rej  = $stageTotal($stages['rejected']);
 
 /* ─── KANBAN COLUMNS ───────────────────────────────────── */
+/* The columns used to be called "Pending Verification" (for reports nobody had
+   opened yet - nothing was being verified) and "Approved" (for reports with a
+   technician assigned), and each took only its one exact status, so a report
+   that was Received by PMO, Received by Technician, Waiting for Materials or
+   For Replacement had no column and was simply missing from the board. Each
+   column now takes a stage - the same groups as the stage cards above - and is
+   named in the words the rest of the system uses. */
 $cols = [
-    'reported'    => ['label'=>'Pending Verification', 'icon'=>'hourglass-half',  'color'=>'#D97706', 'bg'=>'#FFFBEB', 'bdr'=>'#FDE68A'],
-    'ready_for_assignment' => ['label'=>'Ready to Assign', 'icon'=>'user-plus', 'color'=>'#2563EB', 'bg'=>'#EFF6FF', 'bdr'=>'#BFDBFE'],
-    'assigned'    => ['label'=>'Approved',             'icon'=>'check-double',    'color'=>'#2563EB', 'bg'=>'#EFF6FF', 'bdr'=>'#BFDBFE'],
-    'in_progress' => ['label'=>'In Progress',          'icon'=>'wrench',          'color'=>'#7C3AED', 'bg'=>'#F5F3FF', 'bdr'=>'#DDD6FE'],
+    'reported'    => ['label'=>'Waiting for PMO',      'icon'=>'hourglass-half',  'color'=>'#D97706', 'bg'=>'#FFFBEB', 'bdr'=>'#FDE68A'],
+    'ready_for_assignment' => ['label'=>'Ready for Assignment', 'icon'=>'user-plus', 'color'=>'#2563EB', 'bg'=>'#EFF6FF', 'bdr'=>'#BFDBFE'],
+    'assigned'    => ['label'=>'Technician Assigned',  'icon'=>'user-check',      'color'=>'#2563EB', 'bg'=>'#EFF6FF', 'bdr'=>'#BFDBFE'],
+    'in_progress' => ['label'=>'Being Repaired',       'icon'=>'wrench',          'color'=>'#7C3AED', 'bg'=>'#F5F3FF', 'bdr'=>'#DDD6FE'],
     'completed'   => ['label'=>'Completed',            'icon'=>'check-circle',    'color'=>'#16A34A', 'bg'=>'#F0FDF4', 'bdr'=>'#BBF7D0'],
     'rejected'    => ['label'=>'Rejected',             'icon'=>'times-circle',    'color'=>'#DC2626', 'bg'=>'#FFF1F2', 'bdr'=>'#FECDD3'],
+];
+// Which column each raw status belongs to.
+$colOf = [
+    'reported' => 'reported', 'pmo_review' => 'reported',
+    'ready_for_assignment' => 'ready_for_assignment',
+    'assigned' => 'assigned',
+    'accepted' => 'in_progress', 'in_progress' => 'in_progress',
+    'waiting_for_materials' => 'in_progress', 'for_replacement' => 'in_progress',
+    'completed' => 'completed', 'verified' => 'completed', 'closed' => 'completed',
+    'rejected' => 'rejected',
 ];
 // Only the active view is rendered (switchView() reloads the page), so in table view none of
 // this is ever read. Bucketing every report six times over is not free at a real backlog.
@@ -687,17 +704,19 @@ if ($vw === 'kanban') {
     // the whole scope. It asks for it here rather than the table view paying for it.
     $kanbanRows = getDefectReportsWithFilters('all', 'all', '', $cardOpts);
     foreach ($cols as $status => $_) { $kanban[$status] = []; }
-    // completed bucket also includes verified/closed
     foreach ($kanbanRows as $r) {
-        $s = $r['status'] ?? '';
-        if (in_array($s, ['verified','closed'], true)) { $s = 'completed'; }
+        $s = $colOf[strtolower((string)($r['status'] ?? ''))] ?? '';
         if (isset($kanban[$s])) { $kanban[$s][] = $r; }
     }
 }
 
 /* ─── HELPERS ──────────────────────────────────────────── */
-function stCls($s){return['reported'=>'pend','pmo_review'=>'pend','ready_for_assignment'=>'prog','assigned'=>'prog','in_progress'=>'prog2','completed'=>'done','verified'=>'done','closed'=>'done','rejected'=>'rej'][$s]??'pend';}
-function stLbl($s){return['reported'=>'Pending','pmo_review'=>'Received by PMO','ready_for_assignment'=>'Ready to Assign','assigned'=>'Assigned','in_progress'=>'In Progress','completed'=>'Completed','verified'=>'Verified','closed'=>'Closed','rejected'=>'Rejected'][$s]??ucfirst(str_replace('_',' ',$s));}
+function stCls($s){return['reported'=>'pend','pmo_review'=>'pend','ready_for_assignment'=>'prog','assigned'=>'prog','accepted'=>'prog2','in_progress'=>'prog2','waiting_for_materials'=>'prog2','for_replacement'=>'prog2','completed'=>'done','verified'=>'done','closed'=>'done','rejected'=>'rej'][$s]??'pend';}
+// The system's own names (defectStatusLabel), as the export, search, Assign
+// Technicians and Track Report already use. This page kept a private list that
+// called Submitted "Pending", Ready for Assignment "Ready to Assign" and
+// Technician Assigned "Assigned", and had no name for Received by Technician.
+function stLbl($s){return defectStatusLabel((string)$s);}
 function prCls($p){return['critical'=>'crit','high'=>'hi','medium'=>'med','low'=>'lo'][$p]??'lo';}
 function prLbl($p){return ucfirst($p??'—');}
 function esc($s){return htmlspecialchars((string)($s ?? '—'), ENT_QUOTES, 'UTF-8');}
@@ -2044,8 +2063,10 @@ textarea.fc{resize:vertical;min-height:70px;}
     $drStages = [
       ['Submitted',       'fa-paper-plane',   $vr['report_date']        ?? null, 'Reported and logged.'],
       ['Received by PMO', 'fa-inbox',         $vr['received_by_pmo_at'] ?? null, 'Acknowledged for review.'],
-      ['Assigned',        'fa-user-plus',     $vr['assigned_date']      ?? null, 'Routed to a technician.'],
-      ['Accepted',        'fa-handshake',     $vr['accepted_at']        ?? null, 'Technician took the job.'],
+      /* Named as defectStatusLabel() names them - the list, the exports, Track
+         Report and the reporter's emails all say these words. */
+      ['Technician Assigned',    'fa-user-plus',  $vr['assigned_date'] ?? null, 'Routed to a technician.'],
+      ['Received by Technician', 'fa-handshake',  $vr['accepted_at']   ?? null, 'The technician has the job.'],
       ['In Progress',     'fa-screwdriver-wrench', $vr['started_at']    ?? null, 'Repair under way.'],
       ['Completed',       'fa-clipboard-check',    $vr['completion_date'] ?? null, 'Work reported finished.'],
       ['Verified & Closed','fa-circle-check', in_array($vr['status'], ['verified','closed'], true) ? ($vr['completion_date'] ?? null) : null, 'Confirmed by the office.'],
@@ -2171,18 +2192,17 @@ textarea.fc{resize:vertical;min-height:70px;}
         <section class="dr-card">
           <div class="dr-card-h"><i class="fas fa-circle-info" aria-hidden="true"></i><h3>Issue Details</h3></div>
 
-          <?php /* The form no longer asks whether the unit still works, so new
-                   reports carry nothing here. Walk-ins and older reports still
-                   do, and keep the chip. */ ?>
-          <?php if ($drUs !== ''): ?>
-          <div class="dr-cond <?php echo $drCond[0]; ?>">
-            <span class="dot" style="background:<?php echo $drCond[1]; ?>;"></span>
-            <span><?php echo esc(strtoupper($drCond[2])); ?></span>
-          </div>
-          <?php endif; ?>
-
           <dl class="dr-rows">
             <div class="dr-row"><dt>Equipment</dt><dd><?php echo esc($vr['equipment_name']); ?></dd></div>
+            <?php /* The form no longer asks whether the unit still works (the
+                     September panel removed the question), so new reports carry
+                     nothing here. Older and walk-in reports do, and the answer is
+                     still worth knowing - but it was a full-width coloured banner,
+                     the loudest thing on the record, for a question nobody is
+                     asked any more. Now one line among the details. */ ?>
+            <?php if ($drUs !== ''): ?>
+            <div class="dr-row"><dt>Still usable?</dt><dd><span class="dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:<?php echo $drCond[1]; ?>;"></span><?php echo esc($drCond[2]); ?></dd></div>
+            <?php endif; ?>
             <div class="dr-row"><dt>Asset Tag</dt><dd><?php echo esc($vr['asset_tag'] ?: '—'); ?></dd></div>
             <div class="dr-row"><dt>Location</dt><dd><?php echo esc($vr['location'] ?: '—'); ?></dd></div>
             <div class="dr-row"><dt>Reported by</dt><dd><?php echo esc($vr['reporter_name']); ?><?php if ($drWho !== ''): ?> <span class="dr-who"><?php echo esc($drWho); ?></span><?php endif; ?></dd></div>

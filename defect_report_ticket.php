@@ -59,9 +59,10 @@ $fmtDate = static function ($v, $withTime = false) {
     $t = is_numeric($v) ? (int)$v : strtotime((string)$v);
     return $t ? date($withTime ? 'F j, Y · g:i A' : 'F j, Y', $t) : '';
 };
-$statusLabels = ['reported'=>'Pending Review','pmo_review'=>'Received by PMO','ready_for_assignment'=>'Ready to Assign','assigned'=>'Assigned','accepted'=>'Accepted','in_progress'=>'In Progress','waiting_for_materials'=>'Waiting for Materials','for_replacement'=>'For Replacement','completed'=>'Completed','verified'=>'Verified','closed'=>'Closed','rejected'=>'Rejected'];
+// The system's names, as on Track Report and in the reporter's emails; this
+// printout kept its own list ("Pending Review", "Ready to Assign").
 $status = strtolower((string)$g('status'));
-$statusLabel = $statusLabels[$status] ?? ucfirst(str_replace('_',' ',$status));
+$statusLabel = defectStatusLabel($status);
 
 $eqName   = (string)($r['eq_name'] ?? $g('equipment_name'));
 $assetTag = (string)($r['eq_asset_tag'] ?? $g('asset_tag'));

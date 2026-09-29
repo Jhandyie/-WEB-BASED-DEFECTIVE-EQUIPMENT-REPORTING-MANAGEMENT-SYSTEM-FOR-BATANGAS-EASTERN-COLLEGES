@@ -1019,7 +1019,9 @@ new Chart(document.getElementById('c2'), {
 <?php if(!empty($status_labels)):
   $stColors=['reported'=>'#D4A017','assigned'=>'#2563EB','in_progress'=>'#7C3AED','completed'=>'#16A34A','verified'=>'#14532D','closed'=>'#6B7280','rejected'=>'#DC2626'];
   $sPalette = array_map(fn($s)=>$stColors[$s]??'#7B1D1D', $status_labels);
-  $sLabels  = array_map(fn($s)=>['reported'=>'Pending','assigned'=>'Approved','in_progress'=>'In Progress','completed'=>'Completed','verified'=>'Verified','closed'=>'Closed','rejected'=>'Rejected'][$s]??ucfirst(str_replace('_',' ',$s)), $status_labels);
+  // The system's names (defectStatusLabel); a private list here called a
+  // report with a technician assigned "Approved".
+  $sLabels  = array_map(fn($s)=>defectStatusLabel((string)$s), $status_labels);
 ?>
 new Chart(document.getElementById('c3'), {
   type:'doughnut',
