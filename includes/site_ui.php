@@ -107,6 +107,10 @@ button.btn:hover,a.btn:hover{filter:brightness(1.07);}
   </div>
 </div>
 
+<?php /* A lost upload shows "Photo no longer available", not a torn-image icon.
+         Here because every portal's pages end with this file (admin_ui.php
+         includes it too). */ ?>
+<script src="assets/photo_fallback.js"></script>
 <script>
 (function () {
   'use strict';

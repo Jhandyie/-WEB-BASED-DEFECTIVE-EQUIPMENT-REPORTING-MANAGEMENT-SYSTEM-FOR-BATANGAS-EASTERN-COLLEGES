@@ -254,5 +254,6 @@ $today = date('F j, Y');
     <div class="foot-note"><i class="fas fa-circle-info"></i> Official ticket generated from the BEC PMO Equipment Reporting &amp; Maintenance Management System. Report No. <?php echo dt_e($reportId); ?>.</div>
   </div>
 <?php endif; ?>
+<script src="assets/photo_fallback.js"></script>
 </body>
 </html>
