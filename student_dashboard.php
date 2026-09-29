@@ -2604,6 +2604,25 @@ window.addEventListener('DOMContentLoaded', function () {
 <!-- Downscales camera photos on the device before they upload. Not deferred:
      it has to be listening before the form can be submitted. -->
 <script src="assets/photo_shrink.js"></script>
+<script>
+/* On a phone the Back / Submit Report bar is pinned to the bottom of the
+   screen, and the assistant's button sat exactly on top of Back - a tap on
+   Back opened the chat. Tell the button how much of the bottom the bar takes
+   (measured, so a larger text setting still clears it); becca_widget.php sits
+   it just above. When the bar is not pinned - wider screens - the lift is 0. */
+(function () {
+  var bar = document.querySelector('.submit-row');
+  if (!bar) return;
+  function lift() {
+    var pinned = getComputedStyle(bar).position === 'fixed';
+    var h = pinned ? Math.max(0, Math.round(window.innerHeight - bar.getBoundingClientRect().top)) : 0;
+    document.documentElement.style.setProperty('--becca-lift', h + 'px');
+  }
+  lift();
+  window.addEventListener('resize', lift);
+  window.addEventListener('orientationchange', lift);
+})();
+</script>
 <?php require __DIR__ . '/includes/becca_widget.php'; ?>
 </body>
 </html>

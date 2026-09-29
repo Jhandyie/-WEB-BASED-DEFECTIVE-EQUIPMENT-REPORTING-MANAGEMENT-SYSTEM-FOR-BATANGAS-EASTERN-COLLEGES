@@ -8,8 +8,12 @@
 ?>
 <style>
 /* ══ FLOATING CHAT LAUNCHER (left side) ══ */
+/* --becca-lift: a page with a bar pinned to the bottom of the screen sets it to
+   that bar's height, and the button sits just above the bar instead of on it.
+   The report form is the one that needs it: on a phone this button covered its
+   Back button exactly, so tapping Back opened the chat. Unset, nothing moves. */
 #chatFab {
-  position: fixed; left: 1.35rem; bottom: 1.35rem; z-index: 9997;
+  position: fixed; left: 1.35rem; bottom: max(1.35rem, calc(var(--becca-lift, 0px) + .75rem)); z-index: 9997;
   display: flex; align-items: center; justify-content: center;
   width: 62px; height: 62px; padding: 0;
   background: linear-gradient(135deg, rgba(74,14,14,.9), rgba(45,5,5,.9));
@@ -45,7 +49,7 @@
   /* 1rem leaves the button sitting on the iPhone home indicator; the inset
      lifts it clear on phones that have one and changes nothing on those that don't. */
   #chatFab { width: 56px; height: 56px; left: 1rem;
-             bottom: calc(1rem + env(safe-area-inset-bottom)); }
+             bottom: max(calc(1rem + env(safe-area-inset-bottom)), calc(var(--becca-lift, 0px) + .75rem)); }
   #chatFab .fab-ic { width: 42px; height: 42px; }
 }
 
