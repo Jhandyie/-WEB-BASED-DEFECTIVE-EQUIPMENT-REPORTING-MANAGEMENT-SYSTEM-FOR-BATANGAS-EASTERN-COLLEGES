@@ -654,7 +654,18 @@ body.modal-open .bell-fab{display:none;}
 .pwa-chip.install{background:linear-gradient(135deg,var(--maroon-d),var(--maroon));}
 .pwa-chip.alerts{background:linear-gradient(135deg,#9A6B00,var(--gold));}
 .pwa-chip[hidden]{display:none;}
-@media(max-width:560px){.pwa-bar{justify-content:stretch;}.pwa-chip{flex:1 1 0;}}
+.pwa-dismiss{background:none;border:none;color:var(--ink3);font-family:'DM Sans',sans-serif;font-size:.8rem;font-weight:600;cursor:pointer;
+  padding:.4rem .5rem;text-decoration:underline;text-underline-offset:3px;}
+/* On a phone this was two full-width gradient buttons above the tasks on
+   every visit - the loudest thing on the screen, for a one-time setup. Now
+   one quiet line of outlined buttons, with "Not now" to put it away. */
+@media(max-width:560px){
+  .pwa-bar{justify-content:flex-start;align-items:center;gap:6px;margin:0 0 10px;}
+  .pwa-bar .pwa-chip{flex:0 0 auto;padding:.4rem .8rem;font-size:.8125rem;background:#fff;color:var(--maroon);
+    border:1px solid rgba(123,29,29,.28);box-shadow:none;}
+  .pwa-bar .pwa-chip i{color:var(--maroon);}
+  .pwa-dismiss{margin-left:auto;}
+}
 
 /* Flash */
 .flash{display:flex;align-items:flex-start;gap:.6rem;padding:12px 15px;border-radius:var(--r2);font-size:.86rem;font-weight:500;margin-bottom:16px;line-height:1.5;}
@@ -754,6 +765,21 @@ body.modal-open .bell-fab{display:none;}
   body.ws-open .tp-queue{display:none;}
   body:not(.ws-open) .tp-center{display:none;}
   .ws-back{display:inline-flex;align-items:center;justify-content:center;}
+  /* An open task starts at the top. The list's heading, its tip and the
+     install/alerts line stayed above it, so a tapped task began 255px down a
+     844px phone screen. They belong to the list, and come back with it. */
+  body.ws-open .page-head, body.ws-open .pwa-bar{display:none;}
+  /* The top bar already says "My Tasks", so the page heading said it twice.
+     Kept for screen readers - it is the page's one <h1> - just not drawn. */
+  .page-head .eyebrow{display:none;}
+  .page-head h1{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;margin:0;}
+  /* The ticket number shared a line with the equipment name and took 148 of
+     its 259px, so "Air Conditioner" showed as "Air Condit...". The number
+     now sits small above the name, as it does on the open task's header, and
+     the name gets the whole line. */
+  .q-top{flex-direction:column;align-items:flex-start;gap:1px;}
+  .q-top .q-id{order:-1;font-size:.75rem;letter-spacing:.02em;}
+  .q-top strong{white-space:normal;overflow:visible;}
 }
 
 .ws-zone{scroll-margin-top:76px;}
@@ -1210,6 +1236,7 @@ body.modal-open{overflow:hidden;}
     <div class="pwa-bar" id="pwaBar" hidden>
       <button type="button" class="pwa-chip install" id="icInstall" hidden><i class="fas fa-download"></i>Install app</button>
       <button type="button" class="pwa-chip alerts" id="notifEnable" hidden><i class="fas fa-bell"></i>Enable alerts</button>
+      <button type="button" class="pwa-dismiss" id="pwaNotNow">Not now</button>
     </div>
 
     <!-- ═══ THREE-PANEL WORKSPACE: queue | repair | context ═══ -->
@@ -1703,8 +1730,11 @@ window.addEventListener('resize', function () {
   // view, so scrolling to it only pushes the header off. Narrow, ws-open has
   // already swapped to the panel and the page is at the top of it either way.
   if (!tpNarrow()) { return; }
-  const pre = document.querySelector('.ws-panel.active');
-  if (pre) setTimeout(function () { pre.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 250);
+  // Narrow, an open task now starts at the top of the page - the list's
+  // heading and the install line are hidden while ws-open - so the page only
+  // needs to be at the top. Scrolling the panel itself to the viewport's edge
+  // slid the task's name up under the sticky top bar.
+  setTimeout(function () { window.scrollTo(0, 0); }, 250);
 })();
 
 /* Notification modal */
@@ -2094,10 +2124,23 @@ if ('serviceWorker' in navigator) {
   var isLocalhost = host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
   var secure = (location.protocol === 'https:') || isLocalhost || window.isSecureContext === true;
 
+  // "Not now" puts the line away on this device for two weeks. Browser storage
+  // is a convenience here: if it is unavailable the line simply shows as before.
+  var NOT_NOW = 'techPwaNotNow', NOT_NOW_MS = 14 * 24 * 3600 * 1000;
+  function notNow() {
+    try { var t = parseInt(localStorage.getItem(NOT_NOW) || '0', 10); return t > 0 && (Date.now() - t) < NOT_NOW_MS; }
+    catch (e) { return false; }
+  }
+  var dismiss = document.getElementById('pwaNotNow');
+  if (dismiss) dismiss.addEventListener('click', function () {
+    try { localStorage.setItem(NOT_NOW, String(Date.now())); } catch (e) {}
+    bar.hidden = true;
+  });
+
   // Shared: show the bar whenever either chip is visible, hide it when both are gone.
   function syncBar() {
     var n = document.getElementById('notifEnable');
-    bar.hidden = !((btn && !btn.hidden) || (n && !n.hidden));
+    bar.hidden = notNow() || !((btn && !btn.hidden) || (n && !n.hidden));
   }
   window.pwaSyncBar = syncBar;
 
