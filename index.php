@@ -564,7 +564,9 @@ a { text-decoration: none; color: inherit; }
     <div class="container cred-in">
       <span class="cred-item"><i class="fas fa-award" aria-hidden="true"></i> Batangas Eastern Colleges · Est. 1940</span>
       <span class="cred-item"><i class="fas fa-location-dot" aria-hidden="true"></i> San Juan, Batangas</span>
-      <span class="cred-item"><i class="fas fa-lock" aria-hidden="true"></i> Data Privacy Act · RA 10173</span>
+      <?php /* "Data Privacy Act · RA 10173" used to sit here; removed at the
+               user's request. The Act is still cited where consent is given,
+               in the notice on the reporter sign-in. */ ?>
     </div>
   </div>
 
