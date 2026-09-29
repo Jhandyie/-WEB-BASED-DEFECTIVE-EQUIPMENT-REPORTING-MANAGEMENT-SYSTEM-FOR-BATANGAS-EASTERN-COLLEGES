@@ -206,6 +206,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Please tell us whether you are a student, teacher or staff.';
         } elseif (empty($_POST['privacy_consent'])) {
             $error = 'Please read and accept the Data Privacy notice to continue.';
+        } elseif ($role === 'student'
+                  && becdir_email_listed($email) === false
+                  && !becdir_is_system_user($email)) {
+            // Students are held to the directory; teachers and staff are not.
+            // It lists every enrolled student (3,590) but only five faculty and
+            // staff, so for them the emailed code stays the only proof. A made-up
+            // or mistyped student address used to be told "a code is on its way"
+            // and then wait for a code that could never arrive. This does say
+            // which student addresses exist, which the sign-in otherwise avoids;
+            // the user chose that trade for the typo it catches, and the
+            // per-connection limit above bounds anyone walking a list.
+            // Only a definite "not listed" refuses: null (directory empty or
+            // unreachable) falls through to the code, as before.
+            $error = "We can't find this email in the BEC student list. Please check the spelling. "
+                   . 'If you are a teacher or staff member, tap Teacher or Staff instead.';
         } else {
             $res = reporterOtpSend($email);
             if (!$res['ok']) {

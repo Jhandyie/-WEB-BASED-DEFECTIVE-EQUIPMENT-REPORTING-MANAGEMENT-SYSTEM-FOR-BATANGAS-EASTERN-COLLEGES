@@ -609,6 +609,28 @@ function becdir_email_exists(string $email): bool {
 }
 
 /**
+ * Is this address on the directory — asked so that "cannot tell" is not "no".
+ *
+ * true / false when the directory answered; null when it is empty or could not
+ * be reached. The reporter sign-in turns a "no" into a refusal, so a database
+ * blip must not read as "no such student" and turn real students away. One
+ * round trip: the EXISTS on the table rides along with the lookup.
+ */
+function becdir_email_listed(string $email): ?bool {
+    $email = strtolower(trim($email));
+    if ($email === '') return false;
+    try {
+        $st = getPgsqlPdoConnection()->prepare(
+            "SELECT EXISTS (SELECT 1 FROM public.bec_directory) AS any_rows,
+                    EXISTS (SELECT 1 FROM public.bec_directory WHERE lower(email) = ?) AS listed");
+        $st->execute([$email]);
+        $r = $st->fetch(\PDO::FETCH_ASSOC);
+        if (!$r || !filter_var($r['any_rows'], FILTER_VALIDATE_BOOLEAN)) return null;
+        return filter_var($r['listed'], FILTER_VALIDATE_BOOLEAN);
+    } catch (\Throwable $e) { return null; }
+}
+
+/**
  * True when the email belongs to a system account (admin, PMO, technician,
  * faculty…).
  *
