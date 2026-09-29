@@ -608,6 +608,20 @@ form{display:flex;gap:var(--sp-3);flex-wrap:wrap}
 .rt-step.pending .rt-desc{color:var(--k3)}
 .rt-date{font-size:var(--fs-sm);color:var(--ok-tx);font-weight:600;margin-top:var(--sp-1);display:flex;align-items:center;gap:var(--sp-1)}
 .rt-next{font-size:var(--fs-sm);color:var(--k3);margin-top:var(--sp-1);font-style:italic}
+/* On a phone the seven steps, each with a sentence, were the longest thing on
+   the page. What a reporter checks is where it is now: the current step keeps
+   its sentence; finished steps fold to one line, the step and when; steps still
+   to come show just their name. Every step is still listed. */
+@media (max-width:640px){
+  .rt-step{padding:0 0 var(--sp-3) 2.1rem}
+  .rt-marker{width:24px;height:24px}
+  .rt-step::before{left:11px;top:24px}
+  .rt-step.done .rt-desc, .rt-step.pending .rt-desc{display:none}
+  .rt-step.done .rt-body{display:flex;align-items:baseline;justify-content:space-between;gap:0 var(--sp-2);flex-wrap:wrap}
+  .rt-step.done .rt-date{margin-top:0;font-weight:500;color:var(--k3)}
+  .rt-step.done .rt-date i{display:none}
+  .rt-step.pending .rt-title{font-weight:500}
+}
 
 /* ── Follow-up / bump ── */
 .followup{background:#fffaf4;border:1px solid var(--b);border-radius:14px;padding:var(--sp-4);margin-top:var(--sp-2)}

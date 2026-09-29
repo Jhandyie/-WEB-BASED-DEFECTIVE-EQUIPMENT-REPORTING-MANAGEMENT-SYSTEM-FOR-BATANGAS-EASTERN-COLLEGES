@@ -560,6 +560,45 @@ td[data-label="Issue"]{max-width:200px !important;}
   .badge{font-size:.72rem;}
 }
 
+/* ── compact list on a phone ─────────────────────────────────────────────────
+   Even arranged as cards, every report still carried eight labelled cells and
+   its issue text, and twelve of them made the board the longest page in the
+   system (7.6 screens). A person scanning it wants what, where, and how far
+   along; the rest is one tap away in the details that already open on tap.
+   So each report is four short lines: ticket and status, the equipment, the
+   room, then priority and date. Written with [data-label] selectors because the
+   card rules above use td:nth-child(n), which a bare td could not override. */
+@media (max-width:600px){
+  tr{padding:.65rem .85rem;gap:.2rem .5rem;margin-bottom:.55rem;cursor:pointer;align-items:center}
+  td[data-label]{width:auto;padding:0;border:none;background:none;border-radius:0;text-align:left;justify-content:flex-start;gap:.4rem}
+  td[data-label]::before{content:none}
+  td[data-label="Ticket"]{order:0;flex:1 1 0%}
+  td[data-label="Ticket"] .ticket-cell{font-size:.8125rem;color:var(--m)}
+  td[data-label="Status"]{order:1;flex:0 0 auto;background:none}
+  td[data-label="Equipment"]{order:2;width:100%}
+  td[data-label="Equipment"] .equip-name{font-weight:700;font-size:.9375rem}
+  td[data-label="Location"]{order:3;width:100%}
+  td[data-label="Location"] .loc-main{width:auto;text-align:left;font-size:.875rem;color:var(--k2)}
+  td[data-label="Priority"]{order:4;width:auto;border:none}
+  td[data-label="Submitted"]{order:5;width:auto}
+  td[data-label="Submitted"] .date-main{font-size:.8125rem;color:var(--k3)}
+  td[data-label="Issue"], td .equip-cat, td .loc-sub, td .date-ago{display:none}
+
+  /* The five counts were three rows of icon tiles, about 350px — nearly half
+     the first screen before a single report. One row of five: the number over
+     its name, no icons. The coloured edge each tile already has still says
+     which is which. (.stats-prefixed so they outrank css/mobile.css, which
+     loads after this and also sizes .stat-num.) */
+  .stats{grid-template-columns:repeat(5,1fr);gap:.35rem;margin-bottom:1rem}
+  .stats .stat{padding:.55rem .2rem .5rem;text-align:center;border-radius:10px}
+  .stats .stat.s-crit{grid-column:auto}
+  .stats .stat-icon{display:none}
+  .stats .stat-num{font-size:1.125rem;margin-bottom:.2rem}
+  .stats .stat-label{font-size:.75rem;line-height:1.2;text-transform:none;letter-spacing:0}
+  /* The hero directly above already says this, word for word. */
+  .page-header .psub{display:none}
+}
+
 /* ── phone type ───────────────────────────────────────────────────────────
    This page sizes everything with literal rem values and never touches the
    --fs-* tokens, so css/mobile.css raising the scale does nothing for it.
