@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.becpmo.report",
+      "sha256_cert_fingerprints": [
+        "75:F0:A6:31:A2:B1:6A:2B:CB:EB:1B:05:5E:C0:70:89:C8:21:42:C8:AE:39:CE:21:97:0D:00:CF:3E:1B:07:03"
+      ]
+    }
+  }
+]

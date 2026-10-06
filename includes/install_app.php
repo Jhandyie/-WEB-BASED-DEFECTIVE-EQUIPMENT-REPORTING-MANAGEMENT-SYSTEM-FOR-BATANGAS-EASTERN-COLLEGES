@@ -21,6 +21,12 @@
  */
 if (defined('BEC_INSTALL_APP_INCLUDED')) { return; }
 define('BEC_INSTALL_APP_INCLUDED', true);
+// The Android app as a file (a Trusted Web Activity built with Bubblewrap — the
+// signing key lives off the repo, see downloads/README.md). Android phones are
+// offered it first; with no file present the sheet simply falls back to installing
+// from the browser.
+$becApkFile = __DIR__ . '/../downloads/BEC-Report.apk';
+$becApkMb   = is_file($becApkFile) ? max(0.1, round(filesize($becApkFile) / 1048576, 1)) : 0;
 ?>
 <style>
 [data-install-app][hidden]{display:none!important;}
@@ -54,6 +60,10 @@ define('BEC_INSTALL_APP_INCLUDED', true);
   cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:.55rem;}
 .iapp-go:hover{background:#7B1D1D;}
 .iapp-go[hidden]{display:none;}
+.iapp-apk{margin:0 0 1.1rem;text-decoration:none;}
+.iapp-apk small{font-weight:600;font-size:.78rem;opacity:.8;margin-left:.15rem;}
+.iapp-go.alt{background:#fff;color:#4A0E0E;border:1px solid #E8DDD0;font-weight:600;font-size:.92rem;min-height:44px;}
+.iapp-go.alt:hover{background:#FBF6EE;}
 .iapp-toast{position:fixed;left:50%;bottom:1.5rem;z-index:10060;transform:translateX(-50%);max-width:calc(100vw - 2rem);
   padding:.8rem 1.1rem;border-radius:12px;background:#1C1008;color:#fff;font:600 .92rem 'DM Sans',sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.25);}
 .iapp-toast[hidden]{display:none;}
@@ -77,6 +87,9 @@ define('BEC_INSTALL_APP_INCLUDED', true);
       <li><i aria-hidden="true" class="fas fa-mobile-screen-button"></i> No app store, and almost no storage</li>
       <li><i aria-hidden="true" class="fas fa-rotate"></i> Always up to date by itself</li>
     </ul>
+<?php if ($becApkMb > 0): ?>
+    <a class="iapp-go iapp-apk" id="iappApk" href="downloads/BEC-Report.apk" download="BEC-Report.apk" hidden><i aria-hidden="true" class="fab fa-android"></i> Download the Android app <small>APK &middot; <?php echo $becApkMb; ?> MB</small></a>
+<?php endif; ?>
     <p class="iapp-h" id="iappHow">How to install</p>
     <div class="iapp-steps" id="iappSteps"></div>
     <button type="button" class="iapp-go" id="iappGo" hidden><i aria-hidden="true" class="fas fa-download"></i> Install now</button>
@@ -101,7 +114,8 @@ define('BEC_INSTALL_APP_INCLUDED', true);
   var host = location.hostname;
   var secure = location.protocol === 'https:' || host === 'localhost' || host === '127.0.0.1' || window.isSecureContext === true;
   var deferred = null;
-  var ovl, steps, how, go, toastEl, lastFocus, toastTimer;
+  var useApk = false;                     // Android, and the APK file is on the server
+  var ovl, steps, how, go, apk, toastEl, lastFocus, toastTimer;
 
   function standalone() {
     return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
@@ -131,6 +145,13 @@ define('BEC_INSTALL_APP_INCLUDED', true);
         'Tap <b>Add</b>. The BEC Report icon appears on your home screen.'
       ]);
     }
+    if (useApk) {
+      return list([
+        'Tap <b>Download the Android app</b>. When it finishes, tap <b>Open</b>.',
+        'If your phone asks, allow your browser to <b>install unknown apps</b>, then go back.',
+        'Tap <b>Install</b>. Your phone may say the app is not from the Play Store; it is the official BEC PMO app, so continue with <b>Install anyway</b>.'
+      ]);
+    }
     if (isAndroid) {
       return list([
         'Tap the browser menu ' + icon('fa-ellipsis-vertical') + ' at the top right.',
@@ -145,12 +166,26 @@ define('BEC_INSTALL_APP_INCLUDED', true);
     ]);
   }
 
+  // The browser-install button: the main action where there is no APK to offer,
+  // a quiet second choice under the APK on Android.
+  function paintGo() {
+    go.hidden = !deferred;
+    if (useApk) {
+      go.className = 'iapp-go alt';
+      go.innerHTML = '<i aria-hidden="true" class="fab fa-chrome"></i> Or install from Chrome, without downloading';
+      how.textContent = 'How to install';
+    } else {
+      go.className = 'iapp-go';
+      go.innerHTML = '<i aria-hidden="true" class="fas fa-download"></i> Install now';
+      how.textContent = deferred ? 'Ready to install' : 'How to install';
+    }
+  }
   function open() {
     if (!ovl) return;
     lastFocus = document.activeElement;
     steps.innerHTML = stepsHtml();
-    go.hidden = !deferred;
-    how.textContent = deferred ? 'Ready to install' : 'How to install';
+    if (apk) apk.hidden = !useApk;
+    paintGo();
     ovl.hidden = false;
     requestAnimationFrame(function () { ovl.classList.add('open'); });
     var x = document.getElementById('iappClose'); if (x) x.focus();
@@ -161,7 +196,7 @@ define('BEC_INSTALL_APP_INCLUDED', true);
     setTimeout(function () { ovl.hidden = true; }, 180);
     if (lastFocus && lastFocus.focus) { try { lastFocus.focus(); } catch (e) {} }
   }
-  function install() {
+  function promptInstall() {                       // the browser's own install dialog
     if (!deferred) { open(); return; }
     var d = deferred; deferred = null;
     try {
@@ -171,11 +206,15 @@ define('BEC_INSTALL_APP_INCLUDED', true);
       }).catch(function () {});
     } catch (e) { open(); }
   }
+  function install() {                             // a "Get the app" tap
+    if (useApk || !deferred) { open(); return; }   // Android: the APK comes first
+    promptInstall();
+  }
 
   window.addEventListener('beforeinstallprompt', function (e) {
     e.preventDefault();
     deferred = e;
-    if (ovl && !ovl.hidden) { go.hidden = false; how.textContent = 'Ready to install'; }
+    if (ovl && !ovl.hidden) paintGo();
   });
   window.addEventListener('appinstalled', function () {
     deferred = null; hideTriggers(); close();
@@ -187,6 +226,8 @@ define('BEC_INSTALL_APP_INCLUDED', true);
     steps = document.getElementById('iappSteps');
     how = document.getElementById('iappHow');
     go = document.getElementById('iappGo');
+    apk = document.getElementById('iappApk');
+    useApk = isAndroid && !!apk;
     toastEl = document.getElementById('iappToast');
     // This file is required from inside the shared nav, which on some pages sits
     // in a wrapper that makes its own stacking context — the sheet then rendered
@@ -196,7 +237,7 @@ define('BEC_INSTALL_APP_INCLUDED', true);
     triggers().forEach(function (b) {
       b.addEventListener('click', function (e) { e.preventDefault(); install(); });
     });
-    if (go) go.addEventListener('click', install);
+    if (go) go.addEventListener('click', promptInstall);
     var x = document.getElementById('iappClose'); if (x) x.addEventListener('click', close);
     if (ovl) ovl.addEventListener('click', function (e) { if (e.target === ovl) close(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });

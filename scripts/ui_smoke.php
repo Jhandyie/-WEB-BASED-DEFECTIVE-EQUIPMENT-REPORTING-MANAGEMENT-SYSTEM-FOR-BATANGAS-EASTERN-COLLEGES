@@ -235,6 +235,8 @@ $checks = [
         ['reporter app manifest',    '/rel="manifest" href="manifest-reporter\.webmanifest"/', true],
         ['get-the-app trigger',      '/data-install-app/',          true],
         ['install sheet present',    '/id="iappOvl"/',              true],
+        // Android phones are offered the APK first (downloads/BEC-Report.apk).
+        ['android app download',     '/id="iappApk" href="downloads\/BEC-Report\.apk"/', true],
     ]],
     ['Venue reservation form', 'admin', 'reserve_venue.php', [
         ['venue list populated',     '/<datalist id="venueList">\s*<option/', true],
