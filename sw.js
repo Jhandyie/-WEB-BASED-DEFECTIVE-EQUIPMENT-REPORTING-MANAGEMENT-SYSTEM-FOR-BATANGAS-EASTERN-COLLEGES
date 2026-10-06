@@ -1,5 +1,6 @@
 /*
- * BEC PMO — service worker (technician portal PWA).
+ * BEC PMO — service worker for both installable apps: the technician portal
+ * (manifest.webmanifest) and the reporter app (manifest-reporter.webmanifest).
  * Strategy:
  *   - Pages (navigations): network-first, falling back to the last cached copy
  *     so an installed app still opens when the connection drops.
@@ -37,6 +38,21 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+function offlinePage() {
+  const html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">'
+    + '<meta name="viewport" content="width=device-width,initial-scale=1">'
+    + '<title>Offline — BEC PMO</title></head>'
+    + '<body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;'
+    + 'background:#F8F3EA;font-family:system-ui,sans-serif;color:#1C1008;text-align:center;padding:24px">'
+    + '<div><img src="assets/pwa-icon-192.png" width="72" height="72" alt="" style="border-radius:18px">'
+    + '<h1 style="font-size:20px;margin:16px 0 8px;color:#4A0E0E">You are offline</h1>'
+    + '<p style="margin:0 0 20px;font-size:15px;line-height:1.5">Reporting needs an internet connection.<br>'
+    + 'Connect to Wi-Fi or mobile data, then try again.</p>'
+    + '<button onclick="location.reload()" style="font-size:16px;padding:12px 22px;border:0;'
+    + 'border-radius:12px;background:#4A0E0E;color:#fff">Try again</button></div></body></html>';
+  return new Response(html, { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;                      // never touch POSTs
@@ -52,8 +68,14 @@ self.addEventListener('fetch', (event) => {
           caches.open(PAGE_CACHE).then((c) => c.put(req, copy)).catch(() => {});
           return res;
         })
+        // Offline: the page itself if it was cached, else that app's home page,
+        // else a plain notice. The fallback used to be the technician dashboard
+        // for everyone, which is the wrong app for a reporter.
         .catch(() => caches.match(req, { ignoreSearch: false })
-          .then((hit) => hit || caches.match('technician_dashboard.php?tab=my_tasks&source=pwa')))
+          .then((hit) => hit || caches.match(/technician/.test(url.pathname)
+            ? 'technician_dashboard.php?tab=my_tasks&source=pwa'
+            : 'student_index.php?source=pwa'))
+          .then((hit) => hit || offlinePage()))
     );
     return;
   }

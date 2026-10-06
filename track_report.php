@@ -489,7 +489,12 @@ function tr_progress(array $timeline, string $status = ''): array {
 <title>Track Report - BEC Equipment</title>
 <link rel="icon" type="image/png" href="assets/logs.png">
 <link rel="shortcut icon" href="assets/logs.png">
-<link rel="apple-touch-icon" href="assets/logs.png">
+<!-- Installable as the "BEC Report" app — see includes/install_app.php. -->
+<link rel="manifest" href="manifest-reporter.webmanifest">
+<link rel="apple-touch-icon" href="assets/pwa-icon-192.png">
+<meta name="theme-color" content="#4A0E0E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="BEC Report">
 <!-- Served from this server, not a CDN, so tracking keeps its icons and
      typefaces when the campus connection is unavailable. -->
 <link rel="stylesheet" href="assets/vendor/fonts/fonts.css">

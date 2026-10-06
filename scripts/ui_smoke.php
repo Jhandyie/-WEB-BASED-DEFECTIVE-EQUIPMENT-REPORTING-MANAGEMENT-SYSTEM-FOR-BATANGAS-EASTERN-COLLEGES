@@ -230,6 +230,11 @@ $checks = [
         // offer no way into it. With the flag on, the entry point must be there.
         ['reserve-a-venue entry',    '/reserve_venue\.php/',        $venueOn],
         ['no CDN dependency',        '/cdnjs|jsdelivr|fonts\.googleapis/', false],
+        // "Get the app": the reporter app's manifest, a trigger in the nav, and
+        // the install sheet the triggers open (includes/install_app.php).
+        ['reporter app manifest',    '/rel="manifest" href="manifest-reporter\.webmanifest"/', true],
+        ['get-the-app trigger',      '/data-install-app/',          true],
+        ['install sheet present',    '/id="iappOvl"/',              true],
     ]],
     ['Venue reservation form', 'admin', 'reserve_venue.php', [
         ['venue list populated',     '/<datalist id="venueList">\s*<option/', true],
@@ -374,6 +379,7 @@ $checks = [
         // department / course / year level / phone section at all.
         ['who-am-I offered',         '/name="reporter_type"/',      true],
         ['three choices',            '/id="who-student"[\s\S]*id="who-teacher"[\s\S]*id="who-staff"/', true],
+        ['get-the-app trigger',      '/class="brand-home brand-app" data-install-app/', true],
     ]],
     /* The rest of the admin surface. These carry the heaviest queries and the
        most markup, so a fatal here is both likely and loud. */

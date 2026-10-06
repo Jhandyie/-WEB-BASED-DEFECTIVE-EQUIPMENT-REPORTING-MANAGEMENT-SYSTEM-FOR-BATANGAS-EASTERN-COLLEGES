@@ -260,7 +260,12 @@ if ($stage === 'verify' && !empty($_SESSION['otp_email'])) {
 <title>Batangas Eastern Colleges · PMO Equipment Reporting Portal</title>
 <link rel="icon" type="image/png" href="assets/logs.png">
 <link rel="shortcut icon" href="assets/logs.png">
-<link rel="apple-touch-icon" href="assets/logs.png">
+<!-- Installable as the "BEC Report" app — see includes/install_app.php. -->
+<link rel="manifest" href="manifest-reporter.webmanifest">
+<link rel="apple-touch-icon" href="assets/pwa-icon-192.png">
+<meta name="theme-color" content="#4A0E0E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="BEC Report">
 <!-- Served from this server, not a CDN, so the reporter portal keeps its icons
      and typefaces when the campus connection is unavailable. -->
 <link rel="stylesheet" href="assets/vendor/fonts/fonts.css">
@@ -390,6 +395,9 @@ body::after {
   transition: background .16s, transform .16s, border-color .16s; }
 .brand-home:hover { background: rgba(255,255,255,.22); border-color: rgba(255,255,255,.45); transform:none; }
 .brand-home i { color: #F0C040; font-size:var(--fs-md); }
+/* "Get the app" sits in front of Home: it takes the auto margin, Home follows it. */
+.brand-app { font-family: inherit; cursor: pointer; }
+.brand-app + .brand-home { margin-left:var(--sp-2); }
 .brand-seal {
   width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0; background: #fff;
   display: flex; align-items: center; justify-content: center; overflow: hidden;
@@ -914,6 +922,7 @@ body::after {
         <strong>Batangas Eastern Colleges</strong>
         <span>Property Management Office</span>
       </div>
+      <button type="button" class="brand-home brand-app" data-install-app aria-label="Get the app"><i aria-hidden="true" class="fas fa-mobile-screen-button"></i> <span class="bh-txt">Get the app</span></button>
       <a class="brand-home" href="index.php" aria-label="Home"><i aria-hidden="true" class="fas fa-house"></i> <span class="bh-txt">Home</span></a>
     </div>
     <div class="brand-hero">
@@ -1347,6 +1356,7 @@ body::after {
          keyboard — reached every portal EXCEPT the one reporters actually open
          on a phone. One source now, so the next fix cannot miss this page.
          The "Contact support" link above calls openChat(), which this defines. */ ?>
+<?php require __DIR__ . '/includes/install_app.php'; ?>
 <?php require __DIR__ . '/includes/becca_widget.php'; ?>
 <?php require __DIR__ . '/includes/csrf_inject.php'; ?>
 <script src="assets/input_guard.js" defer></script>

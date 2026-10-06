@@ -123,7 +123,11 @@ $lpBaseUrl = $lpScheme . '://' . $lpHost . $lpDir;
 
 <!-- Favicons -->
 <link rel="icon" type="image/png" href="assets/logs.png">
-<link rel="apple-touch-icon" href="assets/logs.png">
+<!-- Installable as the "BEC Report" app — see includes/install_app.php. -->
+<link rel="manifest" href="manifest-reporter.webmanifest">
+<link rel="apple-touch-icon" href="assets/pwa-icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="BEC Report">
 <link rel="shortcut icon" href="assets/logs.png">
 <style>
 /* ══════════════════════════════════════════════════════════════════════════

@@ -33,6 +33,14 @@ if (!isset($nav_active)) { $nav_active = ''; }
 .bsnav-link:hover,.bsnav-link.active{color:#7B1D1D;background:rgba(123,29,29,.08);}
 .bsnav-cta{display:inline-flex;align-items:center;gap:.45rem;margin-left:.35rem;padding:.55rem 1.05rem;border-radius:9px;background:#4A0E0E;color:#fff;text-decoration:none;font-size:.84rem;font-weight:600;transition:background .15s;}
 .bsnav-cta:hover{background:#7B1D1D;}
+/* "Get the app" — installs the reporter app (includes/install_app.php). A chip
+   beside the CTA on a desktop; on a phone an icon beside the menu button, so it
+   is one tap from every public page rather than buried in the drawer. */
+.bsnav-app{display:inline-flex;align-items:center;gap:.45rem;margin-left:.35rem;padding:.5rem .9rem;border-radius:9px;
+  border:1px solid #E8DDD0;background:#fff;color:#4A0E0E;font:600 .84rem 'DM Sans',sans-serif;cursor:pointer;transition:background .15s,border-color .15s;}
+.bsnav-app:hover{background:#FBF6EE;border-color:#D8C4A8;}
+.bsnav-app i{color:#C9960C;}
+.bsnav-app-m{display:none;}
 /* hamburger — hidden on desktop */
 .bsnav-burger{display:none;background:#fff;border:1px solid #E8DDD0;border-radius:11px;width:44px;height:44px;align-items:center;justify-content:center;color:#4A0E0E;cursor:pointer;flex-shrink:0;transition:background .15s,border-color .15s;padding:0;}
 .bsnav-burger:hover{background:#FBF6EE;border-color:#D8C4A8;}
@@ -59,6 +67,14 @@ if (!isset($nav_active)) { $nav_active = ''; }
 
 @media(max-width:640px){
   .bsnav-burger{display:inline-flex;}
+  /* in the drawer it is a labelled row like the links, for anyone who did not
+     guess what the phone icon in the bar does */
+  .bsnav-links .bsnav-app{margin-left:0;justify-content:flex-start;gap:.65rem;padding:.6rem .85rem;min-height:44px;border-radius:10px;
+    border-color:transparent;background:transparent;color:#5C3838;font-size:.9rem;}
+  .bsnav-links .bsnav-app i{width:18px;text-align:center;font-size:.8rem;}
+  .bsnav-app-m{display:inline-flex;margin-left:auto;align-items:center;justify-content:center;width:44px;height:44px;flex-shrink:0;padding:0;
+    border-radius:11px;border:1px solid #E8DDD0;background:#fff;color:#4A0E0E;font-size:1.15rem;cursor:pointer;}
+  .bsnav-app-m:hover{background:#FBF6EE;border-color:#D8C4A8;}
   /* links become a dropdown drawer under the bar */
   .bsnav-links{position:absolute;top:100%;left:0;right:0;flex-direction:column;align-items:stretch;gap:.25rem;
     padding:.7rem .9rem 1rem;background:rgba(250,246,239,.98);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
@@ -95,8 +111,10 @@ if (!isset($nav_active)) { $nav_active = ''; }
 <?php if (becVenueEnabled()): ?>
       <a class="bsnav-link <?php echo $nav_active === 'reserve' ? 'active' : ''; ?>" href="reserve_venue.php"><i aria-hidden="true" class="fas fa-calendar-check"></i> Reserve a Venue</a>
 <?php endif; ?>
+      <button type="button" class="bsnav-app" data-install-app><i aria-hidden="true" class="fas fa-mobile-screen-button"></i> Get the app</button>
       <a class="bsnav-cta" href="student_index.php"><i aria-hidden="true" class="fas fa-plus"></i> Report defect</a>
     </div>
+    <button type="button" class="bsnav-app-m" data-install-app aria-label="Get the app"><i aria-hidden="true" class="fas fa-mobile-screen-button"></i></button>
     <button class="bsnav-burger" id="bsnavBurger" type="button" aria-label="Menu" aria-expanded="false" aria-controls="bsnavLinks">
       <span><i></i><i></i><i></i></span>
     </button>
@@ -116,3 +134,4 @@ if (!isset($nav_active)) { $nav_active = ''; }
   document.addEventListener('keydown',function(e){if(e.key==='Escape')open(false);});
   window.addEventListener('resize',function(){if(window.innerWidth>640)open(false);});
 })();</script>
+<?php require_once __DIR__ . '/install_app.php'; ?>
