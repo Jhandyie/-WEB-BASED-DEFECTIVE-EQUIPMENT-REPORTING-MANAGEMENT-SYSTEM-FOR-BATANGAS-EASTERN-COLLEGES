@@ -203,7 +203,10 @@ body{background:var(--paper);color:var(--ink);min-height:100vh;}
 .stips code{background:var(--field);border:1px solid var(--border);border-radius:5px;
   padding:.1rem .35rem;font-family:ui-monospace,Consolas,monospace;font-size:.92em;}
 
-.topbar,.wrap{transition:margin-left .26s ease;}
+/* The sidebar is position:fixed, so the page has to make room for it. This
+   offset was missing from the day the page was added — the two rules below
+   assume it — and the header and results sat underneath the sidebar. */
+.topbar,.wrap{margin-left:var(--sb);transition:margin-left .26s ease;}
 body.becSbHide .topbar, body.becSbHide .wrap{margin-left:0 !important;}
 @media(max-width:860px){ .sb{transform:translateX(-100%);} .topbar,.wrap{margin-left:0;} }
 </style>
