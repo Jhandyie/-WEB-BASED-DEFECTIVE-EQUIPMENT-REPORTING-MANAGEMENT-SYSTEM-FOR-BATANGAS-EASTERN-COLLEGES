@@ -10,16 +10,16 @@
   "background_color": "#2D0505",
   "theme_color": "#4A0E0E",
   "icons": [
-    { "src": "assets/pwa-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "assets/pwa-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "assets/pwa-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "assets/app-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/app-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/app-icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
     { "name": "Report broken equipment", "short_name": "Report", "url": "student_index.php?source=pwa-shortcut",
-      "icons": [{ "src": "assets/pwa-icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+      "icons": [{ "src": "assets/app-icon-192.png", "sizes": "192x192", "type": "image/png" }] },
     { "name": "Track a report", "short_name": "Track", "url": "track_report.php?source=pwa-shortcut",
-      "icons": [{ "src": "assets/pwa-icon-192.png", "sizes": "192x192", "type": "image/png" }] },
+      "icons": [{ "src": "assets/app-icon-192.png", "sizes": "192x192", "type": "image/png" }] },
     { "name": "Public reports", "short_name": "Public", "url": "public_reports.php?source=pwa-shortcut",
-      "icons": [{ "src": "assets/pwa-icon-192.png", "sizes": "192x192", "type": "image/png" }] }
+      "icons": [{ "src": "assets/app-icon-192.png", "sizes": "192x192", "type": "image/png" }] }
   ]
 }

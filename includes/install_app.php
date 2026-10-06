@@ -36,7 +36,7 @@ define('BEC_INSTALL_APP_INCLUDED', true);
   color:#5C3838;font-size:1rem;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;}
 .iapp-x:hover{background:#FBF6EE;}
 .iapp-head{display:flex;align-items:center;gap:.9rem;padding-right:2.5rem;margin-bottom:1rem;}
-.iapp-head img{width:56px;height:56px;border-radius:14px;flex-shrink:0;box-shadow:0 4px 14px rgba(74,14,14,.25);}
+.iapp-head img{width:56px;height:56px;border-radius:50%;flex-shrink:0;box-shadow:0 4px 14px rgba(74,14,14,.25);}
 .iapp-head b{display:block;font-family:'Fraunces',Georgia,serif;font-size:1.25rem;line-height:1.2;color:#4A0E0E;}
 .iapp-head span{display:block;font-size:.9rem;color:#6F564A;margin-top:.2rem;}
 .iapp-why{list-style:none;margin:0 0 1.1rem;padding:.75rem .9rem;background:#FBF6EE;border:1px solid #F0E6D6;border-radius:12px;}
@@ -69,7 +69,7 @@ define('BEC_INSTALL_APP_INCLUDED', true);
   <div class="iapp-sheet" role="dialog" aria-modal="true" aria-labelledby="iappTitle">
     <button type="button" class="iapp-x" id="iappClose" aria-label="Close"><i aria-hidden="true" class="fas fa-xmark"></i></button>
     <div class="iapp-head">
-      <img src="assets/pwa-icon-192.png" alt="" width="56" height="56">
+      <img src="assets/app-icon-192.png" alt="" width="56" height="56">
       <div><b id="iappTitle">Get the BEC Report app</b><span>Report broken equipment from your home screen</span></div>
     </div>
     <ul class="iapp-why">
