@@ -66,6 +66,14 @@ adapter, so **do not "fix" mysqli-style code into PDO** — the whole design is 
 - Some code bypasses the adapter and uses `getPgsqlPdoConnection()` with named parameters directly
   — mostly the user/OTP/password-reset helpers. Both paths exist in `config/database.php`; follow
   whichever the surrounding function already uses.
+- **Every table in `public` has row-level security ON, no policies, and no grants to `anon` /
+  `authenticated`** (`scripts/2026_10_close_public_api.sql`). Supabase publishes `public` over its
+  REST and GraphQL APIs to anyone holding the project's *public* (anon / publishable) key, and until
+  6 Oct 2026 every table — users, sign-in codes, password resets, the directory — was readable and
+  writable that way. The app connects as `postgres` (owner of every table, BYPASSRLS), so RLS never
+  touches it, and nothing here uses the Supabase API. A table made later in the SQL editor gets no
+  API grants (default privileges are revoked), but still run `ALTER TABLE … ENABLE ROW LEVEL
+  SECURITY` on it or Supabase's advisor flags it again.
 
 `config/database.php` is 3,000 lines and is far more than connection setup: workflow status
 vocabulary (`defectWorkflowStatuses()`, `defectTimelineSteps()`), PMO/ITSO unit scoping
